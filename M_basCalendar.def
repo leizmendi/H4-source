@@ -1,0 +1,61 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+' From Access 97 Developer's Handbook
+' by Litwin, Getz, and Gilbert (Sybex)
+' Copyright 1997.  All rights reserved.
+
+Const adhcCalendarForm = "frmCalendar"
+
+Function adhDoCalendar(Optional varPassedDate As Variant, Optional intSize As Integer = 0, Optional strTitulo As String = "") As Variant
+    '
+    ' This is the public entry point.
+    ' If the passed in date is missing (as it will
+    ' be if someone just opens the Calendar form
+    ' raw), start on the current day.
+    ' Otherwise, start with the date that is passed in.
+    
+    ' From Access 97 Developer's Handbook
+    ' by Litwin, Getz, and Gilbert (Sybex)
+    ' Copyright 1997.  All rights reserved.
+    '
+    Dim varStartDate As Variant
+    Dim strForm As String
+    strForm = adhcCalendarForm
+    If True Then 'intSize = 1 Then
+        strForm = "frmCalendarG"
+    End If
+    ' If they passed a value at all, attempt to
+    ' use it as the start date.
+    varStartDate = IIf(IsMissing(varPassedDate), _
+     Date, varPassedDate)
+    ' OK, so they passed a value that wasn't a date.
+    ' Just use today's date in that case, too.
+    If Not IsDate(varStartDate) Then varStartDate = Date
+    Dim strXML As String
+    PonXML strXML, "Fecha", Format(varStartDate, "yyyy/mm/dd")
+    PonXML strXML, "Titulo", strTitulo
+    DoCmd.OpenForm FormName:=strForm, _
+     WindowMode:=acDialog, OpenArgs:=strXML
+
+    ' You won't get here until the form is
+    ' closed or hidden.
+    '
+    ' If the form is still loaded, then get the
+    ' final chosen date from the form.  If it isn't,
+    ' return Null.
+    If isOpen(strForm) Then
+        adhDoCalendar = Forms(strForm).value
+        DoCmd.Close acForm, strForm
+    Else
+        adhDoCalendar = Null
+    End If
+End Function
+
+Private Function isOpen(strName As String, _
+ Optional intObjectType As Integer = acForm)
+    ' Returns True if strName is open, False otherwise.
+    ' Assume the caller wants to know about a form.
+    isOpen = (SysCmd(acSysCmdGetObjectState, _
+     intObjectType, strName) <> 0)
+End Function

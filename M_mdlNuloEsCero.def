@@ -1,0 +1,33 @@
+Option Compare Database
+Option Explicit
+
+Public Function NzCero(v)
+    On Error GoTo Error_NzCero
+    If IsNull(v) Then
+        NzCero = 0
+    Else
+        NzCero = v
+    End If
+Salir_NzCero:
+    Exit Function
+Error_NzCero:
+    Select Case Err
+        Case Else
+            'MsgBox "error nº " & Err & " en NzCero" & vbCrLf & Err.Description
+            Resume Salir_NzCero
+    End Select
+End Function
+
+Public Function SpNz(v, alter)
+    On Error GoTo Error_SpNz
+    v = IIf(v = "", Null, v)
+    SpNz = Nz(v, alter)
+Salir_SpNz:
+    Exit Function
+Error_SpNz:
+    Select Case Err
+        Case Else
+            'MsgBox "error nº " & Err & " en SpNz" & vbCrLf & Err.Description
+            Resume Salir_SpNz
+    End Select
+End Function

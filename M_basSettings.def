@@ -1,0 +1,150 @@
+Option Compare Database
+Option Explicit
+    Const app As String = "H4+"
+    Global strAPP As String
+
+
+Public Sub CargarSettingsForm(frm As Form)
+    Dim ctl As Control, v As Variant, strTag As String, strTag2 As String, strKey As String
+    On Error GoTo Error_CargarSettingsForm
+    For Each ctl In frm.Controls
+        
+        v = DimeXML(ctl.Tag, "Setting")
+        If Not IsNull(v) Then
+            strTag = Nz(DimeXML(ctl.Tag, "tag"), frm.Tag)
+            strTag2 = Nz(DimeXML(ctl.Tag, "tag2"), "")
+            If strTag2 <> "" Then strTag = strTag2
+            strKey = Nz(DimeXML(ctl.Tag, "key"), ctl.Name)
+            'ctl.Value = GetSetting(APP, strTag, strKey, v)
+            ctl.value = DameSetting(strTag, strKey, v)
+        End If
+    Next ctl
+Salir_CargarSettingsForm:
+    Exit Sub
+Error_CargarSettingsForm:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en CargarSettingsForm" & vbCrLf & Err.Description
+            Resume Salir_CargarSettingsForm
+    End Select
+End Sub
+
+Public Sub GrabarSettingsForm(frm As Form)
+    Dim ctl As Control, v As Variant, strTag As String, strTag2 As String, strKey As String, intTipoDato As Integer
+    On Error GoTo Error_GrabarSettingsForm
+    For Each ctl In frm.Controls
+        v = DimeXML(ctl.Tag, "Setting")
+        If Not IsNull(v) Then
+            strTag = Nz(DimeXML(ctl.Tag, "tag"), frm.Tag)
+            strTag2 = Nz(DimeXML(ctl.Tag, "tag2"), "")
+            If strTag2 <> "" Then
+                strTag = strTag2
+                intTipoDato = Nz(DimeXML(ctl.Tag, "TipoDato"), 10)
+            End If
+            strKey = Nz(DimeXML(ctl.Tag, "key"), ctl.Name)
+            PonSetting strTag, strKey, ctl.value, intTipoDato
+            'SaveSetting APP, strTag, strKey, CStr(ctl.Value)
+        End If
+    Next ctl
+Salir_GrabarSettingsForm:
+    Exit Sub
+Error_GrabarSettingsForm:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en GrabarSettingsForm" & vbCrLf & Err.Description
+            Resume Salir_GrabarSettingsForm
+    End Select
+End Sub
+
+Public Function DameSetting(strSection As String, strKey As String, Optional vDefecto As Variant)
+    Dim ctl As Control, v As Variant
+    On Error GoTo Error_DameSetting
+    If strAPP = "" Then strAPP = app 'Nz(DameValorParam("AplicacionTitulo"), APP)
+    If strSection = "cfgParam" Then
+        v = Nz(DameValorParam(strKey), vDefecto)
+    Else
+        v = GetSetting(strAPP, strSection, strKey, CStr(vDefecto))
+    End If
+    DameSetting = v
+Salir_DameSetting:
+    Exit Function
+Error_DameSetting:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DameSetting" & vbCrLf & Err.Description
+            Resume Salir_DameSetting
+    End Select
+End Function
+
+Public Function PonSetting(strSection As String, strKey As String, valor As Variant, Optional intTipoDato As Integer = 10)
+    Dim ctl As Control, v As Variant
+    On Error GoTo Error_PonSetting
+    If strAPP = "" Then strAPP = app 'Nz(DameValorParam("AplicacionTitulo"), APP)
+    If strSection = "cfgParam" Then
+        PonValorParam strKey, valor, intTipoDato
+    Else
+        SaveSetting strAPP, strSection, strKey, CStr(Nz(valor, ""))
+    End If
+Salir_PonSetting:
+    Exit Function
+Error_PonSetting:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PonSetting" & vbCrLf & Err.Description
+            Resume Salir_PonSetting
+    End Select
+End Function
+
+Public Function PonSettingAC()
+    Dim ctl As Control, v As Variant
+    On Error GoTo Error_PonSettingAC
+    PonSetting Screen.ActiveForm.Name, Screen.ActiveControl.Name, Screen.ActiveControl.value
+Salir_PonSettingAC:
+    Exit Function
+Error_PonSettingAC:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PonSettingAC" & vbCrLf & Err.Description
+            Resume Salir_PonSettingAC
+    End Select
+End Function
+
+
+
+Public Sub LoadSettingsForm(frm As Form)
+    Dim ctl As Control, v As Variant, strTag As String, strKey As String
+    On Error GoTo Error_LoadSettingsForm
+    For Each ctl In frm.Controls
+        If InStr(ctl.Tag, "Setting") > 0 Then
+            v = Nz(DimeXML(ctl.Tag, "Default"), "")
+            ctl.value = GetSetting(app, frm.Name, ctl.Name, v)
+        End If
+    Next ctl
+Salir_LoadSettingsForm:
+    Exit Sub
+Error_LoadSettingsForm:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en LoadSettingsForm" & vbCrLf & Err.Description
+            Resume Salir_LoadSettingsForm
+    End Select
+End Sub
+
+Public Sub SaveSettingsForm(frm As Form)
+    Dim ctl As Control, v As Variant, strTag As String, strKey As String
+    On Error GoTo Error_SaveSettingsForm
+    For Each ctl In frm.Controls
+        If InStr(ctl.Tag, "Setting") > 0 Then
+            'SaveSetting APP, strTag, strKey, CStr(Nz(ctl.Value, ""))
+            PonSetting frm.Name, ctl.Name, CStr(Nz(ctl.value, ""))
+        End If
+    Next ctl
+Salir_SaveSettingsForm:
+    Exit Sub
+Error_SaveSettingsForm:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en SaveSettingsForm" & vbCrLf & Err.Description
+            Resume Salir_SaveSettingsForm
+    End Select
+End Sub

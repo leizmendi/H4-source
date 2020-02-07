@@ -1,0 +1,75 @@
+'Attribute VB_Name = "basCambiaAcentos"
+Option Compare Database
+Option Explicit
+
+
+Public Function CambiaAcentos(varCadena As Variant) As String
+    Dim i As Integer
+    Dim strResult As String
+    Dim intCod As Integer
+    Dim db As Database
+    Dim rs As Recordset
+    On Error GoTo Error_CambiaAcentos
+    If IsNull(varCadena) Then
+        CambiaAcentos = ""
+        Exit Function
+    End If
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("sysCodAcentos")
+'    rs.Index = "CodWin"
+    For i = 1 To Len(varCadena)
+        intCod = Asc(Mid(varCadena, i, 1))
+        If intCod >= 128 Then
+            'rs.Seek "=", intCod
+            rs.FindFirst "CodWin =" & intCod
+            If Not rs.NoMatch Then
+                strResult = strResult & Chr(rs("CodSato"))
+            Else
+                strResult = strResult & Chr(intCod)
+            End If
+        Else
+            strResult = strResult & Chr(intCod)
+        End If
+    Next i
+    CambiaAcentos = strResult
+Salir_CambiaAcentos:
+    Exit Function
+Error_CambiaAcentos:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "En CambiaAcentos"
+    End Select
+    CambiaAcentos = CStr(varCadena)
+    Resume Salir_CambiaAcentos
+End Function
+
+Public Function CambiaAcentosWb(varCadena As Variant) As String
+    Dim i As Integer
+    Dim strResult As String
+    Dim intCod As Integer
+    Dim db As Database
+    Dim rs As Recordset
+    On Error GoTo Error_CambiaAcentosWb
+    If IsNull(varCadena) Then
+        CambiaAcentosWb = ""
+        Exit Function
+    End If
+    strResult = (CStr(varCadena))
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("sysAcentos_wb_h4")
+'    rs.Index = "CodWin"
+    While Not rs.EOF
+        strResult = Replace(strResult, rs("Wb"), rs("H4"))
+        rs.MoveNext
+    Wend
+    CambiaAcentosWb = strResult
+Salir_CambiaAcentosWb:
+    Exit Function
+Error_CambiaAcentosWb:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "En CambiaAcentosWb"
+    End Select
+    CambiaAcentosWb = CStr(varCadena)
+    Resume Salir_CambiaAcentosWb
+End Function

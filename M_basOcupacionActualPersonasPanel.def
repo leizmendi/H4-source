@@ -1,0 +1,34 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function OcupacionActualPersonasPanel() As Long
+    ' Devuelve el nº de Adultos + Niños de Personas en parcelas Ocupadas del Panel
+    Dim rs As Recordset, strSQL As String
+    Dim lngPax As Long
+    strSQL = "SELECT DISTINCT tbFichasCab.IdFichaCab, tbFichasCab.Adultos, tbFichasCab.Niños"
+    strSQL = strSQL & " FROM tbParcelas RIGHT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbParcelas.IdFicha) Is Not Null))"
+    strSQL = strSQL & " ORDER BY tbFichasCab.IdFichaCab;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        lngPax = lngPax + rs("Adultos") + rs("Niños")
+        rs.MoveNext
+    Wend
+    OcupacionActualPersonasPanel = lngPax
+End Function
+Public Function OcupacionActualPersonasNoParcelada() As Long
+    ' Devuelve el nº de Adultos + Niños de Personas en parcelas Actuales del Tipo de Parcela pasado
+    Dim rs As Recordset, strSQL As String
+    Dim lngPax As Long
+    strSQL = "SELECT DISTINCTROW tbFichasCab.IdFichaCab, tbFichasCab.Adultos, tbFichasCab.Niños"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdTipoParcela) Is Not Null) AND ((tbFichasDet.Parcela) Is Null) AND ((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3));"
+
+Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        lngPax = lngPax + rs("Adultos") + rs("Niños")
+        rs.MoveNext
+    Wend
+    OcupacionActualPersonasNoParcelada = lngPax
+End Function

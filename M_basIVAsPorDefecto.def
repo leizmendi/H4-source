@@ -1,0 +1,18 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function IVASDporDefecto() As Single
+    Dim intTipo As Integer
+    Dim sngResult As Single
+    On Error GoTo Error_IVASDporDefecto
+    intTipo = DameValorParam("IVATipoEnPreciosSD")
+    sngResult = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & intTipo)
+    IVASDporDefecto = sngResult
+Salir_IVASDporDefecto:
+    Exit Function
+Error_IVASDporDefecto:
+    IVASDporDefecto = 0
+    Resume Salir_IVASDporDefecto
+    
+End Function

@@ -1,0 +1,59 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function PreciosVD(lngIdSD As Long, lngIdTN As Long) As String
+'Pasándole un IdSD de Servicio y un IdTN de Temporada, nos devuelve un string de los diferentes precios por varios días...
+    Dim rs As Recordset, strSQL As String, strRes As String
+    On Error Resume Next
+    strSQL = "SELECT tbPreciosSDVariosDias.*"
+    strSQL = strSQL & " FROM tbPreciosSDVariosDias"
+    strSQL = strSQL & " WHERE (((tbPreciosSDVariosDias.IdSD)=" & lngIdSD & ") AND ((tbPreciosSDVariosDias.IdTemporadaNombre)=" & lngIdTN & "));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strRes = ""
+    While Not rs.EOF
+        strRes = strRes & rs("DesdeDias") & "d->" & Format(rs("PrecioDiario"), "Currency") & " // "
+        rs.MoveNext
+    Wend
+    If Len(strRes) > 4 Then
+        strRes = RecDerTop(strRes, 4, 0)
+    End If
+    PreciosVD = strRes
+End Function
+Public Function SD_EnIdiomas(lngIdSD As Long) As String
+'Pasándole un IdSD de Servicio, nos devuelve un string de las diferentes traducciones...
+    Dim rs As Recordset, strSQL As String, strRes As String
+    'On Error Resume Next
+    strSQL = "SELECT tbIdiomas.Idioma, tbSDIdiomas.Traduccion"
+    strSQL = strSQL & " FROM tbIdiomas INNER JOIN tbSDIdiomas ON tbIdiomas.IdIdioma = tbSDIdiomas.IdIdioma"
+    strSQL = strSQL & " WHERE (((tbSDIdiomas.IdSD) = " & lngIdSD & "))"
+    strSQL = strSQL & " ORDER BY tbIdiomas.CodIdioma;"
+    strRes = ""
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        strRes = strRes & Left(rs("Idioma"), 3) & ": " & rs("Traduccion") & ", "
+        rs.MoveNext
+    Wend
+    If Len(strRes) > 2 Then
+        strRes = RecDerTop(strRes, 2, 0)
+    End If
+    SD_EnIdiomas = strRes
+End Function
+
+
+Public Function PrecioTipoParcela(lngIdTipoParcela As Long) As Currency
+    On Error GoTo Error_PrecioTipoParcela
+    Dim curR As Currency, lngIdSD As Long
+    lngIdSD = Nz(DLookup("IdSD", "tbParcelasYServiciosXDefecto", "IdTipoParcela = " & lngIdTipoParcela & " AND Principal = True"), 0)
+    curR = DamePrecioSD(lngIdSD, Date, True)
+    PrecioTipoParcela = curR
+Salir_PrecioTipoParcela:
+    Exit Function
+Error_PrecioTipoParcela:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PrecioTipoParcela" & vbCrLf & Err.Description
+            Resume Salir_PrecioTipoParcela
+    End Select
+
+End Function

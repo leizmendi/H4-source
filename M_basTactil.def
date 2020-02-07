@@ -1,0 +1,30 @@
+Option Compare Database
+Option Explicit
+
+Public Function DimeTeclado(Optional intTXT_NUM As Integer = 1, Optional strTitulo As String = "Teclee", Optional vValor As Variant = Null) As Variant
+    Dim strXML As String, strForm As String
+    On Error GoTo Error_DimeTeclado
+    DimeTeclado = Null
+    PonXML strXML, "Titulo", strTitulo
+    PonXML strXML, "Display", vValor
+    If intTXT_NUM = 1 Then
+        strForm = "frmTeclado"
+    ElseIf intTXT_NUM = 2 Then
+        strForm = "frmTecladoNPDA"
+    Else
+        strForm = "frmTecladoN"
+    End If
+    DoCmd.OpenForm strForm, , , , , acDialog, strXML
+    If Not IsOpenForm(strForm) Then Exit Function
+    DimeTeclado = Forms(strForm)("txtDisplay")
+    DoCmd.Close acForm, strForm
+Salir_DimeTeclado:
+    Exit Function
+Error_DimeTeclado:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DimeTeclado"
+            DimeTeclado = Null
+            Resume Salir_DimeTeclado
+    End Select
+End Function

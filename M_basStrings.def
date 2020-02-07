@@ -1,0 +1,71 @@
+Option Compare Database
+Option Explicit
+
+Public Function RecDerTop(ByVal str As String, intRecorteDerecha As Integer, intMaxLen As Integer) As Variant
+    On Error GoTo Error_RecDerTop
+    Dim l As Long
+    l = Len(str)
+    If l <= intRecorteDerecha Then
+        RecDerTop = Null
+        Exit Function
+    End If
+    str = Left(str, l - intRecorteDerecha)
+    l = Len(str)
+    If intMaxLen = 0 Then
+    Else
+        If l > intMaxLen Then
+            str = Left(str, intMaxLen)
+        End If
+    End If
+    RecDerTop = str
+Salir_RecDerTop:
+    Exit Function
+Error_RecDerTop:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en RecDerTop" & vbCrLf & Err.Description
+            Resume Salir_RecDerTop
+            Resume Next
+    End Select
+End Function
+
+Public Function CambiaChar(vstrTexto As Variant, strCharBusca As String, strCharReemplaza As String) As Variant
+    If IsNull(vstrTexto) Then
+        CambiaChar = Null
+        Exit Function
+    End If
+    
+    Dim i As Integer, j As Integer, strTxt As String, strR As String, str1 As String
+    strTxt = CStr(vstrTexto)
+    For i = 1 To Len(strTxt)
+        str1 = Mid(strTxt, i, 1)
+        If str1 = strCharBusca Then
+            strR = strR & strCharReemplaza
+        Else
+            strR = strR & str1
+        End If
+    Next i
+    CambiaChar = strR
+End Function
+
+
+Public Function DameHHMM(ByRef lngHH As Variant, ByRef lngMM As Variant) As String
+    ' pasándole un total de HH y de MM, devuelve en lngHH y lngMM los totales corregidos y
+    ' la función devuelve el string
+    lngHH = CLng(NuloEs(lngHH, 0))
+    lngMM = CLng(NuloEs(lngMM, 0))
+    lngHH = lngHH + lngMM \ 60
+    lngMM = lngMM Mod 60
+    DameHHMM = CStr(lngHH) & "h. " & CStr(lngMM) & "m."
+End Function
+
+
+Public Function NombreFicheroValido(ByVal strName As String) As String
+    Dim i As Integer
+    For i = 1 To Len(strName)
+        If InStr("\/:*?<>|", Mid(strName, i, 1)) > 0 Then
+            Mid(strName, i) = "_"
+        End If
+    Next i
+    NombreFicheroValido = strName
+End Function

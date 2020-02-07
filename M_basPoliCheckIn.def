@@ -1,0 +1,68 @@
+Option Compare Database
+Option Explicit
+
+Public Function PoliCheckIn_Get(strURL_WebService As String, ByVal strApiKey As String) As String
+    On Error GoTo Error_Get
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim wiResponse As String
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Get", strURL_WebService, False)       ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Authorization", "apikey " & strApiKey)
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL_WebService
+    Call oHTTP.Send("")
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PoliCheckIn_Get = wiResponse
+Salir_Get:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Get:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Get" & vbCrLf & Err.Description
+            Resume Salir_Get
+    End Select
+End Function
+
+Public Function PoliCheckIn_Delete(strURL_WebService As String, ByVal strApiKey As String) As String
+    On Error GoTo Error_Delete
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim wiResponse As String
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Delete", strURL_WebService, False)       ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Authorization", "apikey " & strApiKey)
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL_WebService
+    Call oHTTP.Send("")
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PoliCheckIn_Delete = wiResponse
+Salir_Delete:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Delete:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Delete" & vbCrLf & Err.Description
+            Resume Salir_Delete
+    End Select
+End Function
+
+
+Public Function PoliCheckIn_DimeTipoDoc(intTipoDoc As Integer) As String
+    On Error GoTo HandleError
+    Dim strR As String
+    Select Case intTipoDoc
+        Case 1: strR = "D"
+        Case Else: strR = "P"
+    End Select
+    PoliCheckIn_DimeTipoDoc = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

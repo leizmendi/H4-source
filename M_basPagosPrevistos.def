@@ -1,0 +1,54 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function AñadirPagosPrevistos(lngIdFichaCab As Long, intAño As Integer, Optional ByRef curTotal As Currency) As Long
+    On Error GoTo Error_AñadirPagosPrevistos
+    Dim strPPre As String, strSQL As String, curTot As Currency, curP As Currency, curT As Currency, curPte As Currency
+    Dim strDNI As String, intMes As Integer, i As Integer, j As Integer, k As Integer, intNumPagos As Integer
+    Dim intNP As Integer, strPar As String, strConcepto As String
+    strDNI = Nz(DLookup("DNICliente", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "")
+    strPPre = Nz(DameValorParam("MesesPagos_" & strDNI), "")
+    If strPPre = "" Then GoTo Salir_AñadirPagosPrevistos
+    i = 0
+Bucle:
+    j = i + 1
+    i = InStr(j, strPPre, "·")
+    While i > 0
+        intNumPagos = intNumPagos + 1
+        GoTo Bucle
+    Wend
+    If intNumPagos = 0 Then GoTo Salir_AñadirPagosPrevistos
+    curPte = TotalFicha(lngIdFichaCab, 3) - TotalFichaPagos(lngIdFichaCab)
+    intNP = DCount("IdCajaDet", "tbCajaDet", "Origen = 'E' AND IdFrom = " & lngIdFichaCab & " AND Year(Fecha)= " & intAño)
+    strPar = Nz(DLookup("NombreParcela", "tbParcelas", "IdFicha = " & lngIdFichaCab), "")
+    i = 0
+    For k = 1 To intNumPagos
+        intNP = intNP + 1: j = i + 1
+        i = InStr(j, strPPre, "·")
+        intMes = CInt(Mid(strPPre, j + 1, i - j - 1))
+        strConcepto = IIf(strPar = "", "Ficha Nº " & lngIdFichaCab, "Parc. " & strPar) & ", Año " & intAño & ", pago nº " & intNP
+        If k < intNumPagos Then
+            curP = Round(curPte / intNumPagos, 2)
+            curT = curT + curP
+        Else
+            curP = curPte - curT
+            curT = curT + curP
+        End If
+        strSQL = "INSERT INTO tbFichasPagosPrevistos (IdFichaCab, Año, Mes, Cantidad, Concepto)"
+        strSQL = strSQL & " SELECT " & lngIdFichaCab & " AS IdFichaCab, " & intAño & " AS Año, " & intMes & " AS Mes, " _
+        & ComaPunto(curP) & " AS Cantidad, '" & RecDerTop(strConcepto, 0, 50) & "' AS Concepto"
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next k
+    curTotal = curT
+    AñadirPagosPrevistos = intNumPagos
+Salir_AñadirPagosPrevistos:
+    Exit Function
+Error_AñadirPagosPrevistos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AñadirPagosPrevistos" & vbCrLf & Err.Description
+            Resume Salir_AñadirPagosPrevistos
+    End Select
+
+End Function

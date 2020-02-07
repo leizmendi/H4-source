@@ -1,0 +1,27 @@
+Option Compare Database
+Option Explicit
+
+Public Function LeerFicheroTexto(Ruta As String) As String
+    On Error GoTo Error_Function:
+      
+    Dim ObjDatos As TextStream     ' Objeto Fso para el Contenido del archivo
+    Dim Datos As String            ' datos del fichero
+    Dim fso As New FileSystemObject
+    
+    Datos = ""
+    Set ObjDatos = fso.OpenTextFile(Ruta, ForReading, False, TristateMixed)
+    While Not ObjDatos.AtEndOfStream
+          Datos = Datos & ObjDatos.ReadAll
+    Wend
+    ' retorna el contenido leido
+    LeerFicheroTexto = Datos
+    ' cierra el archivo abierto
+    ObjDatos.Close
+    Set fso = Nothing
+Exit Function
+Error_Function:
+  
+    MsgBox Err.Description
+    On Local Error Resume Next
+    Set fso = Nothing
+End Function

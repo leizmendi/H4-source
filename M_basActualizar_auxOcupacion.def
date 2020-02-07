@@ -1,0 +1,46 @@
+Option Compare Database
+Option Explicit
+
+Public Sub Actualizar_auxOcupacion(datDesde As Date, datHasta As Date)
+    On Error GoTo Error_Actualizar_auxOcupacion
+    Dim strSQL As String, rs As Recordset, rsAux As Recordset, strSQL2 As String
+    Dim dt As Date, dtI As Date, dtF As Date
+    DoCmd.Hourglass True
+    'Primero borrar los registros existentes en tbAuxCuadrOcupacion
+    strSQL = "DELETE *"
+    strSQL = strSQL & " FROM auxOcupacion"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxOcupacion", dbOpenDynaset)
+ConParcelas:
+    'Fichas con Parcelas asignadas
+    strSQL = "SELECT tbFichasCab.IdFichaCab, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS FDesde, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FHasta, tbFichasDet.Parcela, tbFichasDet.IdTipoParcela"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.EstadoFicha >1 AND(((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If IsNull(rs("FHasta")) Then
+            dtF = datHasta + 1
+        Else
+            dtF = IIf(rs("FHasta") > datHasta, datHasta + 1, rs("FHasta"))
+        End If
+        dtI = IIf(rs("FDesde") < datDesde, datDesde, rs("FDesde"))
+        For dt = dtI To dtF - 1
+            rsAux.AddNew
+            rsAux("FechaDia") = dt
+            rsAux("PH") = rs("Parcela")
+            rsAux("Tipo") = rs("IdTipoParcela")
+            rsAux.Update
+        Next dt
+        rs.MoveNext
+    Wend
+
+Salir_Actualizar_auxOcupacion:
+    DoCmd.Hourglass False
+    Exit Sub
+Error_Actualizar_auxOcupacion:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Actualizar_auxOcupacion" & vbCrLf & Err.Description
+            Resume Salir_Actualizar_auxOcupacion
+    End Select
+End Sub

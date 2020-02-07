@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" standalone="yes"?>
+<CommandBar name="Parcelas a Panel">
+  <AdaptiveMenu value="false"/>
+  <Context value=""/>
+  <Description value="Menú emergente Parcelas a Panel"/>
+  <Enabled value="true"/>
+  <Position value="5"/>
+  <Protection value="22"/>
+  <RowIndex value="-1"/>
+  <Type value="2"/>
+  <Visible value="false"/>
+  <Controls>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Conectar al Panel"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="1"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Conectar al Panel"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=ConectarAlPanel()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+AAAAAAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAAAAAAAAAAAAAAAAAA8PDwAPDw8AAA
+AAAAAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAAAAAAAA//8AAP//AAAAAADw8PAA8PDwAAAA
+AAAA//8AAP//AAD//wAAAAAA8PDwAPDw8AAAAAAAAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDw
+AAAAAAAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAAAAADw8PAA8PDwAPDw8ADw8PAA
+8PDwAAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAAAAAAAAD//wAA//8AAP//AAD//wAA//8AAP//APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8AAAAAAAAP//AAD//wAA//8AAP//AAD//wAA//8A8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8AAAAAAA
+AP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAAAAAAAAD//wAA
+//8AAP//AAD//wAAAAAAAAAAAAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8AAAAAAAAP//AAD/
+/wAAAAAA8PDwAPDw8ADw8PAA8PDwAAAAAAAA//8AAP//AAAAAADw8PAA8PDwAAAAAAAAAAAAAAAA
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAAAAAAAAAAAAAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Liberar del Panel"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="2"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Liberar del Panel"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=LiberarDelPanel()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw8PAA8PDwAPDw8AAAAAAA
+AAAAAAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAADw8PAA8PDwAAAAAAAA
+//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAAAAAAAAD/
+/wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8AAAAAAAAAAA
+AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAADw8PAA8PDwAPDw8AAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+  </Controls>
+</CommandBar>

@@ -1,0 +1,16 @@
+Option Compare Database
+Option Explicit
+
+Public Function ComaPunto(ByVal vStr As Variant) As Variant
+Dim i As Integer
+    vStr = Replace(vStr, ",", ".")
+    GoTo OK
+Bucle:
+    i = InStr(i + 1, vStr, ",")
+    If i > 0 Then
+        Mid(vStr, i, 1) = "."
+        GoTo Bucle
+    End If
+OK:
+    ComaPunto = vStr
+End Function

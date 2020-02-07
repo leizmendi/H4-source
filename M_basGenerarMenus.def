@@ -1,0 +1,281 @@
+Option Compare Database
+Option Explicit
+
+Public Function GenerarMenus2()
+    On Error GoTo Error_GenerarMenus2
+    Dim rs As Recordset, rs2 As Recordset, rs3 As Recordset, strSQL As String
+    Dim bar As CommandBar, Menu0 As CommandBarControl, Menu As CommandBarControl, menu2 As CommandBarControl, ctlBar As CommandBarControl
+    Dim intBeginGroup  As Integer
+    'Set bar = Application.CommandBars.Add(, , True, True)
+    CommandBars("Basica").Visible = True
+    CommandBars("Basica").Left = 0
+    Set bar = CommandBars.ActiveMenuBar
+    bar.Reset
+    strSQL = "SELECT sysMenus1.Menu, sysMenus1.Descripcion"
+    strSQL = strSQL & " FROM sysMenus1"
+    strSQL = strSQL & " WHERE (((sysMenus1.Orden) > 0))"
+    strSQL = strSQL & " ORDER BY sysMenus1.Orden;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set Menu0 = bar.Controls.Add(msoControlPopup, , , , True)
+    Menu0.Caption = Nz(DameValorParam("AplicacionTitulo"), "CampLau")
+    While Not rs.EOF
+        Set Menu = Menu0.Controls.Add(msoControlPopup, , , , True)
+        Menu.Caption = rs(1)
+        strSQL = "SELECT sysMenus2.Menu, sysMenus2.IdComando, sysMenus2.Leyenda, sysMenus2.TipoObjeto, sysMenus2.Activado"
+        strSQL = strSQL & " FROM sysMenus2"
+        strSQL = strSQL & " WHERE (((sysMenus2.menu) = " & rs(0) & ") AND sysMenus2.Orden > 0)"
+        strSQL = strSQL & " ORDER BY sysMenus2.Orden;"
+        Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+        While Not rs2.EOF
+            If rs2("TipoObjeto") = -1 Then 'Línea de grupo
+                intBeginGroup = True
+                rs2.MoveNext
+            Else
+                intBeginGroup = False
+            End If
+            If rs2("TipoObjeto") = 0 Then
+                Set menu2 = Menu.Controls.Add(msoControlPopup, , , , True)
+                menu2.Caption = rs2("Leyenda")
+                menu2.Parameter = rs2("IdComando")
+                menu2.BeginGroup = intBeginGroup
+                menu2.Enabled = rs2("Activado")
+                strSQL = "SELECT sysMenus3.Menu, sysMenus3.IdComando, sysMenus3.Leyenda, sysMenus3.TipoObjeto"
+                strSQL = strSQL & " FROM sysMenus3"
+                strSQL = strSQL & " WHERE (((sysMenus3.menu) = " & rs2(1) & "))"
+                strSQL = strSQL & " ORDER BY sysMenus3.Orden;"
+                Set rs3 = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+                While Not rs3.EOF
+                    If rs3("TipoObjeto") = -1 Then 'Línea de grupo
+                        intBeginGroup = True
+                        rs3.MoveNext
+                    Else
+                        intBeginGroup = False
+                    End If
+                    Set ctlBar = menu2.Controls.Add(msoControlButton, , , , True)
+                    ctlBar.BeginGroup = intBeginGroup
+                    ctlBar.Caption = rs3("Leyenda")
+                    ctlBar.TooltipText = rs3("Leyenda")
+                    ctlBar.Style = msoButtonCaption
+                    ctlBar.OnAction = "=AccionMenu(" & rs3("IdComando") & ",3)"
+'                    ctlBar.Parameter = rs3("IdComando")
+                    rs3.MoveNext
+                Wend
+            Else
+                Set ctlBar = Menu.Controls.Add(msoControlButton, , , , True)
+                ctlBar.Caption = rs2("Leyenda")
+                ctlBar.TooltipText = rs2("Leyenda")
+                ctlBar.Style = msoButtonCaption
+                ctlBar.OnAction = "=AccionMenu(" & rs2("IdComando") & ",2)"
+                ctlBar.BeginGroup = intBeginGroup
+                ctlBar.Enabled = rs2("Activado")
+'                ctlBar.Parameter = rs2("IdComando")
+            End If
+            rs2.MoveNext
+        Wend
+        rs.MoveNext
+    Wend
+    bar.Visible = True
+    
+Salir_GenerarMenus2:
+    Exit Function
+Error_GenerarMenus2:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarMenus2" & vbCrLf & Err.Description
+            Resume Salir_GenerarMenus2
+            Resume Next
+    End Select
+End Function
+
+
+
+Public Function GenerarMenus()
+    On Error GoTo Error_GenerarMenus
+    Dim rs As Recordset, rs2 As Recordset, rs3 As Recordset, strSQL As String
+    Dim bar As CommandBar, Menu As CommandBarControl, menu2 As CommandBarControl, ctlBar As CommandBarControl
+
+    Set bar = Application.CommandBars.Add(, , True, True)
+    'Set bar = CommandBars.ActiveMenuBar
+
+    strSQL = "SELECT sysMenus1.Menu, sysMenus1.Descripcion"
+    strSQL = strSQL & " FROM sysMenus1"
+    strSQL = strSQL & " WHERE (((sysMenus1.Orden) > 0))"
+    strSQL = strSQL & " ORDER BY sysMenus1.Orden;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        Set Menu = bar.Controls.Add(msoControlPopup, , , , True)
+        Menu.Caption = rs(1)
+        strSQL = "SELECT sysMenus2.Menu, sysMenus2.IdComando, sysMenus2.Leyenda, sysMenus2.TipoObjeto"
+        strSQL = strSQL & " FROM sysMenus2"
+        strSQL = strSQL & " WHERE (((sysMenus2.menu) = " & rs(0) & "))"
+        strSQL = strSQL & " ORDER BY sysMenus2.Orden;"
+        Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+        While Not rs2.EOF
+            If rs2("TipoObjeto") = 0 Then
+                Set menu2 = Menu.Controls.Add(msoControlPopup, , , , True)
+                menu2.Caption = rs2("Leyenda")
+                menu2.Parameter = rs2("IdComando")
+                strSQL = "SELECT sysMenus3.Menu, sysMenus3.IdComando, sysMenus3.Leyenda, sysMenus3.TipoObjeto"
+                strSQL = strSQL & " FROM sysMenus3"
+                strSQL = strSQL & " WHERE (((sysMenus3.menu) = " & rs2(1) & "))"
+                strSQL = strSQL & " ORDER BY sysMenus3.Orden;"
+                Set rs3 = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+                While Not rs3.EOF
+                    Set ctlBar = menu2.Controls.Add(msoControlButton, , , , True)
+                    ctlBar.Caption = rs2("Leyenda")
+                    ctlBar.TooltipText = rs2("Leyenda")
+                    ctlBar.Style = msoButtonCaption
+                    ctlBar.OnAction = "=AccionMenu(" & rs3("IdComando") & ",3)"
+'                    ctlBar.Parameter = rs3("IdComando")
+                    rs3.MoveNext
+                Wend
+            Else
+                Set ctlBar = Menu.Controls.Add(msoControlButton, , , , True)
+                ctlBar.Caption = rs2("Leyenda")
+                ctlBar.TooltipText = rs2("Leyenda")
+                ctlBar.Style = msoButtonCaption
+                ctlBar.OnAction = "=AccionMenu(" & rs2("IdComando") & ",2)"
+'                ctlBar.Parameter = rs2("IdComando")
+            End If
+            rs2.MoveNext
+        Wend
+        rs.MoveNext
+    Wend
+    bar.Visible = True
+    
+Salir_GenerarMenus:
+    Exit Function
+Error_GenerarMenus:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarMenus" & vbCrLf & Err.Description
+            Resume Salir_GenerarMenus
+            Resume Next
+    End Select
+End Function
+
+
+Public Function GenerarBotones(strFormName As String, Optional intEsCommand As Integer = False, Optional intNumBotones As Integer = 100, Optional intNumPrimero As Integer = 501)
+    Dim lngPosLeft As Long, lngAncho As Long, lngPosTop As Long, lngAlto As Long, lngMrg As Long
+    Dim i As Integer, varReturn As Variant, j As Integer, k As Integer
+    Dim ctl As Control, frm As Form
+    DoCmd.OpenForm strFormName, acDesign
+    Dim mdl As Module
+    Set mdl = Forms(strFormName).Module
+    lngAncho = 0.5 * TC_CmToPoints
+    lngAlto = 0.5 * TC_CmToPoints
+    lngPosTop = 0 * TC_CmToPoints
+    lngMrg = 0.054 * TC_CmToPoints
+    Dim intFila As Integer, intCol As Integer, v As Variant
+    For i = intNumPrimero To intNumPrimero + intNumBotones - 1
+        If i Mod 100 = 1 Then
+            intFila = intFila + 1
+            intCol = 0
+            lngPosLeft = 2 * TC_CmToPoints
+            lngPosTop = lngPosTop + lngAlto + lngMrg
+        End If
+        'intCol = intCol + 1
+        'lngPosLeft = lngPosLeft + lngAncho + lngMrg
+        On Error Resume Next
+        'v = CDate("2000/" & intFila & "/" & intCol)
+        'If Err <> 0 Then
+        '    GoTo Hurrengo
+        'End If
+        On Error GoTo Error_GenerarBotones
+        If intEsCommand = False Then
+            Set ctl = CreateControl(strFormName, acRectangle, , , , lngPosLeft, lngPosTop, lngAncho, lngAlto)
+            ctl.Name = "cdrBoton" & Format(i, "00")
+            ctl.OnClick = "=FocoBoton('" & Format(i, "00") & "')"
+            ctl.OnMouseDown = "=MouseDownBtn('" & Format(i, "00") & "')"
+            ctl.OnMouseUp = "=MouseUpBtn('" & Format(i, "00") & "')"
+            ctl.BackStyle = 1
+            ctl.BackColor = -2147483633
+            ctl.SpecialEffect = 1
+            ctl.Visible = False
+            Set ctl = CreateControl(strFormName, acImage, , , , lngPosLeft, lngPosTop, lngAncho, lngAlto)
+            ctl.Name = "imgBoton" & Format(i, "00")
+            ctl.OnClick = "=FocoBoton('" & Format(i, "00") & "')"
+            ctl.OnMouseDown = "=MouseDownBtn('" & Format(i, "00") & "')"
+            ctl.OnMouseUp = "=MouseUpBtn('" & Format(i, "00") & "')"
+            ctl.BackStyle = 0
+            ctl.Visible = False
+            Set ctl = CreateControl(strFormName, acLabel, , , , lngPosLeft, lngPosTop, lngAncho, lngAlto)
+            ctl.Name = "lblBoton" & Format(i, "00")
+            ctl.TextAlign = 2
+            ctl.OnClick = "=FocoBoton('" & Format(i, "00") & "')"
+            ctl.OnMouseDown = "=MouseDownBtn('" & Format(i, "00") & "')"
+            ctl.OnMouseUp = "=MouseUpBtn('" & Format(i, "00") & "')"
+            ctl.BackStyle = 0
+            ctl.Visible = False
+        Else
+            Set ctl = CreateControl(strFormName, acLabel, , , , lngPosLeft, lngPosTop, lngAncho, lngAlto)
+            ctl.Name = "lbl" & Format(i, "000")
+            ctl.BackColor = vbWhite
+            ctl.BackStyle = 1
+            ctl.Height = lngAlto
+            ctl.Visible = True
+            ctl.Tag = Format(intFila, "00") & "/" & Format(intCol, "00")
+            ctl.Caption = ""
+            ctl.OnClick = "=FocoLbl('" & Format(i, "000") & "')"
+'            ctl.OnDblClick = "=DblClickLbl('" & Format(i, "000") & "')"
+            ctl.OnMouseDown = "=MouseDownBtn('" & Format(i, "000") & "')"
+            ctl.OnMouseUp = "=MouseUpBtn('" & Format(i, "000") & "')"
+'            ctl.OnMouseMove = "[Procedimiento de Evento]"
+'            mdl.AddFromString "Private Sub " & NombreValido(ctl.Name) & "_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)" _
+'                   & vbCrLf & "    Call LblXXX_MouseDown(" & ConComillas(Format(i, "000")) & ", Button , Shift , X , Y )" _
+'                   & vbCrLf & "End Sub"
+'            mdl.AddFromString "Private Sub " & NombreValido(ctl.Name) & "_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)" _
+'                   & vbCrLf & "    Call LblXXX_MouseUp(" & ConComillas(Format(i, "000")) & ", Button , Shift , X , Y )" _
+'                   & vbCrLf & "End Sub"
+'            mdl.AddFromString "Private Sub " & NombreValido(ctl.Name) & "_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)" _
+'                   & vbCrLf & "    Call LblXXX_MouseMove(" & ConComillas(Format(i, "000")) & ", Button , Shift , X , Y )" _
+'                   & vbCrLf & "End Sub"
+        End If
+Hurrengo:
+    Next i
+Salir_GenerarBotones:
+    Exit Function
+Error_GenerarBotones:
+    MsgBox "Error nº " & Err & " en GenerarBotones" & vbCrLf & Err.Description
+    Resume Next
+End Function
+Public Function EliminarControles(strFormName As String, strPrefijo As String, Optional intNumBotones As Integer = 100, Optional intNumPrimero As Integer = 501)
+    Dim i As Integer
+    DoCmd.OpenForm strFormName, acDesign
+
+    For i = intNumPrimero To intNumPrimero + intNumBotones - 1
+        DeleteControl strFormName, strPrefijo & Format(i, "000")
+    Next i
+Salir_EliminarControles:
+    Exit Function
+Error_EliminarControles:
+    MsgBox "Error nº " & Err & " en EliminarControles" & vbCrLf & Err.Description
+    Resume Next
+End Function
+
+
+
+Public Function crear200etiquetas()
+    GenerarBotones "subfrmPlanningH", True, 200, 501
+End Function
+
+Public Function borrar100etiquetas()
+    EliminarControles "subfrmPlanningH", "lbl", 100, 701
+End Function
+
+Public Function NombreValido(ByVal str As String, Optional intIncluidoEspacio As Integer = False) As String
+    Dim i As Integer, strResult As String
+    strResult = str
+    For i = 1 To Len(str)
+        Select Case Mid(str, i, 1)
+            Case "-", "/", "?", "."
+                Mid(strResult, i, 1) = "_"
+            Case " "
+                If intIncluidoEspacio = True Then
+                    Mid(strResult, i, 1) = "_"
+                End If
+        End Select
+    Next i
+    NombreValido = strResult
+
+End Function

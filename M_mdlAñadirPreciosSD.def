@@ -1,0 +1,44 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub AñadirPreciosSD()
+    Dim db As Database
+    Dim rsPrecios As Recordset
+    Dim rsTemporadas As Recordset
+    Dim rsServicios As Recordset
+    Dim strSQL As String
+    
+    On Error GoTo Error_AñadirPreciosSD
+    
+'    strSQL = "SELECT DISTINCT tbTemporadas.IdTemporadaNombre"
+'    strSQL = strSQL + " FROM tbTemporadas;"
+    Set db = CurrentDb
+    Set rsTemporadas = db.OpenRecordset("tbTemporadasNombre", dbOpenSnapshot)
+    Set rsServicios = db.OpenRecordset("tbServiciosDiarios", dbOpenSnapshot)
+    Set rsPrecios = db.OpenRecordset("tbPreciosSD", dbOpenDynaset)
+    If rsServicios.EOF Then Exit Sub
+    While Not rsTemporadas.EOF
+        rsServicios.MoveFirst
+        While Not rsServicios.EOF
+            rsPrecios.AddNew
+            rsPrecios("IdSD") = rsServicios("IdSD")
+            rsPrecios("IdTemporadaNombre") = rsTemporadas("IdTemporadaNombre")
+            rsPrecios.Update
+            rsServicios.MoveNext
+        Wend
+        rsTemporadas.MoveNext
+    Wend
+            
+Exit_AñadirPreciosSD:
+    Exit Sub
+Error_AñadirPreciosSD:
+    Select Case Err.Number
+        Case 3022
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En AñadirPreciosSD"
+            Resume Exit_AñadirPreciosSD
+    End Select
+
+End Sub

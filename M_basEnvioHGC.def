@@ -1,0 +1,68 @@
+Option Compare Database
+Option Explicit
+
+Public Function EnvioFicheroHGC(ByVal strFile As String, Optional sUrl As String = "https://usuario:contraseña@hospederias.guardiacivil.es/hospederias/servlet/ControlRecepcionFichero", Optional intMsgBusy As Integer = True, Optional ByRef strResponse As String, Optional ByRef strResponseProcesada As String) As String
+    On Error GoTo Error_EnvioFicheroHGC
+    
+    
+    Dim oXH As xmlHttp, oXD As DOMDocument
+    Set oXH = CreateObject("MSXML2.XMLHTTP")
+'    Me.txtSend = "": Me.txtResponse = "": Me.txtResponseProcesada = ""
+'    Me.Repaint
+    DoCmd.Hourglass True
+    oXH.Open "POST", sUrl, False
+    Set oXD = CreateObject("MSXML2.DOMDocument")
+    oXD.LoadXML strFile
+'    Me.txtSend = sXml
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    If intMsgBusy Then
+        MensajeBusyBox "enviando", "Enviando"
+    Else
+        SysCmd acSysCmdSetStatus, "Enviando"
+    End If
+    oXH.Send oXD  'strXml 'oXD
+    strResponse = oXH.responseText
+    DoCmd.Hourglass False
+    SysCmd acSysCmdSetStatus, "Envío correcto"
+    DoCmd.Hourglass True
+    If intMsgBusy Then
+        MensajeBusyBox strResponse, "Respuesta"
+    Else
+        SysCmd acSysCmdSetStatus, "Respuesta"
+    End If
+    strResponseProcesada = ProcesarXML(strResponse, 2)
+    DoCmd.Hourglass False
+    If intMsgBusy Then MensajeBusyBox strResponseProcesada, "Respuesta", True
+    If Nz(DimeXML(strResponse, "error"), -1) = "0" Then
+        If intMsgBusy Then
+            MensajeBusyBox "Envío correcto", "OK", True
+            DoCmd.Close acForm, "frmBusyBox"
+        Else
+            SysCmd acSysCmdSetStatus, "Envío correcto"
+            'MsgBox "Envío correcto", vbInformation
+        End If
+    Else
+        If intMsgBusy Then
+            'MensajeBusyBox "Envío correcto", "OK", True
+            DoCmd.Close acForm, "frmBusyBox"
+        Else
+            SysCmd acSysCmdSetStatus, "Envío correcto"
+            'MsgBox "Error en el servicio web:" & vbcrlf & dimexml(strresponse,", vbInformation
+        End If
+    End If
+Salir_EnvioFicheroHGC:
+    DoCmd.Hourglass False
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_EnvioFicheroHGC:
+    Select Case Err
+        Case Else
+            If intMsgBusy Then
+                MensajeBusyBox "error nº " & Err & " en EnvioFicheroHGC" & vbCrLf & Err.Description, "Error", True
+            Else
+                MsgBox "error nº " & Err & " en EnvioFicheroHGC" & vbCrLf & Err.Description
+            End If
+            Resume Salir_EnvioFicheroHGC
+    End Select
+End Function

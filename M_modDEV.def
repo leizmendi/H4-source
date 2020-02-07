@@ -1,0 +1,295 @@
+Option Compare Database
+Option Explicit
+' Autor: Tomás Boixet
+' http://www.abarcode.net/tomasb
+' Distribuir libremente mencionando al autor
+'*******************************************
+
+Public Const CMTWIP = 567   ' twips por centimetro
+Public Const INTWIP = 1440  ' twips por pulgada
+Public Const IN2MM = INTWIP / CMTWIP * 10 ' milimetros por pulgada 567c=1440i
+
+Type cad_PRTMIP
+    cadRGB As String * 28
+End Type
+
+Type type_PRTMIP
+    xMargenIzquierdo As Long
+    yMargenSuperior As Long
+    xMargenDerecho As Long
+    yMargenInferior As Long
+    fSóloDatos As Long
+    xAncho As Long
+    yAlto As Long
+    fTamañoPredeterminado As Long
+    cxColumnas As Long
+    yEspacioColumna As Long
+    xEspacioFila As Long
+    rDiseñoElemento As Long
+    fFastPrinting As Long
+    fDatasheet As Long
+End Type
+
+Type cad_DEVMODE
+    RGB As String * 94
+End Type
+
+Type type_DEVMODE
+    cadNombreDispositivo As String * 16
+    entVersiónEspec As Integer
+    entVersiónControlador As Integer
+    entTamaño As Integer
+    entControladorExtra As Integer
+    lngCampos As Long
+    entOrientación As Integer
+    entTamañoPapel As Integer
+    entLongitudPapel As Integer
+    entAnchoPapel As Integer
+    entEscala As Integer
+    entCopias As Integer
+    entOrigenPredeterminado As Integer
+    entCalidadDeImpresión As Integer
+    entColor As Integer
+    entDúplex As Integer
+    entResolución As Integer
+    entOpciónTT As Integer
+    entIntercalar As Integer
+    cadNombreFormulario As String * 16
+    lngRelleno As Long
+    lngBits As Long
+    lngPW As Long
+    lngPH As Long
+    lngDFI As Long
+    lngDFr As Long
+End Type
+
+' field selection bits
+Public Const DM_ORIENTATION = &H1&
+Public Const DM_PAPERSIZE = &H2&
+Public Const DM_PAPERLENGTH = &H4&
+Public Const DM_PAPERWIDTH = &H8&
+Public Const DM_SCALE = &H10&
+Public Const DM_COPIES = &H100&
+Public Const DM_DEFAULTSOURCE = &H200&
+Public Const DM_PRINTQUALITY = &H400&
+Public Const DM_COLOR = &H800&
+Public Const DM_DUPLEX = &H1000&
+Public Const DM_YRESOLUTION = &H2000&
+Public Const DM_TTOPTION = &H4000&
+Public Const DM_COLLATE = &H8000
+Public Const DM_FORMNAME = &H10000
+'  orientation selections
+Public Const DMORIENT_PORTRAIT = 1
+Public Const DMORIENT_LANDSCAPE = 2
+'  paper selections
+Public Const DMPAPER_LETTER = 1
+Public Const DMPAPER_FIRST = DMPAPER_LETTER     '  Letter 8 1/2 x 11 in
+Public Const DMPAPER_LETTERSMALL = 2            '  Letter Small 8 1/2 x 11 in
+Public Const DMPAPER_TABLOID = 3                '  Tabloid 11 x 17 in
+Public Const DMPAPER_LEDGER = 4                 '  Ledger 17 x 11 in
+Public Const DMPAPER_LEGAL = 5                  '  Legal 8 1/2 x 14 in
+Public Const DMPAPER_STATEMENT = 6              '  Statement 5 1/2 x 8 1/2 in
+Public Const DMPAPER_EXECUTIVE = 7              '  Executive 7 1/4 x 10 1/2 in
+Public Const DMPAPER_A3 = 8                     '  A3 297 x 420 mm
+Public Const DMPAPER_A4 = 9                     '  A4 210 x 297 mm
+Public Const DMPAPER_A4SMALL = 10               '  A4 Small 210 x 297 mm
+Public Const DMPAPER_A5 = 11                    '  A5 148 x 210 mm
+Public Const DMPAPER_B4 = 12                    '  B4 250 x 354
+Public Const DMPAPER_B5 = 13                    '  B5 182 x 257 mm
+Public Const DMPAPER_FOLIO = 14                 '  Folio 8 1/2 x 13 in
+Public Const DMPAPER_QUARTO = 15                '  Quarto 215 x 275 mm
+Public Const DMPAPER_10X14 = 16                 '  10x14 in
+Public Const DMPAPER_11X17 = 17                 '  11x17 in
+Public Const DMPAPER_NOTE = 18                  '  Note 8 1/2 x 11 in
+Public Const DMPAPER_ENV_9 = 19                 '  Envelope #9 3 7/8 x 8 7/8
+Public Const DMPAPER_ENV_10 = 20                '  Envelope #10 4 1/8 x 9 1/2
+Public Const DMPAPER_ENV_11 = 21                '  Envelope #11 4 1/2 x 10 3/8
+Public Const DMPAPER_ENV_12 = 22                '  Envelope #12 4 \276 x 11
+Public Const DMPAPER_ENV_14 = 23                '  Envelope #14 5 x 11 1/2
+Public Const DMPAPER_CSHEET = 24                '  C size sheet
+Public Const DMPAPER_DSHEET = 25                '  D size sheet
+Public Const DMPAPER_ESHEET = 26                '  E size sheet
+Public Const DMPAPER_ENV_DL = 27                '  Envelope DL 110 x 220mm
+Public Const DMPAPER_ENV_C5 = 28                '  Envelope C5 162 x 229 mm
+Public Const DMPAPER_ENV_C3 = 29                '  Envelope C3  324 x 458 mm
+Public Const DMPAPER_ENV_C4 = 30                '  Envelope C4  229 x 324 mm
+Public Const DMPAPER_ENV_C6 = 31                '  Envelope C6  114 x 162 mm
+Public Const DMPAPER_ENV_C65 = 32               '  Envelope C65 114 x 229 mm
+Public Const DMPAPER_ENV_B4 = 33                '  Envelope B4  250 x 353 mm
+Public Const DMPAPER_ENV_B5 = 34                '  Envelope B5  176 x 250 mm
+Public Const DMPAPER_ENV_B6 = 35                '  Envelope B6  176 x 125 mm
+Public Const DMPAPER_ENV_ITALY = 36             '  Envelope 110 x 230 mm
+Public Const DMPAPER_ENV_MONARCH = 37           '  Envelope Monarch 3.875 x 7.5 in
+Public Const DMPAPER_ENV_PERSONAL = 38          '  6 3/4 Envelope 3 5/8 x 6 1/2 in
+Public Const DMPAPER_FANFOLD_US = 39            '  US Std Fanfold 14 7/8 x 11 in
+Public Const DMPAPER_FANFOLD_STD_GERMAN = 40    '  German Std Fanfold 8 1/2 x 12 in
+Public Const DMPAPER_FANFOLD_LGL_GERMAN = 41    '  German Legal Fanfold 8 1/2 x 13 in
+Public Const DMPAPER_LAST = DMPAPER_FANFOLD_LGL_GERMAN
+Public Const DMPAPER_USER = 256
+'  bin selections
+Public Const DMBIN_UPPER = 1
+Public Const DMBIN_FIRST = DMBIN_UPPER
+Public Const DMBIN_ONLYONE = 1
+Public Const DMBIN_LOWER = 2
+Public Const DMBIN_MIDDLE = 3
+Public Const DMBIN_MANUAL = 4
+Public Const DMBIN_ENVELOPE = 5
+Public Const DMBIN_ENVMANUAL = 6
+Public Const DMBIN_AUTO = 7
+Public Const DMBIN_TRACTOR = 8
+Public Const DMBIN_SMALLFMT = 9
+Public Const DMBIN_LARGEFMT = 10
+Public Const DMBIN_LARGECAPACITY = 11
+Public Const DMBIN_CASSETTE = 14
+Public Const DMBIN_LAST = DMBIN_CASSETTE
+Public Const DMBIN_USER = 256               '  device specific bins start here
+'  print qualities
+Public Const DMRES_DRAFT = (-1)
+Public Const DMRES_LOW = (-2)
+Public Const DMRES_MEDIUM = (-3)
+Public Const DMRES_HIGH = (-4)
+'  color enable/disable for color printers
+Public Const DMCOLOR_MONOCHROME = 1
+Public Const DMCOLOR_COLOR = 2
+'  duplex enable
+Public Const DMDUP_SIMPLEX = 1
+Public Const DMDUP_VERTICAL = 2
+Public Const DMDUP_HORIZONTAL = 3
+'  TrueType options
+Public Const DMTT_BITMAP = 1            '  print TT fonts as graphics
+Public Const DMTT_DOWNLOAD = 2          '  download TT fonts as soft fonts
+Public Const DMTT_SUBDEV = 3            '  substitute device fonts for TT fonts
+'  Collation selections
+Public Const DMCOLLATE_FALSE = 0
+Public Const DMCOLLATE_TRUE = 1
+'  DEVMODE dmDisplayFlags flags
+Public Const DM_GRAYSCALE = &H1
+Public Const DM_INTERLACED = &H2
+
+Function drwLineasVerticales(rpt As Report)
+Dim ctl As Control, y1 As Long, y2 As Long, Total As Long, alto As Long, margenes As Long
+alto = retValoresInforme(rpt, 0)
+margenes = retValoresInforme(rpt, 4) + retValoresInforme(rpt, 5)
+Total = alto - margenes
+y1 = rpt.Section(3).Height
+y2 = Total - rpt.Section(4).Height
+For Each ctl In rpt.Controls
+    If InStr(ctl.Tag, "lvert") > 0 Then
+        rpt.Line (ctl.Left, y1)-(ctl.Left, y2)
+        rpt.Line (ctl.Left + ctl.Width, y1)-(ctl.Left + ctl.Width, y2)
+    End If
+Next
+End Function
+
+Function retValoresInforme(rpt As Report, clave)
+' Claves:
+'   0=alto, 1=ancho (teniendo en cuenta orientación) EN TWIPS
+'   2=margen izq, 3=margen der, 4=margen sup, 5=margen inf -> EN TWIPS
+Dim alto As Double, ancho As Double, orient As Long, w As Double
+Dim PrtMipString As cad_PRTMIP, PM As type_PRTMIP
+Dim cadModoDispositivo As String, devString As cad_DEVMODE, DM As type_DEVMODE
+PrtMipString.cadRGB = rpt.PrtMip
+LSet PM = PrtMipString
+If Not IsNull(rpt.PrtDevMode) Then
+    cadModoDispositivo = rpt.PrtDevMode
+    devString.RGB = cadModoDispositivo
+    LSet DM = devString
+    Select Case DM.entTamañoPapel
+        Case DMPAPER_LETTER, DMPAPER_LETTERSMALL
+            ancho = 216: alto = 279
+        Case DMPAPER_TABLOID
+            ancho = 279: alto = 432
+        Case DMPAPER_LEDGER
+            ancho = 432: alto = 280
+        Case DMPAPER_LEGAL
+            ancho = 216: alto = 356
+        Case DMPAPER_STATEMENT
+            ancho = 140: alto = 216
+        Case DMPAPER_EXECUTIVE
+            ancho = 195: alto = 254
+        Case DMPAPER_A3
+            ancho = 297: alto = 420
+        Case DMPAPER_A4, DMPAPER_A4SMALL
+            ancho = 210: alto = 297
+        Case DMPAPER_A5
+            ancho = 148: alto = 210
+        Case DMPAPER_B4
+            ancho = 250: alto = 354
+        Case DMPAPER_B5
+            ancho = 182: alto = 257
+        Case DMPAPER_FOLIO
+            ancho = 216: alto = 330
+        Case DMPAPER_QUARTO
+            ancho = 215: alto = 275
+        Case DMPAPER_NOTE
+            ancho = 216: alto = 279
+        Case DMPAPER_ENV_9
+            ancho = 98: alto = 225
+        Case DMPAPER_ENV_10
+            ancho = 105: alto = 241
+        Case DMPAPER_ENV_11
+            ancho = 114: alto = 264
+        Case DMPAPER_ENV_12
+            ancho = 114: alto = 279
+        Case DMPAPER_ENV_14
+            ancho = 127: alto = 292
+        Case DMPAPER_CSHEET
+            ancho = 17 * IN2MM: alto = 22 * IN2MM
+        Case DMPAPER_DSHEET
+            ancho = 22 * IN2MM: alto = 34 * IN2MM
+        Case DMPAPER_ESHEET
+            ancho = 34 * IN2MM: alto = 44 * IN2MM
+        Case DMPAPER_ENV_DL
+            ancho = 110: alto = 220
+        Case DMPAPER_ENV_C5
+            ancho = 162: alto = 229
+        Case DMPAPER_ENV_C3
+            ancho = 324: alto = 458
+        Case DMPAPER_ENV_C4
+            ancho = 229: alto = 324
+        Case DMPAPER_ENV_C6
+            ancho = 114: alto = 162
+        Case DMPAPER_ENV_C65
+            ancho = 114: alto = 229
+        Case DMPAPER_ENV_B4
+            ancho = 250: alto = 353
+        Case DMPAPER_ENV_B5
+            ancho = 176: alto = 250
+        Case DMPAPER_ENV_B6
+            ancho = 176: alto = 125
+        Case DMPAPER_ENV_ITALY
+            ancho = 110: alto = 230
+        Case DMPAPER_ENV_MONARCH
+            ancho = 98: alto = 190
+        Case DMPAPER_ENV_PERSONAL
+            ancho = 92: alto = 165
+        Case DMPAPER_FANFOLD_US
+            ancho = 310: alto = 280
+        Case DMPAPER_FANFOLD_STD_GERMAN
+            ancho = 220: alto = 300
+        Case DMPAPER_FANFOLD_LGL_GERMAN
+            ancho = 216: alto = 330
+        Case DMPAPER_USER
+            ancho = DM.entAnchoPapel / 10
+            alto = DM.entLongitudPapel / 10
+    End Select
+    If DM.entOrientación = DMORIENT_LANDSCAPE Then
+        w = ancho: ancho = alto: alto = w
+    End If
+    ancho = ancho * CMTWIP / 10: alto = alto * CMTWIP / 10
+End If
+Select Case clave
+    Case 0
+        retValoresInforme = alto
+    Case 1
+        retValoresInforme = ancho
+    Case 2
+        retValoresInforme = PM.xMargenIzquierdo
+    Case 3
+        retValoresInforme = PM.xMargenDerecho
+    Case 4
+        retValoresInforme = PM.yMargenSuperior
+    Case 5
+        retValoresInforme = PM.yMargenInferior
+End Select
+End Function

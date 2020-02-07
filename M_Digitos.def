@@ -1,0 +1,443 @@
+Option Compare Database   'Usar orden de base de datos en comparaciones de cadenas
+Option Explicit
+
+
+
+Function abcednum(Num, lang) As String
+Select Case lang
+Case "es", "esf"
+    abcednum = n2t_tbs_es(Num, 0)
+Case "esm"
+    abcednum = n2t_tbs_es(Num, 1)
+Case "esn"
+    abcednum = n2t_tbs_es(Num, 2)
+Case "eso"
+    abcednum = n2t_tbs_es(Num, 3)
+Case "ct", "ctf"
+    abcednum = n2t_tbs_ct(Num, 0)
+Case "ctm"
+    abcednum = n2t_tbs_ct(Num, 1)
+Case "ctn"
+    abcednum = n2t_tbs_ct(Num, 2)
+Case "en"
+    abcednum = n2t_tbs_en(Num)
+End Select
+End Function
+
+Function cd_mod10(Codigo)
+' Calcula y devuelve un caracter con el dígito de control calculado por módulo 10
+' según sistema ean, upc, itf
+'   (de derecha a izquierda, un dígito vale 3 y el siquiente 1)
+    Dim DC, n As Integer
+    DC = 0
+    For n = Len(Codigo) To 1 Step -1
+        DC = DC + (Val(Mid$(Codigo, n, 1)) * 3)
+        n = n - 1: If n > 0 Then DC = DC + Val(Mid$(Codigo, n, 1))
+    Next
+    cd_mod10 = Right$(str$(10 - (DC Mod 10)), 1)
+End Function
+
+Function cd_mod43(Codigo)
+' devuelve un caracter correspondiente al valor numérico del 0 al 43
+' (code39)
+Const C39CHK = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%" ' en orden para calcular cd mod43
+Dim n, suma As Long
+For n = 1 To Len(Codigo)
+    suma = suma + InStr(C39CHK, Mid$(Codigo, n, 1)) - 1
+Next
+cd_mod43 = Mid$(C39CHK, (suma Mod 43) + 1, 1)
+End Function
+
+Function cd_postnet(Codigo)
+' calcula modulo 10 simple
+Dim DC, n As Integer
+DC = 0
+For n = 1 To Len(Codigo)
+    DC = DC + Val(Mid$(Codigo, n, 1))
+Next
+cd_postnet = Right$(str$(10 - (DC Mod 10)), 1)
+End Function
+
+Function dcbank(Cuenta)
+' devuelve los digitos de control de cuentas bancarias
+If Len(Cuenta) <> 18 Then
+    dcbank = ""
+Else
+    dcbank = dcbank2(Mid(Cuenta, 1, 8)) & dcbank2(Mid(Cuenta, 9))
+End If
+End Function
+
+Function dcbank2(Serie)
+Const PESOS = "06030709100508040201"
+Dim l As Long, i As Integer, s As String
+For i = 1 To Len(Serie)
+    l = l + (Mid(Serie, Len(Serie) - i + 1, 1) * Mid(PESOS, ((i - 1) * 2) + 1, 2))
+Next
+Select Case 11 - (l Mod 11)
+Case 11
+    dcbank2 = 0
+Case 10
+    dcbank2 = 1
+Case Else
+    dcbank2 = 11 - (l Mod 11)
+End Select
+End Function
+
+
+Function n2t_tbs_ct(Num, Sexo) As String
+Dim abnum As Long, txt As String, xT As String
+abnum = Abs(Fix(Num))
+xT = Right$(Format$(Fix(abnum / 1000000), "000"), 3)
+If Val(xT) <> 0 Then txt = n2t_tbs_ct_f(1, xT, Sexo)
+xT = Right$(Format$(Fix(abnum / 1000), "000"), 3)
+If Val(xT) <> 0 Then txt = txt & n2t_tbs_ct_f(2, xT, Sexo)
+xT = Right$(Format$(abnum, "000"), 3)
+If Val(xT) <> 0 Then txt = txt & n2t_tbs_ct_f(3, xT, Sexo)
+n2t_tbs_ct = txt
+End Function
+
+Function n2t_tbs_ct_f(n As Integer, cF As String, Sexo) As String
+' sexo: 0=femenino, 1=masculino, 2=masculino terminado en UN
+Static cf1(19) As String, cf2(10) As String, cf3(10) As String, sw As Integer
+Dim ftxt As String
+If sw = 0 Then
+    cf1(1) = "UN"
+    cf1(2) = "DOS"
+    cf1(3) = "TRES"
+    cf1(4) = "QUATRE"
+    cf1(5) = "CINC"
+    cf1(6) = "SIS"
+    cf1(7) = "SET"
+    cf1(8) = "VUIT"
+    cf1(9) = "NOU"
+    cf1(10) = "DEU"
+    cf1(11) = "ONZE"
+    cf1(12) = "DOTZE"
+    cf1(13) = "TRETZE"
+    cf1(14) = "CATORZE"
+    cf1(15) = "QUINZE"
+    cf1(16) = "SETZE"
+    cf1(17) = "DISSET"
+    cf1(18) = "DIVUIT"
+    cf1(19) = "DINOU"
+    cf2(1) = ""
+    cf2(2) = "VINT-I"
+    cf2(3) = "TRENTA"
+    cf2(4) = "QUARANTA"
+    cf2(5) = "CINQUANTA"
+    cf2(6) = "SEIXANTA"
+    cf2(7) = "SETANTA"
+    cf2(8) = "VUITANTA"
+    cf2(9) = "NORANTA"
+    cf3(1) = "CENT"
+    cf3(2) = "DOS"
+    cf3(3) = "TRES"
+    cf3(4) = "QUATRE"
+    cf3(5) = "CINC"
+    cf3(6) = "SIS"
+    cf3(7) = "SET"
+    cf3(8) = "VUIT"
+    cf3(9) = "NOU"
+    sw = 1
+End If
+If Sexo = 0 And n > 1 Then
+    cf1(1) = "UNA"
+    cf1(2) = "DUES"
+    cf3(2) = "DUES"
+Else
+    cf1(2) = "DOS"
+    cf3(2) = "DOS"
+    If n = 3 And Sexo = 1 Then cf1(1) = "U" Else cf1(1) = "UN"
+End If
+If Val(cF) = 1 And n = 2 Then GoTo sx4_n2t_tbs_ct
+If Mid$(cF, 1, 1) = "0" Then GoTo sx2_n2t_tbs_ct
+If Val(cF) = 100 Then ftxt = "CENT": GoTo sx4_n2t_tbs_ct
+ftxt = cf3(Val(Mid$(cF, 1, 1)))
+Select Case Val(Mid$(cF, 1, 1))
+Case 1
+    ftxt = ftxt & " ": GoTo sx2_n2t_tbs_ct
+Case Else
+    ftxt = ftxt & "-CENT"
+End Select
+If n > 1 And Sexo = 0 Then
+    ftxt = ftxt & "ES "
+Else
+    ftxt = ftxt & "S "
+End If
+
+sx2_n2t_tbs_ct:
+    Select Case Val(Mid$(cF, 2))
+    Case 10
+        ftxt = ftxt & "DEU "
+    Case 2
+        If n = 1 Then
+            ftxt = ftxt & "DOS"
+        Else
+            ftxt = ftxt & cf1(Val(Mid$(cF, 2)))
+        End If
+    Case 3 To 19
+        ftxt = ftxt & cf1(Val(Mid$(cF, 2)))
+    Case 20
+        ftxt = ftxt & "VINT "
+    Case Else
+        If Val(Mid$(cF, 2, 1)) > 0 Then ftxt = ftxt & cf2(Val(Mid$(cF, 2, 1)))
+        If Val(Mid$(cF, 2, 1)) > 1 Then
+            If Val(Mid$(cF, 3, 1)) = 0 Then GoTo sx4_n2t_tbs_ct
+            ftxt = ftxt & "-"
+        End If
+        If n = 1 And Mid$(cF, 3, 1) = "1" Then
+            ftxt = ftxt & "UN"
+        ElseIf Val(Mid$(cF, 3, 1)) > 0 Then
+            ftxt = ftxt & cf1(Val(Mid$(cF, 3, 1)))
+        End If
+    End Select
+
+sx4_n2t_tbs_ct:
+    Select Case n
+    Case 1
+        Select Case Val(cF)
+        Case 1
+            ftxt = ftxt & " MILIO "
+        Case Is > 1
+            ftxt = ftxt & " MILIONS "
+        End Select
+    Case 2
+        ftxt = ftxt & " MIL "
+    End Select
+    
+    n2t_tbs_ct_f = ftxt
+    
+End Function
+
+Function n2t_tbs_en(Num) As String
+Dim abnum As Long, txt As String, xT As String
+    
+abnum = Abs(Fix(Num))
+xT = Right$(Format$(Fix(abnum / 1000000), "000"), 3)
+If Val(xT) <> 0 Then txt = n2t_tbs_en_f(1, xT)
+xT = Right$(Format$(Fix(abnum / 1000), "000"), 3)
+If Val(xT) <> 0 Then txt = txt & n2t_tbs_en_f(2, xT)
+xT = Right$(Format$(abnum, "000"), 3)
+If Val(xT) <> 0 Then txt = txt & n2t_tbs_en_f(3, xT)
+n2t_tbs_en = txt
+End Function
+
+Function n2t_tbs_en_f(n As Integer, cF As String) As String
+Static cf1(20) As String, cf2(10) As String, sw As Integer
+Dim ftxt As String
+If sw = 0 Then
+    cf1(1) = "ONE"
+    cf1(2) = "TWO"
+    cf1(3) = "THREE"
+    cf1(4) = "FOUR"
+    cf1(5) = "FIVE"
+    cf1(6) = "SIX"
+    cf1(7) = "SEVEN"
+    cf1(8) = "EIGHT"
+    cf1(9) = "NINE"
+    cf1(10) = "TEN"
+    cf1(11) = "ELEVEN"
+    cf1(12) = "TWELVE"
+    cf1(13) = "THIRTEEN"
+    cf1(14) = "FOURTEEN"
+    cf1(15) = "FIFTEEN"
+    cf1(16) = "SIXTEEN"
+    cf1(17) = "SEVENTEEN"
+    cf1(18) = "EIGHTEEN"
+    cf1(19) = "NINETEEN"
+    cf2(2) = "TWENTY"
+    cf2(3) = "THIRTY"
+    cf2(4) = "FORTY"
+    cf2(5) = "FIFTY"
+    cf2(6) = "SIXTY"
+    cf2(7) = "SEVENTY"
+    cf2(8) = "EIGHTY"
+    cf2(9) = "NINETY"
+    sw = 1
+End If
+If Mid$(cF, 1, 1) <> "0" Then
+    ftxt = cf1(Val(Mid$(cF, 1, 1))) & " HUNDRED "
+End If
+If Mid$(cF, 2, 1) < "2" Then
+    ftxt = ftxt & cf1(Val(Mid$(cF, 2, 2))) & " "
+Else
+    ftxt = ftxt & cf2(Val(Mid$(cF, 2, 1))) & " " & IIf(Mid$(cF, 3, 1) <> "0", cf1(Val(Mid$(cF, 3, 1))) & " ", "")
+End If
+Select Case n
+Case 1
+    If Val(cF) = 1 Then
+        ftxt = ftxt & "MILLION "
+    ElseIf Val(cF) > 1 Then
+        ftxt = ftxt & "MILLIONS "
+    End If
+Case 2
+    ftxt = ftxt & "THOUSAND "
+End Select
+n2t_tbs_en_f = ftxt
+End Function
+
+Function n2t_tbs_es(Num, Sexo) As String
+Dim abnum As Long, txt As String, xT As String
+abnum = Abs(Fix(Num))
+xT = Right$(Format$(Fix(abnum / 1000000), "000"), 3)
+If Val(xT) <> 0 Then txt = n2t_tbs_es_f(1, xT, Sexo)
+xT = Right$(Format$(Fix(abnum / 1000), "000"), 3)
+If Val(xT) <> 0 Then txt = txt & n2t_tbs_es_f(2, xT, Sexo)
+xT = Right$(Format$(abnum, "000"), 3)
+If Val(xT) <> 0 Then txt = txt & n2t_tbs_es_f(3, xT, Sexo)
+n2t_tbs_es = txt
+End Function
+
+Function n2t_tbs_es_f(n As Integer, cF As String, Sexo) As String
+' sexo: 0=femenino, 1=masculino, 2=masculino terminado en UN
+Static cf1(16) As String, cf2(10) As String, cf3(10) As String, sw As Integer
+Dim ftxt As String
+If sw = 0 Then
+    cf1(1) = "UNA"
+    cf1(2) = "DOS"
+    cf1(3) = "TRES"
+    cf1(4) = "CUATRO"
+    cf1(5) = "CINCO"
+    cf1(6) = "SEIS"
+    cf1(7) = "SIETE"
+    cf1(8) = "OCHO"
+    cf1(9) = "NUEVE"
+    cf1(10) = "DIEZ"
+    cf1(11) = "ONCE"
+    cf1(12) = "DOCE"
+    cf1(13) = "TRECE"
+    cf1(14) = "CATORCE"
+    cf1(15) = "QUINCE"
+    cf2(1) = "DIECI"
+    cf2(2) = "VEINTI"
+    cf2(3) = "TREINTA"
+    cf2(4) = "CUARENTA"
+    cf2(5) = "CINCUENTA"
+    cf2(6) = "SESENTA"
+    cf2(7) = "SETENTA"
+    cf2(8) = "OCHENTA"
+    cf2(9) = "NOVENTA"
+    cf3(1) = "CIENTO"
+    cf3(2) = "DOS"
+    cf3(3) = "TRES"
+    cf3(4) = "CUATRO"
+    cf3(5) = "QUINIEN"
+    cf3(6) = "SEIS"
+    cf3(7) = "SETE"
+    cf3(8) = "OCHO"
+    cf3(9) = "NOVE"
+    sw = 1
+End If
+If Sexo = 0 Then cf1(1) = "UNA" Else If n = 3 And Sexo = 1 Then cf1(1) = "UNO" Else If Sexo = 3 Then cf1(1) = "UN/A" Else cf1(1) = "UN"
+If Val(cF) = 1 And n = 2 Then GoTo sx4_n2t_tbs_es
+If Mid$(cF, 1, 1) = "0" Then GoTo sx2_n2t_tbs_es
+If Val(cF) = 100 Then ftxt = "CIEN": GoTo sx4_n2t_tbs_es
+ftxt = cf3(Val(Mid$(cF, 1, 1)))
+Select Case Val(Mid$(cF, 1, 1))
+Case 1
+    ftxt = ftxt & " ": GoTo sx2_n2t_tbs_es
+Case 2 To 4, 6 To 9
+    ftxt = ftxt & "CIEN"
+End Select
+If n > 1 And Sexo = 0 Then
+    ftxt = ftxt & "TAS "
+Else
+    ftxt = ftxt & "TOS "
+End If
+
+sx2_n2t_tbs_es:
+    Select Case Val(Mid$(cF, 2))
+    Case 10
+        ftxt = ftxt & "DIEZ "
+    Case 2 To 15
+        ftxt = ftxt & cf1(Val(Mid$(cF, 2)))
+    Case 20
+        ftxt = ftxt & "VEINTE "
+    Case Else
+        If Val(Mid$(cF, 2, 1)) > 0 Then ftxt = ftxt & cf2(Val(Mid$(cF, 2, 1)))
+        If Val(Mid$(cF, 2, 1)) > 2 Then
+            If Val(Mid$(cF, 3, 1)) = 0 Then GoTo sx4_n2t_tbs_es
+            ftxt = ftxt & " Y "
+        End If
+        If n = 1 And Mid$(cF, 3, 1) = "1" Then
+            ftxt = ftxt & "UN"
+        ElseIf Val(Mid$(cF, 3, 1)) > 0 Then
+            ftxt = ftxt & cf1(Val(Mid$(cF, 3, 1)))
+        End If
+    End Select
+
+sx4_n2t_tbs_es:
+    Select Case n
+    Case 1
+        Select Case Val(cF)
+        Case 1
+            ftxt = ftxt & " MILLON "
+        Case Is > 1
+            ftxt = ftxt & " MILLONES "
+        End Select
+    Case 2
+        ftxt = ftxt & " MIL "
+    End Select
+    
+    n2t_tbs_es_f = ftxt
+    
+End Function
+
+
+Public Function abcednumPtsEuros(Num, PtsEuros) As String
+    Dim numEnt
+    Dim numDec
+    Dim strLeng As String
+    
+    If PtsEuros = 1 Then
+        abcednumPtsEuros = LCase(abcednum(Num, "es")) & " pesetas"
+        Exit Function
+    Else
+        numEnt = CLng(Num)
+        If numEnt > Num Then
+            numEnt = numEnt - 1
+        End If
+        numDec = CInt(100 * (Num - numEnt))
+        If numDec = 100 Then
+            numEnt = numEnt + 1
+            numDec = 0
+        End If
+    End If
+    If PtsEuros = 2 Then
+        abcednumPtsEuros = LCase(abcednum(numEnt, "esn")) & " euro"
+        If numEnt > 1 Then
+            abcednumPtsEuros = abcednumPtsEuros & "s"
+        End If
+        If numDec > 0 Then
+            abcednumPtsEuros = abcednumPtsEuros & " y " & LCase(abcednum(numDec, "esn")) & " céntimos"
+        End If
+        Exit Function
+    ElseIf PtsEuros = 3 Then
+        strLeng = "esn"
+    ElseIf PtsEuros = 4 Then
+        strLeng = "esf"
+    End If
+    abcednumPtsEuros = LCase(abcednum(numEnt, strLeng))
+    If numDec > 0 Then
+        abcednumPtsEuros = abcednumPtsEuros & " coma "
+        If numDec < 10 Then
+            abcednumPtsEuros = abcednumPtsEuros & "cero "
+        End If
+        abcednumPtsEuros = abcednumPtsEuros & LCase(abcednum(numDec, strLeng))
+    End If
+End Function
+
+Public Function UltimaVocal(str) As String
+    On Error GoTo Salir_UltimaVocal
+    Dim i As Integer
+    Dim strLetra As String
+    For i = Len(str) To 1 Step -1
+        strLetra = UCase(Mid(str, i, 1))
+        If strLetra = "A" Or strLetra = "E" Or strLetra = "I" Or strLetra = "O" Or strLetra = "U" Then
+            UltimaVocal = strLetra
+            Exit Function
+        End If
+    Next i
+Salir_UltimaVocal:
+    UltimaVocal = "Z"
+End Function

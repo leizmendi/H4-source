@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Properties>
+  <GetOptions context="5">
+    <ShowValuesinIndexed name="Show Values in Indexed" type="107" value="-1" sort="6"/>
+    <ShowValuesinNonIndexed name="Show Values in Non-Indexed" type="108" value="-1" sort="6"/>
+    <ShowValuesinRemote name="Show Values in Remote" type="109" value="0" sort="6"/>
+    <ShowValuesinServer name="Show Values in Server" type="110" value="0" sort="6"/>
+    <ShowValuesinSnapshot name="Show Values in Snapshot" type="111" value="-1" sort="6"/>
+    <ShowValuesLimit name="Show Values Limit" type="112" value="1000" sort="6"/>
+    <ShowWindowsInTaskbar name="ShowWindowsInTaskbar" type="113" value="0" sort="6"/>
+    <SizeofMRUFileList name="Size of MRU File List" type="114" value="9" sort="6"/>
+    <SubstituteFontName name="Substitute Font Name" type="115" value="Arial" sort="6"/>
+    <SyntaxChecking name="Syntax Checking" type="116" value="0" sort="6"/>
+    <TopMargin name="Top Margin" type="117" value="0,635cm" sort="6"/>
+    <TrackNameAutoCorrectInfo name="Track Name AutoCorrect Info" type="118" value="-1" sort="6"/>
+    <UnderlineHyperlinks name="Underline Hyperlinks" type="119" value="-1" sort="6"/>
+    <UpdateRetryIntervalmsec name="Update Retry Interval (msec)" type="120" value="250" sort="6"/>
+    <UseDefaultPrinterSetup name="Use Default Printer Setup" type="121" value="0" sort="6"/>
+    <UseRowLevelLocking name="Use Row Level Locking" type="122" value="-1" sort="6"/>
+    <UserName name="User Name" type="123" value="" sort="6"/>
+    <WarnWidth name="Warn Width" type="124" value="-1" sort="6"/>
+  </GetOptions>
+  <References context="6">
+    <Reference>
+      <Name value="ADODB 2.8"/>
+      <FullPath value="%CommonProgramFiles%\SYSTEM\ado\msado28.tlb"/>
+      <Position value="15"/>
+      <GUID value="{2A75196C-D9EB-4129-B803-931327F72D5C}"/>
+      <Major value="2"/>
+      <Minor value="8"/>
+    </Reference>
+    <Reference>
+      <Name value="DAO 5.0"/>
+      <FullPath value="%CommonProgramFiles%\Microsoft Shared\DAO\dao360.dll"/>
+      <Position value="3"/>
+      <GUID value="{00025E01-0000-0000-C000-000000000046}"/>
+      <Major value="5"/>
+      <Minor value="0"/>
+    </Reference>
+    <Reference>
+      <Name value="Excel 1.7"/>
+      <FullPath value="%ProgramFiles%\Microsoft Office\Office14\EXCEL.EXE"/>
+      <Position value="13"/>
+      <GUID value="{00020813-0000-0000-C000-000000000046}"/>
+      <Major value="1"/>
+      <Minor value="7"/>
+    </Reference>
+    <Reference>
+      <Name value="FlexCell 1.0"/>
+      <FullPath value="%ProgramFiles%\FlexCell\FlexCell.ocx"/>
+      <Position value="6"/>
+      <GUID value="{6A6D2D1B-77CE-4F2F-A266-C0503397322C}"/>
+      <Major value="1"/>
+      <Minor value="0"/>
+    </Reference>
+    <Reference>
+      <Name value="ICARCOMLib 1.0"/>
+      <FullPath value="%ProgramFiles%\ICAR\ICARCOM.dll"/>
+      <Position value="11"/>
+      <GUID value="{2E44AF34-D171-44D1-B188-2D2D067264A9}"/>
+      <Major value="1"/>
+      <Minor value="0"/>
+    </Reference>
+    <Reference>
+      <Name value="MSXML2 3.0"/>
+      <FullPath value="C:\Windows\SysWOW64\msxml3.dll"/>
+      <Position value="7"/>
+      <GUID value="{F5078F18-C551-11D3-89B9-0000F81FE221}"/>
+      <Major value="3"/>
+      <Minor value="0"/>
+    </Reference>
+    <Reference>
+      <Name value="Office 2.8"/>
+      <FullPath value="%CommonProgramFiles%\Microsoft Shared\OFFICE16\MSO.DLL"/>
+      <Position value="4"/>
+      <GUID value="{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}"/>
+      <Major value="2"/>
+      <Minor value="8"/>
+    </Reference>
+    <Reference>
+      <Name value="Outlook 9.4"/>
+      <FullPath value="%ProgramFiles%\Microsoft Office\Office14\MSOUTL.OLB"/>
+      <Position value="14"/>
+      <GUID value="{00062FFF-0000-0000-C000-000000000046}"/>
+      <Major value="9"/>
+      <Minor value="4"/>
+    </Reference>
+    <Reference>
+      <Name value="Scripting 1.0"/>
+      <FullPath value="C:\Windows\SysWOW64\scrrun.dll"/>
+      <Position value="5"/>
+      <GUID value="{420B2830-E718-11CF-893D-00A0C9054228}"/>
+      <Major value="1"/>
+      <Minor value="0"/>
+    </Reference>
+    <Reference>
+      <Name value="stdole 2.0"/>
+      <FullPath value="C:\Windows\SysWOW64\stdole2.tlb"/>
+      <Position value="12"/>
+      <GUID value="{00020430-0000-0000-C000-000000000046}"/>
+      <Major value="2"/>
+      <Minor value="0"/>
+    </Reference>
+    <Reference>
+      <Name value="TwainControlXTrial 3.1"/>
+      <FullPath value="%ProgramFiles%\Ciansoft\TwainControlXTrial\TwainControlXTrial.ocx"/>
+      <Position value="9"/>
+      <GUID value="{C46A8914-8107-11D8-8671-00C1261173F0}"/>
+      <Major value="3"/>
+      <Minor value="1"/>
+    </Reference>
+    <Reference>
+      <Name value="WinHttp 5.1"/>
+      <FullPath value="C:\Windows\System32\winhttpcom.dll"/>
+      <Position value="16"/>
+      <GUID value="{662901FC-6951-4854-9EB2-D9A2570F2B2E}"/>
+      <Major value="5"/>
+      <Minor value="1"/>
+    </Reference>
+    <Reference>
+      <Name value="Word 8.5"/>
+      <FullPath value="%ProgramFiles%\Microsoft Office\Office14\MSWORD.OLB"/>
+      <Position value="8"/>
+      <GUID value="{00020905-0000-0000-C000-000000000046}"/>
+      <Major value="8"/>
+      <Minor value="5"/>
+    </Reference>
+  </References>
+</Properties>

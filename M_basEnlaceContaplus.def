@@ -1,0 +1,524 @@
+Option Compare Database
+Option Explicit
+'Enlace Contabilidad Contaplus
+    Dim grsFac As Recordset, glngRegEnlace As Long
+    Dim gintContFac As Integer, gintContAsi As Integer
+    Dim gintTotalFac As Integer, gSaltarFac As Integer
+    Dim gHayError As Integer, gstrCuentaDto As String
+    Dim gsngAntIVA As Single, gsngAntRecEq As Single, gstrCuentaIVA As String
+    Dim gintAntEsIVARE As Integer
+
+Public Function GenerarFicherosEnlaceContabilidadVentas()
+    On Error GoTo Error_GenerarFicherosEnlaceContabilidadVentas
+    Dim rs As Recordset, strSQL As String, strLbl As String
+    Dim rsGrup As Recordset
+    Dim i As Integer, j As Integer, varReturn As Variant, strFile As String, intResp As Integer
+    strFile = DameValorParam("ContabilidadFicheroDiario")
+    strSQL = "SELECT conPasoDiario.*"
+    strSQL = strSQL & " FROM conPasoDiario"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    PasarTabla rs, strFile, 1, j
+    strFile = DameValorParam("ContabilidadFicheroSubcuentas")
+    strSQL = "SELECT conPasoSubcuentas.*"
+    strSQL = strSQL & " FROM conPasoSubcuentas"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    PasarTabla rs, strFile, 1, j
+Salir_GenerarFicherosEnlaceContabilidadVentas:
+    Close
+    DoCmd.Hourglass False
+    varReturn = SysCmd(acSysCmdClearStatus)
+    Exit Function
+Error_GenerarFicherosEnlaceContabilidadVentas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarFicherosEnlaceContabilidadVentas" & vbCrLf & Err.Description
+            Resume Salir_GenerarFicherosEnlaceContabilidadVentas
+            Resume Next
+    End Select
+End Function
+
+Public Function GenerarAsientosContab_Ventas(Optional datDesde As Date = 0, Optional datHasta As Date = 0, Optional lngIdCliente As Long = 0, Optional intYaCont As Integer = False) As Integer
+    On Error GoTo Error_GenerarAsientosContab_Ventas
+    Dim strSQL As String, datEnlace As Date, i As Integer
+    Dim strFile As String, strFile2 As String, intResp As Integer
+    strFile = NuloEs(DameValorParam("ContabilidadFicheroDiario"), "")
+    If strFile = "" Then
+        MsgBox "Se debe indicar en Parámetros\Contabilidad el nombre del fichero de traspaso de Diario"
+        Exit Function
+    End If
+'    intResp = MsgBox("Se generará el fichero: " & strFile, vbOKCancel + vbInformation)
+'    If intResp = vbCancel Then Exit Function
+    strFile2 = NuloEs(DameValorParam("ContabilidadFicheroSubcuentas"), "")
+    If strFile2 = "" Then
+        MsgBox "Se debe indicar en Parámetros\Contabilidad el nombre del fichero de traspaso de Subcuentas"
+        Exit Function
+    End If
+    intResp = MsgBox("Se generarán los ficheros: " & vbCrLf & "Diario: " & strFile & vbCrLf & "Subcuentas: " & strFile2, vbOKCancel + vbInformation)
+    If intResp = vbCancel Then Exit Function
+    If Dir(strFile) <> "" Then
+        intResp = MsgBox("¿Reemplazar el fichero " & strFile & " existente?", vbOKCancel + vbQuestion)
+        If intResp = vbCancel Then Exit Function
+    End If
+    If Dir(strFile2) <> "" Then
+        intResp = MsgBox("¿Reemplazar el fichero " & strFile2 & " existente?", vbOKCancel + vbQuestion)
+        If intResp = vbCancel Then Exit Function
+    End If
+    'Borrar registros de anterior enlace
+    CurrentDb.Execute "DELETE * FROM conPasoDiario", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM conPasoSubcuentas", dbFailOnError
+    GenerarRegistrosSubcuentas datDesde, datHasta, lngIdCliente, intYaCont
+    datEnlace = Now
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM FacturasCab"
+    If intYaCont = False Then
+        strSQL = strSQL & " WHERE ((FacturasCab.ContabilizadoSN) <> True)"
+    Else
+        strSQL = strSQL & " WHERE ((FacturasCab.ContabilizadoSN) = True)"
+    End If
+    If datDesde <> 0 Then
+        strSQL = strSQL & " AND (FacturasCab.FechaFactura Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+    End If
+    If lngIdCliente <> 0 Then
+        strSQL = strSQL & " AND (FacturasCab.IdCliente = " & lngIdCliente & ")"
+    End If
+    strSQL = strSQL & " ORDER BY FacturasCab.NumeroDeFactura"
+    Set grsFac = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If Not grsFac.EOF Then
+        grsFac.MoveLast
+        grsFac.MoveFirst
+    End If
+    gintTotalFac = grsFac.RecordCount
+    gintContFac = 0
+    gintContAsi = 0
+    glngRegEnlace = 0
+    SysCmd acSysCmdSetStatus, "Generando asientos contables (Ventas)"
+    While Not grsFac.EOF
+        'If IsNull(grsFac("IVA")) Or IsNull(grsFac("RecEq")) Then
+        If IsNull(grsFac("IVA")) Then
+            MsgBox "La Factura " & grsFac("NumeroDeFactura") & " figura con varios IVAs y/o Rec. Eq., no se generará asiento de dicha factura"
+            GoTo SiguienteFactura
+        End If
+        glngRegEnlace = glngRegEnlace + 1
+        gHayError = False
+        Call GAVentasCliente
+        If gHayError Then Exit Function
+'        Call GAVentasDescuentos
+'        If gHayError Then Exit Function
+        gHayError = False
+        Call GAVentasServiciosPrestados
+        If gHayError Then Exit Function
+        gHayError = False
+'        If grsFac("RecEq") > 0 Then
+'            Call GAVentasRecEq
+'        Else
+            Call GAVentasIVA
+'        End If
+        If gHayError Then Exit Function
+        grsFac.Edit
+'        grsFac("RegEnlace") = glngRegEnlace
+'        grsFac("FechaEnlace") = datEnlace
+        grsFac("ContabilizadoSN") = True
+        grsFac.Update
+SiguienteFactura:
+        grsFac.MoveNext
+        gintContFac = gintContFac + 1
+        SysCmd acSysCmdSetStatus, "Facturas: " & gintContFac & "/" & gintTotalFac & vbCrLf & "Líneas de asiento: " & gintContAsi
+    Wend
+    Set grsFac = Nothing
+    GenerarFicherosEnlaceContabilidadVentas
+    SysCmd acSysCmdClearStatus
+    MsgBox "Se han generado " & gintContAsi & " líneas de asiento, correspondientes a " & gintContFac & " facturas"
+    GenerarAsientosContab_Ventas = True
+Salir_GenerarAsientosContab_Ventas:
+    Exit Function
+Error_GenerarAsientosContab_Ventas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarAsientosContab_Ventas" & vbCrLf & Err.Description
+'            Resume Salir_GenerarAsientosContab_Ventas
+            Resume Next
+    End Select
+End Function
+
+Private Sub GAVentasCliente()
+    On Error GoTo Error_GAVentasCliente
+    Dim strSQL As String, rsAsi As Recordset
+    Dim curImporte As Currency
+    gSaltarFac = False
+    Set rsAsi = CurrentDb.OpenRecordset("conPasoDiario", dbOpenDynaset)
+    rsAsi.AddNew
+    rsAsi("Asien") = LlenaIzq(CStr(glngRegEnlace), 6)
+    rsAsi("Fecha") = Format(grsFac("FechaFactura"), "yyyymmdd")
+'    rsAsi("SubCta") = "430" & grsFac("CodCliente")
+'............traer la Cta. Contabilidad del cliente...........
+    Dim v As Variant
+    v = DLookup("CtaContabilidad", "Clientes", "IdCliente = " & grsFac("IdCliente"))
+    If IsNull(v) Then
+        v = "4300100"
+    End If
+    rsAsi("SubCta") = v
+'.............................................................
+    rsAsi("Contra") = "" 'DimeCuentaIVA_Rec
+    curImporte = grsFac("TotalBase") + Redondea(grsFac("TotalBase") * grsFac("IVA"), 2)
+    rsAsi("PtaDebe") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("Concepto") = "Factura nº. " & grsFac("NumeroDeFactura")
+    rsAsi("PtaHaber") = LlenaIzq("0.00", 16)
+    rsAsi("EuroDebe") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("EuroHaber") = LlenaIzq("0.00", 16)
+    rsAsi("Factura") = LlenaIzq(CLng(Right(grsFac("NumeroDeFactura"), 5)), 8)
+    curImporte = grsFac("TotalBase")
+    rsAsi("Baseimpo") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("BaseEuro") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("IVA") = LlenaIzq(Format0_00(grsFac("IVA") * 100), 5)
+    rsAsi("Recequiv") = LlenaIzq(Format0_00(0), 5)
+    rsAsi("Documento") = grsFac("NumeroDeFactura")
+    rsAsi("MonedaUso") = "2"
+    rsAsi.Update
+    gintContAsi = gintContAsi + 1
+    SysCmd acSysCmdSetStatus, "Facturas: " & gintContFac & "/" & gintTotalFac & vbCrLf & "Líneas de asiento: " & gintContAsi
+Salir_GAVentasCliente:
+    Exit Sub
+Error_GAVentasCliente:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GAVentasCliente" & vbCrLf & Err.Description
+            gHayError = True
+            Resume Salir_GAVentasCliente
+            Resume Next
+    End Select
+End Sub
+
+
+Private Sub GAVentasServiciosPrestados()
+    On Error GoTo Error_GAVentasServiciosPrestados
+    Dim strSQL As String, rsAsi As Recordset, rsFam As Recordset
+    Dim curImporte As Currency
+    Set rsAsi = CurrentDb.OpenRecordset("conPasoDiario", dbOpenDynaset)
+    rsAsi.AddNew
+    rsAsi("Asien") = LlenaIzq(CStr(glngRegEnlace), 6)
+    rsAsi("Fecha") = Format(grsFac("FechaFactura"), "yyyymmdd")
+    rsAsi("SubCta") = DameValorParam("ContabilidadCuentaVentas")
+    rsAsi("Contra") = ""
+    curImporte = grsFac("TotalBase")
+    rsAsi("PtaDebe") = LlenaIzq("0.00", 16)
+    rsAsi("Concepto") = RecDerTop(DameValorParam("ContabilidadCuentaVentasDescripcion"), 0, 25)
+    rsAsi("PtaHaber") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("EuroDebe") = LlenaIzq("0.00", 16)
+    rsAsi("EuroHaber") = LlenaIzq(Format0_00(curImporte), 16)
+    'rsAsi ("Factura")
+'        curImporte = grsFac("TotalBase")
+'        rsAsi("Baseimpo") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+'        rsAsi("BaseEuro") = LlenaIzq(Format0_00(curImporte), 16)
+'        rsAsi("IVA") = LlenaIzq(Format0_00(grsFac("IVA") * 100), 5)
+'        rsAsi("Recequiv") = LlenaIzq(Format0_00(grsFac("RecEq") * 100), 5)
+    rsAsi("Documento") = grsFac("NumeroDeFactura")
+    rsAsi("MonedaUso") = "2"
+    rsAsi.Update
+    gintContAsi = gintContAsi + 1
+    SysCmd acSysCmdSetStatus, "Facturas: " & gintContFac & "/" & gintTotalFac & vbCrLf & "Líneas de asiento: " & gintContAsi
+Salir_GAVentasServiciosPrestados:
+    Exit Sub
+Error_GAVentasServiciosPrestados:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GAVentasServiciosPrestados" & vbCrLf & Err.Description
+            gHayError = True
+            Resume Salir_GAVentasServiciosPrestados
+    End Select
+End Sub
+
+Private Sub GAVentasDescuentos()
+    On Error GoTo Error_GAVentasDescuentos
+    Dim strSQL As String, rsAsi As Recordset, rsDto As Recordset
+    Dim curImporte As Currency
+    strSQL = "SELECT tbFacturasDet.IdFacturaCab, Sum([Cantidad]*[Precio]) AS Importe"
+    strSQL = strSQL & " FROM tbFacturasDet"
+    strSQL = strSQL & " GROUP BY tbFacturasDet.IdFacturaCab, tbFacturasDet.EsDto"
+    strSQL = strSQL & " HAVING (((tbFacturasDet.IdFacturaCab)=" & grsFac("IdFacturaCab") & ") AND ((tbFacturasDet.EsDto)=True));"
+    Set rsDto = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAsi = CurrentDb.OpenRecordset("conPasoDiario", dbOpenDynaset)
+    While Not rsDto.EOF
+        rsAsi.AddNew
+        rsAsi("Asien") = LlenaIzq(CStr(glngRegEnlace), 6)
+        rsAsi("Fecha") = Format(grsFac("FechaFactura"), "yyyymmdd")
+        If gstrCuentaDto = "" Then
+            gstrCuentaDto = DameValorParam("ContabilidadCuentaDescuentos")
+        End If
+        rsAsi("SubCta") = gstrCuentaDto
+        rsAsi("Contra") = ""
+        If grsFac("IvaIncluido") = False Then
+            curImporte = -1 * rsDto("Importe")
+        Else
+            curImporte = -1 * (rsDto("Importe") / (1 + grsFac("IVA") + grsFac("RecEq")))
+        End If
+        rsAsi("PtaDebe") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+        rsAsi("PtaHaber") = LlenaIzq("0.00", 16)
+        rsAsi("Concepto") = RecDerTop("Descuento fact. " & grsFac("NumeroFactura"), 0, 25)
+        rsAsi("EuroDebe") = LlenaIzq(Format0_00(curImporte), 16)
+        rsAsi("EuroHaber") = LlenaIzq("0.00", 16)
+        'rsAsi ("Factura")
+'        curImporte = grsFac("TotalBase")
+'        rsAsi("Baseimpo") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+'        rsAsi("BaseEuro") = LlenaIzq(Format0_00(curImporte), 16)
+'        rsAsi("IVA") = LlenaIzq(Format0_00(grsFac("IVA") * 100), 5)
+'        rsAsi("Recequiv") = LlenaIzq(Format0_00(grsFac("RecEq") * 100), 5)
+        rsAsi("Documento") = grsFac("NumeroFactura")
+        rsAsi("MonedaUso") = "2"
+        rsAsi.Update
+        gintContAsi = gintContAsi + 1
+        SysCmd acSysCmdSetStatus, "Facturas: " & gintContFac & "/" & gintTotalFac & vbCrLf & "Líneas de asiento: " & gintContAsi
+        rsDto.MoveNext
+    Wend
+Salir_GAVentasDescuentos:
+    Exit Sub
+Error_GAVentasDescuentos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GAVentasDescuentos" & vbCrLf & Err.Description
+            gHayError = True
+            Resume Salir_GAVentasDescuentos
+    End Select
+End Sub
+
+Private Sub GAVentasIVA()
+    On Error GoTo Error_GAVentasIVA
+    Dim strSQL As String, rsAsi As Recordset
+    Dim curImporte As Currency
+    Set rsAsi = CurrentDb.OpenRecordset("conPasoDiario", dbOpenDynaset)
+    rsAsi.AddNew
+    rsAsi("Asien") = LlenaIzq(CStr(glngRegEnlace), 6)
+    rsAsi("Fecha") = Format(grsFac("FechaFactura"), "yyyymmdd")
+    rsAsi("SubCta") = DimeCuentaIVA_Rec(1)
+    rsAsi("Concepto") = "IVA repercutido " & Format(grsFac("IVA"), "percent")
+'    rsAsi("Contra") = "430" & grsFac("CodCliente")
+'............traer la Cta. Contabilidad del cliente...........
+    Dim v As Variant
+    v = DLookup("CtaContabilidad", "Clientes", "IdCliente = " & grsFac("IdCliente"))
+    If IsNull(v) Then
+        v = "4300100"
+    End If
+    rsAsi("Contra") = v
+'.............................................................
+    curImporte = Redondea(grsFac("TotalBase") * grsFac("IVA"), 2)
+    rsAsi("PtaDebe") = LlenaIzq("0.00", 16)
+    rsAsi("PtaHaber") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("EuroDebe") = LlenaIzq("0.00", 16)
+    rsAsi("EuroHaber") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("Factura") = LlenaIzq(CLng(Right(grsFac("NumeroDeFactura"), 5)), 8)
+    curImporte = grsFac("TotalBase")
+    rsAsi("Baseimpo") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("BaseEuro") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("IVA") = LlenaIzq(Format0_00(grsFac("IVA") * 100), 5)
+    rsAsi("Recequiv") = LlenaIzq(Format0_00(0 * 100), 5)
+    rsAsi("Documento") = grsFac("NumeroDeFactura")
+    rsAsi("MonedaUso") = "2"
+    rsAsi.Update
+    gintContAsi = gintContAsi + 1
+    SysCmd acSysCmdSetStatus, "Facturas: " & gintContFac & "/" & gintTotalFac & vbCrLf & "Líneas de asiento: " & gintContAsi
+Salir_GAVentasIVA:
+    Exit Sub
+Error_GAVentasIVA:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GAVentasIVA" & vbCrLf & Err.Description
+            gHayError = True
+            Resume Salir_GAVentasIVA
+            Resume Next
+    End Select
+End Sub
+
+Private Sub GAVentasRecEq()
+    ' genera 2 asientos, uno al IVA y otro al REc.Eq.
+    On Error GoTo Error_GAVentasRecEq
+    Dim strSQL As String, rsAsi As Recordset
+    Dim curImporte As Currency
+    Set rsAsi = CurrentDb.OpenRecordset("conPasoDiario", dbOpenDynaset)
+    rsAsi.AddNew
+    rsAsi("Asien") = LlenaIzq(CStr(glngRegEnlace), 6)
+    rsAsi("Fecha") = Format(grsFac("FechaFactura"), "yyyymmdd")
+    rsAsi("SubCta") = DimeCuentaIVA_Rec(2)
+    rsAsi("Contra") = "430" & grsFac("CodCliente")
+    curImporte = grsFac("TotalIVA")
+    rsAsi("PtaDebe") = LlenaIzq("0.00", 16)
+    rsAsi("PtaHaber") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("Concepto") = "IVA " & Format(grsFac("IVA"), "percent")
+    rsAsi("EuroDebe") = LlenaIzq("0.00", 16)
+    rsAsi("EuroHaber") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("Factura") = LlenaIzq(CLng(Right(grsFac("NumeroFactura"), 5)), 8)
+    curImporte = grsFac("TotalBase")
+    rsAsi("Baseimpo") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("BaseEuro") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("IVA") = LlenaIzq(Format0_00(grsFac("IVA") * 100), 5)
+    rsAsi("Recequiv") = LlenaIzq(Format0_00(grsFac("RecEq") * 100), 5)
+    rsAsi("Documento") = grsFac("NumeroFactura")
+    rsAsi("MonedaUso") = "2"
+    rsAsi.Update
+    gintContAsi = gintContAsi + 1
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    rsAsi.AddNew
+    rsAsi("Asien") = LlenaIzq(CStr(glngRegEnlace), 6)
+    rsAsi("Fecha") = Format(grsFac("FechaFactura"), "yyyymmdd")
+    rsAsi("SubCta") = DimeCuentaIVA_Rec(3)
+    rsAsi("Contra") = "430" & grsFac("CodCliente")
+    curImporte = grsFac("TotalRecEq")
+    rsAsi("PtaDebe") = LlenaIzq("0.00", 16)
+    rsAsi("PtaHaber") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+    rsAsi("Concepto") = "Rec.Eq. " & Format(grsFac("RecEq"), "percent")
+    rsAsi("EuroDebe") = LlenaIzq("0.00", 16)
+    rsAsi("EuroHaber") = LlenaIzq(Format0_00(curImporte), 16)
+    rsAsi("Factura") = LlenaIzq(CLng(Right(grsFac("NumeroFactura"), 5)), 8)
+'    curImporte = grsFac("TotalBase")
+'    rsAsi("Baseimpo") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
+'    rsAsi("BaseEuro") = LlenaIzq(Format0_00(curImporte), 16)
+'    rsAsi("IVA") = LlenaIzq(Format0_00(grsFac("IVA") * 100), 5)
+'    rsAsi("Recequiv") = LlenaIzq(Format0_00(grsFac("RecEq") * 100), 5)
+    rsAsi("Documento") = grsFac("NumeroFactura")
+    rsAsi("MonedaUso") = "2"
+    rsAsi.Update
+    gintContAsi = gintContAsi + 1
+    SysCmd acSysCmdSetStatus, "Facturas: " & gintContFac & "/" & gintTotalFac & vbCrLf & "Líneas de asiento: " & gintContAsi
+Salir_GAVentasRecEq:
+    Exit Sub
+Error_GAVentasRecEq:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GAVentasRecEq" & vbCrLf & Err.Description
+            gHayError = True
+            Resume Salir_GAVentasRecEq
+    End Select
+End Sub
+
+Public Function GenerarRegistrosSubcuentas(Optional datDesde As Date = 0, Optional datHasta As Date = 0, Optional lngIdCliente As Long = 0, Optional intYaCont As Integer = False)
+    On Error GoTo Error_GenerarAsientosSubcuentas
+    Dim rs As Recordset, strSQL As String
+    Dim rsSCta As Recordset
+'    strSQL = "SELECT *"
+'    strSQL = strSQL & " FROM tbFamilias"
+'    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsSCta = CurrentDb.OpenRecordset("conPasoSubcuentas", dbOpenDynaset)
+'    While Not rs.EOF
+'        rsSCta.AddNew
+'        rsSCta("Cod") = rs("Subcuenta")
+'        rsSCta("Titulo") = RecDerTop("Vtas. F/" & rs("Descripcion"), 0, 40)
+'        rsSCta.Update
+'        rs.MoveNext
+'    Wend
+    strSQL = "SELECT DISTINCTROW Clientes.*"
+    strSQL = strSQL & " FROM FacturasCab INNER JOIN Clientes ON FacturasCab.IdCliente = Clientes.IdCliente"
+    strSQL = strSQL & " WHERE Clientes.CtaContabilidad <> '4300100' AND Clientes.CtaContabilidad Is Not Null"
+    If intYaCont = False Then
+        strSQL = strSQL & " AND ((FacturasCab.ContabilizadoSN) <> True)"
+    Else
+        strSQL = strSQL & " AND ((FacturasCab.ContabilizadoSN) = True)"
+    End If
+    If datDesde <> 0 Then
+        strSQL = strSQL & " AND (FacturasCab.FechaFactura Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+    End If
+    If lngIdCliente <> 0 Then
+        strSQL = strSQL & " AND (FacturasCab.IdCliente = " & lngIdCliente & ")"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        rsSCta.AddNew
+'        rsSCta("Cod") = "430" & rs("CodCliente")
+        rsSCta("Cod") = rs("CtaContabilidad")
+        rsSCta("Titulo") = RecDerTop(rs("DenCliente"), 0, 40)
+        rsSCta("Nif") = rs("NIF")
+        rsSCta("Domicilio") = RecDerTop(rs("Direccion"), 0, 35)
+        rsSCta("Poblacion") = RecDerTop(rs("Ciudad"), 0, 25)
+        rsSCta("Provincia") = RecDerTop(rs("EdoOProv"), 0, 20)
+        rsSCta("CodPostal") = rs("CodPostal")
+        rsSCta.Update
+        rs.MoveNext
+    Wend
+Salir_GenerarAsientosSubcuentas:
+    Exit Function
+Error_GenerarAsientosSubcuentas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarAsientosSubcuentas" & vbCrLf & Err.Description
+            Resume Salir_GenerarAsientosSubcuentas
+            Resume Next
+    End Select
+End Function
+
+Private Sub MensajeBarra(Optional intclear As Integer = False)
+    Dim varReturn As Variant, strMensaje As String
+    If intclear Then
+        varReturn = SysCmd(acSysCmdClearStatus)
+    Else
+        strMensaje = "Generando asientos contables: " & gintContFac & " facturas, " & gintContAsi & " líneas de asiento."
+        varReturn = SysCmd(acSysCmdSetStatus, strMensaje)
+    End If
+End Sub
+
+'Private Sub TitCuenta(strTit As String)
+ '   Dim i As Integer
+ '   i = InStr(strTit, "{CodTienda}")
+ '   If i > 0 Then
+ '       strTit = Mid(strTit, 1, i - 1) & DLookup("Descripcion", "tbTiendas", "CodTienda = '" & grsFac("CodTienda") & "'") & Mid(strTit, i + 11)
+ '   End If
+'End Sub
+Private Sub PasarTabla(rs As Recordset, strFile As String, intTipo As Integer, j As Integer)
+    On Error GoTo Error_PasarTabla
+    Dim i As Integer
+    Open strFile For Output As #1
+    While Not rs.EOF
+        For i = 0 To rs.Fields.Count - 2
+            Print #1, Llena(rs(i), rs.Fields(i).Properties("Size"));
+        Next i
+        If intTipo = 1 Then
+            Print #1,
+        End If
+        rs.MoveNext
+        j = j + 1
+    Wend
+    Close 1
+Salir_PasarTabla:
+    Exit Sub
+Error_PasarTabla:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PasarTabla" & vbCrLf & Err.Description
+            Resume Salir_PasarTabla
+    End Select
+End Sub
+
+Private Function DimeCuentaIVA_Rec(Optional intEsIVARE As Integer = 1)
+    ' Si intEsIVARE=1 devielve cuenta de IVA, si 2 cuenta de IVA_RE, si 3 cuenta de RE
+'''''''''''''''''''''''''    If grsFac("IVA") = gsngAntIVA And grsFac("RecEq") = gsngAntRecEq And intEsIVARE = gintAntEsIVARE Then
+    If grsFac("IVA") = gsngAntIVA And intEsIVARE = gintAntEsIVARE Then
+    Else
+        Dim intTipoIVA As Integer
+        intTipoIVA = NuloEs(DLookup("TipoIVA", "tbTiposIVA", "IVA = " & ComaPunto(grsFac("IVA"))), 0)
+        Select Case intEsIVARE
+            Case 1
+                gstrCuentaIVA = NuloEs(DLookup("CtaRepercutido", "tbTiposIVA", "TipoIVA = " & intTipoIVA), "")
+        End Select
+        gsngAntIVA = grsFac("IVA")
+        gintAntEsIVARE = intEsIVARE
+'''''''''        gsngAntRecEq = grsFac("RecEq")
+    End If
+DimeCuentaIVA_Rec = gstrCuentaIVA
+End Function
+
+Public Function Format0_00(curImporte As Currency, Optional ByRef intError As Integer) As String
+    On Error GoTo Error_Format0_00
+    intError = False
+    Dim strAux As String, i As Integer
+    strAux = Format(curImporte, "0.00")
+    i = InStr(strAux, ",")
+    If i > 0 Then
+        Mid(strAux, i, 1) = "."
+    End If
+    Format0_00 = strAux
+Salir_Format0_00:
+    Exit Function
+Error_Format0_00:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Format0_00" & vbCrLf & Err.Description
+            intError = True
+            Resume Salir_Format0_00
+    End Select
+End Function

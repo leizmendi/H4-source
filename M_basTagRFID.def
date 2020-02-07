@@ -1,0 +1,100 @@
+Option Compare Database
+Option Explicit
+
+Public Function LeeTagRFID(ByVal strSerialNumber As String, Optional ByRef lngIdBarm As Long, Optional ByRef lngIdFichaCab As Long, Optional ByRef intActivaSN As Integer, Optional ByVal strTipoAcceso As String) As Integer
+    On Error GoTo Error_LeeTagRFID
+    Dim db As Database, rs As Recordset
+    LeeTagRFID = False
+    If Not IsNumeric(strSerialNumber) Then GoTo Salir_LeeTagRFID
+    Set db = OpenDatabase(Nz(DameValorParam("AplicacionCarpetaDatos"), "") & "R4_Link.mdb")
+    Set rs = db.OpenRecordset("SELECT * FROM tbTagsRFID WHERE SerialNumber = " & ConComillas(strSerialNumber), dbOpenSnapshot)
+    If rs.EOF Then GoTo Salir_LeeTagRFID
+    lngIdBarm = Nz(rs("IdBarm"), 0)
+    lngIdFichaCab = Nz(rs("IdFichaCab"), 0)
+    intActivaSN = Nz(rs("ActivaSN"), False)
+    LeeTagRFID = True
+Salir_LeeTagRFID:
+    Exit Function
+Error_LeeTagRFID:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LeeTagRFID" & vbCrLf & Err.Description
+            Resume Salir_LeeTagRFID
+    End Select
+
+End Function
+
+Public Function PonTagRFID_IdFichaCab(ByVal strSerialNumber As String, ByVal lngIdFichaCab As Long) As Integer
+    On Error GoTo Error_PonTagRFID_IdFichaCab
+    Dim rs As Recordset, intR As Integer, strCod As String
+    PonTagRFID_IdFichaCab = False
+    If Not IsNumeric(strSerialNumber) Then GoTo Salir_PonTagRFID_IdFichaCab
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbTagsRFID WHERE SerialNumber = " & ConComillas(strSerialNumber), dbOpenDynaset)
+    If rs.EOF Then
+        intR = MsgBox("No se encontró Tarjeta RFID S/N: " & strSerialNumber & vbCrLf & "¿Dar de alta?", vbExclamation + vbOKCancel)
+        If intR = vbCancel Then GoTo Salir_PonTagRFID_IdFichaCab
+        rs.AddNew
+        rs("SerialNumber") = strSerialNumber
+        strCod = Nz(DimeTeclado(1, "Código de tarjeta"), strSerialNumber)
+        rs("Codigo") = strCod
+    Else
+        rs.Edit
+    End If
+    rs("IdBarm") = Null
+    rs("IdFichaCab") = lngIdFichaCab
+    rs("ActivaSN") = True
+    rs.Update
+    PonTagRFID_IdFichaCab = True
+Salir_PonTagRFID_IdFichaCab:
+    Exit Function
+Error_PonTagRFID_IdFichaCab:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonTagRFID_IdFichaCab" & vbCrLf & Err.Description
+            Resume Salir_PonTagRFID_IdFichaCab
+    End Select
+
+End Function
+
+
+Public Function DimeTarjetasRFID_Ficha(lngIdFichaCab As Long) As String
+    On Error GoTo Error_DimeTarjetasRFID_Ficha
+    Dim rs As Recordset, strR As String
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbTagsRFID WHERE IdFichaCab = " & lngIdFichaCab & " ORDER BY Codigo", dbOpenSnapshot)
+    While Not rs.EOF
+        strR = strR & rs("Codigo") & ", "
+        rs.MoveNext
+    Wend
+    If Len(strR) > 2 Then strR = RecDerTop(strR, 2, 0)
+    DimeTarjetasRFID_Ficha = strR
+Salir_DimeTarjetasRFID_Ficha:
+    Exit Function
+Error_DimeTarjetasRFID_Ficha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeTarjetasRFID_Ficha" & vbCrLf & Err.Description
+            Resume Salir_DimeTarjetasRFID_Ficha
+    End Select
+
+End Function
+
+Public Function QuitaTarjetaRFID_Ficha(lngIdFichaCab As Long) As Integer
+    On Error GoTo Error_QuitaTarjetaRFID_Ficha
+    Dim strSQL As String, lngIdTagRFID As Long
+    strSQL = "SELECT IdTagRFID, Codigo FROM tbTagsRFID WHERE IdFichaCab = " & lngIdFichaCab & " ORDER BY Codigo"
+    CurrentDb.Execute "UPDATE sysBusquedas SET strSQL=" & ConComillas(strSQL) & " WHERE CodBusqueda = 'TAR01'", dbFailOnError
+    lngIdTagRFID = Nz(BuscaAyuda("TAR01", , , , , , True), 0)
+    If lngIdTagRFID = 0 Then Exit Function
+    strSQL = "UPDATE tbTagsRFID SET IdFichaCab=Null, ActivaSN=False WHERE IdTagRFID = " & lngIdTagRFID
+    CurrentDb.Execute strSQL, dbFailOnError
+    QuitaTarjetaRFID_Ficha = True
+Salir_QuitaTarjetaRFID_Ficha:
+    Exit Function
+Error_QuitaTarjetaRFID_Ficha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en QuitaTarjetaRFID_Ficha" & vbCrLf & Err.Description
+            Resume Salir_QuitaTarjetaRFID_Ficha
+    End Select
+
+End Function

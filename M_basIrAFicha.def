@@ -1,0 +1,15 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function AbrirFichaNum(Optional lngIdFicha As Long = 0)
+    If lngIdFicha <> 0 Then
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha
+        Exit Function
+    End If
+    DoCmd.OpenForm "frmIrAFicha", , , , , acDialog
+    If IsOpenForm("frmIrAFicha") Then
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Forms("frmIrAFicha")("txtIdFicha")
+        DoCmd.Close acForm, "frmIrAFicha"
+    End If
+End Function

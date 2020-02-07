@@ -1,0 +1,236 @@
+﻿<?xml version="1.0" standalone="yes"?>
+<CommandBar name="Detalle_Ficha">
+  <AdaptiveMenu value="false"/>
+  <Context value=""/>
+  <Description value="Menú emergente Detalle_Ficha"/>
+  <Enabled value="true"/>
+  <Position value="5"/>
+  <Protection value="22"/>
+  <RowIndex value="-1"/>
+  <Type value="2"/>
+  <Visible value="false"/>
+  <Controls>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Añadir línea"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="1"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Añadir línea"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=AñadirDetalleFicha()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAAAAAAAAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAA8PDwAPDw8AAAAAAAAP//AAD//wAA//8AAP//AAAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8ADw8PAA8PDwAAAAAAAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8AAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAD//wAA//8AAP//AAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8A
+AP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAAAAAAAAD//wAA
+//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD/
+/wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//
+AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAA//8AAP//AAD//wAA//8AAAAAAAAAAAAAAAAAAAAAAAAAAADw8PAA8PDwAPDw8ADw
+8PAAAAAAAAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8AAAAAAAAP//AAD//wAA//8AAP//AAAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+AAAAAAAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Borrar"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="2"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Borrar"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=BorrarDetalleFicha()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8AAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8A
+AP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAAAAAAAAD//wAA
+//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD/
+/wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//
+AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw8PAA8PDwAPDw8ADw
+8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Observaciones"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="3"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Observaciones"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=ObservacionesDetalleFicha()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8AAAAAAAAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8ADw
+8PAAAAAAAAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAAAA
+AAAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAAAAAA
+AAD//wAA//8AAP//AAAAAADw8PAA8PDwAAAAAAAA//8AAP//AAD//wAAAAAA8PDwAAAAAAAA//8A
+AP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAAAAAAAA//8AAP//AAD//wAAAAAAAAAAAAD//wAA
+//8AAP//AAAAAADw8PAA8PDwAPDw8ADw8PAAAAAAAAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD/
+/wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8AAAAAAAAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//
+AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAAAAAAAA//8AAP//AAD//wAAAAAA8PDwAAAAAAAA//8A
+AP//AAD//wAAAAAA8PDwAPDw8AAAAAAAAP//AAD//wAA//8AAAAAAPDw8ADw8PAAAAAAAAD//wAA
+//8AAP//AAD//wAAAAAAAAAAAAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAAAAAAAAD/
+/wAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAAAAAA
+AAD//wAA//8AAP//AAD//wAA//8AAP//AAAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Facturar S/N"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="4"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Facturar S/N"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=FacturarSNDetalleFicha()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8AAAAAAAAP//AAD//wAA//8AAAAAAAAAAAAA
+//8AAP//AAAAAADw8PAA8PDwAPDw8ADw8PAAAAAAAAAAAAAA//8AAP//AAD//wAAAAAAAAAAAAD/
+/wAA//8AAAAAAPDw8ADw8PAA8PDwAAAAAAAAAAAAAP//AAD//wAA//8AAP//AAAAAAAAAAAAAP//
+AAD//wAAAAAA8PDwAAAAAAAAAAAAAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAAAA//8A
+AP//AAAAAAAAAAAAAAAAAAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAAAAAAAAD//wAA
+//8AAAAAAAAAAAAA//8AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD/
+/wAAAAAAAP//AAD//wAA//8AAP//AAD//wAAAAAAAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//
+AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//AAD//wAAAAAAAAAAAAD//wAA//8A
+AP//AAD//wAA//8AAP//AAAAAAAAAAAA8PDwAAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD//wAA
+//8AAP//AAD//wAAAAAAAAAAAPDw8ADw8PAAAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//AAD/
+/wAAAAAAAAAAAPDw8ADw8PAA8PDwAPDw8AAA//8AAP//AAD//wAAAAAAAAAAAAD//wAA//8AAAAA
+AAAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAAD//wAA//8AAP//AAAAAAAAAAAAAAAAAAAAAAAAAAAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAAAAAAAAAAAAAAAAAAAAAAAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Modificar"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="5"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Modificar"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=ModificarDetalleFicha()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8AAAAAAAAAAAAAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAA8PDwAAAAAAAA//8AAP//AAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw
+8ADw8PAAAAAAAAD//wAA//8AAP//AAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+APDw8AAAAAAAAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAAAAAAAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAAAAAAAAD//wAA//8AAP//AAD//wAA//8AAP//AAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw
+8AAAAAAAAP//AAD//wAA//8AAP//AAD//wAA//8AAAAAAAAAAADw8PAA8PDwAPDw8ADw8PAA8PDw
+AAAAAAAA//8AAP//AAD//wAA//8AAP//AAD//wAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+AAAAAAD//wAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8AAA
+AAAAAP//AAD//wAA//8AAP//AAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAAAA
+AAAA//8AAP//AAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAAAAAA
+AAAAAAAAAAAAAAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Traspasar a otra ficha"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="6"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Traspasar a otra ficha"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=TraspasarDetalleFicha()"/>
+      <ImageData>Qk1GAwAAAAAAADYAAAAoAAAADgAAAA4AAAABACAAAAAAABADAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8AAAAAAA
+AAAAAAAAAADw8PAA8PDwAAAAAAAAAAAAAAAAAAAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAAAAAAAA
+//8AAP//AAAAAADw8PAAAAAAAAD//wAA//8AAAAAAAAAAADw8PAA8PDwAPDw8ADw8PAAAAAAAAD/
+/wAA//8AAAAAAAAAAADAwMAAAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAPDw8AAAAAAAAP//
+AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD//wAA//8AAAAAAAAAAADw8PAA8PDwAAAAAAAA//8A
+AP//AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD//wAA//8AAAAAAAAAAADw8PAAAAAAAAD//wAA
+//8AAP//AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD//wAA//8AAAAAAAAAAAAAAAAAAP//AAD/
+/wAA//8AAP//AAD//wAA//8AAAAAAAAAAAAA//8AAP//AAD//wAAAAAAAAAAAAAAAAAA//8AAP//
+AAD//wAA//8AAP//AAAAAAAAAAAAAP//AAD//wAA//8AAAAAAAAAAADw8PAAAAAAAAD//wAA//8A
+AP//AAD//wAAAAAAAAAAAAD//wAA//8AAP//AAAAAAAAAAAA8PDwAPDw8AAAAAAAAP//AAD//wAA
+//8AAAAAAAAAAAAA//8AAP//AAD//wAA//8AAAAAAPDw8ADw8PAA8PDwAAAAAAAA//8AAP//AAAA
+AADw8PAAAAAAAAD//wAA//8AAAAAAAAAAADw8PAA8PDwAPDw8ADw8PAAAAAAAAAAAAAAAAAA8PDw
+APDw8AAAAAAAAAAAAAAAAAAAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+  </Controls>
+</CommandBar>

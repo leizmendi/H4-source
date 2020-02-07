@@ -1,0 +1,30 @@
+Option Compare Database
+Option Explicit
+
+Public Function CarpetaImg() As String
+    Dim strCar As String
+    strCar = DameValorParam("AplicacionCarpetaDatos") & "ImagenesEscaner"
+    If Dir(strCar, vbDirectory) = "" Then MkDir strCar
+    CarpetaImg = strCar & "\"
+End Function
+
+Public Function ExtensionDeFile(strFullPath As String, Optional intJPEGasJPG As Integer = False) As String
+    Dim i As Integer, strR As String
+    On Error GoTo Error_ExtensionDeFile
+    For i = Len(strFullPath) To 1 Step -1
+        If Mid(strFullPath, i, 1) = "." Then
+            strR = Mid(strFullPath, i)
+            Exit For
+        End If
+    Next i
+    If intJPEGasJPG And strR = ".jpeg" Then strR = ".jpg"
+    ExtensionDeFile = strR
+Salir_ExtensionDeFile:
+    Exit Function
+Error_ExtensionDeFile:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº: " & Err & " en ExtensionDeFile" & vbCrLf & Err.Description
+    End Select
+    Resume Salir_ExtensionDeFile
+End Function

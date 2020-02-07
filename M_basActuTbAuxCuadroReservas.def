@@ -1,0 +1,163 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub ActuauxCuadroReservas(datDesde As Date, datHasta As Date)
+    ' Actualiza la tabla auxCuadroReservas, borrando todos los registros y añadiendo
+    ' los correspondientes a las fechas pasadas en los parámetros
+    Dim strSQL As String, rs As Recordset
+    Dim rsCR As Recordset, d As Date
+    On Error GoTo Error_ActuauxCuadroReservas
+    strSQL = "SELECT tbFichasDet.*"
+    strSQL = strSQL & " FROM tbFichasDet INNER JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela"
+    strSQL = strSQL & " WHERE (((tbParcelas.ControlReservas)=True) AND ((tbFichasDet.FechaDesde)<=#" & Format(datHasta, "mm/dd/yy") & "#) AND ((tbFichasDet.FechaHasta)>=#" & Format(datDesde, "mm/dd/yy") & "# Or (tbFichasDet.FechaHasta)=(Null)));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    CurrentDb.Execute "DELETE * FROM auxCuadroReservas", dbFailOnError
+    Set rsCR = CurrentDb.OpenRecordset("auxCuadroReservas")
+    While Not rs.EOF
+        If IsNull(rs("FechaHasta")) Then
+            rsCR.AddNew
+            rsCR("FechaDia") = rs("FechaDesde")
+            rsCR("Parcela") = rs("Parcela")
+            rsCR("Ficha") = rs("IdFichaCab")
+            rsCR("SinFechaSalida") = True
+            rsCR.Update
+            GoTo Siguiente
+        End If
+        For d = rs("FechaDesde") To rs("FechaHasta") - 1
+            rsCR.AddNew
+            rsCR("FechaDia") = d
+            rsCR("Parcela") = rs("Parcela")
+            rsCR("Ficha") = rs("IdFichaCab")
+            rsCR.Update
+        Next d
+Siguiente:
+        rs.MoveNext
+    Wend
+Salir_ActuauxCuadroReservas:
+    Exit Sub
+Error_ActuauxCuadroReservas:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ActuauxCuadroReservas" & vbCrLf & Err.Description
+            Resume Salir_ActuauxCuadroReservas
+            Resume Next
+    End Select
+End Sub
+
+Public Function ActuauxCuadroReservasMesActual()
+    Dim dD As Date, dH As Date
+    Dim st As String, intm As Integer
+    dD = Date - 15
+    dH = Date + 15
+    ActuauxCuadroReservas dD, dH
+End Function
+
+Public Function Librehasta(strParcela As String, datDesde As Date, Optional int_Fecha_IdFicha As Integer = 1) As Variant
+    'Pasándole los parámetros de Parcela y Fecha inferior, devuelve la fecha en la que se debe librar
+    'la parcela, según las reservas existentes, si no existen reservas posteriores, devuelve ""
+    ' Si intFecha_IdFicha = 2 devuelve el IdFicha
+    On Error GoTo Error_LibreHasta
+    Dim rs As Recordset, strSQL As String
+    strSQL = "SELECT TOP 1 tbFichasDet.FechaInicio, tbFichasDet.IdFichaCab, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasdet.Parcela = '" & strParcela & "'" & _
+                      " AND tbFichasDet.FechaInicio > #" & Format(datDesde, "mm/dd/yyyy") & "#" & _
+                      " AND tbFichasCab.EstadoFicha <> 9 "
+    strSQL = strSQL & " ORDER BY tbFichasDet.FechaInicio"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        Librehasta = ""
+    Else
+        If int_Fecha_IdFicha = 1 Then
+            Librehasta = rs("FechaInicio")
+        Else
+            Librehasta = rs("IdFichaCab")
+        End If
+    End If
+    
+Salir_LibreHasta:
+    Exit Function
+Error_LibreHasta:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en LibreHasta" & vbCrLf & Err.Description
+            Resume Salir_LibreHasta
+            Resume Next
+    End Select
+End Function
+
+Public Function FechaD(lngIdFichaDet As Long) As Variant
+    'Pasándole el parámetros de, devuelve la fechaDesde del registro de tbFichasDet
+    'si es nulo, devuelve ela FechaLlegada de tbFichasCab correspondiente
+    On Error GoTo Error_FechaD
+    Dim v As Variant
+    v = DLookup("FechaInicio", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet)
+    If IsNull(v) Then
+        Dim lngIdFichaCab As Long
+        lngIdFichaCab = Nz(DLookup("IdFichaCab", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet), 0)
+        v = DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab)
+    End If
+    FechaD = Nz(v, "")
+Salir_FechaD:
+    Exit Function
+Error_FechaD:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en FechaD" & vbCrLf & Err.Description
+            Resume Salir_FechaD
+            Resume Next
+    End Select
+End Function
+
+Public Function FechaH(lngIdFichaDet As Long) As Variant
+    'Pasándole el parámetros de, devuelve la FechaHasta del registro de tbFichasDet
+    'si es nulo, devuelve la FechaSalida de tbFichasCab correspondiente,
+    'si esta es nula, devuelve la fecha de mañana...
+    On Error GoTo Error_FechaH
+    Dim v As Variant
+    v = DLookup("FechaFin", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet)
+    If IsNull(v) Then
+        Dim lngIdFichaCab As Long
+        lngIdFichaCab = Nz(DLookup("IdFichaCab", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet), 0)
+        v = DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab)
+    End If
+    FechaH = Nz(v, Date + 1)
+Salir_FechaH:
+    Exit Function
+Error_FechaH:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en FechaH" & vbCrLf & Err.Description
+            Resume Salir_FechaH
+            Resume Next
+    End Select
+End Function
+
+Public Function DiasFichaDet(lngIdFichaDet As Long, Optional lngIdFichaCab As Long = 0) As Variant
+    'Pasándole el parámetros de, devuelve la DiasFichaDetasta del registro de tbFichasDet
+    'si es nulo, devuelve la FechaSalida de tbFichasCab correspondiente,
+    'si esta es nula, devuelve la fecha de mañana...
+    On Error GoTo Error_DiasFichaDet
+    Dim vIni As Variant, vFin As Variant
+    vIni = DLookup("FechaInicio", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet)
+    If IsNull(vIni) Then
+        DiasFichaDet = 1
+    Else
+        vFin = DLookup("FechaFin", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet)
+        If Nz(vFin, 0) = 0 Then
+            If lngIdFichaCab = 0 Then lngIdFichaCab = Nz(DLookup("IdFichaCab", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet), 0)
+            vFin = DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab)
+        End If
+        DiasFichaDet = Nz(vFin, vIni + 1) - vIni
+    End If
+Salir_DiasFichaDet:
+    Exit Function
+Error_DiasFichaDet:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DiasFichaDet" & vbCrLf & Err.Description
+            Resume Salir_DiasFichaDet
+            Resume Next
+    End Select
+End Function

@@ -1,0 +1,36 @@
+Option Compare Database
+Option Explicit
+
+ '********** Code start **********
+'This code was originally written by Dev Ashish.
+'It is not to be altered or distributed,
+'except as part of an application.
+'You are free to use it in any application,
+'provided the copyright notice is left unchanged.
+'
+'Code courtesy of
+'Dev Ashish
+
+ Function fCompileProject() As Boolean
+ Dim db As Database
+ Dim ctr As Container
+
+     If Not Application.IsCompiled Then
+        Set db = CurrentDb
+        Set ctr = db.Containers!Modules
+        If ctr.Documents.Count > 0 Then
+           DoCmd.OpenModule ctr.Documents(0).Name
+        Else
+            'No Modules present, try Forms container
+            Set ctr = db.Containers!Forms
+            'no need to check for count since this code
+            'itself must be present *somewhere*
+            DoCmd.OpenForm ctr.Documents(0).Name
+        End If
+        DoCmd.RunCommand acCmdCompileAndSaveAllModules
+        DoCmd.Close acModule, ctr.Documents(0).Name
+     End If
+
+     fCompileProject = Application.IsCompiled
+ End Function
+ '*********** Code End **********

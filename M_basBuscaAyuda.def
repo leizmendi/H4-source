@@ -1,0 +1,218 @@
+Option Compare Database
+Option Explicit
+    Global gintAdd As Integer, gint_btnMas As Integer, gint_btnMenos As Integer, gint_btnAdelanteAtras As Integer
+    ' aaa
+
+Public Function BuscaAyuda(strBusqueda As String, Optional vValor As Variant = Null, _
+                            Optional intAncho As Integer = 0, Optional intAñadir As Integer = False, _
+                            Optional vCodAdd As Variant = -1, Optional intCabecerasLista As Integer = True, _
+                            Optional intAutoSiSoloHay1 As Integer = False, _
+                            Optional int_btnMas As Integer = False, Optional int_btnMenos As Integer = False, _
+                            Optional intSeleccionaConClicSN As Integer = False, _
+                            Optional int_btnAdelanteAtras As Integer = False, _
+                            Optional strCodInicial As String = "") As Variant
+'Abre un formulario de búsqueda de registros
+   'On Error Resume Next
+    On Error GoTo Error_BuscaAyuda
+    Dim strForm As String, strXML As String, strSQL As String, rs As Recordset, strCod0 As String
+
+    If strCodInicial <> "" Then
+        strSQL = "UPDATE sysBusquedas SET Predeterminada = False WHERE CodBusqueda Like '" & strBusqueda & "*'"
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE sysBusquedas SET Predeterminada = True WHERE CodBusqueda = '" & strCodInicial & "'"
+        CurrentDb.Execute strSQL, dbFailOnError
+    Else
+        If Nz(DLookup("CodBusqueda", "sysBusquedas", "CodBusqueda Like '" & strBusqueda & "*' AND Predeterminada = True"), "") = "" Then
+            strCod0 = Nz(DLookup("CodBusqueda", "sysBusquedas", "CodBusqueda Like '" & strBusqueda & "*'"), "")
+            If strCod0 = "" Then
+                BuscaAyuda = Null
+                GoTo Salir_BuscaAyuda
+            End If
+            strSQL = "UPDATE sysBusquedas SET Predeterminada = True WHERE CodBusqueda = '" & strCod0 & "'"
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+    End If
+    If intAutoSiSoloHay1 = True Then
+        strSQL = Nz(DLookup("strSQL", "sysBusquedas", "CodBusqueda = '" & strBusqueda & "' AND Predeterminada = True"), "")
+        If strSQL <> "" Then
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then
+                rs.MoveLast
+                rs.MoveFirst
+                If rs.RecordCount = 1 Then
+                    BuscaAyuda = rs(0)
+                    Exit Function
+                End If
+            End If
+        End If
+    End If
+   
+    gintAdd = intAñadir
+    gint_btnMas = int_btnMas
+    gint_btnMenos = int_btnMenos
+    gint_btnAdelanteAtras = int_btnAdelanteAtras
+    Select Case intAncho
+        Case 0
+            strForm = "frmAyuda"
+        Case 1
+            strForm = "frmAyudaAncha"
+        Case 2
+            strForm = "frmAyudon"
+    End Select
+    PonXML strXML, "CodBusqueda", strBusqueda
+    PonXML strXML, "ValorDefecto", vValor
+    PonXML strXML, "CabecerasLista", intCabecerasLista
+    Dim intAltoLista As Integer
+    intAltoLista = Nz(DameValorParam("ListasAyudaTamaño"), 12.5)
+    PonXML strXML, "AltoLista", intAltoLista
+    If intSeleccionaConClicSN = True Then
+        PonXML strXML, "lst.OnClick", "[Procedimiento de Evento]"
+    End If
+    'DoCmd.OpenForm strForm, , , , , acDialog, strBusqueda & "¬" & Nz(vValor, "")
+    DoCmd.OpenForm strForm, , , , , acDialog, strXML
+
+    If Not IsOpenForm(strForm) Then
+        BuscaAyuda = Null
+        Exit Function
+    End If
+    If intAncho = 2 Then
+        If Forms(strForm).btnAdd.Tag = "ADD" Then
+            BuscaAyuda = vCodAdd
+            GoTo SalirFuncion
+        End If
+        If int_btnMas = True Or int_btnMas = 88 Or int_btnMenos = True Then
+            If Forms(strForm).btnMas.Tag = "" _
+            And Forms(strForm).btnMenos.Tag = "" _
+            And Forms(strForm).btnAdelante.Tag = "" _
+            And Forms(strForm).btnAtras.Tag = "" Then
+                BuscaAyuda = "OK"
+                GoTo SalirFuncion
+            ElseIf Forms(strForm).btnMas.Tag = "+" Then
+                BuscaAyuda = "+" & Forms(strForm).lst
+                GoTo SalirFuncion
+            ElseIf Forms(strForm).btnMenos.Tag = "-" Then
+                BuscaAyuda = "-" & Forms(strForm).lst
+                GoTo SalirFuncion
+            ElseIf Forms(strForm).btnAdelante.Tag = ">>" Then
+                BuscaAyuda = ">" & Forms(strForm).lst
+                GoTo SalirFuncion
+            ElseIf Forms(strForm).btnAtras.Tag = "<<" Then
+                BuscaAyuda = "<" & Forms(strForm).lst
+                GoTo SalirFuncion
+            End If
+        End If
+    End If
+            
+    If Forms(strForm).lst.ListIndex = -1 Then
+        BuscaAyuda = Null
+        GoTo SalirFuncion
+    End If
+    BuscaAyuda = Forms(strForm).lst
+SalirFuncion:
+    DoCmd.Close acForm, strForm
+Salir_BuscaAyuda:
+    Exit Function
+Error_BuscaAyuda:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BuscaAyuda" & vbCrLf & Err.Description
+            Resume Salir_BuscaAyuda
+    End Select
+End Function
+
+
+Public Function BuscaAyudaOLD(strBusqueda As String, Optional vValor As Variant = Null, Optional intAncho As Integer = 0, Optional intAñadir As Integer = False, Optional vCodAdd As Variant = -1, Optional intCabecerasLista As Integer = True, Optional intAutoSiSoloHay1 As Integer = False, Optional strCodInicial As String = "") As Variant
+'Abre un formulario de búsqueda de registros
+   'On Error Resume Next
+   On Error GoTo Error_BuscaAyudaOLD
+    Dim strForm As String, strXML As String, strSQL As String, rs As Recordset, strCod0 As String
+    If strCodInicial <> "" Then
+        strSQL = "UPDATE sysBusquedas SET Predeterminada = False WHERE CodBusqueda Like '" & strBusqueda & "*'"
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE sysBusquedas SET Predeterminada = True WHERE CodBusqueda = '" & strCodInicial & "'"
+        CurrentDb.Execute strSQL, dbFailOnError
+    Else
+        If Nz(DLookup("CodBusqueda", "sysBusquedas", "CodBusqueda Like '" & strBusqueda & "*' AND Predeterminada = True"), "") = "" Then
+            strCod0 = Nz(DLookup("CodBusqueda", "sysBusquedas", "CodBusqueda Like '" & strBusqueda & "*'"), "")
+            If strCod0 = "" Then
+                BuscaAyudaOLD = Null
+                GoTo Salir_BuscaAyudaOLD
+            End If
+            strSQL = "UPDATE sysBusquedas SET Predeterminada = True WHERE CodBusqueda = '" & strCod0 & "'"
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+    End If
+    If intAutoSiSoloHay1 = True Then
+        strSQL = Nz(DLookup("strSQL", "sysBusquedas", "CodBusqueda = '" & strBusqueda & "' AND Predeterminada = True"), "")
+        If strSQL <> "" Then
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then
+                rs.MoveLast
+                rs.MoveFirst
+                If rs.RecordCount = 1 Then
+                    BuscaAyudaOLD = rs(0)
+                    Exit Function
+                End If
+            End If
+        End If
+    End If
+   
+    gintAdd = intAñadir
+    Select Case intAncho
+        Case 0
+            strForm = "frmAyuda"
+        Case 1
+            strForm = "frmAyudaAncha"
+        Case 2
+            strForm = "frmAyudon"
+    End Select
+    PonXML strXML, "CodBusqueda", strBusqueda
+    PonXML strXML, "ValorDefecto", vValor
+    PonXML strXML, "CabecerasLista", intCabecerasLista
+    
+    'DoCmd.OpenForm strForm, , , , , acDialog, strBusqueda & "¬" & Nz(vValor, "")
+    DoCmd.OpenForm strForm, , , , , acDialog, strXML
+
+    If Not IsOpenForm(strForm) Then
+        BuscaAyudaOLD = Null
+        Exit Function
+    End If
+    If intAncho = 2 Then
+        If Forms(strForm).btnAdd.Tag = "ADD" Then
+            BuscaAyudaOLD = vCodAdd
+            GoTo SalirFuncion
+        End If
+    End If
+            
+    If Forms(strForm).lst.ListIndex = -1 Then
+        BuscaAyudaOLD = Null
+        GoTo SalirFuncion
+    End If
+    BuscaAyudaOLD = Forms(strForm).lst
+SalirFuncion:
+    DoCmd.Close acForm, strForm
+Salir_BuscaAyudaOLD:
+    Exit Function
+Error_BuscaAyudaOLD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BuscaAyudaOLD" & vbCrLf & Err.Description
+            Resume Salir_BuscaAyudaOLD
+    End Select
+End Function
+
+Public Function SeleccionDe(strCodSeleccion As String, strSeleccion As String, strTitulo As String, Optional vValorDefecto As Variant = Null, Optional intAutoSi1 As Integer = True) As Variant
+    Dim strSQL As String
+    On Error GoTo Error_SeleccionDe
+    strSQL = "SELECT ValorOpcion, Seleccion as [" & strSeleccion & "] FROM sysSeleccionesVarias WHERE CodSeleccion='" & strCodSeleccion & "' AND Visible = True Order By ValorOpcion"
+    CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = " & ConComillas(strSQL) & ", Titulo ='" & strTitulo & "' WHERE CodBusqueda = 'SELES'", dbFailOnError
+    SeleccionDe = BuscaAyuda("SELES", vValorDefecto, 2, , , False, intAutoSi1)
+Salir_SeleccionDe:
+    Exit Function
+Error_SeleccionDe:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SeleccionDe" & vbCrLf & Err.Description
+            Resume Salir_SeleccionDe
+    End Select
+End Function

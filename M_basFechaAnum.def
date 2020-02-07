@@ -1,0 +1,20 @@
+Option Compare Database
+Option Explicit
+
+Public Function FechaANum(strFecha As String) As Integer ' strfecha= MM/AA
+    Dim strFechaCambiada As String
+    On Error GoTo Error_FechaAnum
+    If Not IsNumeric(Left(strFecha, 2)) Or Not IsNumeric(Right(strFecha, 2)) Then
+        FechaANum = False
+        Exit Function
+    End If
+    strFechaCambiada = Right(strFecha, 2) & Left(strFecha, 2)
+    FechaANum = CInt(strFechaCambiada)
+Exit_FechaAnum:
+    Exit Function
+Error_FechaAnum:
+    MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En FechaAnum"
+    FechaANum = False
+    Resume Exit_FechaAnum
+
+End Function

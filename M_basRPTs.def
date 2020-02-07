@@ -1,0 +1,119 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub PonLogoRpt(rpt As Report, imgLogo As Control, intVer As Integer, lngAltoMax As Long, lngAnchoMax As Long _
+                      , Optional intAlinH As Integer = 1, Optional intAlinV As Integer = 1 _
+                      , Optional lngTop As Long = 0, Optional lngLeft As Long = 0)
+                      
+    Dim strOpenArgs As String
+    On Error Resume Next
+    strOpenArgs = rpt.OpenArgs
+    On Error GoTo Error_PonLogoRpt
+    Dim strFondo As String
+    If Nz(DameValorParam("FacturasImagenFondoSN"), False) = True And rpt.Name Like "rptFactura*" Then
+        strFondo = DameValorParam("FacturasImagenFondo")
+    End If
+    If Dir(strFondo) <> "" Then
+        rpt.Picture = strFondo
+        rpt.PictureSizeMode = 3
+        rpt.PictureAlignment = Nz(DameValorParam("FacturasImagenFondoAlineacion"), 0)
+    Else
+        rpt.Picture = ""
+    End If
+    
+    If Nz(DimeXML(strOpenArgs, "PDFsn"), "N") = "S" Then
+        intVer = Nz(DameValorParam("FacturasLogoSNpdf"), intVer)
+    End If
+    If intVer = True Then
+        imgLogo.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+        imgLogo.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        imgLogo.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+        'sngAltoMax = Nz(DameValorParam("FichasLogoMaxAlto"), 0) * TC_CmToPoints
+        If lngAltoMax < imgLogo.Height Then
+            imgLogo.Width = imgLogo.Width * (lngAltoMax / imgLogo.Height)
+            imgLogo.Height = lngAltoMax
+        End If
+        If lngAnchoMax < imgLogo.Width Then
+            imgLogo.Height = imgLogo.Height * (lngAnchoMax / imgLogo.Width)
+            imgLogo.Width = lngAnchoMax
+        End If
+        
+        If intAlinV = 2 Then
+            lngTop = lngTop + (lngAltoMax - imgLogo.Height) \ 2
+        ElseIf intAlinV = 3 Then
+            lngTop = lngTop + (lngAltoMax - imgLogo.Height)
+        End If
+        imgLogo.Top = lngTop
+        Select Case intAlinH
+            Case 2
+                lngLeft = (lngAnchoMax - imgLogo.Width) \ 2
+            Case 3
+                lngLeft = (lngAnchoMax - imgLogo.Width)
+            Case 4
+                lngLeft = (rpt("txtCabecera").Width - imgLogo.Width) \ 2 + rpt("txtCabecera").Left
+            Case Else
+                lngLeft = rpt("txtCabecera").Left
+        End Select
+        imgLogo.Left = lngLeft
+        
+        imgLogo.Visible = True
+        
+    Else
+        imgLogo.Visible = False
+    End If
+Salir_PonLogoRpt:
+    Exit Sub
+Error_PonLogoRpt:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonLogoRpt" & vbCrLf & Err.Description
+            Resume Salir_PonLogoRpt
+    End Select
+End Sub
+
+
+
+Public Sub PonTituloRPT(rpt As Report)
+    On Error GoTo Error_PonTituloRPT
+    Dim strTitulo As String, intTamañoFuente As Integer
+    strTitulo = Nz(DameValorParam("EntradaViajerosTitulo"), "")
+    If strTitulo <> "" Then rpt.lblTitulo.Caption = strTitulo
+    intTamañoFuente = Nz(DameValorParam("FichasPoliciaObservacionesTamañoFuente"), 0)
+    If intTamañoFuente <> 0 Then rpt.Observaciones.fontsize = intTamañoFuente
+Salir_PonTituloRPT:
+    Exit Sub
+Error_PonTituloRPT:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonTituloRPT" & vbCrLf & Err.Description
+            Resume Salir_PonTituloRPT
+    End Select
+End Sub
+
+Public Sub PonCabeceraFacRPT(rpt As Report)
+    Dim strOpenArgs As String, intVer As Integer
+    
+    On Error GoTo Error_PonCabeceraFacRPT
+    strOpenArgs = Nz(rpt.OpenArgs, "")
+    If Nz(DimeXML(strOpenArgs, "PDFsn"), "N") = "N" Then
+        intVer = Nz(DameValorParam("FacturasCabeceraSN"), True)
+    Else
+        intVer = Nz(DameValorParam("FacturasCabeceraSNpdf"), Nz(DameValorParam("FacturasCabeceraSN"), True))
+    End If
+    If intVer Then
+        rpt.txtCabecera.Visible = True
+        rpt.CuadroCabecera.Visible = True
+    Else
+        rpt.txtCabecera.Visible = False
+        rpt.CuadroCabecera.Visible = False
+    End If
+Salir_PonCabeceraFacRPT:
+    Exit Sub
+Error_PonCabeceraFacRPT:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonCabeceraFacRPT" & vbCrLf & Err.Description
+            Resume Salir_PonCabeceraFacRPT
+    End Select
+End Sub

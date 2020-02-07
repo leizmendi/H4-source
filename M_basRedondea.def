@@ -1,0 +1,11 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function Redondea(valor As Variant, intDecimales As Integer) As Variant
+    If Not IsNumeric(valor) Then
+        Redondea = valor
+        Exit Function
+    End If
+    Redondea = CLng(valor * (10 ^ intDecimales)) / (10 ^ intDecimales)
+End Function

@@ -1,0 +1,157 @@
+Option Compare Database
+Option Explicit
+
+Public Sub ArreglaError()
+    ' Busca en el código "UPDATE xxNombreTabla siendo xx el prefigo de la/s tablas buscadas y cuando encuentra una,
+    ' crea una consulta equivalente a la tabla con prefijo qry y sustituye todas los "UPDATE xxNombreTabla por "UPDATE qryxxNombreTabla
+    ' en este ejemplo se aplica a los prefijos aux, sys, cfg y tb
+    On Error GoTo HandleError
+    Dim strTabla As String, iR As Integer, it As Integer
+    Dim strPrefijo As String
+    strPrefijo = "aux"
+Bucle:
+    strTabla = DimeTablaUpdate(strPrefijo)
+    If strTabla <> "" Then
+        iR = ArreglaUpdateTabla(strTabla)
+        it = it + iR
+        GoTo Bucle
+    End If
+    Debug.Print strPrefijo & ": " & it
+    it = 0
+    If strPrefijo = "aux" Then
+        strPrefijo = "sys"
+        GoTo Bucle
+    ElseIf strPrefijo = "sys" Then
+        strPrefijo = "cfg"
+        GoTo Bucle
+    ElseIf strPrefijo = "cfg" Then
+        strPrefijo = "tb"
+        GoTo Bucle
+    End If
+        
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+
+Public Function DimeTablaUpdate(Optional strPrefijo As String = "") As String
+    On Error GoTo HandleError
+    Dim oComponent            As Object    'VBComponent
+    Dim strBusca As String, lLineNo As Long, lColNo As Long, sLin As String, mdl As Module, i As Integer, j As Integer, s1 As String
+    Dim strR As String
+    strBusca = """UPDATE " & strPrefijo
+    For Each oComponent In Application.VBE.ActiveVBProject.VBComponents
+        If oComponent.codemodule.Find(strBusca, 1, 1, -1, -1, False, False, False) = True Then
+            lLineNo = 1: lColNo = 1
+            With oComponent.codemodule
+                If .Find(strBusca, lLineNo, lColNo, -1, -1, False, False, False) = True Then
+                    sLin = .Lines(lLineNo, 1)
+                    i = lColNo + Len("""UPDATE "): j = 0
+                    s1 = Mid(sLin, i + j, 1)
+                    While s1 <> " " And s1 <> """"
+                        j = j + 1
+                        s1 = Mid(sLin, i + j, 1)
+                    Wend
+                    strR = Mid(sLin, i, j)
+                End If
+            End With
+            Exit For
+        End If
+    Next oComponent
+    DimeTablaUpdate = strR
+
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function ArreglaUpdateTabla(strTabla As String) As Integer
+    On Error GoTo HandleError
+    Dim strQryName As String, k As Integer, iR As Integer
+    
+    Dim qdf As QueryDef, qdf2 As QueryDef
+    
+    strQryName = "qry" & strTabla
+    On Error Resume Next
+    Set qdf2 = CurrentDb.QueryDefs(strQryName)
+    k = 1
+    While Err = 0
+        k = k + 1
+        strQryName = "qry" & strTabla & k
+        Set qdf2 = CurrentDb.QueryDefs(strQryName)
+    Wend
+    On Error GoTo HandleError
+    
+    Set qdf = CurrentDb.CreateQueryDef(strQryName, "SELECT * FROM " & strTabla)
+    
+    
+    Dim oComponent            As Object    'VBComponent
+    Dim strBusca As String, lLineNo As Long, lColNo As Long, sLin As String, mdl As Module, i As Integer, j As Integer, s1 As String
+    Dim strReemplaza As String
+    
+    strBusca = """UPDATE " & strTabla
+    strReemplaza = """UPDATE " & strQryName
+    For Each oComponent In Application.VBE.ActiveVBProject.VBComponents
+        If oComponent.codemodule.Find(strTabla, 1, 1, -1, -1, False, False, False) = True Then
+            lLineNo = 1: lColNo = 1
+Bucle:
+            With oComponent.codemodule
+                If .Find(strBusca, lLineNo, lColNo, -1, -1, False, False, False) = True Then
+                    sLin = .Lines(lLineNo, 1)
+                    sLin = Replace(sLin, strBusca, strReemplaza)
+                    .ReplaceLine lLineNo, sLin
+                    iR = iR + 1
+                    GoTo Bucle
+                End If
+            End With
+        End If
+    Next oComponent
+    ArreglaUpdateTabla = iR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+'Call findWordInModules("DoCmd.Delete Object acTable")
+Public Sub findWordInModules(ByVal sSearchTerm As String, Optional intSoloUnaVez As Integer = False)
+'object.Find(target, startline, startcol, endline, endcol [, wholeword] [, matchcase] [, patternsearch])
+'https://msdn.microsoft.com/en-us/library/aa443952(v=vs.60).aspx
+ 
+' VBComponent requires reference to Microsoft Visual Basic for Applications Extensibility
+'             or keep it as is and use Late Binding instead
+    Dim oComponent            As Object    'VBComponent
+ 
+    For Each oComponent In Application.VBE.ActiveVBProject.VBComponents
+        If oComponent.codemodule.Find(sSearchTerm, 1, 1, -1, -1, False, False, False) = True Then
+            Debug.Print "Module: " & oComponent.Name  'Name of the current module in which the term was found (at least once)
+            'Need to execute a recursive listing of where it is found in the module since it could be found more than once
+            Call listLinesinModuleWhereFound(oComponent, sSearchTerm, intSoloUnaVez)
+            If intSoloUnaVez Then Exit For
+        End If
+    Next oComponent
+End Sub
+ 
+Sub listLinesinModuleWhereFound(ByVal oComponent As Object, ByVal sSearchTerm As String, Optional intSoloUnaVez As Integer = False)
+    Dim lTotalNoLines         As Long   'total number of lines within the module being examined
+    Dim lLineNo               As Long   'will return the line no where the term is found
+ 
+    lLineNo = 1
+    With oComponent
+        lTotalNoLines = .codemodule.CountOfLines
+        Do While .codemodule.Find(sSearchTerm, lLineNo, 1, -1, -1, False, False, False) = True
+            Debug.Print vbTab & "Line No: " & lLineNo & " " & Trim(.codemodule.Lines(lLineNo, 1))  'Remove any padding spaces
+            lLineNo = lLineNo + 1    'Restart the search at the next line looking for the next occurence
+            If intSoloUnaVez Then GoTo Finish
+        Loop
+    End With
+    Dim mdl As Module
+Finish:
+End Sub

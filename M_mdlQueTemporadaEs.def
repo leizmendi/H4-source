@@ -1,0 +1,24 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function QueTemporadaEs(Fecha As Date, _
+                      Optional ByRef lColor As Long, _
+                      Optional ByRef lColorFuente As Long, _
+                      Optional ByRef dtProximoCambioTemporada As Date) As Long
+    Dim lngIdTempo As Long
+    lngIdTempo = Nz(DLookup("IdTempo", "tbTempoDias", "Dia = #" & Format(Fecha, "mm/dd/yyyy") & "#"), 0)
+    QueTemporadaEs = lngIdTempo
+    lColor = Nz(DLookup("Color", "tbTemporadasNombre", "IdTemporadaNombre = " & lngIdTempo), vbWhite)
+    lColorFuente = Nz(DLookup("ColorFuente", "tbTemporadasNombre", "IdTemporadaNombre = " & lngIdTempo), vbBlack)
+    If dtProximoCambioTemporada = 0 Then dtProximoCambioTemporada = Nz(DLookup("Dia", "tbTempoDias", "Dia > #" & Format(Fecha, "mm/dd/yyyy") & "# AND IdTempo <> " & lngIdTempo), -1)
+Exit_QueTemporadaEs:
+    Exit Function
+Error_QueTemporadaEs:
+    Select Case Err.Number
+    Case Else
+        MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En QueTemporadaEs"
+        QueTemporadaEs = 0
+        Resume Exit_QueTemporadaEs
+    End Select
+End Function

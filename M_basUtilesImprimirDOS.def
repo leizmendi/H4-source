@@ -1,0 +1,363 @@
+Option Explicit
+Option Compare Database
+
+Private Declare Sub Anjan Lib "vbio.dll" ()
+'Private Declare Function Inp Lib "vbio.dll" (ByVal portaddr&) As Integer
+Private Declare Function Inpw Lib "vbio.dll" (ByVal portaddr&) As Long
+'Private Declare Sub Out Lib "vbio.dll" (ByVal port&, ByVal byt%)
+'Private Declare Sub Outw Lib "vbio.dll" (ByVal port&, ByVal wrd&)
+'Private Declare Function Peek Lib "vbio.dll" (ByVal memaddr&) As Integer
+'Private Declare Function Peekw Lib "vbio.dll" (ByVal memaddr&) As Long
+'Private Declare Function Poke Lib "vbio.dll" (ByVal memaddr&, ByVal byt%) As Integer
+'Private Declare Function Pokew Lib "vbio.dll" (ByVal memaddr&, ByVal wrd&) As Integer
+Private Declare Function GetLptBaseAddr Lib "vbio.dll" (ByVal lpt&) As Integer
+Private Declare Function GetComBaseAddr Lib "vbio.dll" (ByVal com&) As Integer
+'Private Declare Sub Enable Lib "vbio.dll" ()
+'Private Declare Sub Disable Lib "vbio.dll" ()
+'Private Declare Sub Delay Lib "vbio.dll" (ByVal count&)
+'Private Declare Sub AboutVBIO Lib "vbio.dll" ()
+
+Public Function ExtraeLin(varTexto As Variant, intLin As Integer) As String
+    Dim i As Integer, j As Integer, intDesde As Integer, intHasta As Integer
+    Dim strTexto As String
+On Error GoTo Error_ExtraeLin
+    If IsNull(varTexto) Then
+        ExtraeLin = "!"
+        Exit Function
+    Else
+        strTexto = CStr(varTexto)
+    End If
+    For i = 1 To intLin
+        If j = 0 Then
+            intDesde = 1
+        Else
+            intDesde = j + 2
+        End If
+        j = InStr(intDesde, strTexto, vbCrLf)
+        If j = 0 Then
+            Exit For
+        End If
+        intHasta = j - 1
+    Next i
+    If j = 0 Then
+        If i = intLin Then
+            If Len(strTexto) > intDesde Then
+                ExtraeLin = Mid(strTexto, intDesde)
+            Else
+                ExtraeLin = ""
+            End If
+        Else
+            ExtraeLin = ""
+        End If
+    Else
+        ExtraeLin = Mid(strTexto, intDesde, intHasta - intDesde + 1)
+    End If
+
+Salir_ExtraeLin:
+    Exit Function
+Error_ExtraeLin:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ExtraeLin"
+            
+    End Select
+    
+    Resume Salir_ExtraeLin
+
+End Function
+
+Public Function Llena(strTexto As String, intHasta As Integer) As String
+    If Len(strTexto) >= intHasta Then
+        Llena = Left(strTexto, intHasta)
+    Else
+        Llena = strTexto & Space(intHasta - Len(strTexto))
+    End If
+End Function
+Public Function LlenaIzq(strTexto As String, intHasta As Integer) As String
+    If Len(strTexto) >= intHasta Then
+        LlenaIzq = Right(strTexto, intHasta)
+    Else
+        LlenaIzq = Space(intHasta - Len(strTexto)) & strTexto
+    End If
+End Function
+Public Function Centra(strTexto As String, intAncho As Integer) As String
+    If Len(strTexto) >= intAncho Then
+        Centra = Left(strTexto, intAncho)
+    Else
+        Centra = Llena(Space((intAncho - Len(strTexto)) \ 2) & strTexto, intAncho)
+    End If
+End Function
+
+Public Function LlenaChar(str1 As String, intCant As Integer) As String
+    Dim i As Integer
+    If Len(str1) < 1 Then
+        LlenaChar = ""
+        Exit Function
+    End If
+    For i = 1 To intCant
+        LlenaChar = LlenaChar & Left(str1, 1)
+    Next i
+End Function
+
+
+Public Function LlenaIzqChar(strTexto As String, intHasta As Integer, str1 As String) As String
+    If Len(strTexto) >= intHasta Then
+        LlenaIzqChar = Right(strTexto, intHasta)
+    Else
+        LlenaIzqChar = LlenaChar(str1, intHasta - Len(strTexto)) & strTexto
+    End If
+End Function
+
+Public Sub ImprimirDOS(strFile As String, strPuerto As String, Optional intBloc As Integer = 88)
+If intBloc = 88 Then intBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    If intBloc = True Then
+        Shell "Notepad " & strFile, vbMaximizedFocus
+        Exit Sub
+    End If
+    Const MaxSize = 1024     'max buffer size
+    Dim Chunk As String      'buffer to hold data
+    Dim numLoops As Long     'number of 8k loops
+    Dim LeftOver As Integer  'amount of file left
+    Dim i As Integer         'counter for loops
+    Dim j As Integer, j2 As Long
+    Dim intRes As Integer
+    Static intAnjan As Integer
+    On Error GoTo Error_ImprimirDOS
+    GoTo PuertoDesconocido ' para pasar de comprobar si está On Line (W2000)
+    If intAnjan = False Then
+        Anjan
+        intAnjan = True
+    End If
+    If Mid(strPuerto, Len(strPuerto) - 3, 3) = "LPT" Then
+        Select Case Right(strPuerto, 1)
+            Case "1", "2", "3"
+                j = GetLptBaseAddr(CInt(Right(strPuerto, 1)))
+            Case Else
+                GoTo PuertoDesconocido
+        End Select
+    ElseIf Mid(strPuerto, Len(strPuerto) - 3, 3) = "COM" Then
+        Select Case Right(strPuerto, 1)
+            Case "1", "2", "3", "4"
+                j = GetComBaseAddr(CInt(Right(strPuerto, 1)))
+            Case Else
+                GoTo PuertoDesconocido
+        End Select
+    Else
+        GoTo PuertoDesconocido
+    End If
+LeerImpresora:
+    j2 = Inpw(j)
+    If (j2 And &H800) <> 0 Then
+        'MsgBox "ON LINE"
+    Else
+        intRes = MsgBox("La impresora del puerto " & strPuerto & " está OFF LINE", vbRetryCancel + vbExclamation, "ATENCIÓN")
+        If intRes = vbCancel Then Exit Sub
+        GoTo LeerImpresora
+    End If
+PuertoDesconocido:
+    
+    'open our datafile and printer port
+    
+    
+    Open strFile For Binary As #1
+    Open strPuerto For Binary As #2
+    
+    'calculate size of file and amount left over
+    numLoops = LOF(1) \ MaxSize
+    LeftOver = LOF(1) Mod MaxSize
+    
+    'initialize variables and loop
+    Chunk = Space$(MaxSize)
+    For i = 1 To numLoops
+        Get #1, , Chunk
+        Put #2, , Chunk
+    Next
+    
+    'grab what's leftover
+    Chunk = Space$(LeftOver)
+    Get #1, , Chunk
+    Put #2, , Chunk
+    
+    'close all our open files
+    Close #2
+    Close #1
+Salir_ImprimirDOS:
+    Exit Sub
+Error_ImprimirDOS:
+    Select Case Err
+        Case 48 ' ¿no se encuentra vbio.dll?
+            Resume PuertoDesconocido
+        Case Else
+            MsgBox "error nº " & Err & " en ImprimirDOS" & vbCrLf & Err.Description
+            Close
+            Resume Salir_ImprimirDOS
+    End Select
+End Sub
+ 
+
+
+
+Public Sub ImprimirDOS_OLD(strFile As String, strPuerto As String, Optional intBloc As Integer = -2)
+    
+    Const MaxSize = 8192     'max buffer size
+    Dim Chunk As String      'buffer to hold data
+    Dim numLoops As Long     'number of 8k loops
+    Dim LeftOver As Integer  'amount of file left
+    Dim i As Integer         'counter for loops
+    Dim j As Integer, j2 As Long
+    Dim intRes As Integer
+    Static intAnjan As Integer
+    On Error GoTo Error_ImprimirDOS
+    If intBloc = 2 Then
+        intBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    End If
+    If intBloc = True Then
+        Shell "Notepad " & strFile, vbNormalFocus
+        Exit Sub
+    End If
+    GoTo PuertoDesconocido ' para pasar de comprobar si está On Line (W2000)
+    If intAnjan = False Then
+        Anjan
+        intAnjan = True
+    End If
+    If Mid(strPuerto, Len(strPuerto) - 3, 3) = "LPT" Then
+        Select Case Right(strPuerto, 1)
+            Case "1", "2", "3"
+                j = GetLptBaseAddr(CInt(Right(strPuerto, 1)))
+            Case Else
+                GoTo PuertoDesconocido
+        End Select
+    ElseIf Mid(strPuerto, Len(strPuerto) - 3, 3) = "COM" Then
+        Select Case Right(strPuerto, 1)
+            Case "1", "2", "3", "4"
+                j = GetComBaseAddr(CInt(Right(strPuerto, 1)))
+            Case Else
+                GoTo PuertoDesconocido
+        End Select
+    Else
+        GoTo PuertoDesconocido
+    End If
+LeerImpresora:
+    j2 = Inpw(j)
+    If (j2 And &H800) <> 0 Then
+        'MsgBox "ON LINE"
+    Else
+        intRes = MsgBox("La impresora del puerto " & strPuerto & " está OFF LINE", vbRetryCancel + vbExclamation, "ATENCIÓN")
+        If intRes = vbCancel Then Exit Sub
+        GoTo LeerImpresora
+    End If
+PuertoDesconocido:
+    
+    'open our datafile and printer port
+    
+    
+    Open strFile For Binary As #1
+    Open strPuerto For Binary As #2
+    
+    'calculate size of file and amount left over
+    numLoops = LOF(1) \ MaxSize
+    LeftOver = LOF(1) Mod MaxSize
+    
+    'initialize variables and loop
+    Chunk = Space$(MaxSize)
+    For i = 1 To numLoops
+        Get #1, , Chunk
+        Put #2, , Chunk
+    Next
+    
+    'grab what's leftover
+    Chunk = Space$(LeftOver)
+    Get #1, , Chunk
+    Put #2, , Chunk
+    
+    'close all our open files
+    Close #2
+    Close #1
+Salir_ImprimirDOS:
+    Exit Sub
+Error_ImprimirDOS:
+    Select Case Err
+        Case 48 ' ¿no se encuentra vbio.dll?
+            Resume PuertoDesconocido
+        Case Else
+            MsgBox "error nº " & Err & " en ImprimirDOS" & vbCrLf & Err.Description
+            Resume Salir_ImprimirDOS
+    End Select
+End Sub
+ 
+
+
+Public Sub ImprimirTodosLosChar(bytDesde As Byte)
+'Para ver la pag. de códigos de la impresora
+    Dim strgLin As String
+    Dim i As Integer
+    For i = bytDesde To 255
+        strgLin = strgLin & Format(i, "000") & "-" & Chr(i) & ", "
+    Next i
+    Open "C:\lpt1" For Output As #1
+    Print #1, strgLin
+    Close
+End Sub
+
+
+Public Function LineasDeStr(varTexto As Variant) As Integer
+    Dim i As Integer, j As Integer, intLin As Integer
+    Dim strTexto As String
+On Error GoTo Error_LineasDeStr
+    If IsNull(varTexto) Then
+        LineasDeStr = 0
+        Exit Function
+    Else
+        strTexto = CStr(varTexto)
+    End If
+    j = 1
+    While True
+        i = InStr(j, strTexto, vbCrLf)
+        intLin = intLin + 1
+        If i = 0 Then
+            GoTo Sigue
+        Else
+            j = i + 1
+        End If
+    Wend
+Sigue:
+    LineasDeStr = intLin
+
+Salir_LineasDeStr:
+    Exit Function
+Error_LineasDeStr:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En LineasDeStr"
+            
+    End Select
+    
+    Resume Salir_LineasDeStr
+
+End Function
+
+Public Sub PrimerEspacioDcha(strTexto As String, intStart As Integer, ByRef intAncho As Integer)
+    'Se le pasa una cadena y a partir de que carácter se examina intStart) y el ancho máximo de
+    'la línea, en intAncho devuelve el primer espacio que encuentra para saltar de línea
+    'Si no encuentra espacio, devuelve el mismo intAncho
+    On Error GoTo Error_PrimerEspacioDcha
+    Dim i As Integer
+    i = intStart + intAncho
+    If Len(strTexto) <= i Then Exit Sub
+    While i > intStart
+        If Mid(strTexto, i, 1) = " " Then
+            intAncho = i
+            Exit Sub
+        End If
+        i = i - 1
+    Wend
+Salir_PrimerEspacioDcha:
+    Exit Sub
+Error_PrimerEspacioDcha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PrimerEspacioDcha" & vbCrLf & Err.Description
+            Resume Salir_PrimerEspacioDcha
+    End Select
+
+End Sub

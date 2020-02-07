@@ -1,0 +1,146 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub CambiaPrecios(intPtsEuros As Integer)
+    'Si intPtsEuros vale 1 se cambia a Pesetas, si 2 a Euros
+    Dim db As Database
+    Dim strSQL As String
+    Dim rs As Recordset
+    Const Cambio = 166.386
+    On Error GoTo Error_CambiaPrecios
+    Set db = CurrentDb
+    strSQL = "UPDATE tbPreciosExtras SET tbPreciosExtras.PrecioExtra"
+    If intPtsEuros = 2 Then
+        strSQL = strSQL & "= CCur(Format([PrecioExtra]/166.386,'0.00'))"
+        'strSQL = strSQL & "= ccur([PrecioExtra]/166.386)"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = strSQL & "= CLng([PrecioExtra]*166.386);"
+    End If
+    db.Execute strSQL
+    strSQL = "UPDATE tbPreciosSD SET tbPreciosSD.PrecioDiario "
+    If intPtsEuros = 2 Then
+        strSQL = strSQL & "= ccur([PrecioDiario]/166.386)"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = strSQL & "= CLng([PrecioDiario]*166.386);"
+    End If
+    db.Execute strSQL
+    strSQL = "UPDATE tbClientesServiciosFijos SET tbClientesServiciosFijos.PrecioUnitario "
+    If intPtsEuros = 2 Then
+        strSQL = strSQL & "= CCur(Format([PrecioUnitario]/166.386,'0.00'))"
+        'strSQL = strSQL & "= ccur([PrecioUnitario]/166.386)"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = strSQL & "= CLng([PrecioUnitario]*166.386);"
+    End If
+    db.Execute strSQL
+    
+    strSQL = "UPDATE tbProductosRestaurante SET tbProductosRestaurante.PrecioU "
+    If intPtsEuros = 2 Then
+        strSQL = strSQL & "= CCur(Format([PrecioU]/166.386,'0.00'))"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = strSQL & "= CLng([PrecioU]*166.386)"
+    End If
+    db.Execute strSQL
+
+Salir_CambiaPrecios:
+    Exit Sub
+Error_CambiaPrecios:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En CambiaPrecios"
+    End Select
+    Resume Salir_CambiaPrecios
+            
+            
+End Sub
+Public Sub CambiaPreciosFactura(lngFactura As Long, intPtsEuros As Integer)
+    'El procedimiento cambia los precios del detalle de una factura concreta
+    'Si intPtsEuros vale 1 se cambia a Pesetas, si 2 a Euros
+    'lngFactura es el idFactura,
+    Dim db As Database
+    Dim strSQL As String
+    Dim rs As Recordset
+    Const Cambio = 166.386
+    On Error GoTo Error_CambiaPreciosFactura
+    Set db = CurrentDb
+    strSQL = "UPDATE tbFacturasDet SET tbFacturasDet.PrecioUnitario "
+    If intPtsEuros = 2 Then
+        strSQL = strSQL & "= CCur(Format([PrecioUnitario]/166.386,'0.00'))"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = strSQL & "= CLng([PrecioUnitario]*166.386)"
+    End If
+    strSQL = strSQL & " WHERE (((tbFacturasDet.IdFactura)=" & lngFactura & "))"
+    db.Execute strSQL
+Salir_CambiaPreciosFactura:
+    Exit Sub
+Error_CambiaPreciosFactura:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En CambiaPreciosFactura"
+    End Select
+    Resume Salir_CambiaPreciosFactura
+            
+            
+End Sub
+Public Sub CambiaPreciosPresupuesto(lngPresupuesto As Long, intPtsEuros As Integer)
+    'El procedimiento cambia los precios del detalle de una Presupuesto concreta
+    'Si intPtsEuros vale 1 se cambia a Pesetas, si 2 a Euros
+    'lngPresupuesto es el idPresupuesto,
+    Dim db As Database
+    Dim strSQL As String
+    Dim rs As Recordset
+    Const Cambio = 166.386
+    On Error GoTo Error_CambiaPreciosPresupuesto
+    Set db = CurrentDb
+    strSQL = "UPDATE tbPresupuestosDet SET tbPresupuestosDet.PrecioUnitario "
+    If intPtsEuros = 2 Then
+        strSQL = strSQL & "= CCur(Format([PrecioUnitario]/166.386,'0.00'))"
+'        strSQL = strSQL & "= ccur([PrecioUnitario]/166.386)"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = strSQL & "= CLng([PrecioUnitario]*166.386)"
+    End If
+    strSQL = strSQL & " WHERE (((tbPresupuestosDet.IdPresupuesto)=" & lngPresupuesto & "))"
+    db.Execute strSQL
+Salir_CambiaPreciosPresupuesto:
+    Exit Sub
+Error_CambiaPreciosPresupuesto:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En CambiaPreciosPresupuesto"
+    End Select
+    Resume Salir_CambiaPreciosPresupuesto
+            
+            
+End Sub
+
+Public Sub CambiaTiposCambio(intPtsEuros As Integer)
+    'Si intPtsEuros vale 1 se cambia a Pesetas, si 2 a Euros
+    Dim db As Database
+    Dim strSQL As String
+    Dim rs As Recordset
+    Const Cambio = 166.386
+    On Error GoTo Error_CambiaTiposCambio
+    Set db = CurrentDb
+    
+    If intPtsEuros = 2 Then
+       '  strSQL = strSQL & "= CCur(Format([PrecioUnitario]/166.386,'0.00'))"
+       strSQL = "UPDATE valDivisas SET valDivisas.ValorCambio = CCur(Format([ValorCambio]/166.386,'0.000000'))" 'CLng([ValorCambio]*10000/166.386)/10000;"
+    ElseIf intPtsEuros = 1 Then
+        strSQL = "UPDATE valDivisas SET valDivisas.ValorCambio = CCur(Format([ValorCambio]*166.386,'0.0000'))" 'CLng([ValorCambio]*166.386*1000)/1000;"
+    End If
+    db.Execute strSQL
+    
+
+Salir_CambiaTiposCambio:
+    Exit Sub
+Error_CambiaTiposCambio:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En CambiaTiposCambio"
+    End Select
+    Resume Salir_CambiaTiposCambio
+End Sub

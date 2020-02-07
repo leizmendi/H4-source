@@ -1,0 +1,64 @@
+Option Compare Database
+Option Explicit
+
+
+'-----BARRA DE DETALLE_FICHA-----------------------------------------------------
+
+Public Function AñadirDetalleFicha()
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "Debe estar abierto el formulario frmFichas"
+        Exit Function
+    End If
+    Call Forms("frmFichas").btnAdd_Click
+End Function
+
+Public Function BorrarDetalleFicha()
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "Debe estar abierto el formulario frmFichas"
+        Exit Function
+    End If
+    Call Forms("frmFichas").btnDel_Click
+End Function
+
+Public Function ModificarDetalleFicha()
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "Debe estar abierto el formulario frmFichas"
+        Exit Function
+    End If
+    Call Forms("frmFichas").btnEdit_Click
+End Function
+Public Function TraspasarDetalleFicha()
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "Debe estar abierto el formulario frmFichas"
+        Exit Function
+    End If
+    Call Forms("frmFichas").btnTraspasarAFicha_Click
+End Function
+Public Function FacturarSNDetalleFicha()
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "Debe estar abierto el formulario frmFichas"
+        Exit Function
+    End If
+    Call Forms("frmFichas").btnFacturarSN_Click
+End Function
+Public Function ObservacionesDetalleFicha()
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "Debe estar abierto el formulario frmFichas"
+        Exit Function
+    End If
+    Call Forms("frmFichas").btnObservaciones_Click
+End Function
+
+
+
+
+
+'-----FIN DE BARRA DE DETALLE_FICHA-----------------------------------------------------
+
+Public Function Principal_SN()
+    If Not IsOpenForm("frmAsignarServiciosXDefecto") Then
+        MsgBox "Debe estar abierto el formulario frmAsignarServiciosXDefecto"
+        Exit Function
+    End If
+    Call Forms("frmAsignarServiciosXDefecto").btnPrSN_Click
+End Function

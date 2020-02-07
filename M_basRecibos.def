@@ -1,0 +1,338 @@
+Option Compare Database
+Option Explicit
+
+Public Sub AñadirReciboDeFactura(lngIdFactura As Long, lngIdReciboEmision As Long, Optional strConcepto As String = "")
+    On Error GoTo Error_AñadirReciboDeFactura
+    Dim strSQL As String, rs As Recordset, rsR As Recordset, curRetencion As Currency, lngNumRecibo As Long
+    Dim strCli As String, strNumFac As String
+    If Nz(DLookup("FicheroRemesa", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdReciboEmision), "") <> "" Then
+        MsgBox "La Remesa Nº " & lngIdReciboEmision & " ya está generada, se debe poder modificar para incluir nuevos recibos", vbExclamation
+        Exit Sub
+    End If
+    
+    strSQL = "SELECT tbFacturasCab.NumeroDeFactura AS [Nº Factura], tbFacturasCab.FechaFactura, tbClientes.*, [TotalBase]+[TotalIVA] AS Importe, tbFacturasCab.NumRecibo"
+    strSQL = strSQL & " FROM tbFacturasCab LEFT JOIN tbClientes ON tbFacturasCab.NIF=tbClientes.NIF"
+    strSQL = strSQL & " WHERE tbFacturasCab.IdFactura =" & lngIdFactura
+    strNumFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFactura), "¿?")
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        MsgBox "No se encontró la Factura", vbExclamation
+        Exit Sub
+    End If
+    strCli = Trim(rs("NombreCli") & " " & rs("ApellidosCli"))
+    If Nz(rs("PagoDomiciliadoSN"), False) = False Then
+        MsgBox "El cliente " & strCli & " no está marcado como de pago domiciliado", vbExclamation
+        Exit Sub
+    End If
+    If IsNull(rs("CodigoEntidad")) Or IsNull(rs("CodigoSucursal")) Or IsNull(rs("DigitoControl")) Or IsNull(rs("NumeroCuenta")) Then
+        MsgBox "El cliente " & strCli & " no tiene el número de cuenta completo:" & _
+        Nz(rs("CodigoEntidad"), "????") & "-" & Nz(rs("CodigoSucursal"), "????") & "-" & Nz(rs("DigitoControl"), "??") & "-" & Nz(rs("NumeroCuenta"), "??????????"), vbExclamation
+        Exit Sub
+    End If
+    Dim lngIdAnt As Long, intR As Integer
+    lngIdAnt = Nz(DLookup("NumRecibo", "tbFacturasCab", "IdFactura = " & lngIdFactura), 0)
+    If lngIdAnt <> 0 Then
+        intR = MsgBox("La Factura Nº " & lngIdFactura & " ya tiene un Nº de recibo asignado" & vbCrLf & "Recibo nº: " & lngIdAnt & vbCrLf & "¿Volver a generar el recibo?", vbQuestion + vbYesNo)
+        If intR = vbNo Then Exit Sub
+    End If
+    strSQL = "SELECT * FROM tbRecibos"
+    strSQL = strSQL & " WHERE IdReciboEmision = " & lngIdReciboEmision
+    Set rsR = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        rsR.AddNew
+        rsR("ENTIDAD") = rs("CodigoEntidad")
+        rsR("OFICINA") = rs("CodigoSucursal")
+        rsR("CODREF") = rs("NIF")
+        rsR("NIF_O") = DLookup("NIF_ORDENANTE", "Ordenante")
+        rsR("SUFIJO_O") = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+        rsR("Nombre") = strCli
+        rsR("DIGCONT") = rs("DigitoControl")
+        rsR("NUMCUENTA") = rs("NumeroCuenta")
+        curRetencion = 0 'Nz(rs("RetencionIRPF%"), 0) * Nz(rs("BaseRetencionIRPF"), 0)
+        rsR("IMPORTE") = rs("Importe") - curRetencion
+        rsR("CONCEPTO") = IIf(strConcepto = "", "Factura Nº " & strNumFac, strConcepto)
+        lngNumRecibo = Nz(DMax("NUMRECIBO", "tbRecibos"), 0) + 1
+        rsR("NUMRECIBO") = lngNumRecibo
+        rsR("IdReciboEmision") = lngIdReciboEmision
+        rsR("CIF_Cliente") = rs("NIF")
+        rsR.Update
+        If curRetencion <> 0 Then
+            strSQL = "INSERT INTO tbRecibosDet(NumRecibo, Linea, Concepto, Importe)"
+            strSQL = strSQL & " SELECT " & lngNumRecibo & " AS num, 1 as lin, 'Total Importe Factura' as con, " & ComaPunto(rs("TotalImporte")) & " as tot"
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSQL = "INSERT INTO tbRecibosDet(NumRecibo, Linea, Concepto, Importe)"
+            strSQL = strSQL & " SELECT " & lngNumRecibo & " AS num, 2 as lin, 'Retención IRPF' as con, " & ComaPunto(-1 * curRetencion) & " as tot"
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSQL = "UPDATE tbRecibos SET Detalle = True WHERE NUMRECIBO = " & lngNumRecibo
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+        rs.Edit
+        rs("NumRecibo") = lngNumRecibo
+        'rs("Cobrada") = True
+        'rs("Observaciones") = IIf(Nz(rs("Observaciones"), "") = "", "", rs("Observaciones") & " - ") & "Cobrado Remesa Recibos Nº " & lngIdReciboEmision & ", Fecha: " & Format(DLookup("FechaCargo", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdReciboEmision), "dd/mm/yy")
+        rs.Update
+        'strSQL = "UPDATE [Facturas cabeceras] SET NumRecibo = " & lngNumRecibo
+        'strSQL = strSQL & ", Cobrada = True"
+        'strSQL = strSQL & ", Observaciones = Observaciones & ' - Cobrado Remesa Recibos Nº " & lngIdReciboEmision & ", Fecha: " & Format(DLookup("FechaCarga", "tbRecibosEmisioneS", "IdReciboEmision = " & lngIdReciboEmision), "dd/mm/yy") & "'"
+        'strSQL = strSQL & " WHERE [Nro Documento]=" & lngIdFactura
+        
+        rs.MoveNext
+    Wend
+    If IsOpenForm("frmRecibosEmisiones") Then
+        Call Forms("frmRecibosEmisiones").ActualizarMisTotales
+    Else
+        Dim intNumRecibos As Integer, curTotal As Currency
+        intNumRecibos = DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & lngIdReciboEmision)
+        curTotal = DSum("IMPORTE", "tbRecibos", "IdReciboEmision = " & lngIdReciboEmision)
+        strSQL = "UPDATE tbRecibosEmisiones SET NumRecibos = " & intNumRecibos & ", TotalImporte = " & ComaPunto(curTotal)
+        strSQL = strSQL & " WHERE IdReciboEmision = " & lngIdReciboEmision
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+Salir_AñadirReciboDeFactura:
+    Exit Sub
+Error_AñadirReciboDeFactura:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AñadirReciboDeFactura" & vbCrLf & Err.Description
+            Resume Salir_AñadirReciboDeFactura
+    End Select
+
+End Sub
+
+Public Sub AñadirReciboDePagoP(lngIdFichaPagoP As Long, lngIdReciboEmision As Long)
+    On Error GoTo Error_AñadirReciboDePagoP
+    Dim strSQL As String, rs As Recordset, rsR As Recordset, curRetencion As Currency, lngNumRecibo As Long
+    Dim strCli As String, strNumFac As String, intR As Integer
+    If Nz(DLookup("FicheroRemesa", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdReciboEmision), "") <> "" Then
+        MsgBox "La Remesa Nº " & lngIdReciboEmision & " ya está generada, se debe poder modificar para incluir nuevos recibos", vbExclamation
+        Exit Sub
+    End If
+    PonMandatoClienteFichaPagoP lngIdFichaPagoP
+    
+    strSQL = "SELECT tbClientes.*, [valMeses]![Mes] & '-' & [Año] AS MES_,  tbFichasPagosPrevistos.IdFichaCab, tbFichasPagosPrevistos.Concepto, tbFichasPagosPrevistos.Cantidad, tbFichasPagosPrevistos.IdFactura, tbFichasPagosPrevistos.NumRecibo"
+    strSQL = strSQL & " FROM ((tbFichasCab INNER JOIN tbClientes ON tbFichasCab.DNICliente = tbClientes.NIF) INNER JOIN tbFichasPagosPrevistos ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab) LEFT JOIN valMeses ON tbFichasPagosPrevistos.Mes = valMeses.NumMes"
+    strSQL = strSQL & " WHERE tbFichasPagosPrevistos.IdFichaPagoP=" & lngIdFichaPagoP
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        MsgBox "No se encontró el Pago previsto", vbExclamation
+        Exit Sub
+    End If
+    strCli = Trim(rs("NombreCli") & " " & rs("ApellidosCli"))
+    If Nz(rs("PagoDomiciliadoSN"), False) = False Then
+        MsgBox "El cliente " & strCli & " no está marcado como de pago domiciliado", vbExclamation
+        Exit Sub
+    End If
+    If IsNull(rs("CodigoEntidad")) Or IsNull(rs("CodigoSucursal")) Or IsNull(rs("DigitoControl")) Or IsNull(rs("NumeroCuenta")) Then
+        MsgBox "El cliente " & strCli & " no tiene el número de cuenta completo:" & _
+        Nz(rs("CodigoEntidad"), "????") & "-" & Nz(rs("CodigoSucursal"), "????") & "-" & Nz(rs("DigitoControl"), "??") & "-" & Nz(rs("NumeroCuenta"), "??????????"), vbExclamation
+        Exit Sub
+    End If
+    If Nz(rs("NumRecibo"), 0) <> 0 Then
+        intR = MsgBox("El pago de " & strCli & " (" & rs("MES_") & ") ya tiene nº de recibo asignado. ¿Volver a emitir recibo?", vbOKCancel)
+        If intR = vbCancel Then Exit Sub
+    End If
+    
+   
+    strSQL = "SELECT * FROM tbRecibos"
+    strSQL = strSQL & " WHERE IdReciboEmision = " & lngIdReciboEmision
+    Set rsR = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        rsR.AddNew
+        rsR("ENTIDAD") = rs("CodigoEntidad")
+        rsR("OFICINA") = rs("CodigoSucursal")
+        rsR("CODREF") = rs("NIF")
+        rsR("NIF_O") = DLookup("NIF_ORDENANTE", "Ordenante")
+        rsR("SUFIJO_O") = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+        rsR("Nombre") = strCli
+        rsR("DIGCONT") = rs("DigitoControl")
+        rsR("NUMCUENTA") = rs("NumeroCuenta")
+        curRetencion = 0 'Nz(rs("RetencionIRPF%"), 0) * Nz(rs("BaseRetencionIRPF"), 0)
+        rsR("IMPORTE") = rs("Cantidad") - curRetencion
+        rsR("CONCEPTO") = rs("Concepto")
+        lngNumRecibo = Nz(DMax("NUMRECIBO", "tbRecibos"), 0) + 1
+        rsR("NUMRECIBO") = lngNumRecibo
+        rsR("IdReciboEmision") = lngIdReciboEmision
+        rsR("CIF_Cliente") = rs("NIF")
+        rsR("BIC") = DLookup("BIC", "Bancos", "CodEntidad = '" & rs("CodigoEntidad") & "'")
+        rsR("FechaMandato") = rs("FechaMandato")
+        rsR("ReferenciaMandato") = rs("ReferenciaMandato")
+        
+        rsR.Update
+        If curRetencion <> 0 Then
+            strSQL = "INSERT INTO tbRecibosDet(NumRecibo, Linea, Concepto, Importe)"
+            strSQL = strSQL & " SELECT " & lngNumRecibo & " AS num, 1 as lin, 'Total Importe Factura' as con, " & ComaPunto(rs("TotalImporte")) & " as tot"
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSQL = "INSERT INTO tbRecibosDet(NumRecibo, Linea, Concepto, Importe)"
+            strSQL = strSQL & " SELECT " & lngNumRecibo & " AS num, 2 as lin, 'Retención IRPF' as con, " & ComaPunto(-1 * curRetencion) & " as tot"
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSQL = "UPDATE tbRecibos SET Detalle = True WHERE NUMRECIBO = " & lngNumRecibo
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+        rs.Edit
+        rs("NumRecibo") = lngNumRecibo
+        'rs("Cobrada") = True
+        'rs("Observaciones") = IIf(Nz(rs("Observaciones"), "") = "", "", rs("Observaciones") & " - ") & "Cobrado Remesa Recibos Nº " & lngIdReciboEmision & ", Fecha: " & Format(DLookup("FechaCargo", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdReciboEmision), "dd/mm/yy")
+        rs.Update
+        'strSQL = "UPDATE [Facturas cabeceras] SET NumRecibo = " & lngNumRecibo
+        'strSQL = strSQL & ", Cobrada = True"
+        'strSQL = strSQL & ", Observaciones = Observaciones & ' - Cobrado Remesa Recibos Nº " & lngIdReciboEmision & ", Fecha: " & Format(DLookup("FechaCarga", "tbRecibosEmisioneS", "IdReciboEmision = " & lngIdReciboEmision), "dd/mm/yy") & "'"
+        'strSQL = strSQL & " WHERE [Nro Documento]=" & lngIdFactura
+        
+        rs.MoveNext
+    Wend
+    If IsOpenForm("frmRecibosEmisiones") Then
+        Call Forms("frmRecibosEmisiones").ActualizarMisTotales
+    Else
+        Dim intNumRecibos As Integer, curTotal As Currency
+        intNumRecibos = DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & lngIdReciboEmision)
+        curTotal = DSum("IMPORTE", "tbRecibos", "IdReciboEmision = " & lngIdReciboEmision)
+        strSQL = "UPDATE tbRecibosEmisiones SET NumRecibos = " & intNumRecibos & ", TotalImporte = " & ComaPunto(curTotal)
+        strSQL = strSQL & " WHERE IdReciboEmision = " & lngIdReciboEmision
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+Salir_AñadirReciboDePagoP:
+    Exit Sub
+Error_AñadirReciboDePagoP:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AñadirReciboDePagoP" & vbCrLf & Err.Description
+            Resume Salir_AñadirReciboDePagoP
+    End Select
+
+End Sub
+
+
+Public Function AñadirPago_y_FacturaDeRecibo(lngNumRecibo As Long, intF As Integer, intP As Integer) As Integer
+    On Error GoTo Error_AñadirPago_y_FacturaDeRecibo
+    Dim strSQL As String, rs As Recordset, rsP As Recordset, curRetencion As Currency
+    Dim strNumFac As String, strNotas  As String
+    
+    Dim strCli As String, lngIdReciboEmision As Long, lngIdCajaCab As Long, lngIdFactura As Long
+    Dim dtFechaCargo As Date, strCodFPago As String
+    lngIdCajaCab = IsCajaOpen()
+    
+    If lngIdCajaCab = 0 Then
+        MsgBox "Se debe abrir la Caja", vbExclamation
+        Exit Function
+    End If
+    strCodFPago = Nz(DameValorParam("PagoPrevisto_CodFPago"), "")
+    If strCodFPago = "" Then
+        MsgBox "Se debe Indicar forma de pago de Pagos Previstos"
+        Exit Function
+    End If
+    lngIdReciboEmision = Nz(DLookup("IdReciboEmision", "tbRecibos", "NUMRECIBO=" & lngNumRecibo), 0)
+    If Nz(DLookup("FicheroRemesa", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdReciboEmision), "") <> "" Then
+        MsgBox "La Remesa Nº " & lngIdReciboEmision & " ya está generada, se debe poder modificar para incluir nuevos recibos", vbExclamation
+        Exit Function
+    End If
+    dtFechaCargo = Nz(DLookup("FechaCargo", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdReciboEmision), 0)
+    If dtFechaCargo = 0 Then
+        MsgBox "Hay que indicar fecha de cargo en la Remesa Nº " & lngIdReciboEmision, vbExclamation
+        Exit Function
+    End If
+    strSQL = "SELECT tbFichasPagosPrevistos.IdFichaPagoP, tbFichasPagosPrevistos.IdFactura, tbRecibos.NUMRECIBO, tbRecibos.IMPORTE, tbRecibos.CONCEPTO, tbFichasPagosPrevistos.IdFactura, IdFParcial, tbFichasCab.IdFichaCab, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbClientes.PagoDomiciliadoSN, tbClientes.CodigoEntidad, tbClientes.CodigoSucursal, tbClientes.DigitoControl, tbClientes.NumeroCuenta"
+    strSQL = strSQL & " FROM (tbFichasCab INNER JOIN ((tbRecibos INNER JOIN tbFichasPagosPrevistos ON tbRecibos.NUMRECIBO = tbFichasPagosPrevistos.NumRecibo) LEFT JOIN tbCajaDet ON tbFichasPagosPrevistos.IdFactura = tbCajaDet.IdFParcial) ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab) INNER JOIN tbClientes ON tbFichasCab.DNICliente = tbClientes.NIF"
+    strSQL = strSQL & " WHERE tbRecibos.NUMRECIBO=" & lngNumRecibo
+    'strNumFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngNumRecibo), "¿?")
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+'        MsgBox "No se encontró la Factura", vbExclamation
+        Exit Function
+    End If
+    strCli = Trim(rs("NombreCliente") & " " & rs("ApellidosCliente"))
+    If Nz(rs("PagoDomiciliadoSN"), False) = False Then
+        MsgBox "El cliente " & strCli & " no está marcado como de pago domiciliado", vbExclamation
+        Exit Function
+    End If
+    If IsNull(rs("CodigoEntidad")) Or IsNull(rs("CodigoSucursal")) Or IsNull(rs("DigitoControl")) Or IsNull(rs("NumeroCuenta")) Then
+        MsgBox "El cliente " & strCli & " no tiene el número de cuenta completo:" & _
+        Nz(rs("CodigoEntidad"), "????") & "-" & Nz(rs("CodigoSucursal"), "????") & "-" & Nz(rs("DigitoControl"), "??") & "-" & Nz(rs("NumeroCuenta"), "??????????"), vbExclamation
+        Exit Function
+    End If
+GenerarFactura:
+    If Nz(rs("IdFactura"), 0) = 0 Then
+        lngIdFactura = FacturarParcialFichaFijo(rs("IdFichaCab"), rs("IMPORTE"), rs("CONCEPTO"))
+        If lngIdFactura = 0 Then
+            MsgBox "No se pudo generar factura de Recibo Nº " & lngNumRecibo
+            Exit Function
+        Else
+            strSQL = "UPDATE tbFichasPagosPrevistos SET IdFactura = " & lngIdFactura
+            strSQL = strSQL & " WHERE IdFichaPagoP = " & rs("IdFichaPagoP")
+            CurrentDb.Execute strSQL, dbFailOnError
+            intF = 1
+            strNotas = "Se cargará en su cuenta de " & Nz(DLookup("Nombre", "Bancos", "CodEntidad = '" & rs("CodigoEntidad") & "'"), "¿?") & " ******" & rs("NumeroCuenta")
+            strNotas = strNotas & " el " & Format(dtFechaCargo, "dd/mm/yyyy")
+            strSQL = "UPDATE tbFacturasCab SET Observaciones = " & ConComillas(strNotas)
+            strSQL = strSQL & " WHERE IdFactura = " & lngIdFactura
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+    Else
+        lngIdFactura = rs("IdFactura")
+    End If
+GenerarPago:
+    If Nz(rs("IdFParcial"), 0) = 0 Then
+        IntroducirCobro lngIdCajaCab, strCodFPago, dtFechaCargo, rs("IMPORTE"), rs("IMPORTE"), 0, rs("IdFichaCab"), "E", strCli, rs("Concepto"), , lngIdFactura
+        'Set rsP = CurrentDb.OpenRecordset("tbCajaDet", dbOpenDynaset, dbAppendOnly)
+        'rsP.AddNew
+        'rsP("IdCajaCab") = lngIdCajaCab
+        'rsP("Origen") = "E"
+        'rsP("IdFrom") = rs("IdFichaCab")
+        'rsP("NombrePersona") = strCli
+        'rsP("Concepto") = rs("CONCEPTO")
+        'rsP("Fecha") = dtFechaCargo
+        'rsP("Cantidad") = rs("IMPORTE")
+        'rsP("CodFPago") = strCodFPago
+        'rsP("IdFParcial") = lngIdFactura
+        'rsP.Update
+        intP = 1
+    End If
+    AñadirPago_y_FacturaDeRecibo = True
+Salir_AñadirPago_y_FacturaDeRecibo:
+    Exit Function
+Error_AñadirPago_y_FacturaDeRecibo:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AñadirPago_y_FacturaDeRecibo" & vbCrLf & Err.Description
+            Resume Salir_AñadirPago_y_FacturaDeRecibo
+    End Select
+
+End Function
+
+
+Public Function DimeFichaCab_de_NumRecibo(lngNumRecibo As Long) As Variant
+    Dim v As Variant
+    v = DLookup("IdFichaCab", "tbFichasPagosPrevistos", "NumRecibo = " & lngNumRecibo)
+    DimeFichaCab_de_NumRecibo = v
+End Function
+
+Public Sub PonMandatoClienteFichaPagoP(lngIdFichaPagoP As Long)
+    On Error GoTo Error_PonMandatoClienteFichaPagoP
+    Dim lngIdCli As Long, strSQL As String, rs As Recordset, dtFM As Date, lngRM As Long
+    strSQL = "SELECT tbFichasPagosPrevistos.IdFichaPagoP, tbClientes.IdCliente, tbClientes.NIF"
+    strSQL = strSQL & " FROM (tbFichasCab INNER JOIN tbFichasPagosPrevistos ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab) INNER JOIN tbClientes ON tbFichasCab.DNICliente = tbClientes.NIF"
+    strSQL = strSQL & " WHERE tbFichasPagosPrevistos.IdFichaPagoP = " & lngIdFichaPagoP
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then Exit Sub
+    lngIdCli = rs("IdCliente")
+    dtFM = Nz(DLookup("FechaMandato", "tbClientes", "IdCliente = " & lngIdCli), 0)
+    If dtFM = 0 Then
+        dtFM = Nz(DLookup("FechaPrimero", "qryPrimerRecibo", "CIF_Cliente = '" & rs("NIF") & "'"), Date)
+        strSQL = "UPDATE tbClientes SET FechaMandato = " & CLng(dtFM) & " WHERE IdCliente = " & lngIdCli
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    lngRM = Nz(DLookup("ReferenciaMandato", "tbClientes", "IdCliente = " & lngIdCli), 0)
+    If lngRM = 0 Then
+        strSQL = "UPDATE tbClientes SET ReferenciaMandato = " & lngIdCli & " WHERE IdCliente = " & lngIdCli
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    
+Salir_PonMandatoClienteFichaPagoP:
+    Exit Sub
+Error_PonMandatoClienteFichaPagoP:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonMandatoClienteFichaPagoP" & vbCrLf & Err.Description
+            Resume Salir_PonMandatoClienteFichaPagoP
+    End Select
+
+End Sub

@@ -1,0 +1,32 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function TrimestreActual() As String
+'Devuelve el trimestre actual en un formato como aaaa/t
+    Dim strRes As String
+    strRes = Format(Date, "yyyy") & "/" & DatePart("q", Date)
+    TrimestreActual = strRes
+End Function
+
+Public Function DiasDelMes(intMes As Integer, Optional intAño As Integer = 0) As Integer
+'Devuelve el nº de días del mes, si se pasa año, se comprueba si es bisiesto en caso de febrero
+' si no se pasa año, se toma el actual
+    If intAño = 0 Then intAño = Year(Date)
+    Select Case intMes
+        Case 1, 3, 5, 7, 8, 10, 12
+            DiasDelMes = 31
+        Case 4, 6, 9, 11
+            DiasDelMes = 30
+        Case 2
+            If EsBisiesto(intAño) Then
+                DiasDelMes = 29
+            Else
+                DiasDelMes = 28
+            End If
+        Case Else
+            MsgBox "Se pasó un nº de mes erróneo"
+            DiasDelMes = 0
+    End Select
+        
+End Function
