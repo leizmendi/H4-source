@@ -1,0 +1,37 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    If Me.lstIdiomas.ListIndex <> -1 Then
+        Me.Visible = False
+    End If
+End Sub
+
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim lngIdTipoP As Long
+    Dim strSQL As String
+    lngIdTipoP = CLng(Nz(Me.OpenArgs, 0))
+    strSQL = "SELECT tbParcelasYServiciosXDefecto.Id, tbServiciosDiarios.ServicioDiario"
+    strSQL = strSQL & " FROM tbParcelasYServiciosXDefecto INNER JOIN tbServiciosDiarios ON tbParcelasYServiciosXDefecto.IdSD = tbServiciosDiarios.IdSD"
+    strSQL = strSQL & " WHERE (((tbParcelasYServiciosXDefecto.IdTipoParcela)=" & lngIdTipoP & "));"
+    strSQL = strSQL & " AND Principal = True"
+    Me.lstIdiomas.RowSource = strSQL
+    Me.lstIdiomas.Requery
+    
+End Sub
+
+Private Sub lstIdiomas_DblClick(Cancel As Integer)
+    Me.lstIdiomas = Me.lstIdiomas
+    Call btnAceptar_Click
+End Sub

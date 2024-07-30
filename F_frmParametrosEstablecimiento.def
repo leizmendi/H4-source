@@ -1,0 +1,90 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnCambiarLogo_Click()
+    If Me.LogoUbicacion.Locked Then Exit Sub
+    Me.LogoUbicacion.SetFocus
+    Dim s As String
+    s = AbrirDialogo(, , , , "Indicar Fichero de Logotipo", "Logotipo", , , , , , , True, 4)
+
+    If s <> "" Then
+        Me.LogoUbicacion = s
+        Call LogoUbicacion_AfterUpdate
+    End If
+End Sub
+
+Private Sub btnGrabarCambios_Click()
+    GrabarParam Me
+End Sub
+Private Sub EstablecimientoCIF_Exit(Cancel As Integer)
+    If Len(Me.FacturasCabecera) > 0 Then Exit Sub
+    Me.FacturasCabecera = Me.EstablecimientoNombre & vbCrLf & Me.EstablecimientoDireccion & vbCrLf & Me.EstablecimientoCP & " " & Me.EstablecimientoPoblacion & " (" & Me.EstablecimientoProvincia & ")" & vbCrLf & "CIF: " & Me.EstablecimientoCIF
+End Sub
+
+Private Sub FacturasCabecera_AfterUpdate()
+    Me.ListadosCabecera = Me.FacturasCabecera
+    Me.RecibosCabecera = Me.FacturasCabecera
+    Me.FichasCabecera = Me.FacturasCabecera
+End Sub
+
+Private Sub Form_Close()
+    On Error Resume Next
+    Forms!frmMenu!imgLogo.Picture = Me.LogoUbicacion
+'    Forms!frmMenu!oleLogo.Requery
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+'    Dim MayusculasPresionada As Integer
+    Dim ControlPresionada As Integer
+'    Dim AltPresionada As Integer
+'    Dim intNotSetFocus As Integer
+'    On Error GoTo Error_ControlTeclaControl
+'    MayusculasPresionada = (Shift And acShiftMask) > 0
+    ControlPresionada = (Shift And acCtrlMask) > 0
+'    AltPresionada = (Shift And acAltMask) > 0
+    If ControlPresionada Then
+        Select Case KeyCode
+            Case vbKeyF12
+                Me.AllowEdits = True
+            Case Else
+                Exit Sub
+        End Select
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    On Error Resume Next
+    Me.Imagen248.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+    Call LogoAncho_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub LogoAlto_AfterUpdate()
+    Call LogoAncho_AfterUpdate
+End Sub
+
+Private Sub LogoAncho_AfterUpdate()
+    Me.Imagen248.Width = Me.LogoAncho * TC_CmToPoints
+    Me.Imagen248.Height = Me.LogoAlto * TC_CmToPoints
+End Sub
+
+Private Sub LogoUbicacion_AfterUpdate()
+    On Error Resume Next
+    If Not IsNull(Me.LogoUbicacion) Then
+        Me.Imagen248.Picture = Me.LogoUbicacion
+'        Forms![frmMenu]![Imagen248].Picture = Me.LogoUbicacion
+    Else
+        Me.Imagen248.Picture = ""
+ '       Forms![frmMenu]![Imagen248].Picture = ""
+    End If
+End Sub

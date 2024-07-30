@@ -1,0 +1,402 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim gstrSelected As String, glngIdFichaCab As Long, g_mrcDisponiblesDefault As Integer
+
+Private Sub btnAsignar_Click()
+    Dim lngIdFicha As Long, strParcela  As String
+    Dim varItem As Variant
+    Dim datIni As Date, datFin As Date, intAsignarFichaAPanel As Integer, lngIdTipoParcela As Long
+    On Error GoTo Error_btnAsignar_Click
+    If Me.lstDisponibles.ItemsSelected.Count = 0 Then Exit Sub
+    If IsNull(Forms![frmFichas]![IdFichaCab]) Then Exit Sub
+    If Me.mrcDisponibles = 1 Then
+        datIni = CDate(Me.txtDesde)
+        datFin = CDate(Me.txtHasta)
+    Else
+        datIni = 0: datFin = 0
+    End If
+    lngIdFicha = Forms![frmFichas]![IdFichaCab]
+    DoCmd.Hourglass True
+    For Each varItem In Me.lstDisponibles.ItemsSelected
+        strParcela = Me.lstDisponibles.Column(0, varItem)
+        AñadirLineasDetallePredeterminadas lngIdFicha, strParcela, datIni, datFin
+        ' Si es Ficha Actual, actualizar conexión con botones de Panel
+'        If DCount("IdParcela", "tbParcelas", "IdFicha = " & lngIdFicha) Then
+'            CurrentDb.Execute "UPDATE tbParcelas SET tbParcelas.IdFicha = " & lngIdFicha _
+'                        & " WHERE tbParcelas.NombreParcela ='" & strParcela & "'", dbFailOnError
+        Select Case Forms![frmFichas].EstadoFicha
+            Case 2, 3, 4, 6, 10
+                intAsignarFichaAPanel = True
+            Case Else
+                intAsignarFichaAPanel = False
+        End Select
+        'Forms![frmFichas].EstadoFicha = 2 Or Forms![frmFichas].EstadoFicha = 10
+        If Not intAsignarFichaAPanel Then
+            lngIdTipoParcela = Nz(DLookup("IdTipoPArcela", "tbParcelas", "NombreParcela = """ & strParcela & """"), 0)
+            If Nz(DameValorParam("TipoParcelaId_" & lngIdTipoParcela & "_EsActualSN"), False) = True Then
+                intAsignarFichaAPanel = True
+            End If
+        End If
+            
+        If intAsignarFichaAPanel Then
+            If AsignarFichaAPanel(lngIdFicha, strParcela) = False Then
+                MsgBox "No se pudo asignar la " & g_strPH & " " & strParcela & " al panel por estar ocupada"
+            End If
+            If IsOpenForm("frmPanel") Then
+                Call PintaBotones(Forms!frmPanel, strParcela)
+            End If
+            If IsOpenForm("frmPlaningH") Then
+                Call PintaBotones(Forms!frmPlaningH, strParcela)
+            End If
+        End If
+    Next varItem
+    DoCmd.Hourglass False
+    'Me.lstDisponibles.Requery
+    CargarLstDisponibles
+    CargarListaAsignadas glngIdFichaCab
+    Forms![frmFichas]![lstHabitaciones].Requery
+    Forms![frmFichas]![lstDetalle].Requery
+Salir_btnAsignar_Click:
+    Exit Sub
+Error_btnAsignar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en btnAsignar_Click" & vbCrLf & Err.Description
+            Resume Salir_btnAsignar_Click
+            Resume Next
+    End Select
+End Sub
+
+
+Private Sub btnCalDesde_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtDesde)
+    If IsDate(varFecha) Then
+        Me.txtDesde = varFecha
+        Call txtDesde_AfterUpdate
+    End If
+End Sub
+
+Private Sub btnCalHasta_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtHasta)
+    If IsDate(varFecha) Then
+        Me.txtHasta = varFecha
+        Call txtHasta_AfterUpdate
+    End If
+End Sub
+
+Private Sub btnIntercambiar_Click()
+    On Error GoTo Error_btnIntercambiar_Click
+    Dim intR As Integer, lngIdFichaCab As Long
+    Dim strConcepto As String, strPar As String, varItem As Variant, strSQL As String, lngIdTipoParcela As Long
+    Dim i As Integer, j As Integer
+    If Me.lstDisponibles.ItemsSelected.Count <> 1 Then
+        MsgBox "Para intercambiar " & g_strPHs & " se debe seleccionar UNA " & g_strPH & " en la lista de disponibles", vbExclamation
+        Exit Sub
+    End If
+    If Me.lstAsignadas.ItemsSelected.Count <> 1 Then
+        MsgBox "Para intercambiar " & g_strPHs & " se debe seleccionar UNA " & g_strPH & " en la lista de asignadas", vbExclamation
+        Exit Sub
+    End If
+    'If IsNull(Forms![frmFichas]![IdFichaCab]) Then Exit Sub
+    lngIdFichaCab = Nz(Forms![frmFichas]![IdFichaCab], 0)
+    If lngIdFichaCab = 0 Then Exit Sub
+    
+    For Each varItem In Me.lstDisponibles.ItemsSelected
+        strPar = Me.lstDisponibles.Column(0, varItem)
+        lngIdTipoParcela = Me.lstDisponibles.Column(4, varItem)
+        AñadeParcelaARecarga strPar
+        'AsignarFichaAPanel lngIdFichaCab, strPar
+    Next varItem
+    Dim intEstadoFicha As Integer
+    intEstadoFicha = Nz(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        intR = MsgBox("¿Intercambiar las " & g_strPHs & " " & strPar & " y " & Me.lstAsignadas.Column(1, varItem) & "?" & vbCrLf & "No se modificarán precio, concepto ni nº de plazas ocupadas", vbOKCancel + vbQuestion)
+        If intR <> vbOK Then Exit Sub
+        Select Case intEstadoFicha
+            Case 2, 3, 4, 6, 10
+                LiberarFichaDePanel lngIdFichaCab, Me.lstAsignadas.Column(1, varItem)
+                AsignarFichaAPanel lngIdFichaCab, strPar
+        End Select
+        'AñadeParcelaARecarga Me.lstAsignadas.Column(1, varItem)
+        strConcepto = DLookup("Concepto", "tbFichasDet", "IdFichaDet = " & Me.lstAsignadas.Column(0, varItem))
+'        i = InStr(strConcepto, "(" & Me.lstAsignadas.Column(1, varItem))
+'        If i > 0 Then j = InStr(i + Len(Me.lstAsignadas.Column(1, varItem)) + 1, strConcepto, ")")
+'        If j > 0 Then
+'            strConcepto = Mid(strConcepto, 1, i - 1) & IIf(Len(strConcepto) > j, Mid(strConcepto, j + 1), "")
+'        End If
+        
+        strConcepto = Replace(strConcepto, "(" & Me.lstAsignadas.Column(1, varItem), "(" & strPar)
+        strSQL = "UPDATE tbFichasDet"
+        strSQL = strSQL & " SET Parcela = " & ConComillas(strPar)
+        strSQL = strSQL & " , IdTipoParcela = " & lngIdTipoParcela
+        strSQL = strSQL & " , Concepto = " & ConComillas(strConcepto)
+        strSQL = strSQL & " WHERE tbFichasDet.IdFichaDet=" & Me.lstAsignadas.Column(0, varItem)
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next varItem
+    CargarLstDisponibles
+    CargarListaAsignadas glngIdFichaCab
+    
+Salir_btnIntercambiar_Click:
+    Exit Sub
+Error_btnIntercambiar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en btnIntercambiar_Click" & vbCrLf & Err.Description
+            Resume Salir_btnIntercambiar_Click
+    End Select
+End Sub
+
+Private Sub btnParcela_Click()
+'    Dim rs As Recordset
+'    Set rs = CurrentDb.OpenRecordset(Me.lstDisponibles.RowSource, dbOpenSnapshot)
+'    rs.FindFirst "Parcela = " & concomillas(Me.txtParcela)
+'    If Not rs.NoMatch Then
+'        Me.lstDisponibles.Selected(rs.RecordCount) = Me.txtParcela.Text
+    On Error GoTo Error_btnParcela_Click
+    Dim iRow As Long
+    For iRow = 0 To Me.lstDisponibles.ListCount - 1
+        Me.lstDisponibles.Selected(iRow) = False
+    Next iRow
+    
+    For iRow = 0 To Me.lstDisponibles.ListCount - 1
+        If Me.lstDisponibles.Column(0, iRow) = Me.txtParcela Then
+            Me.lstDisponibles.Selected(iRow) = True
+            Me.lstDisponibles = iRow
+            Exit For
+        End If
+    Next iRow
+    Me.lstDisponibles.SetFocus
+Salir_btnParcela_Click:
+    Exit Sub
+Error_btnParcela_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnParcela_Click" & vbCrLf & Err.Description
+            Resume Salir_btnParcela_Click
+            Resume Next
+    End Select
+End Sub
+
+Private Sub btnQuitar_Click()
+    'On Error Resume Next
+    'DoCmd.GoToControl "SubfrmFichasDetParcelas"
+    'DoCmd.RunCommand acCmdDeleteRecord
+    Dim db As DAO.Database
+    Dim strSQL As String
+    Dim varItem As Variant, strParcela As String, lngIdDet As Long
+    Dim intR As Integer
+    On Error Resume Next
+    If Me.lstAsignadas.ListIndex = -1 Then Exit Sub
+    If IsNull(Forms![frmFichas]![IdFichaCab]) Then Exit Sub
+    If Forms![frmFichas]![WuBookID] > 0 Then
+        intR = MsgBox("Atención, debe tomar nota del precio aplicado en la reserva recibida por la OTA que puede no ser la misma que calcule el programa. ¿Continuar ahora?", vbExclamation + vbOKCancel + vbDefaultButton2)
+        If intR = vbCancel Then Exit Sub
+    End If
+    Set db = CurrentDb
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        If DCount("IdParcela", "tbParcelas", "IdFicha = " & Forms![frmFichas]![IdFichaCab]) Then ' Si es Ficha del Panel, actualizar conexión con botones de Panel
+            CurrentDb.Execute "UPDATE tbParcelas SET tbParcelas.IdFicha = 0" _
+                        & " WHERE tbParcelas.NombreParcela ='" & Me.lstAsignadas.Column(1, varItem) & "'", dbFailOnError
+            If IsOpenForm("frmPanel") Then
+                    Call PintaBotones(Forms!frmPanel, Me.lstAsignadas.Column(1, varItem), , True)
+            End If
+        End If
+        strSQL = "DELETE tbFichasDet.IdFichaDet"
+        strSQL = strSQL + " FROM tbFichasDet"
+        strSQL = strSQL + " WHERE (((tbFichasDet.IdFichaDet)=" & Me.lstAsignadas.Column(0, varItem) & "));"
+        db.Execute strSQL, dbFailOnError
+        'AñadeParcelaARecarga Me.lstAsignadas.Column(1, varItem)
+    Next varItem
+    'Me.lstDisponibles.Requery
+    CargarLstDisponibles
+    CargarListaAsignadas glngIdFichaCab
+    Forms![frmFichas]![lstHabitaciones].Requery
+    Forms![frmFichas]![lstDetalle].Requery
+    Forms![frmFichas].RecalculaTotales
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub cmbTipoParcela_AfterUpdate()
+    On Error GoTo HandleError
+    If Nz(DameValorParam("TipoParcelaId_" & Me.cmbTipoParcela & "_EsActualSN"), False) = True Then
+        Me.mrcDisponibles = 2
+    Else
+        Me.mrcDisponibles = g_mrcDisponiblesDefault
+    End If
+    CargarLstDisponibles
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub CargarLstDisponibles()
+    On Error GoTo HandleError
+    Dim strSQL As String
+    strSQL = "SELECT tbParcelas.NombreParcela as Habitación, tbParcelasTipo.TipoParcela, Format(LibreHasta([NombreParcela]," & CLng(CDate(Me.txtDesde)) & "),'dd/mm/yyyy') AS [Libre hasta], Orden, tbParcelasTipo.IdTipoParcela"
+    If Me.mrcDisponibles = 1 Then
+        strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN (tbParcelas LEFT JOIN [qryParcelasReservadasEntreFechas_frmAsignarParcelas] ON tbParcelas.NombreParcela = [qryParcelasReservadasEntreFechas_frmAsignarParcelas].Parcela) ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+        strSQL = strSQL & " WHERE ((([qryParcelasReservadasEntreFechas_frmAsignarParcelas].Parcela) Is Null))"
+        If Me.cmbTipoParcela > 0 Then
+            strSQL = strSQL & " AND  tbParcelasTipo.IdTipoParcela = " & Me.cmbTipoParcela
+        End If
+    ElseIf Me.mrcDisponibles = 2 Then
+        'strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN (tbParcelas LEFT JOIN [qryParcelasReservadasEntreFechasYActuales_frmAsignarParcelas] ON tbParcelas.NombreParcela = [qryParcelasReservadasEntreFechasYActuales_frmAsignarParcelas].Parcela) ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+        'strSQL = strSQL & " WHERE ((([qryParcelasReservadasEntreFechasYActuales_frmAsignarParcelas].Parcela) Is Null))"
+        'If Me.cmbTipoParcela > 0 Then
+        '    strSQL = strSQL & " AND  tbParcelasTipo.IdTipoParcela = " & Me.cmbTipoParcela
+        'End If
+        strSQL = "SELECT tbParcelas.NombreParcela AS Habitación, tbParcelasTipo.TipoParcela, Format(LibreHasta([NombreParcela],Date()),'dd/mm/yyyy') AS [Libre hasta], Orden, tbParcelasTipo.IdTipoParcela"
+        strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+        strSQL = strSQL & " WHERE (((tbParcelas.IdFicha) = 0 Or (tbParcelas.IdFicha) Is Null) And ((tbParcelas.IdFichaLlegaHoy) = 0 Or (tbParcelas.IdFichaLlegaHoy) Is Null))"
+        If Me.cmbTipoParcela > 0 Then
+            strSQL = strSQL & " AND  tbParcelasTipo.IdTipoParcela = " & Me.cmbTipoParcela
+        End If
+    Else
+        strSQL = "SELECT tbParcelas.NombreParcela AS Habitación, tbParcelasTipo.TipoParcela, Format(LibreHasta([NombreParcela],Date()),'dd/mm/yyyy') AS [Libre hasta], Orden, tbParcelasTipo.IdTipoParcela"
+        strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+        strSQL = strSQL & " WHERE True"
+        If Me.cmbTipoParcela > 0 Then
+            strSQL = strSQL & " AND  tbParcelasTipo.IdTipoParcela = " & Me.cmbTipoParcela
+        End If
+    End If
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+    strSQL = "INSERT INTO auxParcelasDisponibles ( Habitación, TipoParcela, [Libre hasta], Orden, IdTipoParcela )" & strSQL
+    CurrentDb.Execute "DELETE * FROM auxParcelasDisponibles", dbFailOnError
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.lstDisponibles.Requery
+    'Me.lstDisponibles.RowSource = strSQL
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox "Error nº " & Err & " en CargarLstDisponibles" & vbCrLf & Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub CargarListaAsignadas(lngIdFichaCab As Long)
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, strRS As String, i As Integer, fld As Field
+    strSQL = "SELECT DISTINCTROW tbFichasDet.IdFichaDet, Nz(tbFichasDet.Parcela,'') AS Habitación, tbParcelasTipo.TipoParcela AS Tipo, tbFichasDet.FechaInicio, FechaH([IdFichaDet]) AS Hasta, LibreHasta(Nz([Parcela],''),[FechaInicio]) AS [Libre hasta]"
+    'strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN (tbParcelas RIGHT JOIN tbFichasDet ON tbParcelas.NombreParcela = tbFichasDet.Parcela) ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+    strSQL = strSQL & " FROM (tbParcelas RIGHT JOIN tbFichasDet ON tbParcelas.NombreParcela = tbFichasDet.Parcela) INNER JOIN tbParcelasTipo ON tbFichasDet.IdTipoParcela = tbParcelasTipo.IdTipoParcela"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngIdFichaCab & "))"
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+    'Me.lstAsignadas.RowSource = strSQL
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        For Each fld In rs.Fields
+            strRS = strRS & fld.value & ";"
+        Next fld
+        rs.MoveNext
+    Wend
+    Me.lstAsignadas.RowSource = strRS
+
+    strSQL = "SELECT tbFichasDet.Parcela, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Hasta, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.EstadoFicha<>9 AND (((tbFichasDet.FechaInicio)<" & CLng(CDate(Nz(Me.txtHasta, Date + 1))) & " ) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>" & CLng(CDate(Me.txtDesde)) & " Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null));"
+    CurrentDb.QueryDefs("qryParcelasReservadasEntreFechas_frmAsignarParcelas").SQL = strSQL
+    Me.Texto0.ControlSource = "=""Asignada/s a Ficha Nº " & lngIdFichaCab & """"
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Load()
+    'Traducir Me
+    Me.Caption = "Asignar " & g_strPHs
+    Me.lblHH.Caption = g_strPH
+    Me.lblHH2.Caption = g_strPH
+    Me.lblHH3.Caption = g_strPH
+    CargarCmbTipoParcela
+    If IsOpenForm("frmFichas") Then
+        Dim frm As Form
+        Set frm = Forms("frmFichas")
+        Me.txtDesde = frm.Controls("txtFechaLlegada")
+        Me.txtHasta = frm.Controls("txtFechaSalida")
+        If frm.EstadoFicha = 2 Then
+            g_mrcDisponiblesDefault = 2
+        Else
+            g_mrcDisponiblesDefault = 1
+        End If
+        Me.mrcDisponibles = g_mrcDisponiblesDefault
+        glngIdFichaCab = Nz(frm("IdfichaCab"), 0)
+        Call CargarListaAsignadas(glngIdFichaCab)
+    End If
+'    Call cmbTipoParcela_AfterUpdate
+    Call mrcDisponibles_AfterUpdate
+    Me.txtParcela.SetFocus
+End Sub
+
+Private Sub CargarCmbTipoParcela()
+    Dim strRow As String
+    strRow = "0; 'TODAS'"
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela"
+    strSQL = strSQL & " FROM tbParcelasTipo"
+    strSQL = strSQL & " ORDER BY tbParcelasTipo.CatINE;"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+        strRow = strRow & "; " & rs(0) & "; '" & rs(1) & "'"
+        rs.MoveNext
+    Wend
+    Me.cmbTipoParcela.RowSource = strRow
+End Sub
+Private Sub lstAsignadas_DblClick(Cancel As Integer)
+    Call btnQuitar_Click
+End Sub
+
+Private Sub lstDisponibles_DblClick(Cancel As Integer)
+    Call btnAsignar_Click
+End Sub
+
+Private Sub mrcDisponibles_AfterUpdate()
+    If Me.mrcDisponibles = 1 Then
+        Me.txtDisp.ControlSource = "= 'Disponibles entre el " & Me.txtDesde & " y el " & Me.txtHasta & "'"
+    ElseIf Me.mrcDisponibles = 2 Then
+        Me.txtDisp.ControlSource = "= 'Disponibles ahora'"
+    Else
+        Me.txtDisp.ControlSource = "= 'Todas'"
+    End If
+    Me.txtDesde.Visible = Me.mrcDisponibles = 1
+    Me.txtHasta.Visible = Me.txtDesde.Visible
+    Me.btnCalDesde.Visible = Me.txtDesde.Visible
+    Me.btnCalHasta.Visible = Me.txtDesde.Visible
+    CargarListaAsignadas (glngIdFichaCab)
+    CargarLstDisponibles
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    Call mrcDisponibles_AfterUpdate
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+        If (Shift And acCtrlMask = False And Shift And acShiftMask = False And Shift And acAltMask = False) Then Call btnCalDesde_Click
+    End If
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call mrcDisponibles_AfterUpdate
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+        If (Shift And acCtrlMask = False And Shift And acShiftMask = False And Shift And acAltMask = False) Then Call btnCalHasta_Click
+    End If
+End Sub

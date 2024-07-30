@@ -1,0 +1,359 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+Option Compare Database
+Option Explicit
+Dim gstrTeclas As String
+
+Private Sub btnOrdenCliente_Click()
+    Dim strSQL As String, intPaso As Integer
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Ficha nº], tbFichasDet.Parcela as [" & g_strPH & "], [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida "
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab "
+    strSQL = strSQL & " WHERE ((tbFichasDet.Parcela) Is Not Null) AND"
+SqlWhere:
+    Select Case Me.OpenArgs
+        Case "1" ' reservas
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=1"
+        Case "10" ' fijos
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=10"
+        Case "2" ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+        Case "5" ' antiguas
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=4 Or (tbFichasCab.EstadoFicha)=5)) "
+        Case Else ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+    End Select
+    'strSQL = strSQL & " AND isnull(tbFichasCab.IdCajaAper)"
+    If intPaso = 1 Then GoTo SqlOrder
+    ' las fichas sin parcelas...........
+    strSQL = strSQL & " UNION ALL SELECT tbFichasCab.IdFichaCab AS [Ficha nº], ' - ' AS Parcela, [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN (tbFichasDet LEFT JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN qryFichasSinParcelasAsignadas ON tbFichasCab.IdFichaCab = qryFichasSinParcelasAsignadas.IdFichaCab"
+    strSQL = strSQL & " WHERE"
+    intPaso = 1
+    GoTo SqlWhere
+SqlOrder:
+    strSQL = strSQL & " ORDER BY [Cliente]"
+    If Me.btnOrdenCliente.Tag = "asc" Then
+        strSQL = strSQL & " DESC"
+        Me.btnOrdenCliente.Tag = "desc"
+        Me.btnOrdenCliente.Caption = "Orden (3) Z-A"
+    Else
+        Me.btnOrdenCliente.Tag = "asc"
+        Me.btnOrdenCliente.Caption = "Orden (3) A-Z"
+    End If
+    Me.btnOrdenParcela.Tag = ""
+    Me.btnOrdenFicha.Tag = ""
+    Me.btnOrdenFecha.Tag = ""
+    Me.btnOrdenFechaS.Tag = ""
+    Me.btnOrdenParcela.Caption = "Orden (2)"
+    Me.btnOrdenFicha.Caption = "Orden (1)"
+    Me.btnOrdenFecha.Caption = "Orden (4)"
+    Me.btnOrdenFechaS.Caption = "Orden (5)"
+    Me.btnOrdenCliente.FontBold = True
+    Me.btnOrdenFicha.FontBold = False
+    Me.btnOrdenFecha.FontBold = False
+    Me.btnOrdenParcela.FontBold = False
+    Me.lstClientes.RowSource = strSQL
+    Me.lstClientes.BoundColumn = 3
+    Me.lstClientes.SetFocus
+End Sub
+
+Private Sub btnOrdenFecha_Click()
+    Dim strSQL As String, intPaso As Integer
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Ficha nº], tbFichasDet.Parcela as [" & g_strPH & "], [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida "
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab "
+    strSQL = strSQL & " WHERE ((tbFichasDet.Parcela) Is Not Null) AND"
+SqlWhere:
+    Select Case Me.OpenArgs
+        Case "1" ' reservas
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=1"
+        Case "-1" ' fijos
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=-1"
+        Case "2" ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+        Case "5" ' antiguas
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=4 Or (tbFichasCab.EstadoFicha)=5)) "
+        Case Else ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+    End Select
+    'strSQL = strSQL & " AND Isnull(tbFichasCab.IdCajaAper)"
+    If intPaso = 1 Then GoTo SqlOrder
+    ' las fichas sin parcelas...........
+    strSQL = strSQL & " UNION ALL SELECT tbFichasCab.IdFichaCab AS [Ficha nº], ' - ' AS Parcela, [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN (tbFichasDet LEFT JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN qryFichasSinParcelasAsignadas ON tbFichasCab.IdFichaCab = qryFichasSinParcelasAsignadas.IdFichaCab"
+    strSQL = strSQL & " WHERE"
+    intPaso = 1
+    GoTo SqlWhere
+SqlOrder:
+    strSQL = strSQL & " ORDER BY tbFichasCab.FechaLlegada"
+    If Me.btnOrdenFecha.Tag = "asc" Then
+        strSQL = strSQL & " DESC"
+        Me.btnOrdenFecha.Tag = "desc"
+        Me.btnOrdenFecha.Caption = "Orden (4) Z-A"
+    Else
+        Me.btnOrdenFecha.Tag = "asc"
+        Me.btnOrdenFecha.Caption = "Orden (4) A-Z"
+    End If
+    Me.btnOrdenFechaS.Tag = ""
+    Me.btnOrdenCliente.Tag = ""
+    Me.btnOrdenParcela.Tag = ""
+    Me.btnOrdenFicha.Tag = ""
+    Me.btnOrdenCliente.Caption = "Orden (3)"
+    Me.btnOrdenParcela.Caption = "Orden (2)"
+    Me.btnOrdenFicha.Caption = "Orden (1)"
+    Me.btnOrdenFechaS.Caption = "Orden (5)"
+    Me.btnOrdenFecha.FontBold = True
+    Me.btnOrdenCliente.FontBold = False
+    Me.btnOrdenFicha.FontBold = False
+    Me.btnOrdenFechaS.FontBold = False
+    Me.btnOrdenParcela.FontBold = False
+    Me.lstClientes.RowSource = strSQL
+    Me.lstClientes.BoundColumn = 4
+    Me.lstClientes.SetFocus
+End Sub
+
+Private Sub btnOrdenFechaS_Click()
+    Dim strSQL As String, intPaso As Integer
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Ficha nº], tbFichasDet.Parcela as [" & g_strPH & "], [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida "
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab "
+    strSQL = strSQL & " WHERE ((tbFichasDet.Parcela) Is Not Null) AND"
+SqlWhere:
+    Select Case Me.OpenArgs
+        Case "1" ' reservas
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=1"
+        Case "-1" ' fijos
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=-1"
+        Case "2" ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+        Case "5" ' antiguas
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=4 Or (tbFichasCab.EstadoFicha)=5)) "
+        Case Else ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+    End Select
+    'strSQL = strSQL & " AND Isnull(tbFichasCab.IdCajaAper)"
+    If intPaso = 1 Then GoTo SqlOrder
+    ' las fichas sin parcelas...........
+    strSQL = strSQL & " UNION ALL SELECT tbFichasCab.IdFichaCab AS [Ficha nº], ' - ' AS Parcela, [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN (tbFichasDet LEFT JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN qryFichasSinParcelasAsignadas ON tbFichasCab.IdFichaCab = qryFichasSinParcelasAsignadas.IdFichaCab"
+    strSQL = strSQL & " WHERE"
+    intPaso = 1
+    GoTo SqlWhere
+SqlOrder:
+    strSQL = strSQL & " ORDER BY tbFichasCab.FechaSalida"
+    If Me.btnOrdenFechaS.Tag = "asc" Then
+        strSQL = strSQL & " DESC"
+        Me.btnOrdenFechaS.Tag = "desc"
+        Me.btnOrdenFechaS.Caption = "Orden (5) Z-A"
+    Else
+        Me.btnOrdenFechaS.Tag = "asc"
+        Me.btnOrdenFechaS.Caption = "Orden (5) A-Z"
+    End If
+    Me.btnOrdenFecha.Tag = ""
+    Me.btnOrdenCliente.Tag = ""
+    Me.btnOrdenParcela.Tag = ""
+    Me.btnOrdenFicha.Tag = ""
+    Me.btnOrdenCliente.Caption = "Orden (3)"
+    Me.btnOrdenParcela.Caption = "Orden (2)"
+    Me.btnOrdenFicha.Caption = "Orden (1)"
+    Me.btnOrdenFecha.Caption = "Orden (5)"
+    Me.btnOrdenFechaS.FontBold = True
+    Me.btnOrdenCliente.FontBold = False
+    Me.btnOrdenFicha.FontBold = False
+    Me.btnOrdenFecha.FontBold = False
+    Me.btnOrdenParcela.FontBold = False
+    Me.lstClientes.RowSource = strSQL
+    Me.lstClientes.BoundColumn = 4
+    Me.lstClientes.SetFocus
+End Sub
+
+Private Sub btnOrdenFicha_Click()
+    Dim strSQL As String, intPaso As Integer
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Ficha nº], tbFichasDet.Parcela as [" & g_strPH & "], [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida  "
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab "
+    strSQL = strSQL & " WHERE ((tbFichasDet.Parcela) Is Not Null) AND"
+SqlWhere:
+    Select Case Me.OpenArgs
+        Case "1" ' reservas
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=1"
+        Case "-1" ' fijos
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=-1"
+        Case "2" ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+        Case "5" ' antiguas
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=4 Or (tbFichasCab.EstadoFicha)=5)) "
+        Case Else ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+    End Select
+    'strSQL = strSQL & " AND Isnull(tbFichasCab.IdCajaAper)"
+    If intPaso = 1 Then GoTo SqlOrder
+    ' las fichas sin parcelas...........
+    strSQL = strSQL & " UNION ALL SELECT tbFichasCab.IdFichaCab AS [Ficha nº], ' - ' AS Parcela, [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN (tbFichasDet LEFT JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN qryFichasSinParcelasAsignadas ON tbFichasCab.IdFichaCab = qryFichasSinParcelasAsignadas.IdFichaCab"
+    strSQL = strSQL & " WHERE"
+    intPaso = 1
+    GoTo SqlWhere
+SqlOrder:
+    strSQL = strSQL & " ORDER BY [Ficha nº]"
+    If Me.btnOrdenFicha.Tag = "asc" Then
+        strSQL = strSQL & " DESC"
+        Me.btnOrdenFicha.Tag = "desc"
+        Me.btnOrdenFicha.Caption = "Orden (1) Z-A"
+    Else
+        Me.btnOrdenFicha.Tag = "asc"
+        Me.btnOrdenFicha.Caption = "Orden (1) A-Z"
+    End If
+    Me.btnOrdenCliente.Tag = ""
+    Me.btnOrdenParcela.Tag = ""
+    Me.btnOrdenFecha.Tag = ""
+    Me.btnOrdenFechaS.Tag = ""
+    Me.btnOrdenFecha.Caption = "Orden (4)"
+    Me.btnOrdenFechaS.Caption = "Orden (5)"
+    Me.btnOrdenCliente.Caption = "Orden (3)"
+    Me.btnOrdenParcela.Caption = "Orden (2)"
+    Me.btnOrdenFecha.FontBold = False
+    Me.btnOrdenFechaS.FontBold = False
+    Me.btnOrdenCliente.FontBold = False
+    Me.btnOrdenFicha.FontBold = True
+    Me.btnOrdenParcela.FontBold = False
+    Me.lstClientes.RowSource = strSQL
+    Me.lstClientes.BoundColumn = 1
+    Me.lstClientes.SetFocus
+End Sub
+
+Private Sub btnOrdenParcela_Click()
+    Dim strSQL As String, intPaso As Integer
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Ficha nº], tbFichasDet.Parcela as [" & g_strPH & "], [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbParcelas.Orden as Ord"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) LEFT JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela"
+    strSQL = strSQL & " WHERE ((tbFichasDet.Parcela) Is Not Null) AND"
+SqlWhere:
+    Select Case Me.OpenArgs
+        Case "1" ' reservas
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=1"
+        Case "-1" ' fijos
+            strSQL = strSQL & " (tbFichasCab.EstadoFicha)=-1"
+        Case "2" ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+        Case "5" ' antiguas
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=4 Or (tbFichasCab.EstadoFicha)=5)) "
+        Case Else ' clientes actuales
+            strSQL = strSQL & " (((tbFichasCab.EstadoFicha)=2 Or (tbFichasCab.EstadoFicha)=3)) "
+    End Select
+    'strSQL = strSQL & " AND Isnull(tbFichasCab.IdCajaAper)"
+    If intPaso = 1 Then GoTo SqlOrder
+    ' las fichas sin parcelas...........
+    strSQL = strSQL & " UNION ALL SELECT tbFichasCab.IdFichaCab AS [Ficha nº], ' - ' AS Parcela, [ApellidosCliente] & ', ' & [NombreCliente] AS Cliente, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, 99999 as Ord"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN (tbFichasDet LEFT JOIN tbParcelas ON tbFichasDet.Parcela = tbParcelas.NombreParcela) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN qryFichasSinParcelasAsignadas ON tbFichasCab.IdFichaCab = qryFichasSinParcelasAsignadas.IdFichaCab"
+    strSQL = strSQL & " WHERE"
+    intPaso = 1
+    GoTo SqlWhere
+SqlOrder:
+    strSQL = strSQL & " ORDER BY [Ord]"
+    If Me.btnOrdenParcela.Tag = "asc" Then
+        strSQL = strSQL & " DESC"
+        Me.btnOrdenParcela.Tag = "desc"
+        Me.btnOrdenParcela.Caption = "Orden (2) Z-A"
+    Else
+        Me.btnOrdenParcela.Tag = "asc"
+        Me.btnOrdenParcela.Caption = "Orden (2) A-Z"
+    End If
+    Me.btnOrdenCliente.Tag = ""
+    Me.btnOrdenFicha.Tag = ""
+    Me.btnOrdenFecha.Tag = ""
+    Me.btnOrdenFechaS.Tag = ""
+    Me.btnOrdenCliente.Caption = "Orden (3)"
+    Me.btnOrdenFicha.Caption = "Orden (1)"
+    Me.btnOrdenFecha.Caption = "Orden (4)"
+    Me.btnOrdenFechaS.Caption = "Orden (5)"
+    Me.btnOrdenCliente.FontBold = False
+    Me.btnOrdenFicha.FontBold = False
+    Me.btnOrdenFecha.FontBold = False
+    Me.btnOrdenFechaS.FontBold = False
+    Me.btnOrdenParcela.FontBold = True
+    Me.lstClientes.RowSource = strSQL
+    Me.lstClientes.BoundColumn = 2
+    Me.lstClientes.SetFocus
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnVerFicha_Click()
+    If Me.lstClientes.ListIndex = -1 Then Exit Sub
+    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me.lstClientes.Column(0)
+    Me.lstClientes.SetFocus
+End Sub
+
+
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call ControlTeclas(Me, KeyCode, Shift, gstrTeclas)
+End Sub
+
+Private Sub Form_Load()
+    'Traducir me
+    gstrTeclas = "|CTRL_1|#btnOrdenFicha#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_2|#btnOrdenParcela#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_3|#btnOrdenCliente#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_4|#btnOrdenFecha#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_5|#btnOrdenFechaS#¬"
+    If Me.OpenArgs = "1" Then
+        Call btnOrdenFecha_Click
+    ElseIf Me.OpenArgs = "5" Then
+        Call btnOrdenFechaS_Click
+    Else
+        Call btnOrdenCliente_Click
+    End If
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Select Case Me.OpenArgs
+        Case "1" ' reservas
+            Me.Caption = "Reservas"
+        Case "2" ' clientes actuales
+            Me.Caption = "Clientes Actuales"
+        Case "5" ' antiguas
+            Me.Caption = "Fichas Antiguas"
+        Case "10" ' antiguas
+            Me.Caption = "Clientes Fijos"
+        Case Else ' clientes actuales
+            Me.Caption = "Clientes Actuales"
+    End Select
+
+End Sub
+
+Public Function MisBotones(strNombreBoton As String)
+    Select Case strNombreBoton
+        Case "btnOrdenFicha"
+            Call btnOrdenFicha_Click
+        Case "btnOrdenFecha"
+            Call btnOrdenFecha_Click
+        Case "btnOrdenFechaS"
+            Call btnOrdenFechaS_Click
+        Case "btnOrdenParcela"
+            Call btnOrdenParcela_Click
+        Case "btnOrdenCliente"
+            Call btnOrdenCliente_Click
+    End Select
+End Function
+
+Private Sub lstClientes_Click()
+    Call btnVerFicha_Click
+End Sub
+
+Private Sub lstClientes_DblClick(Cancel As Integer)
+    Call btnVerFicha_Click
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub lstClientes_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        Call btnVerFicha_Click
+        DoCmd.Close acForm, Me.Name
+    End If
+End Sub

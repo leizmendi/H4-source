@@ -1,0 +1,19 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, lngIdCR As Long, rs As Recordset
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdCR = Nz(DimeXML(strXML, "IdCentralR"), 0)
+    If lngIdCR <> 0 Then
+        Set rs = Me.RecordsetClone
+        rs.FindFirst "IdCentralR = " & lngIdCR
+        If Not rs.NoMatch Then Me.Bookmark = rs.Bookmark
+    End If
+    
+End Sub

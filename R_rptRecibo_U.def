@@ -1,0 +1,30 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub EncabezadoDelGrupo0_Format(Cancel As Integer, FormatCount As Integer)
+    Select Case Me.Origen
+        Case "T"
+            Me.lblTit.Caption = "Nº de Tique: " & Llena(Me.IdFrom, 5)
+        Case "F"
+            Me.lblTit.Caption = "Nº de Factura: " & Nz(DLookup("[Serie] & [NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & Me.IdFrom), "?")
+        Case "C"
+            Me.lblTit.Caption = "Pago de Caja"
+        Case "E"
+            Me.lblTit.Caption = "Nº de Ficha de Estancia: " & Llena(Me.IdFrom, 5)
+        Case "R"
+            Me.lblTit.Caption = "Factura recibida: " & Nz(DLookup("NumeroDeFactura", "tbFacturasRecibidas", "IdFacturaRecibida = " & Me.IdFrom), "")
+    End Select
+    
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existe Recibo"
+    Cancel = True
+End Sub

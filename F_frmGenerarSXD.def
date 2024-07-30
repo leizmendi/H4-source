@@ -1,0 +1,185 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim glngIdFichaCab As Long
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call ActivaSXD_AC("SXDverDesayunos")
+    Call ActivaSXD_AC("SXDverPicnic")
+    Call ActivaSXD_AC("SXDverComidas")
+    Call ActivaSXD_AC("SXDverCenas")
+    Call ActivaSXD_AC("SXDverPernoctaciones")
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    glngIdFichaCab = Nz(DimeXML(strXML, "IdFichaCab"), 0)
+    If IsOpenForm("frmFichas") Then
+        Me.txtFicha = glngIdFichaCab 'Forms("frmFichas")("IdFichaCab")
+        Me.txtDesde = DLookup("FechaLlegada", "tbFichasCab", "idFichaCab = " & glngIdFichaCab) 'Forms("frmFichas")("txtFechaLlegada")
+        Me.txtHasta = DLookup("FechaSalida", "tbFichasCab", "idFichaCab = " & glngIdFichaCab) 'Forms("frmFichas")("txtFechaSalida")
+        Me.txtDesayunos = DLookup("[Adultos] + [Niños]", "tbFichasCab", "idFichaCab = " & glngIdFichaCab) 'Forms("frmFichas")("txtAdultos") + Forms("frmFichas")("txtNiños")
+        Me.txtPicnic = Me.txtDesayunos
+        Me.txtComidas = Me.txtDesayunos
+        Me.txtCenas = Me.txtDesayunos
+        Me.txtPernoctaciones = Me.txtDesayunos
+    Else
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtCenas_AfterUpdate()
+    Me.txtCenas = CInt(Me.txtCenas)
+End Sub
+
+Private Sub txtComidas_AfterUpdate()
+    Me.txtComidas = CInt(Me.txtComidas)
+End Sub
+
+Private Sub txtDesayunos_AfterUpdate()
+    Me.txtDesayunos = CInt(Me.txtDesayunos)
+End Sub
+
+Private Sub txtDesayunos_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.txtDesayunos) Then
+        MsgBox "Debe ser un número"
+        Cancel = True
+    End If
+End Sub
+Private Sub btnAceptar_Click()
+On Error GoTo Err_btnAceptar_Click
+    Dim rs As Recordset
+    Set rs = CurrentDb.OpenRecordset("tbFichasDetServiciosXDia", dbOpenDynaset)
+    If Not IsDate(Me.txtDesde) Then
+        MsgBox "Se debe introducir Fecha de Inicio"
+        Me.txtDesde.SetFocus
+        Exit Sub
+    End If
+    If Not IsDate(Me.txtHasta) Then
+        MsgBox "Se debe introducir Fecha de Fin"
+        Me.txtHasta.SetFocus
+        Exit Sub
+    End If
+    Dim dt As Date, dtIni As Date, dtFin As Date, strXML As String, strXML0 As String
+    dtIni = CDate(Me.txtDesde)
+    dtFin = CDate(Me.txtHasta)
+    If dtIni > dtFin Then
+        dt = dtIni
+        dtIni = dtFin
+        dtFin = dt
+    End If
+    If Nz(Me.NotasDesayunos, "") <> "" Then PonXML strXML, "Desayunos", Me.NotasDesayunos
+    If Nz(Me.NotasPicnic, "") <> "" Then PonXML strXML, "Picnic", Me.NotasPicnic
+    If Nz(Me.NotasComidas, "") <> "" Then PonXML strXML, "Comidas", Me.NotasComidas
+    If Nz(Me.NotasCenas, "") <> "" Then PonXML strXML, "Cenas", Me.NotasCenas
+    If Nz(Me.NotasPernoctaciones, "") <> "" Then PonXML strXML, "Pernoctaciones", Me.NotasPernoctaciones
+    strXML0 = strXML
+    For dt = dtIni To dtFin
+        rs.AddNew
+        rs("IdFichaCab") = CLng(Me.txtFicha)
+        rs("Fecha") = dt
+        rs("Desayunos") = CInt(Me.txtDesayunos)
+        rs("Picnic") = CInt(Me.txtPicnic)
+        rs("Comidas") = CInt(Me.txtComidas)
+        rs("Cenas") = CInt(Me.txtCenas)
+        rs("Pernoctaciones") = CInt(Me.txtPernoctaciones)
+        strXML = strXML0
+        If dt = dtIni Then
+            Select Case Me.cmbDesdeA
+                Case 1
+                Case 2
+                    rs("Desayunos") = 0
+                    If Nz(DimeXML(strXML, "Desayunos"), "") <> "" Then PonXML strXML, "Desayunos", "", , , True
+                Case 3
+                    rs("Desayunos") = 0
+                    If Nz(DimeXML(strXML, "Desayunos"), "") <> "" Then PonXML strXML, "Desayunos", "", , , True
+                    rs("Picnic") = 0
+                    If Nz(DimeXML(strXML, "Picnic"), "") <> "" Then PonXML strXML, "Picnic", "", , , True
+                Case 4
+                    rs("Desayunos") = 0
+                    If Nz(DimeXML(strXML, "Desayunos"), "") <> "" Then PonXML strXML, "Desayunos", "", , , True
+                    rs("Comidas") = 0
+                    If Nz(DimeXML(strXML, "Comidas"), "") <> "" Then PonXML strXML, "Comidas", "", , , True
+                    rs("Picnic") = 0
+                    If Nz(DimeXML(strXML, "Picnic"), "") <> "" Then PonXML strXML, "Picnic", "", , , True
+                Case 5
+                    rs("Desayunos") = 0
+                    If Nz(DimeXML(strXML, "Desayunos"), "") <> "" Then PonXML strXML, "Desayunos", "", , , True
+                    rs("Comidas") = 0
+                    If Nz(DimeXML(strXML, "Comidas"), "") <> "" Then PonXML strXML, "Comidas", "", , , True
+                    rs("Picnic") = 0
+                    If Nz(DimeXML(strXML, "Picnic"), "") <> "" Then PonXML strXML, "Picnic", "", , , True
+                    rs("Cenas") = 0
+                    If Nz(DimeXML(strXML, "Cenas"), "") <> "" Then PonXML strXML, "Cenas", "", , , True
+            End Select
+        ElseIf dt = dtFin Then
+            Select Case Me.cmbHastaA
+                Case 4
+                    rs("Pernoctaciones") = 0
+                    If Nz(DimeXML(strXML, "Pernoctaciones"), "") <> "" Then PonXML strXML, "Pernoctaciones", "", , , True
+                Case 3
+                    rs("Pernoctaciones") = 0
+                    If Nz(DimeXML(strXML, "Pernoctaciones"), "") <> "" Then PonXML strXML, "Pernoctaciones", "", , , True
+                    rs("Cenas") = 0
+                    If Nz(DimeXML(strXML, "Cenas"), "") <> "" Then PonXML strXML, "Cenas", "", , , True
+                Case 2
+                    rs("Pernoctaciones") = 0
+                    If Nz(DimeXML(strXML, "Pernoctaciones"), "") <> "" Then PonXML strXML, "Pernoctaciones", "", , , True
+                    rs("Cenas") = 0
+                    If Nz(DimeXML(strXML, "Cenas"), "") <> "" Then PonXML strXML, "Cenas", "", , , True
+                    rs("Comidas") = 0
+                    If Nz(DimeXML(strXML, "Comidas"), "") <> "" Then PonXML strXML, "Comidas", "", , , True
+                Case 1
+                    rs("Pernoctaciones") = 0
+                    If Nz(DimeXML(strXML, "Pernoctaciones"), "") <> "" Then PonXML strXML, "Pernoctaciones", "", , , True
+                    rs("Cenas") = 0
+                    If Nz(DimeXML(strXML, "Cenas"), "") <> "" Then PonXML strXML, "Cenas", "", , , True
+                    rs("Comidas") = 0
+                    If Nz(DimeXML(strXML, "Comidas"), "") <> "" Then PonXML strXML, "Comidas", "", , , True
+                    rs("Picnic") = 0
+                    If Nz(DimeXML(strXML, "Picnic"), "") <> "" Then PonXML strXML, "Picnic", "", , , True
+            End Select
+        End If
+        rs("Notas") = IIf(strXML = "", Null, strXML)
+        rs.Update
+    Next dt
+    Me.Visible = False
+Exit_btnAceptar_click:
+    Exit Sub
+
+Err_btnAceptar_Click:
+    MsgBox Err.Description
+    Resume Exit_btnAceptar_click
+    
+End Sub
+
+Private Sub txtPernoctaciones_AfterUpdate()
+    Me.txtPernoctaciones = CInt(Me.txtPernoctaciones)
+End Sub
+
+Public Function ActivaSXD_AC(Optional strCtl As String = "")
+    Dim ctl As Control, strCtl2 As String, strSQL As String
+    If strCtl = "" Then
+        Set ctl = Screen.ActiveControl
+    Else
+        Set ctl = Me.Controls(strCtl)
+    End If
+    If ctl.Name Like "SXDver*" Then
+    Else
+        Exit Function
+    End If
+    strCtl2 = "txt" & Mid(ctl.Name, 7)
+    Me(strCtl2).Enabled = Nz(ctl.value, False) = True
+    strCtl2 = "Notas" & Mid(ctl.Name, 7)
+    Me(strCtl2).Enabled = Nz(ctl.value, False) = True
+End Function

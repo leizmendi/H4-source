@@ -1,0 +1,30 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub Form_Load()
+    If IsOpenForm("frmFichas") Then
+        Me.casIVAinc = Forms("frmFichas").casIvaIncluido
+    Else
+        Me.casIVAinc = DameValorParam("IVAIncluidoEnFacturasYFichas")
+    End If
+End Sub
+
+Private Sub txtImporte_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.txtImporte) Then
+        MsgBox "Debe ser un importe numérico"
+        Cancel = True
+    End If
+End Sub

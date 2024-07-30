@@ -1,0 +1,39 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    If Me.lstAbiertos.ListIndex = -1 Then
+        DoCmd.Close
+    Else
+        Me.lblResult.Caption = Me.lstAbiertos
+        Me.Visible = False
+    End If
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim frm As Form, ctl As Control
+    Me.lstAbiertos.RowSource = ""
+    For Each frm In Application.Forms
+        If frm.Name = "xfrmAnchuras" Or frm.Name = "x2frmAnchuras" Then
+        Else
+            Me.lstAbiertos.RowSource = Me.lstAbiertos.RowSource & frm.Name & "; "
+            For Each ctl In frm.Controls
+                If ctl.ControlType = acSubform Then
+                    Me.lstAbiertos.RowSource = Me.lstAbiertos.RowSource & ctl.SourceObject & "; "
+                End If
+            Next ctl
+        End If
+    Next frm
+End Sub

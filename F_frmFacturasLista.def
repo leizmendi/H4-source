@@ -1,0 +1,85 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Public Sub CargaLista()
+    Dim strSQL As String
+    strSQL = "SELECT tbFacturasCab.IdFactura, tbFacturasCab.NumeroDeFactura as [Factura Nº], tbFacturasCab.FechaFactura & '' as Fecha, tbFacturasCab.DireccionCliente as Cliente, TotalBase + TotalIVA AS Importe"
+    strSQL = strSQL & " FROM tbFacturasCab"
+    strSQL = strSQL & " WHERE True"
+    If Nz(Me.txtCliente, "") <> "" Then strSQL = strSQL & " AND DireccionCliente Like " & ConComillas("*" & ConAcentos(Me.txtCliente) & "*")
+    If Nz(Me.txtNumFactura, "") <> "" Then strSQL = strSQL & " AND NumeroDeFactura Like " & ConComillas("*" & (Me.txtNumFactura) & "*")
+    If Nz(Me.txtFecha, "") <> "" Then strSQL = strSQL & " AND Format(FechaFactura,'dd/mm/yyyy') Like " & ConComillas("*" & (Me.txtFecha) & "*")
+    If Nz(Me.txtImporteMin, "") <> "" Then strSQL = strSQL & " AND (TotalBase + TotalIVA) >= " & CCur((Me.txtImporteMin))
+    If Nz(Me.txtImporteMax, "") <> "" Then strSQL = strSQL & " AND (TotalBase + TotalIVA) <= " & CCur((Me.txtImporteMax))
+    strSQL = strSQL & " ORDER BY tbFacturasCab.[FechaFactura] DESC , tbFacturasCab.[NumeroDeFactura] DESC;"
+    Me.lstFacturas.RowSource = strSQL
+    Me.lblCont.Caption = Me.lstFacturas.ListCount - 1 & " registros"
+End Sub
+
+Private Sub btnEstirar_Click()
+    If Me.lstFacturas.Height < 5 * TC_CmToPoints Then
+        Me.lstFacturas.Height = 10 * TC_CmToPoints
+    Else
+        Me.lstFacturas.Height = 4.9 * TC_CmToPoints
+    End If
+    Me.Detalle.Height = Me.lstFacturas.Top + Me.lstFacturas.Height
+    DoCmd.MoveSize , , , Me.Detalle.Height + Me.EncabezadoDelFormulario.Height + 500
+    'Call Form_Resize
+End Sub
+
+Private Sub Form_Load()
+    CargaLista
+End Sub
+
+Private Sub Form_Resize()
+    Me.lstFacturas.Height = Me.WindowHeight - Me.lstFacturas.Top * 2
+    Me.Detalle.Height = Me.lstFacturas.Top + Me.lstFacturas.Height
+End Sub
+
+Private Sub lstFacturas_Click()
+    Call btnFactura_Click
+End Sub
+
+Private Sub txtCliente_AfterUpdate()
+    CargaLista
+End Sub
+Private Sub btnFactura_Click()
+On Error GoTo Err_btnFactura_Click
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    Dim stDocName As String
+    Dim stLinkCriteria As String
+
+    stDocName = "frmFacturas"
+    
+    stLinkCriteria = "[IdFactura]=" & Me![lstFacturas]
+    DoCmd.OpenForm stDocName, , , stLinkCriteria
+    Me.SetFocus
+Exit_btnFactura_Click:
+    Exit Sub
+
+Err_btnFactura_Click:
+    MsgBox Err.Description
+    Resume Exit_btnFactura_Click
+    
+End Sub
+
+Private Sub txtFecha_AfterUpdate()
+    CargaLista
+End Sub
+
+Private Sub txtImporteMax_AfterUpdate()
+    CargaLista
+End Sub
+
+Private Sub txtImporteMin_AfterUpdate()
+    CargaLista
+End Sub
+
+Private Sub txtNumFactura_AfterUpdate()
+    CargaLista
+End Sub

@@ -1,0 +1,38 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnSendSMS_Click()
+    GrabarParam Me
+    If Nz(Me.SMSTelefonoPrueba, "") = "" Then
+        MsgBox "Se debe indicar nº de teléfono de destino", vbExclamation
+        Exit Sub
+    End If
+    SendSMS Me.SMSTelefonoPrueba, "Prueba envío SMS", True, True
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call PuestoEnvioSMS_canal_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    GrabarParam Me
+End Sub
+
+Private Sub PuestoEnvioEmails_OS_AfterUpdate()
+End Sub
+
+Private Sub PuestoEnvioSMS_canal_AfterUpdate()
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "txtlocal") > 0 Then
+            ctl.Enabled = Nz(Me.PuestoEnvioSMS_canal, 1) = 1
+        Else
+        End If
+    Next ctl
+End Sub

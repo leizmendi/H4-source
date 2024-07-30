@@ -1,0 +1,199 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim lngGuia As Long
+    Dim strXML As String
+    On Error GoTo Error_btnAceptar_Click
+    ComprobarParam Me, False, False
+    Me.lblXML.Caption = ""
+    If Nz(DameValorParam("PartesPoliciaSegunPF"), 2) = 2 Then
+        PonXML strXML, "FechaDesde", CLng(CDate(Me.txtDesde))
+        PonXML strXML, "FechaHasta", CLng(CDate(Me.txtHasta))
+        DoCmd.OpenReport "rptListadoPolicia", acViewPreview, , , , strXML
+    Else
+        PonXML strXML, "FechaDesde", "#" & Format(Me.txtDesde, "mm/dd/yyyy") & "#"
+        PonXML strXML, "FechaHasta", "#" & Format(Me.txtHasta, "mm/dd/yyyy") & "#"
+        Me.lblXML.Caption = strXML
+        DoCmd.OpenReport "rptPartesPolicia", acViewPreview, , , , strXML
+    End If
+'    Me.Visible = False
+Exit_btnAceptar_click:
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501 ' La acción open report se canceló
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+
+Private Sub btnEditarParte_Click()
+    If Me.lstPartes.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un parte de la lista"
+        Exit Sub
+    End If
+    Dim strXML As String
+    PonXML strXML, "IdPartePolicia", Me.lstPartes
+    DoCmd.OpenForm "frmPartesPolicia", , , , , , strXML
+End Sub
+
+Private Sub btnEmail_Click()
+    GoTo VolverAGenerar
+EMail:
+    Dim vResult As Variant
+    If Me.lstFicheros.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un fichero de la lista"
+        Exit Sub
+    End If
+    'DoCmd.SendObject , , , DameValorParam("PartesPoliciaDireccionEmail"), , , DameValorParam("PartesPoliciaCodigoEntidadEmisora") & "." & [lstFicheros].[Column](1)
+    'SendMail "Parte Viajeros Hotel", "Txin <txin@wanadoo.es>; Inma <inma@leizmendi.com>", "Txin <txin@wanadoo.es>; Inma <inma@leizmendi.com>", "", Me.txtFichero, ""
+    Dim strTo As String, strSubject As String, strAttach As String, strMSG As String
+    strTo = Nz(DameValorParam("PartesPoliciaDireccionEmail"), "")
+    If strTo = "" Then
+        MsgBox "Se debe indicar la dirección de correo electrónico para enviar los partes de viajeros (Parámetros\Partes de viajeros)"
+        Exit Sub
+    End If
+    strSubject = "Parte Viajeros " & DameValorParam("PartesPoliciaNombreEstablecimiento")
+    strAttach = Me.txtFichero
+    strMSG = Nz(DameValorParam("PartesPoliciaMensaje"), "Saludos")
+    vResult = SendMail(strSubject, strTo, "", "", strAttach, strMSG)
+    If vResult <> 0 Then
+        MsgBox "Error enviando correo: " & vResult, 16, "Mail"
+    Else
+        MsgBox "Mensaje enviado a: " & strTo & vbCrLf & "Fichero adjunto: " & strAttach, 64, "Mail"
+    End If
+VolverAGenerar:
+    If Me.lstFicheros.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar el fichero a volver a generar"
+        Exit Sub
+    End If
+    EscribirFicheroPolicia Me.lstFicheros
+    Me.lstFicheros.Requery
+End Sub
+
+Private Sub btnEnviar_Click()
+    If Me.lstFicheros.ListIndex = -1 Then
+        MsgBox "No se ha señeccionado el fichero que se va a enviar"
+        Exit Sub
+    End If
+    Me.txtFichero.SetFocus
+    DoCmd.RunCommand acCmdCopy
+    
+    
+    Dim strURL As String, strUser As String, strPw As String, strTxt As String
+    strUser = Nz(DameValorParam("PartesPoliciaCodigoEstablecimiento"), "")
+    strPw = Nz(DameValorParam("PartesPoliciaContraseña"), "")
+    strURL = Nz(DameValorParam("PartesPoliciaURLenvio"), "")
+    'strURL = Replace(strURL, "#usuario#", strUser)
+    'strURL = Replace(strURL, "#contraseña#", strPw)
+    'SubeArchivoPolicia strURL, Me.txtFichero
+    
+    Dim Resultado As Variant
+
+    ' intentamos abrir el archivo
+    Resultado = OpenFile(strURL)
+    ' si ha habido cualquier problema ...
+    If Resultado <> True Then
+        ' mostramos el mensaje que nos envía el sistema
+        MsgBox Resultado
+    End If
+End Sub
+
+Private Sub btnImprimir_Click()
+    Dim strXML As String
+    If Me.lstFicheros.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un Fichero de la lista"
+        Exit Sub
+    End If
+    PonXML strXML, "IdPPF", Me.lstFicheros
+    Me.lblXML.Caption = strXML
+    DoCmd.OpenReport "rptPartesPolicia", acViewPreview, , , , strXML
+End Sub
+
+Private Sub btnNuevoFicheroPolicia_Click()
+    GenerarFicheroPartesPolicia
+    Me.lstFicheros.Requery
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnNumFichero_Click()
+    On Error GoTo Error_btnNumFichero_Click
+    If Me.lstFicheros.ListIndex = -1 Then Exit Sub
+    Dim intNumero As Integer, strX As String, strSQL As String
+    strX = Me.lstFicheros.Column(1)
+    strX = InputBox("Introduzca nº de fichero", "Nº de fichero", strX)
+    If Not IsNumeric(strX) Then Exit Sub
+    strSQL = "UPDATE tbPartesPoliciaFicheros SET NumFichero = " & strX & " WHERE IdPartePoliciaFichero = " & Me.lstFicheros
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.lstFicheros.Requery
+Salir_btnNumFichero_Click:
+    Exit Sub
+Error_btnNumFichero_Click:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en btnNumFichero_Click" & vbCrLf & Err.Description
+            Resume Salir_btnNumFichero_Click
+    End Select
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    MascaraFechasForm Me
+    Me.tabFi_EF.value = Nz(DameValorParam(Me.Name & "_tabFi_EF"), 0)
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    If Nz(DameValorParam("PartesPoliciaSegunPF"), 2) = 2 Then
+        Me.pge2.Visible = False
+    Else
+        Me.pge2.Visible = True
+    End If
+End Sub
+
+Private Sub lstFicheros_Click()
+    Dim strSQL As String
+    strSQL = "SELECT tbPartesPolicia.IdPartePolicia, tbPartesPolicia.FechaLlegada, tbPartesPolicia.IdFichaCab AS [Ficha Nº], tbPartesPolicia.Nombre, tbPartesPolicia.Apellido1, tbPartesPolicia.Apellido2"
+    strSQL = strSQL & " FROM tbPartesPoliciaFicheros INNER JOIN tbPartesPolicia ON tbPartesPoliciaFicheros.IdPartePoliciaFichero = tbPartesPolicia.IdPartePoliciaFichero"
+    strSQL = strSQL & " WHERE tbPartesPolicia.IdPartePoliciaFichero=" & IIf(Me.lstFicheros.ListIndex = -1, 0, Me.lstFicheros)
+    strSQL = strSQL & " ORDER BY FechaLlegada, IdFichaCab"
+    Me.lstPartes.RowSource = strSQL
+End Sub
+
+Private Sub tabFi_EF_Change()
+    PonValorParam Me.Name & "_tabFi_EF", Me.tabFi_EF.value, 4
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtDesde)
+        If IsDate(varFecha) Then
+            Me.txtDesde = varFecha
+        End If
+    End If
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtHasta)
+        If IsDate(varFecha) Then
+            Me.txtHasta = varFecha
+        End If
+    End If
+End Sub

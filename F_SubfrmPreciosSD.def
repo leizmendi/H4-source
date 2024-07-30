@@ -1,0 +1,24 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Current()
+    On Error Resume Next
+    Dim strPic As String
+    strPic = Nz(Me.Imagen, "")
+    If strPic <> "" Then strPic = CarpetaImagenes & strPic
+    Parent.imgServicio.Picture = strPic
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call Parent.Form_KeyDown(KeyCode, Shift)
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+End Sub

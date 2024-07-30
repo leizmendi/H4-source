@@ -1,0 +1,392 @@
+Option Compare Database
+Option Explicit
+
+    Dim glngIdFichaCabMove As Long, gstrParcelaD As String, gdtFechaD As Date
+
+Public Sub PintaParcelas(zm As Object, Optional strParcela As String = "TODAS", Optional lngFicha As Long = 0, Optional intAPintarYes As Integer = False)
+    Dim strSQL As String, rsHab As Recordset, btn As TextBox
+    Dim lngBool As Boolean, lngBackColor As Long
+    Dim y As Integer, i As Integer, rsAux As Recordset
+    On Error GoTo Error_PintaParcelas
+'    On Error Resume Next
+    'If Not IsOpenForm(frm.Name) Then Exit Sub
+    strSQL = "SELECT DISTINCT NombreParcela, tbParcelas.IdFicha, tbParcelas.IdFichaLlegaHoy, SaleHoy, tbFichasCab.EstadoFicha, tbFichasCab.NombreCliente & ' ' & tbFichasCab.ApellidosCliente AS Cliente"
+    On Error GoTo Error_PintaParcelas
+    If strParcela = "TODAS" And lngFicha = 0 Then
+        strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+    Else
+        If strParcela <> "TODAS" Then
+            strSQL = strSQL & " FROM (tbParcelas LEFT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab) LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+            strSQL = strSQL & " WHERE tbParcelas.NombreParcela = '" & strParcela & "'"
+        End If
+        If lngFicha <> 0 Then
+            If InStr(strSQL, "WHERE") > 0 Then
+                strSQL = strSQL & " OR"
+            Else
+                If True Then 'intLibre = False Then
+                    strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+                Else
+                    strSQL = strSQL & " FROM tbFichasCab INNER JOIN (tbParcelas INNER JOIN tbFichasDet ON tbParcelas.NombreParcela = tbFichasDet.Parcela) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+                End If
+                strSQL = strSQL & " WHERE"
+            End If
+            strSQL = strSQL & " tbFichasCab.IdFichaCab = " & lngFicha
+        End If
+    End If
+    Set rsHab = CurrentDb.OpenRecordset(strSQL)
+    Set rsAux = CurrentDb.OpenRecordset("auxPintaParcelas", dbOpenDynaset)
+    While Not rsHab.EOF
+        DoEvents
+        If intAPintarYes Then GoTo A_Pintar
+        rsAux.FindFirst "NombreParcela = '" & rsHab("NombreParcela") & "'"
+        If Not rsAux.NoMatch Then
+            For i = 1 To rsAux.Fields.Count - 1
+                If rsAux(i) <> rsHab(rsAux(i).Name) Then GoTo A_Pintar
+            Next i
+        Else
+            GoTo A_Pintar
+        End If
+        GoTo SiguientePArcela
+A_Pintar:
+'        Set btn = frm.Controls("btn" & rsHab("NombreParcela"))
+        If rsHab("IdFichaLlegaHoy") = 0 Then
+            zm.ZoneFontUnderline(rsHab("NombreParcela")) = False
+        Else
+            zm.ZoneFontUnderline(rsHab("NombreParcela")) = True
+        End If
+        If Nz(rsHab("IdFicha"), 0) = 0 Then 'IsNull(rsHab("EstadoFicha")) Then
+            'btn.ForeColor = 0
+            lngBackColor = 12632256 ' Gris   //// 16777215 'Blanco
+            zm.ZoneTooltip(rsHab("NombreParcela")) = Nz(Null, "Parcela " & rsHab("NombreParcela"))
+        Else
+            zm.ZoneTooltip(rsHab("NombreParcela")) = Nz(rsHab("Cliente"), "?") '& vbCrLf & Nz(rsHab("Observaciones"), "")
+            Select Case rsHab("EstadoFicha")
+                Case 10
+                    'btn.ForeColor = 0
+                    lngBackColor = 16763904 'Azul (fijo)
+                Case 1
+                    'btn.ForeColor = 0
+                    lngBackColor = 6723891 'Verde
+                Case 2
+                    'btn.ForeColor = 0
+                    lngBackColor = 8454143 'Amarillo
+                Case 3
+                    'btn.ForeColor = 0
+                    lngBackColor = 8421631 ' Rojo
+                Case 4
+                    'btn.ForeColor = 16777215
+                    lngBackColor = vbWhite ' Negro
+                Case 5
+                    'btn.ForeColor = 16777215
+                    lngBackColor = vbBlack ' Negro
+                Case 6
+                    'btn.ForeColor = 16777215
+                    lngBackColor = vbBlue ' Negro
+                Case 9 ' Cancelada
+                    'btn.ForeColor = 16777215
+                    lngBackColor = vbBlack ' Negro
+            End Select
+        End If
+        If rsHab("SaleHoy") = True Then
+            If lngBackColor <> 8421631 Then
+                zm.ZoneFontColor(rsHab("NombreParcela")) = vbRed
+            Else
+                zm.ZoneFontColor(rsHab("NombreParcela")) = 8454143 ' amarillo
+            End If
+        Else
+            If lngBackColor <> 0 Then
+                zm.ZoneFontColor(rsHab("NombreParcela")) = vbBlack
+            Else
+                zm.ZoneFontColor(rsHab("NombreParcela")) = vbWhite
+            End If
+        End If
+
+        ' Pass the Selected Color to the function
+        'lngBool = fCmdButTextPic(btn, lngBackColor)
+        zm.ZoneColor(rsHab("NombreParcela")) = lngBackColor
+        rsAux.FindFirst "NombreParcela = '" & rsHab("NombreParcela") & "'"
+        If rsAux.NoMatch Then
+            'rsAux.AddNew
+            'rsAux("NombreParcela") = rsHab("NombreParcela")
+            strSQL = "INSERT INTO auxPintaParcelas ( NombreParcela, IdFicha, IdFichaLlegaHoy, SaleHoy, EstadoFicha, Cliente )"
+            strSQL = strSQL & " SELECT """ & rsHab("NombreParcela") & """ as nombreparcela, " & _
+                                    rsHab("IdFicha") & " as idficha, " & _
+                                    rsHab("IdFichaLlegaHoy") & " as idfichallegahoy, " & _
+                                    IIf(rsHab("SaleHoy"), "True", "False") & " as salehoy, " & _
+                                    Nz(rsHab("EstadoFicha"), 0) & " as estadoficha, " & _
+                        ConComillas(rsHab("Cliente")) & " as cliente"
+        Else
+            strSQL = "UPDATE qryauxPintaParcelas SET IdFicha = " & rsHab("IdFicha") _
+                                            & ", IdFichaLlegaHoy = " & rsHab("IdFichaLlegaHoy") _
+                                            & ", SaleHoy = " & IIf(rsHab("SaleHoy"), "True", "False") _
+                                            & ", EstadoFicha = " & Nz(rsHab("EstadoFicha"), 0) _
+                                            & ", Cliente = " & ConComillas(rsHab("Cliente"))
+            strSQL = strSQL & " WHERE NombreParcela = """ & rsHab("NombreParcela") & """"
+
+            'rsAux.Edit
+        End If
+        'For i = 1 To rsAux.Fields.Count - 1
+        '    rsAux(i) = rsHab(rsAux(i).Name)
+        'Next i
+        'rsAux.Update
+        CurrentDb.Execute strSQL, dbFailOnError
+SiguientePArcela:
+        rsHab.MoveNext
+        y = y + 1
+        SysCmd acSysCmdSetStatus, y
+    Wend
+Salir_PintaParcelas:
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+Error_PintaParcelas:
+    Select Case Err
+        Case 2465, 7090
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en PintaParcelas" & vbCrLf & Err.Description
+            Resume Salir_PintaParcelas
+    End Select
+End Sub
+
+
+Public Function ParcelaClick(zm As ZoneMap, strParcela As String, Optional intLlama_txtParcela As Integer = False, Optional intShift As Integer = 0)
+    On Error GoTo Error_ParcelaClick
+    Dim rs As Recordset, rsF As Recordset, rsFP As Recordset, lngIdFicha As Long, intEsNueva As Integer
+    Dim rsFDet As Recordset
+    Dim intEstado As Integer, strEst As String
+    Dim intResp As Integer
+    Dim strSQL As String
+    Screen.MousePointer = 0
+    If intLlama_txtParcela = False Then
+        If IsOpenForm("frmPlano") Then
+            Forms("frmPlano")("txtParcela") = strParcela
+        End If
+    End If
+    If IsOpenForm("frmPlano") Then
+        Forms("frmPlano")("txtParcela").SetFocus
+    End If
+    Set rs = CurrentDb.OpenRecordset("tbParcelas", dbOpenDynaset)
+    rs.FindFirst ("NombreParcela = '" & strParcela & "'")
+    If rs.NoMatch Then Exit Function
+'    lngIdParcela = rs("IdParcela")
+    lngIdFicha = Nz(rs("IdFicha"), 0)
+VerFicha:
+    If lngIdFicha > 0 Then
+        If intShift And acCtrlMask <> 0 Then
+            intResp = MsgBox("¿Mover ficha: " & lngIdFicha & " a otra parcela?", vbOKCancel + vbQuestion)
+            If intResp = vbCancel Then Exit Function
+            glngIdFichaCabMove = lngIdFicha
+            gstrParcelaD = strParcela
+            'gdtFechaD = dtFechaCol
+            'MsgBox "Hacer click en una celda libre indicando la habitación y día de entrada", vbInformation
+            Screen.MousePointer = 3
+            'Me.Grid0.cell(Me.Grid0.Selection.FirstRow, Me.Grid0.Selection.FirstCol).ForeColor = vbRed
+            Exit Function
+        End If
+            
+        intEstado = Nz(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & lngIdFicha), 0)
+        If intEstado = 0 Then ' no existe la ficha
+            GoTo VerLlegaHoy
+        End If
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab =" & lngIdFicha, , , IIf(intEsNueva, "Es Nueva", "")
+        Exit Function
+    End If
+MoverFicha:
+    If glngIdFichaCabMove > 0 Then
+        Dim strParcelaA As String
+        gdtFechaD = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdfichaCab = " & glngIdFichaCabMove), 0)
+        strParcelaA = strParcela
+        MoverEstancia glngIdFichaCabMove, gstrParcelaD, strParcelaA, gdtFechaD, gdtFechaD, , True
+        If IsOpenForm("frmPlano") Then
+            Call Forms("frmPlano").Form_Activate
+        End If
+
+        glngIdFichaCabMove = 0
+        Exit Function
+    End If
+    glngIdFichaCabMove = 0
+
+
+VerLlegaHoy:
+    If rs("IdFichaLlegaHoy") > 0 Then 'Reserva que llega hoy
+        lngIdFicha = rs("IdFichaLlegaHoy")
+        strSQL = "UPDATE tbParcelas SET IdFicha = " & lngIdFicha & ", IdFichaLlegaHoy = 0"
+        strSQL = strSQL & " WHERE NombreParcela = " & ConComillas(strParcela)
+        CurrentDb.Execute strSQL, dbFailOnError
+        PintaParcelas zm, strParcela
+        'comprobar si más habitaciones tienen la misma reserva...
+        rs.MoveFirst
+BuscaMas:
+        rs.FindNext ("NombreParcela <> '" & strParcela & "' AND IdFichaLlegaHoy = " & lngIdFicha)
+        If rs.NoMatch Then
+            GoTo VerFicha
+        Else
+            If rs("IdFicha") <> 0 And rs("IdFicha") <> lngIdFicha Then
+                MsgBox "La Parcela " & rs("NombreParcela") & " está todavía ocupada"
+            Else
+                strSQL = "UPDATE tbParcelas SET IdFicha = " & lngIdFicha & ", IdFichaLlegaHoy = 0"
+                strSQL = strSQL & " WHERE NombreParcela = " & ConComillas(rs("NombreParcela"))
+                CurrentDb.Execute strSQL, dbFailOnError
+                PintaParcelas zm, strParcela
+            End If
+            GoTo BuscaMas
+        End If
+        GoTo VerFicha
+    Else 'Parcela libre, añadimos una ficha
+NuevaFicha:
+        Dim l As Long, intPlazas As Integer, intReloj As Integer, v As Variant
+        strParcela = rs("NombreParcela")
+        intPlazas = Nz(DLookup("NumPlazas", "tbParcelas", "NombreParcela = " & ConComillas(strParcela)), 0)
+        If intPlazas <> 1 Then
+            If Screen.MousePointer = 11 Then
+                DoCmd.Hourglass False
+                'Screen.MousePointer = 0
+                intReloj = True
+            End If
+            v = DimeTeclado(2, "PAX en la " & strParcela, intPlazas)
+            If intReloj = True Then DoCmd.Hourglass True 'Screen.MousePointer = 11
+            If IsNumeric(v) Then
+                intPlazas = CInt(v)
+            Else
+                GoTo Salir_ParcelaClick
+            End If
+            
+        End If
+        Set rsF = CurrentDb.OpenRecordset("tbFichasCab")
+'        Set rsFP = CurrentDb.OpenRecordset("tbFichasDet")
+        Dim lngNext As Long
+        rsF.AddNew
+        'lngNext = Nz(DameValorParam("AplicacionUltimaFicha"), 0) + 1
+        lngNext = Nz(DMax("IdFichaCab", "tbFichasCab", "IdFichaCab <= 1000000"), 0) + 1
+        If Not IsNull(DLookup("IdFichaCab", "tbFichasCab", "IdFichaCab = " & lngNext)) Then
+            rsF("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab", "IdFichaCab <= 1000000"), 0) + 1
+        Else
+            rsF("IdFichaCab") = lngNext
+        End If
+        PonValorParam "AplicacionUltimaFicha", rsF("IdFichaCab"), 4
+        lngIdFicha = rsF("IdFichaCab")
+        rsF("FechaLlegada") = Date
+        rsF("FechaSalida") = rsF("FechaLlegada") + 1
+        rsF("IVAIncluido") = DameValorParam("IVAIncluidoEnFacturasYFichas")
+        rsF.Update
+        
+'        rsFP.AddNew
+'        rsFP("IdFichaCab") = lngidFicha
+'        rsFP("Parcela") = strParcela
+'        rsFP.Update
+        rs.Edit
+        rs("IdFicha") = lngIdFicha
+        rs.Update
+        PintaParcelas zm, strParcela
+''''''' Añadir líneas de detalle predeterminadas al tipo de parcela
+        AñadirLineasDetallePredeterminadas lngIdFicha, strParcela, , , intPlazas
+        intEsNueva = True
+        GoTo VerFicha
+    End If
+Salir_ParcelaClick:
+    Exit Function
+Error_ParcelaClick:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ParcelaClick" & vbCrLf & Err.Description
+            Resume Salir_ParcelaClick
+            Resume Next
+    End Select
+End Function
+
+'---------------------------
+
+
+Public Sub AjustarCoordenadas(lngAnchoInicial As Long, lngAnchoFinal As Long, lngX_0 As Long, lngY_0 As Long)
+    Dim strFileIn As String, strLin As String, strLin2 As String, strFileOut As String
+    strFileIn = Nz(SaveFileNameDlg("Indicar Fichero de coordenadas", "*.txt", ""), "")
+    If strFileIn = "" Then Exit Sub
+    If Right(strFileIn, 4) <> ".txt" Then
+        MsgBox "Debe ser un fichero de texto .txt"
+        Exit Sub
+    End If
+    strFileOut = Left(strFileIn, Len(strFileIn) - 4) & "_" & lngAnchoFinal & ".txt"
+    Open strFileIn For Input As #1
+    Open strFileOut For Output As #2
+    Do While Not EOF(1)
+        Line Input #1, strLin
+        If strLin Like "ZONEFILE*" Then
+            Print #2, strLin
+        Else
+            strLin2 = ModificaLineaCoordenadas(strLin, lngAnchoInicial, lngAnchoFinal, lngX_0, lngY_0)
+            Print #2, strLin2
+        End If
+    Loop
+    Close
+    MsgBox "OK"
+End Sub
+
+
+
+Public Function ModificaLineaCoordenadas(strLin As String, lngAnchoInicial As Long, lngAnchoFinal As Long, lngX_0 As Long, lngY_0 As Long) As String
+    On Error GoTo ERror_ModificaLineaCoordenadas
+    Dim i As Integer, j As Integer, strR As String, strPar As String, k As Integer, l As Integer
+    Dim lngX1 As Long, lngX2 As Long, lngY1 As Long, lngY2 As Long
+    Dim intL1 As Integer, intL2 As Integer
+    strR = strLin
+    i = InStr(strR, vbTab)
+    If i = 0 Then GoTo Salir_ModificaLineaCoordenadas
+    j = i + 1
+BuscaPar:
+    i = InStr(j, strR, ";")
+    If i > 0 Then
+        strPar = Mid(strR, j, i - j)
+    Else
+        strPar = Mid(strR, j)
+    End If
+    k = InStr(strPar, " ")
+    If k = 0 Then
+        MsgBox "Par de coordenadas sin espacio!!"
+        GoTo Salir_ModificaLineaCoordenadas
+    End If
+    lngX1 = CLng(Mid(strPar, 1, k - 1))
+    lngY1 = CLng(Mid(strPar, k + 1))
+    lngX2 = CLng(lngX1 * (lngAnchoFinal / lngAnchoInicial) - lngX_0)
+    lngY2 = CLng(lngY1 * (lngAnchoFinal / lngAnchoInicial) - lngY_0)
+    l = InStr(j, strR, strPar)
+    intL1 = Len(strR)
+    strR = Left(strR, l - 1) & lngX2 & " " & lngY2 & Mid(strR, l + Len(strPar))
+    intL2 = Len(strR)
+    If i > 0 Then
+        j = i + 1 + intL2 - intL1
+        GoTo BuscaPar
+    End If
+Salir_ModificaLineaCoordenadas:
+    ModificaLineaCoordenadas = strR
+    Exit Function
+ERror_ModificaLineaCoordenadas:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ModificaLineaCoordenadas" & vbCrLf & Err.Description
+            Resume Salir_ModificaLineaCoordenadas
+    End Select
+End Function
+
+Public Function popo()
+    Dim i As Integer
+    For i = 13 To 24
+        Screen.MousePointer = i
+        MsgBox i
+    Next i
+    'AjustarCoordenadas 2048, 1024, 0, 0
+End Function
+
+
+Public Sub PintaParcelaSiHayPlano(Optional strParcela As String = "", Optional lngIdFicha As Long = 0)
+    On Error GoTo HandleError
+    If IsOpenForm("frmPlano") Then
+        'Dim zm As ZoneMapControl.ZoneMap
+        'Set zm = Forms("frmPlano").zmPlanoGeneral
+        PintaParcelas Forms("frmPlano").zmPlanoGeneral, strParcela, lngIdFicha, True
+    End If
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

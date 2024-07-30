@@ -1,0 +1,12 @@
+Option Compare Database
+Option Explicit
+
+Public Function NuloEs(v As Variant, alter As Variant) As Variant
+    On Error Resume Next
+    NuloEs = Nz(v, alter)
+End Function
+
+Public Function Spz(v As Variant, alter As Variant) As Variant
+    On Error Resume Next
+    Spz = Nz(IIf(v = "", alter, v), alter)
+End Function

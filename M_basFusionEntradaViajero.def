@@ -1,0 +1,201 @@
+Option Compare Database
+Option Explicit
+
+Public Sub FusionEntradaViajero(lngId As Long, Optional intFP As Integer = 1)
+    On Error GoTo Error_FusionEntradaViajero
+    Dim strSQL As String, strOutputQuery As String, strDir As String, lngIdFichaCab As Long, lngIdParte As Long
+    Dim intFirma As Integer, strFile As String
+    strSQL = "SELECT tbPartesPolicia.*, Format(tbFichasCab.FechaLlegada,'ddddd') as FEntrada, Format(FechaSalida,'ddddd') as FSalida, Iif(NumParte=0,'',NumParte) as NP, tbFichasCab.FechaSalida, ParcelasDeUnaFicha([tbFichasCab]![IdFichaCab]) AS Habit"
+    If intFP = 1 Or intFP = 3 Then
+        lngIdFichaCab = lngId
+    Else
+        lngIdFichaCab = Nz(DLookup("IdFichaCab", "tbPartesPolicia", "IdPartePolicia = " & lngId), 0)
+        lngIdParte = lngId
+    End If
+    If Nz(DameValorParam("EntradaViajerosVerDetalle"), True) = True Then
+        PonDetalleEstancia lngIdFichaCab
+        strSQL = strSQL & " , tbFichasCab.DetalleEstancia AS [Detalle Estancia]"
+    Else
+        strSQL = strSQL & " , '' AS [Detalle Estancia]"
+    End If
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab"
+    If intFP <> 2 Then
+        strSQL = strSQL & " WHERE (((tbFichasCab.IdFichaCab)=" & lngId & "));"
+    Else
+        strSQL = strSQL & " WHERE (((tbPartesPolicia.IdPartePolicia)=" & lngId & "));"
+    End If
+    Dim qdf As QueryDef
+    strOutputQuery = "qryEntradaViajeros"
+    Set qdf = CurrentDb.QueryDefs(strOutputQuery)
+    qdf.SQL = strSQL
+    qdf.Close
+    strDir = DirectorioDe(CurrentDb.Name) & "docs\"
+    ExportarSQL_Excel strOutputQuery, strDir & strOutputQuery & ".xls", False
+    'DoCmd.TransferSpreadsheet acExport, acSpreadsheetTypeExcel9, strOutputQuery, strDir & strOutputQuery & ".xls", True
+    'DoCmd.OutputTo acOutputQuery, strOutputQuery, acFormatXLS, strDir & strOutputQuery & ".xls", False
+    Dim intImprimirYa As Integer, strPrinter As String, strDocModelo As String, intConfirmarDocModelo As Integer
+    intImprimirYa = Nz(DameValorParam("EntradaViajeros_Imp_VistaPrevia"), 2) = 1
+    strPrinter = Nz(DameValorParam("EntradaViajeros_Impresora"), "")
+    strDocModelo = Spz(DameValorParam("EntradaViajerosDocModelo"), strDir & "EntradaViajero.doc")
+    intConfirmarDocModelo = Nz(DameValorParam("EntradaViajerosConfirmarDocModelo"), False)
+    intFirma = Nz(DameValorParam("EntradaViajerosCapturaFirmaSN"), False) = True And g_CapturaFirmas
+    If Not intFirma Then
+        FusionDocModelo strDocModelo, strDir & "EntradaUltimoViajero", strDir & strOutputQuery & ".xls", , False, intImprimirYa, strPrinter, intConfirmarDocModelo
+        
+    Else
+        strFile = DimeFileEntradaViajeroPDF(lngIdFichaCab, lngIdParte)
+        FusionDocModelo strDocModelo, strDir & "EntradaUltimoViajero", strDir & strOutputQuery & ".xls", , False, intImprimirYa, strPrinter, intConfirmarDocModelo, True, strFile, False
+'
+        Dim strCmd As String, dtIni As Date, lngDifSeg As Long
+'        FusionDocModelo strDocModelo, strFile, strDir & strOutputQuery & ".xls", , False, True, strPrinter, intConfirmarDocModelo
+        If Nz(DameValorParam("EntradaViajerosWacoEco"), 1) = 1 Then
+            strCmd = Nz(DameValorParam("WacomSignipropdf"), "")
+            If strCmd = "" Then
+                MsgBox "Se debe indicar en Parámetros la ubicación del programa -Sign I Pro PDF-"
+                GoTo Salir_FusionEntradaViajero
+            End If
+            dtIni = Now()
+            While Dir(strFile & "*") = "" And DateDiff("s", dtIni, Now) < 30
+                If lngDifSeg <> DateDiff("s", dtIni, Now) Then
+                    lngDifSeg = DateDiff("s", dtIni, Now)
+                    SysCmd acSysCmdSetStatus, "Generando " & strFile & " (" & lngDifSeg & ")"
+                End If
+            Wend
+            strCmd = ConComillas(strCmd) & " " & ConComillas(strFile)
+            WaitShell strCmd, vbMaximizedFocus
+        Else
+            ' se supone que se ha generado el pdf en la carpeta donde el servicio Eco
+        End If
+    End If
+ 
+        
+        
+Salir_FusionEntradaViajero:
+    Exit Sub
+Error_FusionEntradaViajero:
+    Select Case Err
+        Case 3265
+            Set qdf = CurrentDb.CreateQueryDef
+            qdf.Name = strOutputQuery
+            CurrentDb.QueryDefs.Append qdf
+            Resume
+        Case Else
+            MsgBox "Error nº " & Err & " en FusionEntradaViajero" & vbCrLf & Err.Description
+            Resume Salir_FusionEntradaViajero
+    End Select
+End Sub
+
+Public Function GenerarConfirmacionReserva(lngIdFichaCab As Long, intAccessWord As Integer, Optional intImprimirYa As Integer = 88, Optional strToEmail As String = "") As String
+    On Error GoTo Error_GenerarConfirmacionReserva
+    Dim strSQL As String, strOutputQuery As String, strDir As String, strDirTo As String
+    Dim strFilePDF As String
+    Dim strFusionDoc As String, intR As Integer
+    'Dim oWord As New Word.Application
+    'Dim docW As Word.Document
+    Dim strMensaje As String, strAsunto As String
+    Dim i As Integer, l As Long, m As Integer
+    Pon_qryReserva lngIdFichaCab, intAccessWord = 1
+    strOutputQuery = "qryReserva"
+    strDir = DirectorioDe(CurrentDb.Name) & "docs\"
+    strDirTo = DameValorParam("AplicacionCarpetaDatos") & "docs\ReservasConfirmadas\"
+    If Dir(strDirTo, vbDirectory) = "" Then MkDir strDirTo
+    'DoCmd.TransferSpreadsheet acExport, acSpreadsheetTypeExcel9, strOutputQuery, strDir & strOutputQuery & ".xls", True
+    'DoCmd.OutputTo acOutputQuery, strOutputQuery, acFormatXLS, strDir & strOutputQuery & ".xls", False
+    'FusionDocModelo strDir & "Reserva.doc", strDirTo & "Reserva_" & lngId, strDir & "qryReserva.xls", , False
+    strFilePDF = strDirTo & "?_" & lngIdFichaCab & ".pdf"
+    If intAccessWord = 2 Then
+        ExportarSQL_Excel strOutputQuery, strDir & strOutputQuery & ".xls", False
+        If intImprimirYa = 88 Then intImprimirYa = Not Nz(DameValorParam("FichasConfirmacionWordEditarSN"), True)
+        strFusionDoc = FusionDocModelo(strDir & "Reserva.doc", strDirTo & "?_Conf_" & lngIdFichaCab, strDir & "qryReserva.xls", , False, intImprimirYa, , , True, strFilePDF, , strToEmail)
+        
+        'If strSendToEmail <> "" And strFusionDoc <> "" Then
+        '    intR = MsgBox("¿Enviar correo de confirmación ahora?" & vbCrLf & "Pulsar No para abrir el documento", vbYesNoCancel + vbQuestion)
+        '    If intR = vbYes Then
+        '        Set oWord = CreateObject("Word.application")
+        '        oWord.Visible = False
+        '        Set docW = oWord.Documents.Open(strFusionDoc)
+        '        strMensaje = docW.Content
+        '        strMensaje = Replace(strMensaje, "€", "eur.")
+        '        docW.Close False
+        '        oWord.Quit
+        '        strAsunto = DameValorParam("EstablecimientoNombre") & ", Reserva confirmada #" & lngIdFichaCab
+        '        strMensaje = "Buenos días, " & vbCrLf & "Enviamos confirmación de reserva en fichero adjunto."
+        '        Envia_Email strAsunto, strMensaje, strSendToEmail, , , strFilePDF, Nz(DameValorParam("EmailsFirma"), "")
+        '    ElseIf intR = vbNo Then
+        '        AbrirDoc strFusionDoc
+        '    End If
+        'End If
+    Else
+        Dim strRPT As String
+        strRPT = Nz(DameValorParam("FichasConfirmacionRPT"), "rptConfirmacionA4")
+        If strFilePDF = "" Then
+            DoCmd.OpenReport strRPT, acViewPreview
+        Else
+            strFilePDF = Replace(strFilePDF, "?_", "Reserva_Conf_")
+            If Dir(strFilePDF) <> "" Then
+                i = 1
+                While Dir(strFilePDF & ".res_" & i) <> "" And i < 9
+                    i = i + 1
+                Wend
+                FileCopy strFilePDF, strFilePDF & ".res_" & i
+                Kill strFilePDF
+            End If
+            If PonParrafoConfirmacionReserva(0, True) = False Then GoTo Salir_GenerarConfirmacionReserva
+            PrintReportAsPDF strRPT, "", strFilePDF, "", , , False
+            DoCmd.Hourglass True
+            While Dir(strFilePDF) = "" And m < 10
+                l = l + 1
+                If l > 1000 Then
+                    DoEvents
+                    m = m + 1
+                    
+                    l = 0
+                End If
+                SysCmd acSysCmdSetStatus, "Generando " & strFilePDF & " ... " & m
+            Wend
+            DoCmd.Hourglass False
+            SysCmd acSysCmdClearStatus
+            'strAsunto = DameValorParam("EstablecimientoNombre") & ", Reserva confirmada #" & lngIdFichaCab
+            'strMensaje = "Buenos días, " & vbCrLf & "Enviamos confirmación de reserva en fichero adjunto."
+            'Envia_Email strAsunto, strMensaje, strSendToEmail, , , strFilePDF, Nz(DameValorParam("EmailsFirma"), "")
+        End If
+    End If
+    GenerarConfirmacionReserva = strFilePDF
+Salir_GenerarConfirmacionReserva:
+    On Error Resume Next
+    'docW.Close False
+    'oWord.Quit
+    Exit Function
+Error_GenerarConfirmacionReserva:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarConfirmacionReserva" & vbCrLf & Err.Description
+            Resume Salir_GenerarConfirmacionReserva
+    End Select
+End Function
+
+Public Sub Pon_qryReserva(lngIdFichaCab As Long, intTabuladorComoEspacios As Integer)
+    On Error GoTo Error_Pon_qryReserva
+    Dim strSQL As String, qdf As QueryDef
+    PonDetalleEstancia lngIdFichaCab, , , intTabuladorComoEspacios
+    strSQL = "SELECT tbFichasCab.*, Format(FechaLlegada,'ddddd') as FEntrada, Format(FechaSalida,'ddddd') as FSalida, RegimenDeUnaFicha([tbFichasCab]![IdFichaCab]) AS Regimen, TotalFichaPagos([IdFichaCab]) as TotalPagos, DetalleEstancia AS [Detalle Estancia]"
+    strSQL = strSQL & " FROM tbFichasCab "
+    strSQL = strSQL & " WHERE tbFichasCab.IdFichaCab=" & lngIdFichaCab
+    Set qdf = CurrentDb.QueryDefs("qryReserva")
+    qdf.SQL = strSQL
+    qdf.Close
+Salir_Pon_qryReserva:
+    Exit Sub
+Error_Pon_qryReserva:
+    Select Case Err
+        Case 3265
+            Set qdf = CurrentDb.CreateQueryDef
+            qdf.Name = "qryReserva"
+            CurrentDb.QueryDefs.Append qdf
+            Resume
+        Case Else
+            MsgBox "Error nº " & Err & " en Pon_qryReserva" & vbCrLf & Err.Description
+            Resume Salir_Pon_qryReserva
+    End Select
+
+End Sub

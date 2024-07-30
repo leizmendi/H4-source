@@ -1,0 +1,485 @@
+Option Compare Database
+Option Explicit
+Dim gintGenerarSubfrmTiposAfeccion  As Integer
+Dim glngsubfrmPanelWidth As Long
+
+Public Function GenerarfrmPanel(Optional intTipoParcela As Integer = False)
+    On Error GoTo Error_GenerarfrmPanel
+    Dim strSQL As String, rs As Recordset, rsTipos As Recordset
+    Dim frm As Form, ctl As Control, strName As String
+    Dim ctl2 As Control
+    Dim strFontname As String, lngFontSize As Long
+    Dim lngPosLeft As Long, lngAncho As Long, lngPosTop As Long, lngAlto As Long
+    Dim i As Integer, varReturn As Variant
+    Dim lngIdTP As Long, strTP As String, strFrm As String
+    Dim intClick_DobleClick As Integer
+    Dim strW As String
+'    Const FacCmP As Integer = 568
+    If True Then 'intTipoParcela = True Then
+        lngIdTP = Nz(BuscaAyuda("TP1"), -1)
+        If lngIdTP = -1 Then Exit Function
+    End If
+    If lngIdTP = 0 Then
+        strFrm = "frmPanel"
+    Else
+        strTP = DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & lngIdTP)
+        strFrm = "frmPanel_" & strTP
+    End If
+    If IsOpenForm(strFrm) Then
+        MsgBox "No se puede realizar esta operación con el panel abierto"
+        DoCmd.Close acForm, strFrm
+        MsgBox "Vuelva a Generar Panel de Control"
+        Exit Function
+    End If
+    i = MsgBox("Se generará nuevo panel según las " & g_strPHs & " existentes" & IIf(lngIdTP <> 0, " del tipo: " & strTP, "") & " y marcadas como 'En Panel', ¿Desea continuar?", vbDefaultButton2 + vbOKCancel + vbQuestion)
+    If i = vbCancel Then Exit Function
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbParcelas"
+    strSQL = strSQL & " WHERE True"
+    If lngIdTP = 0 Then
+        strSQL = strSQL & " AND ControlPanel = True"
+    Else
+        strSQL = strSQL & " AND IdTipoParcela = " & lngIdTP
+        'i = MsgBox("¿Incluir todas las " & g_strPHs & " del tipo " & DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & lngIdTP) & " incluso las no marcadas para Panel?", vbQuestion + vbYesNoCancel + vbDefaultButton1)
+        'If i = vbCancel Then Exit Function
+        If True Then 'i = vbNo Then
+            strSQL = strSQL & " AND ControlPanel = True"
+        End If
+    End If
+    strSQL = strSQL & " ORDER BY Orden"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbParcelasTipo"
+    Set rsTipos = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    DoCmd.CopyObject , "frmPanel_ini0", acForm, "frmPanel_ini"
+    
+    DoCmd.OpenForm "frmPanel_ini0", acViewDesign
+    DoCmd.Maximize
+    Set frm = Forms!frmPanel_ini0
+    frm.Caption = "Panel Control " & strTP
+    frm.Width = frm.WindowWidth
+    
+    Dim mdl As Module
+    Set mdl = frm.Module
+    strName = frm.Name
+    lngPosLeft = frm.Controls("btnIni").Left
+    lngPosTop = frm.Controls("btnIni").Top
+    lngAncho = Nz(DameValorParam("PanelCasillaAncho"), frm.Controls("btnIni").Width)
+    lngAlto = Nz(DameValorParam("PanelCasillaAlto"), frm.Controls("btnIni").Height)
+    intClick_DobleClick = Nz(DameValorParam("PanelesAbrirFichaClic_DobleClic"), 1)
+    i = 0
+    While Not rs.EOF
+        i = i + 1
+        If i > ((frm.Width \ lngAncho) - 1) Or rs("SaltoEnPanel") Then
+            i = 1
+            lngPosLeft = frm.Controls("btnIni").Left
+            lngPosTop = lngPosTop + lngAlto
+        End If
+        Set ctl = CreateControl(frm.Name, acTextBox, , , , lngPosLeft, lngPosTop, lngAncho, lngAlto)
+        'ctl.Caption = rs("NombreParcela")
+        ctl.ControlSource = "= '" & rs("NombreParcela") & "'"
+        ctl.Name = "btn" & rs("NombreParcela")
+        ctl.fontsize = 12
+        ctl.FontName = "Arial"
+        ctl.FontBold = True
+        If intClick_DobleClick = 1 Then
+            ctl.OnClick = "=BotonClick()"
+        Else
+            ctl.OnDblClick = "=BotonClick()"
+        End If
+        ctl.OnEnter = "=AlEntrarEnCasilla()"
+
+        rsTipos.FindFirst "IdTipoParcela = " & rs("IdTipoParcela")
+        If Not rsTipos.NoMatch Then
+            ctl.ForeColor = rsTipos("Color")
+        End If
+        mdl.AddFromString "Private Sub btn" & NombreValido(rs("NombreParcela")) & "_KeyDown(KeyCode As Integer, Shift As Integer)" _
+               & vbCrLf & "    OuVasTu KeyCode, Shift" _
+               & vbCrLf & "End Sub"
+                
+        lngPosLeft = lngPosLeft + lngAncho
+        rs.MoveNext
+    Wend
+    DoCmd.Close , , acSaveYes
+    On Error Resume Next
+    
+    DoCmd.DeleteObject acForm, strFrm
+    On Error GoTo Error_GenerarfrmPanel
+    DoCmd.CopyObject , strFrm, acForm, strName
+    DoCmd.DeleteObject acForm, strName
+    DoCmd.OpenForm strFrm
+    If IsOpenForm("frmParametrosAplicacion") Then
+        DoCmd.Close acForm, "frmParametrosAplicacion"
+    End If
+    Set frm = Application.Forms(strFrm)
+    CreaTablaBotones frm
+    Dim lngWW As Long
+    lngWW = frm.WindowWidth
+    DoCmd.Close acForm, strFrm
+    CentrarTodo_frmPanel strFrm, lngWW
+    If lngIdTP = 0 Then GenerarParcelasEnPlaning
+Salir_GenerarfrmPanel:
+    Exit Function
+Error_GenerarfrmPanel:
+    Select Case Err
+        'Case 438 ' el objeto no admite la propiedad (en ctl.controlsource)
+        '    Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en _GenerarfrmPanel" & vbCrLf & Err.Description
+            Resume Salir_GenerarfrmPanel
+    End Select
+End Function
+
+    Public Function GenerarParcelasEnPlaning()
+    On Error GoTo Error_GenerarParcelasEnPlaning
+    Dim strSQL As String, rs As Recordset, rsTipos As Recordset
+    Dim frm As Form, ctl As Control, strName As String
+    Dim ctl2 As Control
+    Dim strFontname As String, lngFontSize As Long
+    Dim lngPosLeft As Long, lngAncho As Long, lngPosTop As Long, lngAlto As Long
+    Dim i As Integer, varReturn As Variant
+    Dim lngIdTP As Long, strTP As String, strFrm As String
+    Dim intClick_DobleClick  As Integer
+'    Const FacCmP As Integer = 568
+    strFrm = "subfrmPlanningH"
+    If IsOpenForm("frmPlanning") Then
+        MsgBox "No se puede realizar esta operación con el panel abierto"
+        DoCmd.Close acForm, "frmPlanning"
+        MsgBox "Vuelva a Generar Panel"
+        Exit Function
+    End If
+    i = MsgBox("Se generará nuevo planning según las " & g_strPHs & " existentes, ¿Desea continuar?", vbDefaultButton2 + vbOKCancel + vbQuestion)
+    If i = vbCancel Then Exit Function
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbParcelas"
+    strSQL = strSQL & " WHERE True"
+    strSQL = strSQL & " AND ControlReservas = True"
+    strSQL = strSQL & " ORDER BY Orden"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbParcelasTipo"
+    Set rsTipos = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    DoCmd.CopyObject , "subfrmPlanningH_ini0", acForm, "subfrmPlanningH_ini"
+    
+    DoCmd.OpenForm "subfrmPlanningH_ini0", acViewDesign
+    DoCmd.Maximize
+    Set frm = Forms!subfrmPlanningH_ini0
+    frm.Width = frm.WindowWidth
+    intClick_DobleClick = Nz(DameValorParam("PanelesAbrirFichaClic_DobleClic"), 1)
+    
+    Dim mdl As Module
+    Set mdl = frm.Module
+    strName = frm.Name
+    
+    i = 0
+    While Not rs.EOF
+        i = i + 1
+        Set ctl = CreateControl(frm.Name, acTextBox, , , , 0 * TC_CmToPoints, 2 * TC_CmToPoints, 0.5 * TC_CmToPoints, 0.5 * TC_CmToPoints)
+        'ctl.Caption = rs("NombreParcela")
+        ctl.ControlSource = "= '" & rs("NombreParcela") & "'"
+        ctl.Name = "btn" & rs("NombreParcela")
+        ctl.fontsize = 8
+        ctl.FontName = "Tahoma"
+        ctl.FontBold = True
+        If intClick_DobleClick = 1 Then
+            ctl.OnClick = "=BotonClick()"
+        Else
+            ctl.OnDblClick = "=BotonClick()"
+        End If
+        'ctl.OnEnter = "=AlEntrarEnCasilla()"
+        
+
+        rsTipos.FindFirst "IdTipoParcela = " & rs("IdTipoParcela")
+        If Not rsTipos.NoMatch Then
+            ctl.ForeColor = rsTipos("Color")
+        End If
+        'mdl.AddFromString "Private Sub btn" & NombreValido(rs("NombreParcela")) & "_KeyDown(KeyCode As Integer, Shift As Integer)" _
+        '       & vbCrLf & "    OuVasTu KeyCode, Shift" _
+        '       & vbCrLf & "End Sub"
+        rs.MoveNext
+    Wend
+    DoCmd.Close , , acSaveYes
+    On Error Resume Next
+    
+    DoCmd.DeleteObject acForm, strFrm
+    On Error GoTo Error_GenerarParcelasEnPlaning
+    DoCmd.CopyObject , strFrm, acForm, strName
+    DoCmd.DeleteObject acForm, strName
+    DoCmd.OpenForm strFrm
+    If IsOpenForm("frmParametrosAplicacion") Then
+        DoCmd.Close acForm, "frmParametrosAplicacion"
+    End If
+    Set frm = Application.Forms(strFrm)
+    CreaTablaBotones frm
+    DoCmd.Close acForm, frm.Name
+Salir_GenerarParcelasEnPlaning:
+    Exit Function
+Error_GenerarParcelasEnPlaning:
+    Select Case Err
+        'Case 438 ' el objeto no admite la propiedad (en ctl.controlsource)
+        '    Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en _GenerarParcelasEnPlaning" & vbCrLf & Err.Description
+            Resume Salir_GenerarParcelasEnPlaning
+    End Select
+End Function
+
+Public Sub CreaTablaBotones(frm As Form)
+    Dim ctl As Control
+    Dim rs As Recordset, varReturn As Variant
+    Dim i As Integer
+    CurrentDb.Execute "DELETE * FROM sysBotonesMenu WHERE NombreFrm = '" & frm.Name & "'"
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM sysBotonesMenu WHERE NombreFrm = '" & frm.Name & "'")
+    i = 0
+    For Each ctl In frm.Controls
+        If (ctl.ControlType = acTextBox Or ctl.ControlType = acCommandButton) And Left(ctl.Name, 3) = "btn" Then
+            i = i + 1
+            rs.AddNew
+            rs("NombreFrm") = frm.Name
+            rs("NombreBoton") = ctl.Name
+            rs("X") = ctl.Left + ctl.Width / 2
+            rs("Y") = ctl.Top + ctl.Height / 2
+            rs.Update
+            varReturn = SysCmd(acSysCmdSetStatus, "Creando tabla de botones " & i)
+        End If
+    Next ctl
+    rs.MoveFirst
+    i = 0
+    While Not rs.EOF
+        i = i + 1
+        rs.Edit
+        rs("up") = OVTup(rs("X"), rs("Y"), frm.Name)
+        rs("down") = OVTdown(rs("X"), rs("Y"), frm.Name)
+        rs("right") = OVTright(rs("X"), rs("Y"), frm.Name)
+        rs("left") = OVTleft(rs("X"), rs("Y"), frm.Name)
+        rs.Update
+        rs.MoveNext
+        varReturn = SysCmd(acSysCmdSetStatus, "Creando tabla de posiciones " & i)
+    Wend
+    varReturn = SysCmd(acSysCmdClearStatus)
+            
+End Sub
+
+Public Function OVTup(lngX As Long, lngY As Long, strFrmName As String) As String
+    Dim rs As Recordset
+    Dim X As Long, y As Long, dxn As Long, dxo As Long
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM sysBotonesMenu WHERE X = " & lngX & " AND NombreFrm = '" & strFrmName & "' ORDER BY Y DESC, X")
+    rs.FindFirst "Y < " & lngY
+    If rs.NoMatch Then rs.MoveFirst
+    y = rs("Y")
+    
+    While Not rs.EOF
+        If y <> rs("Y") Then GoTo SalirBucle
+        dxn = rs("X") - lngX
+        If dxn = 0 Then
+            OVTup = rs("nombreBoton")
+            Exit Function
+        End If
+        If Abs(dxn) > Abs(dxo) And dxo <> 0 Then
+            rs.MovePrevious
+            OVTup = rs("nombreBoton")
+            Exit Function
+        End If
+        dxo = dxn
+        rs.MoveNext
+    Wend
+SalirBucle:
+    rs.MovePrevious
+    OVTup = rs("nombreBoton")
+End Function
+
+Public Function OVTdown(lngX As Long, lngY As Long, strFrmName As String) As String
+    Dim rs As Recordset
+    Dim X As Long, y As Long, dxn As Long, dxo As Long
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM sysBotonesMenu WHERE X = " & lngX & " AND NombreFrm = '" & strFrmName & "' ORDER BY Y , X")
+    rs.FindFirst "Y > " & lngY
+    If rs.NoMatch Then rs.MoveFirst
+    y = rs("Y")
+    
+    While Not rs.EOF
+        If y <> rs("Y") Then GoTo SalirBucle
+        dxn = rs("X") - lngX
+        If dxn = 0 Then
+            OVTdown = rs("nombreBoton")
+            Exit Function
+        End If
+        If Abs(dxn) > Abs(dxo) And dxo <> 0 Then
+            rs.MovePrevious
+            OVTdown = rs("nombreBoton")
+            Exit Function
+        End If
+        dxo = dxn
+        rs.MoveNext
+    Wend
+SalirBucle:
+    rs.MovePrevious
+    OVTdown = rs("nombreBoton")
+End Function
+
+Public Function OVTright(lngX As Long, lngY As Long, strFrmName As String) As String
+    Dim rs As Recordset
+    Dim X As Long, y As Long, dyn As Long, dyo As Long
+    Dim strSQL As String
+    strSQL = "SELECT * FROM sysBotonesMenu WHERE NombreFrm = '" & strFrmName & "' "
+    strSQL = strSQL & " AND Y = " & lngY & " AND X <> " & lngX
+    strSQL = strSQL & " ORDER BY X" 'otros botones en la misma línea
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then GoTo OtraLinea
+    rs.FindFirst "X > " & lngX
+    If rs.NoMatch Then
+        rs.MoveFirst
+    End If
+    OVTright = rs("nombreBoton")
+    Exit Function
+OtraLinea:
+    strSQL = "SELECT * FROM sysBotonesMenu WHERE NombreFrm = '" & strFrmName & "' "
+    strSQL = strSQL & " AND X > " & lngX
+    strSQL = strSQL & " ORDER BY Y" 'sólo a la derecha
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then ' si no hay, devuelve el mismo botón
+        OVTright = DLookup("NombreBoton", "sysBotonesMenu", "Y = " & lngY)
+        Exit Function
+    End If
+    While Not rs.EOF
+        dyn = rs("Y") - lngY
+        If dyn = 0 Then
+            OVTright = rs("nombreBoton")
+            Exit Function
+        End If
+        If Abs(dyn) > Abs(dyo) And dyo <> 0 Then
+            GoTo SalirBucle
+        End If
+        dyo = dyn
+        rs.MoveNext
+    Wend
+SalirBucle:
+    rs.MovePrevious
+    OVTright = rs("nombreBoton")
+End Function
+
+Public Function OVTleft(lngX As Long, lngY As Long, strFrmName As String) As String
+    Dim rs As Recordset
+    Dim X As Long, y As Long, dyn As Long, dyo As Long
+    Dim strSQL As String
+    strSQL = "SELECT * FROM sysBotonesMenu WHERE NombreFrm = '" & strFrmName & "' "
+    strSQL = strSQL & " AND Y = " & lngY & " AND X <> " & lngX
+    strSQL = strSQL & " ORDER BY X DESC" 'otros botones en la misma línea
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then GoTo OtraLinea
+    rs.FindFirst "X < " & lngX
+    If rs.NoMatch Then
+        rs.MoveFirst
+    End If
+    OVTleft = rs("nombreBoton")
+    Exit Function
+OtraLinea:
+    strSQL = "SELECT * FROM sysBotonesMenu WHERE NombreFrm = '" & strFrmName & "' "
+    strSQL = strSQL & " AND X < " & lngX
+    strSQL = strSQL & " ORDER BY Y" 'sólo a la derecha
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then ' si no hay, devuelve el mismo botón
+        OVTleft = DLookup("NombreBoton", "sysBotonesMenu", "Y = " & lngY)
+        Exit Function
+    End If
+    While Not rs.EOF
+        dyn = rs("Y") - lngY
+        If dyn = 0 Then
+            OVTleft = rs("nombreBoton")
+            Exit Function
+        End If
+        If Abs(dyn) > Abs(dyo) And dyo <> 0 Then
+            GoTo SalirBucle
+        End If
+        dyo = dyn
+        rs.MoveNext
+    Wend
+SalirBucle:
+    rs.MovePrevious
+    OVTleft = rs("nombreBoton")
+End Function
+
+Private Function NombreValido(ByVal strName As String) As String
+    Dim i As Integer
+    For i = 1 To Len(strName)
+        If InStr("- /.", Mid(strName, i, 1)) > 0 Then
+            Mid(strName, i) = "_"
+        End If
+    Next i
+    NombreValido = strName
+End Function
+
+Public Sub CentrarTodo_frmPanel(strfrmPanel As String, lngWW As Long)
+    Dim frmPanel As Form
+    On Error GoTo Error_CentrarTodo_frmPanel
+        
+    DoCmd.OpenForm strfrmPanel, acDesign
+    Set frmPanel = Forms(strfrmPanel)
+    frmPanel.txt2.Top = 1 * TC_CmToPoints
+    frmPanel.txt2.Left = 0
+    frmPanel.txt2.Width = lngWW
+    frmPanel.LogoImagen.Top = frmPanel.txt2.Top + frmPanel.txt2.Height
+    frmPanel.LogoImagen.Left = (lngWW - frmPanel.LogoImagen.Width) \ 2
+    frmPanel.cdrCentrar.Top = frmPanel.LogoImagen.Top + Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints + 100
+    
+    frmPanel.txtPersonasAcampadas.Top = frmPanel.cdrCentrar.Top + frmPanel.cdrCentrar.Height + 100
+    frmPanel.txtPersonasAcampadas.Left = frmPanel.LogoImagen.Left
+    frmPanel.lblPersonas.Left = frmPanel.txtPersonasAcampadas.Left - frmPanel.lblPersonas.Width
+    frmPanel.lblPersonas.Top = frmPanel.txtPersonasAcampadas.Top
+    frmPanel.lstPersonasAcampadas.Top = frmPanel.txtPersonasAcampadas.Top + frmPanel.txtPersonasAcampadas.Height + 100
+    frmPanel.lstPersonasAcampadas.Left = frmPanel.txtPersonasAcampadas.Left
+    
+    
+    frmPanel.txtParcela.Top = frmPanel.txtPersonasAcampadas.Top + frmPanel.txtPersonasAcampadas.Height + 100
+    frmPanel.lblPH.Top = frmPanel.txtParcela.Top
+    frmPanel.txtParcela.Left = frmPanel.LogoImagen.Left
+    frmPanel.txtParcela.Width = frmPanel.LogoImagen.Width
+    frmPanel.lblPH.Left = frmPanel.txtParcela.Left - frmPanel.lblPH.Width
+    
+    frmPanel.lblTarjetaRFID.Top = frmPanel.txtParcela.Top
+    frmPanel.txtTarjetaRFID.Top = frmPanel.txtParcela.Top
+    frmPanel.lblTarjetaRFID.Left = frmPanel.txtParcela.Left + frmPanel.txtParcela.Width
+    frmPanel.txtTarjetaRFID.Left = frmPanel.lblTarjetaRFID.Left + frmPanel.lblTarjetaRFID.Width
+    
+    Dim lngMaxLeft As Long, lngMinLeft As Long, lngAnchoTotal As Long, lngIniLeft As Long, lngAnchoBtn As Long
+    Dim ctl As Control, lngMinTop As Long, lngIniTop As Long
+    lngMinLeft = 99999: lngMinTop = 99999
+    For Each ctl In frmPanel.Controls
+        If ctl.Name Like "btn*" And ctl.ControlType = acTextBox Then
+            If lngAnchoBtn = 0 Then lngAnchoBtn = ctl.Width
+            If ctl.Left < lngMinLeft Then lngMinLeft = ctl.Left
+            If ctl.Left > lngMaxLeft Then lngMaxLeft = ctl.Left
+            If ctl.Top < lngMinTop Then lngMinTop = ctl.Top
+        End If
+    Next ctl
+    If lngMinLeft = 99999 Then lngMinLeft = 0
+    If lngMaxLeft = 0 Then lngMaxLeft = 1000
+    If lngMinTop = 99999 Then lngMinTop = 0
+    If lngAnchoBtn = 0 Then lngAnchoBtn = 1000
+    lngAnchoTotal = lngMaxLeft + lngAnchoBtn - lngMinLeft
+    lngIniLeft = (lngWW - lngAnchoTotal) \ 2
+    lngIniTop = frmPanel.lblPH.Top + frmPanel.lblPH.Height + 175
+    For Each ctl In frmPanel.Controls
+        If ctl.Name Like "btn*" And ctl.ControlType = acTextBox Then
+            ctl.Left = ctl.Left - lngMinLeft + lngIniLeft
+            ctl.Top = ctl.Top - lngMinTop + lngIniTop
+        End If
+    Next ctl
+    Dim lngL As Long, lngT As Long
+    lngL = (lngWW - frmPanel.cdrCentrar.Width) \ 2
+    If lngL < 0 Then lngL = 0
+    frmPanel.cdrCentrar.Left = lngL
+    Dim i As Integer
+    For i = 2 To 7
+        frmPanel("btn_" & i).Left = frmPanel("btn_" & i).Left + frmPanel.cdrCentrar.Left
+        frmPanel("btn_" & i).Top = frmPanel("btn_" & i).Top + frmPanel.cdrCentrar.Top
+    Next i
+    DoCmd.Close acForm, strfrmPanel, acSaveYes
+Salir_CentrarTodo_frmPanel:
+    Exit Sub
+Error_CentrarTodo_frmPanel:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en CentrarTodo_frmPanel" & vbCrLf & Err.Description
+            Resume Salir_CentrarTodo_frmPanel
+    End Select
+End Sub

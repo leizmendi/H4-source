@@ -1,0 +1,21 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros con las condiciones seleccionadas"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim strXML As String, intEncabezadoTrimestre As Integer
+    strXML = Nz(Me.OpenArgs, "")
+    Me.lblSubTitulo.Caption = Nz(DimeXML(strXML, "Titulo"), "-")
+    intEncabezadoTrimestre = Nz(DimeXML(strXML, "EncabezadoTrimestre"), "SI") = "SI"
+    PonValorParam "EncabezadoTrimestreEnRptLibroIVA", intEncabezadoTrimestre, 4
+End Sub

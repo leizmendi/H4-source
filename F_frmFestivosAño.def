@@ -1,0 +1,78 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Load()
+    AjustarColumnas Me.subfrm.Form
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim i As Integer, strOb As String, lngAncho As Long
+    Dim j As Integer
+    i = InStr(Nz(Me.OpenArgs, ""), "//")
+    'If i = 0 Then
+    '    MsgBox ("Hay que enviar argumentos")
+    '    Cancel = True
+    '    Exit Sub
+    'End If
+    strOb = "frmFestivos"
+    lngAncho = Nz(DSum("AnchuraColumna", "sysAnchuras", "Formulario ='" & strOb & "' AND VisibleColumna = True"), 0)
+    If lngAncho > 0 Then
+        Me.subfrm.Width = lngAncho + 1000
+    End If
+    Me.subfrm.SourceObject = strOb
+    Me.lblTitulo.Caption = Me.subfrm.Form.Caption
+    Me.Caption = Me.lblTitulo.Caption
+    'Habilitar botón
+    If Len(Me.OpenArgs) > i + 1 Then
+        Me.btnIR.Left = Me.subfrm.Left + Me.subfrm.Width - Me.btnIR.Width
+        Me.btnIR.Visible = True
+        j = InStr(i + 2, Me.OpenArgs, "//")
+        If j = 0 Then
+            Me.btnIR.OnClick = Mid(Me.OpenArgs, i + 2)
+            Me.btnIR.ControlTipText = ""
+        Else
+            Me.btnIR.OnClick = Mid(Me.OpenArgs, i + 2, j - (i + 2))
+            Me.btnIR.ControlTipText = Mid(Me.OpenArgs, j + 2)
+        End If
+    Else
+        Me.btnIR.Visible = False
+    End If
+    Select Case strOb
+        Case "frmFestivos"
+            Me.txtAño.Visible = True
+            Call txtAño_AfterUpdate
+        Case Else
+            Me.txtAño.Visible = False
+    End Select
+End Sub
+
+Public Function TemporadasNombre()
+    DoCmd.OpenForm "frmTemporadasNombre", acFormDS, , , , acDialog
+End Function
+
+
+Private Sub txtAño_AfterUpdate()
+    PonerFiestasDelAño CInt(Me.txtAño)
+    Me.subfrm.Form.RecordSource = "SELECT * FROM tbFestivos WHERE Year(FFiesta)=" & Me.txtAño
+End Sub
+
+Public Sub PonerFiestasDelAño(intAño As Integer)
+    Dim rsA As Recordset, rsF As Recordset
+    Set rsA = CurrentDb.OpenRecordset("tbFestivosA", dbOpenSnapshot)
+    Set rsF = CurrentDb.OpenRecordset("tbFestivos", dbOpenDynaset)
+    While Not rsA.EOF
+        rsF.FindFirst "FFiesta = #" & Left(rsA("FiestaMMDD"), 2) & "/" & Right(rsA("FiestaMMDD"), 2) & "/" & intAño & "#"
+        If rsF.NoMatch Then
+            rsF.AddNew
+            rsF("FFIesta") = CDate(CStr(intAño) & "/" & Left(rsA("FiestaMMDD"), 2) & "/" & Right(rsA("FiestaMMDD"), 2))
+            rsF("Festivo") = rsA("FiestaA")
+            rsF.Update
+        End If
+        rsA.MoveNext
+    Wend
+End Sub

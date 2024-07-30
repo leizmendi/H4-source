@@ -1,0 +1,28 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros para la fecha indicada"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim frm As Form
+    If Not IsOpenForm("frmListadoOcupacion") Then
+        MsgBox "Debe estar abierto frmListadoOcupacion"
+        Cancel = True
+    Else
+        Set frm = Forms("frmListadoOcupacion")
+    End If
+    Me.lblTitulo.Caption = "Listado de Reservas"
+    Me.lblTitulo2.Caption = "Desde el: " & Format(frm("txtDesde"), "dd/mm/yy") & vbCrLf & "Hasta el: " & Format(frm("txtHasta"), "dd/mm/yy")
+    Me.txtTotalPaxEntradas.Visible = True
+    Me.txtTotalPaxSalidas.Visible = False
+    Me.RecordSource = frm("lblSQL").Caption
+    
+End Sub

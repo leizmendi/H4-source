@@ -1,0 +1,1088 @@
+Option Compare Database
+Option Explicit
+
+Public Function AH_AbreSobreXML() As String
+    Dim strR As String
+    strR = "<?xml version='1.0' encoding='ISO-8859-1'?>" & vbCrLf & _
+           "<SOAP-ENV:Envelope " & _
+           "SOAP-ENV:encodingStyle='https://schemas.xmlsoap.org/soap/encoding/' " & _
+           "xmlns:SOAP-ENV='https://schemas.xmlsoap.org/soap/envelope/' " & _
+           "xmlns:xsd='https://www.w3.org/2001/XMLSchema' " & _
+           "xmlns:xsi='https://www.w3.org/2001/XMLSchema-instance' " & _
+           "xmlns:SOAP-ENC='https://schemas.xmlsoap.org/soap/encoding/' " & _
+           "xmlns:tns='http://www.visitnavarra.info/xml'>" & vbCrLf & _
+           "<SOAP-ENV:Body>"
+    AH_AbreSobreXML = strR
+End Function
+
+Public Function AH_CierraSobreXML() As String
+    Dim strR As String
+    strR = "</SOAP-ENV:Body>" & vbCrLf & _
+           "</SOAP-ENV:Envelope>"
+    AH_CierraSobreXML = strR
+End Function
+
+Public Function AH_AccesoXML(Optional strUser As String = "", Optional strPassword As String = "") As String
+    Dim strR As String, strXML As String
+    If strUser = "" Then strUser = DameValorParam("SincroAH_txtUser")
+    If strPassword = "" Then strUser = DameValorParam("SincroAH_txtPassword")
+    PonXML strXML, "user", strUser
+    PonXML strXML, "pass", strPassword
+    PonXML strR, "acceso", strXML
+    AH_AccesoXML = strR
+End Function
+
+Public Sub AH_ProcesaResponseReservas(strResponse As String)
+    On Error GoTo Error_AH_ProcesaResponseReservas
+    CurrentDb.Execute "DELETE * FROM auxFichasCab", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM auxFichasDet", dbFailOnError
+'    CurrentDb.Execute "DELETE * FROM auxFichasCab_Totales", dbFailOnError
+    Dim l As Integer, strReservaXML As String
+BucleReserva:
+    l = l + 1
+    strReservaXML = Nz(DimeXML(strResponse, "Reserva", l), "")
+    If strReservaXML <> "" Then
+        AH_ProcesaReservaXML strReservaXML
+        GoTo BucleReserva
+    End If
+    
+Salir_AH_ProcesaResponseReservas:
+    Exit Sub
+Error_AH_ProcesaResponseReservas:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AH_ProcesaResponseReservas" & vbCrLf & Err.Description
+            Resume Salir_AH_ProcesaResponseReservas
+    End Select
+
+End Sub
+
+Public Sub AH_ProcesaReservaXML(strXML As String)
+    On Error GoTo Error_AH_ProcesaReservaXML
+    Dim strSQL As String, strT As String, dtD As Date, dtH As Date, intN As Integer
+    Dim lngIdCR As Long, lngIdGH As Long
+    strSQL = "INSERT INTO auxFichasCab ( IdCR, IdGH, FechaReserva, FechaLlegada, FechaSalida, NombreCliente, TelefonoCliente, EMail, Adultos, Notas, IVAincluido )"
+    lngIdCR = SpNz(DimeXML(strXML, "IdCR"), 0)
+    strSQL = strSQL & " SELECT " & lngIdCR & " AS Expr0, "
+    lngIdGH = SpNz(DimeXML(strXML, "IdGH"), 0)
+    If lngIdGH = 0 Then lngIdGH = Nz(DMin("IdGH", "auxFichasCab", "IdGH<=0"), 0) - 1
+    strSQL = strSQL & lngIdGH & " AS Expr1, "
+    strT = Nz(DimeXML(strXML, "FechaReserva"), "")
+    If IsDate(strT) Then
+        dtD = CDate(strT)
+        strSQL = strSQL & "#" & Format(dtD, "mm/dd/yyyy") & "# AS Expr02, "
+    Else
+        strSQL = strSQL & "null AS Expr02, "
+    End If
+    strT = Nz(DimeXML(strXML, "FechaEntrada"), "")
+    If IsDate(strT) Then
+        dtD = CDate(strT)
+        strSQL = strSQL & "#" & Format(dtD, "mm/dd/yyyy") & "# AS Expr2, "
+    Else
+        strSQL = strSQL & "null AS Expr2, "
+    End If
+    strT = Nz(DimeXML(strXML, "FechaSalida"), "")
+    If IsDate(strT) Then
+        dtH = CDate(strT) + 1
+        strSQL = strSQL & "#" & Format(dtH, "mm/dd/yyyy") & "# AS Expr3, "
+    Else
+        strSQL = strSQL & "null AS Expr3, "
+    End If
+    strT = Nz(DimeXML(strXML, "Cliente"), "")
+    strSQL = strSQL & "'" & Replace(strT, "'", "") & "' AS Expr4, "
+    strT = Nz(DimeXML(strXML, "Telefono"), "")
+    strSQL = strSQL & "'" & Replace(strT, "'", "") & "' AS Expr5, "
+    strT = Nz(DimeXML(strXML, "Email"), "")
+    strSQL = strSQL & "'" & Replace(strT, "'", "") & "' AS Expr6, "
+    intN = Nz(DimeXML(strXML, "Pax"), 0)
+    strSQL = strSQL & intN & " AS Expr7, "
+    strT = Replace(Nz(DimeXML(strXML, "Notas"), ""), "'", "")
+    strSQL = strSQL & IIf(strT = "", "NULL", "'" & strT & "'") & " AS Expr8, "
+    strT = IIf(Nz(DimeXML(strXML, "IVAincluidoSN"), "S") = "S", "True", "False")
+    strSQL = strSQL & strT & " AS Expr9"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Dim strDetalleXML As String, i As Integer, strPieXML As String
+BucleDetalle:
+    i = i + 1
+    strDetalleXML = Nz(DimeXML(strXML, "Detalle", i), "")
+    If strDetalleXML <> "" Then
+        AH_ProcesaReservaDetalleXML strDetalleXML, lngIdGH, dtD, dtH
+        GoTo BucleDetalle
+    End If
+    strPieXML = Nz(DimeXML(strXML, "Pie"), "")
+    If strPieXML <> "" Then
+        AH_ProcesaReservaPieXML strPieXML, lngIdCR
+    End If
+    
+Salir_AH_ProcesaReservaXML:
+    Exit Sub
+Error_AH_ProcesaReservaXML:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AH_ProcesaReservaXML" & vbCrLf & Err.Description
+            Resume Salir_AH_ProcesaReservaXML
+    End Select
+
+End Sub
+
+Public Sub AH_ProcesaReservaDetalleXML(strXML As String, lngIdGH As Long, dtD As Date, dtH As Date)
+    On Error GoTo Error_AH_ProcesaReservaDetalleXML
+    Dim strSQL As String, strT As String, dtF As Date, intN As Integer
+    Dim lngIdTipoP As Long, lngIdSD As Long, curCant As Currency, curImporte As Currency, curPU As Currency
+    strSQL = "INSERT INTO auxFichasDet ( IdFichaCab, IdSD, Concepto, PrecioUnitario, Cantidad, FechaInicio, FechaFin, IVA, IdTipoParcela)"
+    strSQL = strSQL & " SELECT " & lngIdGH & " AS Expr0, "
+    lngIdTipoP = SpNz(DimeXML(strXML, "IdTipoAlojamiento"), 0)
+    lngIdSD = Nz(DLookup("IdSD_PrecioAH", "tbParcelasTipo", "IdTipoPArcela = " & lngIdTipoP), 0)
+    
+    strSQL = strSQL & IIf(lngIdSD = 0, "NULL", lngIdSD) & " AS Expr1, "
+    strT = Nz(DimeXML(strXML, "Concepto"), "")
+    strSQL = strSQL & "'" & Replace(strT, "'", "") & "' AS Expr2, "
+    strT = Nz(DimeXML(strXML, "Cantidad"), "")
+    If IsNumeric(strT) Then
+        curCant = CCur(strT)
+    End If
+    strT = Replace(Nz(DimeXML(strXML, "ImporteLinea"), ""), ".", ",")
+    If IsNumeric(strT) Then
+        curImporte = CCur(strT)
+    End If
+    If curCant = 0 Then curCant = 1
+    Dim intDias As Integer
+    intDias = dtH - dtD
+    If intDias <= 0 Then intDias = 1
+    curPU = curImporte / intDias
+    'ImporteLinea es el precio unitario de la línea, se multiplica por cantidad para calcular el total
+    strSQL = strSQL & ComaPunto(curPU) & " AS Expr3, "
+    strSQL = strSQL & ComaPunto(curCant) & " AS Expr4, "
+    If dtD > 0 Then
+        strSQL = strSQL & "#" & Format(dtD, "mm/dd/yyyy") & "# AS Expr5, "
+    Else
+        strSQL = strSQL & "null AS Expr5, "
+    End If
+    If dtH > 0 Then
+        strSQL = strSQL & "#" & Format(dtH, "mm/dd/yyyy") & "# AS Expr6, "
+    Else
+        strSQL = strSQL & "null AS Expr6, "
+    End If
+    strSQL = strSQL & SpNz(DimeXML(strXML, "IVA"), "0") & " AS Expr7, "
+    strSQL = strSQL & lngIdTipoP & " AS Expr8"
+    CurrentDb.Execute strSQL, dbFailOnError
+Salir_AH_ProcesaReservaDetalleXML:
+    Exit Sub
+Error_AH_ProcesaReservaDetalleXML:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AH_ProcesaReservaDetalleXML" & vbCrLf & Err.Description
+            Resume Salir_AH_ProcesaReservaDetalleXML
+    End Select
+
+End Sub
+
+Public Sub AH_ProcesaReservaPieXML(strXML As String, lngIdCR As Long)
+    On Error GoTo Error_AH_ProcesaReservaPieXML
+    Dim curPagado As Currency, strSQL As String
+    strSQL = "UPDATE qryauxFichasCab SET PagadoReserva = "
+    curPagado = SpNz(DimeXML(strXML, "PagadoReserva"), 0)
+    strSQL = strSQL & ComaPunto(curPagado)
+    strSQL = strSQL & " WHERE IdCR = " & lngIdCR
+    CurrentDb.Execute strSQL, dbFailOnError
+Salir_AH_ProcesaReservaPieXML:
+    Exit Sub
+Error_AH_ProcesaReservaPieXML:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AH_ProcesaReservaPieXML" & vbCrLf & Err.Description
+            Resume Salir_AH_ProcesaReservaPieXML
+    End Select
+
+End Sub
+
+Public Sub PreparaReservasEnvio(Optional intNuevas As Integer = False _
+                               , Optional dtDesde As Date = 0 _
+                               , Optional dtHasta As Date = 0 _
+                               , Optional lngIdGH_desde As Long = 0 _
+                               , Optional lngIdGH_hasta As Long = 0)
+    On Error GoTo Error_PreparaReservasEnvio
+    Dim strSQL As String, rsC As Recordset, rsD As Recordset, rsAuxC As Recordset, rsAuxD As Recordset
+    Dim i As Integer, lngIdGH As Long
+    strSQL = "DELETE * FROM auxFichasCab"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "DELETE * FROM auxFichasDet"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT tbCentralR_Fichas.IdCR, IdFichaCab as IdGH, FechaLlegada, FechaSalida, NombreCliente, ApellidosCliente, DireccionCliente, TelefonoCliente, LocalidadCliente, CPCliente, ProvinciaCliente, PaisCliente, Notas, Email, IdIdioma "
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbCentralR_Fichas ON tbFichasCab.IdFichaCab = tbCentralR_Fichas.IdGH"
+    strSQL = strSQL & " WHERE True"
+    If intNuevas = True Then strSQL = strSQL & " AND tbCentralR_Fichas.IdCR Is Null"
+    If dtDesde > 0 Then strSQL = strSQL & " AND FechaLlegada>= " & CLng(dtDesde)
+    If dtHasta > 0 Then strSQL = strSQL & " AND FechaLlegada<= " & CLng(dtHasta)
+    If lngIdGH_desde > 0 Then strSQL = strSQL & " AND IdFichaCab>= " & lngIdGH_desde
+    If lngIdGH_hasta > 0 Then strSQL = strSQL & " AND IdFichaCab<= " & lngIdGH_hasta
+    Set rsC = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAuxC = CurrentDb.OpenRecordset("auxFichasCab", dbOpenDynaset)
+    Set rsAuxD = CurrentDb.OpenRecordset("auxFichasDet", dbOpenDynaset)
+    While Not rsC.EOF
+        rsAuxC.AddNew
+        'If IsNull(rs("IdCR")) Then
+        '    rsAuxC("IdCR") = Nz(DMin("IdCR", "auxFichasCab", "IdCR<=0"), 0) - 1
+        For i = 0 To rsC.Fields.Count - 1
+            rsAuxC(rsC(i).Name) = rsC(i)
+        Next i
+        lngIdGH = rsC("IdGH")
+        rsAuxC.Update
+        strSQL = "SELECT IdFichaCab, Concepto, PrecioUnitario, Cantidad, FechaInicio, FechaFin, IVA, IdTipoParcela"
+        strSQL = strSQL & " FROM tbFichasDet"
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        Set rsD = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rsD.EOF
+            rsAuxD.AddNew
+            For i = 0 To rsD.Fields.Count - 1
+                rsAuxD(rsD(i).Name) = rsD(i)
+            Next i
+            rsAuxD.Update
+            rsD.MoveNext
+        Wend
+        rsC.MoveNext
+    Wend
+Salir_PreparaReservasEnvio:
+    Exit Sub
+Error_PreparaReservasEnvio:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PreparaReservasEnvio" & vbCrLf & Err.Description
+            Resume Salir_PreparaReservasEnvio
+    End Select
+
+End Sub
+
+Public Sub GenerarAuxTemporadas(intAño As Integer)
+    Dim strSQL As String, rs As Recordset, lngIdAntTempo As Long, rsAux As Recordset, dt As Date
+    CurrentDb.Execute "DELETE * FROM auxTemporadas", dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxTemporadas", dbOpenDynaset)
+    strSQL = "SELECT tbTempoDias.*, tbTemporadasNombre.NombreTemporada, tbTemporadasNombre.RateCode"
+    strSQL = strSQL & " FROM tbTempoDias LEFT JOIN tbTemporadasNombre ON tbTempoDias.IdTempo = tbTemporadasNombre.IdTemporadaNombre"
+    strSQL = strSQL & " WHERE Year(Dia)=" & intAño
+    strSQL = strSQL & " ORDER BY Dia"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngIdAntTempo = -1
+    While Not rs.EOF
+        If rs("IdTempo") <> lngIdAntTempo Then
+            If lngIdAntTempo <> -1 Then
+                rsAux("FechaHasta") = dt
+                rsAux.Update
+            End If
+            rsAux.AddNew
+            rsAux("IdTemporada") = rs("IdTempo")
+            rsAux("NombreTemporada") = rs("RateCode")
+            rsAux("FechaDesde") = rs("Dia")
+            lngIdAntTempo = rs("IdTempo")
+        End If
+        dt = rs("Dia")
+        rs.MoveNext
+    Wend
+    If lngIdAntTempo <> -1 Then
+        rsAux("FechaHasta") = dt
+        rsAux.Update
+    End If
+End Sub
+
+Public Function AH_ImportaReserva_aux(lngIdGH As Long) As Long
+    On Error GoTo Error_AH_ImportaReserva_aux
+    Dim rs As Recordset, rsAux As Recordset, strSQL As String, lngIdFichaCab As Long
+    Dim lngIdCajaCab As Long, lngIdCentralR As Long, i As Integer, lngIdCR As Long, intR As Integer
+    If lngIdGH >= 0 Then
+        intR = MsgBox("IdGH debería ser negativo, ¿importar de todas maneras?", vbOKCancel + vbExclamation + vbDefaultButton2)
+        If intR = vbCancel Then Exit Function
+    End If
+    strSQL = "SELECT * FROM auxFichasCab WHERE IdGH = " & lngIdGH
+    Set rsAux = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rsAux.EOF Then
+        MsgBox "No se encontró reserva a importar"
+        Exit Function
+    End If
+    
+    lngIdCentralR = Nz(DameValorParam("SincroAH_lstCR"), 0)
+    If lngIdCentralR = 0 Then
+        MsgBox "Se debe indicar ID de Central de reservas de AH"
+        Exit Function
+    End If
+    If lngIdGH < 0 Then
+        lngIdFichaCab = Nz(DLookup("IdGH", "tbCentralR_Fichas", "IdCentralR = " & lngIdCentralR & " AND IdCR = " & rsAux("IdCR")), 0)
+        If lngIdFichaCab <> 0 Then
+            intR = MsgBox("Se encontró la ficha: " & lngIdFichaCab & " correspondiente a la reserva con IdCR: " & rsAux("IdCR") & vbCrLf & " ¿Reemplazar los datos de la ficha existente? (Pulsando No se generará una nueva ficha)" _
+                            & vbCrLf & "Las lineas de detalle existente no se eliminarán, habrá que repasarlas", vbYesNoCancel + vbDefaultButton3 + vbExclamation)
+            If intR = vbCancel Then Exit Function
+            If intR = vbYes Then
+                Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFichasCab WHERE IdFichaCab = " & lngIdFichaCab, dbOpenDynaset)
+                rs.Edit
+                GoTo DatosRegistro
+            End If
+        End If
+    Else
+        lngIdFichaCab = Nz(DLookup("IdFichacab", "tbFichasCab", "IdFichaCab = " & lngIdGH), 0)
+        If lngIdFichaCab = 0 Then lngIdFichaCab = Nz(DLookup("IdGH", "tbCentralR_Fichas", "IdCentralR = " & lngIdCentralR & " AND IdCR = " & rsAux("IdCR")), 0)
+        If lngIdFichaCab <> 0 Then
+            intR = MsgBox("Se encontró la ficha: " & lngIdFichaCab & vbCrLf & " ¿Reemplazar los datos de la ficha existente? (Pulsando No se generará una nueva ficha)" _
+                            & vbCrLf & "Las lineas de detalle existente no se eliminarán, habrá que repasarlas", vbYesNoCancel + vbDefaultButton3 + vbExclamation)
+            If intR = vbCancel Then Exit Function
+            If intR = vbYes Then
+                Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFichasCab WHERE IdFichaCab = " & lngIdFichaCab, dbOpenDynaset)
+                rs.Edit
+                GoTo DatosRegistro
+            End If
+        End If
+    End If
+    
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset, dbAppendOnly)
+    rs.AddNew
+    lngIdFichaCab = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    rs("IdFichaCab") = lngIdFichaCab
+DatosRegistro:
+    rs("EstadoFicha") = 1
+    rs("FechaReserva") = rsAux("FechaReserva")
+    rs("FechaLlegada") = rsAux("FechaLlegada")
+    rs("FechaSalida") = rsAux("FechaSalida")
+    rs("NombreCliente") = rsAux("NombreCliente")
+    rs("ApellidosCliente") = rsAux("ApellidosCliente")
+    rs("DireccionCliente") = rsAux("DireccionCliente")
+    rs("TelefonoCliente") = rsAux("TelefonoCliente")
+    rs("CPCliente") = rsAux("CPCliente")
+    rs("ProvinciaCliente") = rsAux("ProvinciaCliente")
+    rs("PaisCliente") = rsAux("PaisCliente")
+    rs("Adultos") = rsAux("Adultos")
+    rs("Email") = rsAux("Email")
+    rs("IVAincluido") = rsAux("IVAincluido")
+    rs("Notas") = rsAux("Notas")
+    rs.Update
+    
+    'Relación IdCR---IdGH
+    strSQL = "SELECT * FROM tbCentralR_Fichas"
+    strSQL = strSQL & " WHERE IdCentralR = " & lngIdCentralR
+    strSQL = strSQL & " AND IdCR = " & rsAux("IdCR")
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        rs.AddNew
+        rs("IdCentralR") = lngIdCentralR
+        rs("IdCR") = rsAux("IdCR")
+    Else
+        rs.Edit
+    End If
+    rs("IdGH") = lngIdFichaCab
+    rs.Update
+    
+    'Pago efectuado or la reserva
+    If rsAux("PagadoReserva") >= 0 Then
+        lngIdCajaCab = IsCajaOpen
+        If lngIdCajaCab = 0 Then
+            AbrirCaja True
+            lngIdCajaCab = IsCajaOpen
+        End If
+        IntroducirCobro lngIdCajaCab, DameValorParam("SincroAH_FPago"), Date, rsAux("PagadoReserva"), rsAux("PagadoReserva"), 0, lngIdFichaCab, "E", rsAux("Nombrecliente") & " " & rsAux("Apellidoscliente"), "Reserva web"
+    End If
+    'actualiza IdGH de tabla auxiliar
+    rsAux.Edit
+    rsAux("IdGH") = lngIdFichaCab
+    rsAux.Update
+    
+    'Detalle
+    strSQL = "SELECT * FROM auxFichasDet WHERE IdFichaCab = " & lngIdGH
+    Set rsAux = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rsAux.EOF Then
+        MsgBox "No se encontró reserva a importar"
+        Exit Function
+    End If
+    Set rs = CurrentDb.OpenRecordset("tbFichasDet", dbOpenDynaset, dbAppendOnly)
+    Dim lngIdFichaDet As Long, intCant As Integer, strParcela As String, j As Integer
+    Dim lngIdTipoParcela As Long, lngIdSD As Long
+    While Not rsAux.EOF
+        rs.AddNew
+        rs("IdFichaCab") = lngIdFichaCab
+        For i = 2 To rsAux.Fields.Count - 1
+            rs(rsAux(i).Name) = rsAux(i)
+            Debug.Print rsAux(i).Name & " = " & rsAux(i)
+        Next i
+        lngIdFichaDet = rs("IdFichaDet")
+        rs.Update
+        rsAux.Edit
+        rsAux("IdFichaCab") = lngIdFichaCab
+        rsAux.Update
+        'Asignar parcela
+        If Nz(rs("IdTipoParcela"), 0) <> 0 Then
+            If Nz(DameValorParam("Sincro_AsignarParcelaAlSincronizarSN"), True) Then
+                intCant = rs("Cantidad")
+                For j = 1 To intCant
+                    strParcela = DimeParcelaLibre(rs("IdTipoPArcela"), rs("FechaInicio"), rs("FechaFin"), lngIdTipoParcela, lngIdSD)
+                    If strParcela <> "" Then
+                        rs.AddNew
+                        rs("IdFichaCab") = lngIdFichaCab
+                        For i = 2 To rsAux.Fields.Count - 1
+                            rs(rsAux(i).Name) = rsAux(i)
+                        Next i
+                        rs("Cantidad") = 1
+                        rs("Concepto") = RecDerTop(rs("Concepto") & " (" & strParcela & ")", 0, 50)
+                        rs("Parcela") = strParcela
+                        rs.Update
+                        strSQL = "UPDATE tbFichasDet SET Cantidad = Cantidad -1 WHERE IdFichaDet = " & lngIdFichaDet
+                        CurrentDb.Execute strSQL, dbFailOnError
+                    Else
+                    End If
+                Next j
+                strSQL = "DELETE * FROM tbFichasDet WHERE Cantidad = 0 AND IdFichaDet = " & lngIdFichaDet
+                CurrentDb.Execute strSQL, dbFailOnError
+            End If
+        End If
+        rsAux.MoveNext
+    Wend
+    G_RecalculaTotales lngIdFichaCab
+    AH_ImportaReserva_aux = lngIdFichaCab
+Salir_AH_ImportaReserva_aux:
+    Exit Function
+Error_AH_ImportaReserva_aux:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AH_ImportaReserva_aux" & vbCrLf & Err.Description
+            Resume Salir_AH_ImportaReserva_aux
+    End Select
+
+End Function
+
+Public Function AH_DimePeticionXML(strTipo As String, Optional strParamXML As String = "") As String
+    On Error GoTo Error_AH_DimePeticionXML
+    Dim strXML As String, rs As Recordset, strReg As String, strItem As String, strElem As String
+    Dim strSQL As String, vIt As Variant, i As Integer, y As Integer
+    Dim strIdHotel As String, strUser As String, strPw As String
+    Dim intSoloNuevasReservas As Integer, lngFechaDesde As Long, lngFechaHasta As Long
+    Dim strIdCRdesde As String, strIdCRhasta As String, lngIdReserva As Long
+    'strIdHotel = DameSetting("SincroAH", "txtIdHotel", "")
+    'strUser = DameSetting("SincroAH", "txtUser", "")
+    'strPw = DameSetting("SincroAH", "txtPassword", "")
+    strIdHotel = Nz(DameValorParam("SincroAH_txtIdHotel"), "")
+    strUser = Nz(DameValorParam("SincroAH_txtUser"), "")
+    strPw = Nz(DameValorParam("SincroAH_txtPassword"), "")
+    If strIdHotel = "" Or strUser = "" Or strPw = "" Then
+        MsgBox "No se han indicado IdHotel + Usuario + Contraseña de sincronización AH", vbExclamation
+        Exit Function
+    End If
+    If strTipo Like "*Reservas" Or strTipo = "EditarReserva" Then
+        strXML = AH_AbreSobreXML & "<tns:" & strTipo & " xmlns:tns='http://www.visitnavarra.info/xml'>"
+    Else
+        strXML = AH_AbreSobreXML & "<tns:Sinc" & strTipo & " xmlns:tns='http://www.visitnavarra.info/xml'>"
+    End If
+    strXML = strXML & vbCrLf & AH_AccesoXML(strUser, strPw)
+    Select Case strTipo
+        Case "TiposAlojamientos"
+            Set rs = CurrentDb.OpenRecordset("tbParcelasTipo", dbOpenSnapshot)
+            While Not rs.EOF
+                strReg = ""
+                If rs("DisponiblesAH") <> 0 Then
+                    PonXML strReg, "id_tipo", rs("IdTipoParcela")
+                    PonXML strReg, "nombre", rs("TipoParcela")
+                    PonXML strReg, "descripcion", rs("TipoParcela")
+                    PonXML strReg, "caracteristicas", rs("TipoParcela")
+                    PonXML strReg, "cantidad", CLng(rs("DisponiblesAH"))
+                    PonXML strReg, "pax", rs("PaxAH")
+                    PonXML strItem, "item", strReg
+                End If
+                rs.MoveNext
+            Wend
+            PonXML strXML, "elementos", strItem
+        Case "Temporadas"
+            strSQL = "SELECT tbTemporadasNombre.IdTemporadaNombre, tbTemporadasNombre.NombreTemporada as NomTempo, auxtemporadas.*"
+            strSQL = strSQL & " FROM auxTemporadas RIGHT JOIN tbTemporadasNombre ON auxTemporadas.IdTemporada = tbTemporadasNombre.IdTemporadaNombre"
+            strSQL = strSQL & " ORDER BY auxTemporadas.FechaDesde;"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            'Set rs = CurrentDb.OpenRecordset("SELECT * FROM auxTemporadas ORDER BY FechaDesde", dbOpenSnapshot)
+            While Not rs.EOF
+                strReg = ""
+                PonXML strReg, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+                If Not IsNull(rs("IdTemporada")) Then
+                    PonXML strReg, "id_tarifa", rs("IdTemporada"), , "xsi:type='xsd:int'"
+                    PonXML strReg, "nombre", rs("NombreTemporada"), , "xsi:type='xsd:string'"
+                    PonXML strReg, "fecha_desde", Format(rs("FechaDesde"), "yyyy-mm-dd"), , "xsi:type='xsd:string'"
+                    PonXML strReg, "fecha_hasta", Format(rs("FechaHasta"), "yyyy-mm-dd"), , "xsi:type='xsd:string'"
+                Else
+                    PonXML strReg, "id_tarifa", rs("IdTemporadaNombre"), , "xsi:type='xsd:int'"
+                    PonXML strReg, "nombre", rs("NomTempo"), , "xsi:type='xsd:string'"
+                    PonXML strReg, "fecha_desde", Format(DMax("FechaDesde", "auxTemporadas"), "yyyy-mm-dd"), , "xsi:type='xsd:string'"
+                    PonXML strReg, "fecha_hasta", Format(DMax("FechaHasta", "auxTemporadas"), "yyyy-mm-dd"), , "xsi:type='xsd:string'"
+                End If
+                PonXML strItem, "item", strReg
+                rs.MoveNext
+            Wend
+            PonXML strXML, "temporada", strItem
+        Case "Precios"
+            strSQL = "SELECT tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, tbServiciosDiarios.ServicioDiario, tbTemporadasNombre.IdTemporadaNombre, tbPreciosSD.PrecioDiario, tbParcelasTipo.DisponiblesAH"
+            strSQL = strSQL & " FROM tbTemporadasNombre RIGHT JOIN ((tbParcelasTipo LEFT JOIN tbServiciosDiarios ON tbParcelasTipo.IdSD_PrecioAH=tbServiciosDiarios.IdSD) LEFT JOIN tbPreciosSD ON tbServiciosDiarios.IdSD=tbPreciosSD.IdSD) ON tbTemporadasNombre.IdTemporadaNombre=tbPreciosSD.IdTemporadaNombre ORDER BY tbParcelasTipo.TipoParcela, tbServiciosDiarios.ServicioDiario, tbTemporadasNombre.NombreTemporada"
+            'strSQL = strSQL & " WHERE tbParcelasTipo.DisponiblesAH<>0"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            While Not rs.EOF
+                If Nz(rs("DisponiblesAH"), 0) <> 0 And Nz(rs("IdTemporadaNombre"), 0) <> 0 Then
+                    strReg = ""
+                    PonXML strReg, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+                    PonXML strReg, "id_fisica", rs("IdTipoParcela"), , "xsi:type='xsd:int'"
+                    PonXML strReg, "id_tarifa", rs("IdTemporadaNombre"), , "xsi:type='xsd:int'"
+                    PonXML strReg, "precio", ComaPunto(Nz(rs("PrecioDiario"), 0)), , "xsi:type='xsd:double'"
+                    PonXML strItem, "item", strReg
+                End If
+                rs.MoveNext
+            Wend
+            PonXML strXML, "precioss", strItem
+        Case "DameReservas"
+            intSoloNuevasReservas = Nz(DimeXML(strParamXML, "SoloNuevasReservasSN"), "N") = "S"
+            lngFechaDesde = Nz(DimeXML(strParamXML, "FechaDesde"), 0)
+            lngFechaHasta = Nz(DimeXML(strParamXML, "FechaHasta"), 0)
+            strIdCRdesde = Nz(DimeXML(strParamXML, "IdCRdesde"), "")
+            strIdCRhasta = Nz(DimeXML(strParamXML, "IdCRhasta"), "")
+            PonXML strReg, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+            PonXML strReg, "nuevas_reservas", IIf(Nz(intSoloNuevasReservas, False), "true", "false"), , "xsi:type='xsd:boolean'"
+            If lngFechaDesde > 0 Then
+                PonXML strReg, "fecha_desde", Format(CDate(lngFechaDesde), "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+            Else
+                PonXML strReg, "fecha_desde", "", , "xsi:type='xsd:string'"
+            End If
+            If Len(lngFechaHasta) > 0 Then
+                PonXML strReg, "fecha_hasta", Format(CDate(lngFechaHasta), "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+            Else
+                PonXML strReg, "fecha_hasta", "", , "xsi:type='xsd:string'"
+            End If
+            PonXML strReg, "id_cr_desde", strIdCRdesde, , "xsi:type='xsd:int'"
+            PonXML strReg, "id_cr_hasta", strIdCRhasta, , "xsi:type='xsd:int'"
+            PonXML strItem, "item", strReg
+            PonXML strXML, "dame", strItem
+        Case "TomaReservas"
+            y = 1
+            lngIdReserva = Nz(DimeXML(strParamXML, "IdReserva", y), 0)
+            If lngIdReserva = 0 Then
+                MsgBox "Se debe seleccionar al menos una reserva de la lista"
+                Exit Function
+            End If
+            While lngIdReserva > 0
+                strReg = ""
+                For i = 1 To 3
+                    strReg = strReg & AH_DimeReservaXML(strIdHotel, lngIdReserva, i)
+                Next i
+                PonXML strItem, "reserva", strReg
+                y = y + 1
+                lngIdReserva = Nz(DimeXML(strParamXML, "IdReserva", y), 0)
+            Wend
+            PonXML strXML, "toma", strItem
+        Case "EditarReserva"
+            y = 1
+            lngIdReserva = Nz(DimeXML(strParamXML, "IdReserva", y), 0)
+            If lngIdReserva = 0 Then
+                MsgBox "Se debe seleccionar al menos una reserva de la lista"
+                Exit Function
+            End If
+            While lngIdReserva > 0
+                strReg = ""
+                For i = 1 To 3
+                    strReg = strReg & AH_DimeReservaXML(strIdHotel, lngIdReserva, i)
+                Next i
+                PonXML strItem, "reserva", strReg
+                y = y + 1
+                lngIdReserva = Nz(DimeXML(strParamXML, "IdReserva", y), 0)
+            Wend
+            PonXML strXML, "editar", strItem
+        Case "ConfReservas"
+            Dim strConfRes As String
+            If strParamXML = "" Then
+                MsgBox "Se debe enviar parámetros a AH_DimePeticionXML"
+                Exit Function
+            End If
+            i = 0
+VerConfRes:
+            i = i + 1
+            strConfRes = Nz(DimeXML(strParamXML, "ConfRes", i), "")
+            If strConfRes <> "" Then
+                strReg = ""
+                PonXML strReg, "idcr", DimeXML(strConfRes, "IdCR"), , "xsi:type='xsd:int'"
+                PonXML strReg, "idgh", DimeXML(strConfRes, "IdGH"), , "xsi:type='xsd:int'"
+                PonXML strItem, "item", strReg
+                GoTo VerConfRes
+            End If
+            PonXML strXML, "reservas", strItem
+    End Select
+    If strTipo Like "*Reservas" Or strTipo = "EditarReserva" Then
+        strXML = strXML & "</tns:" & strTipo & ">" & vbCrLf & AH_CierraSobreXML
+    Else
+        strXML = strXML & "</tns:Sinc" & strTipo & ">" & vbCrLf & AH_CierraSobreXML
+    End If
+    'Me.txtSend = strXML
+    If strTipo Like "*Reservas" Then
+        'strXML = Replace(strXML, "http://www.visitnavarra.info/xml", "http://www.visitnavarra.info/xmlPruebas")
+    End If
+    AH_DimePeticionXML = strXML
+Salir_AH_DimePeticionXML:
+    Exit Function
+Error_AH_DimePeticionXML:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AH_DimePeticionXML" & vbCrLf & Err.Description
+            Resume Salir_AH_DimePeticionXML
+    End Select
+End Function
+
+Public Function AH_DimeReservaXML(strIdHotel As String, lngIdGH As Long, Optional intCabDet As Integer = 1) As String
+    Dim strSQL As String, rs As Recordset, strXML As String, strR As String, lngIdCR_Reserva As Long, lngIdCentralR As Long
+    If intCabDet = 1 Then 'Cabecera
+        strSQL = "SELECT * FROM tbFichasCab "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        If Not rs.EOF Then
+            PonXML strXML, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+            lngIdCentralR = Nz(DLookup("IdCentralR", "tbCentralesR", "CodCentralR = 'AH'"), 0)
+            lngIdCR_Reserva = Nz(DLookup("IdCR", "tbCentralR_Fichas", "IdCentralR = " & lngIdCentralR & " AND IdGH = " & lngIdGH), 0)
+            If lngIdCR_Reserva <> 0 Then PonXML strXML, "id_reserva", lngIdCR_Reserva, , "xsi:type='xsd:int'"
+            PonXML strXML, "idgh", rs("IdFichaCab"), , "xsi:type='xsd:int'"
+            PonXML strXML, "nombre", rs("NombreCliente"), , "xsi:type='xsd:string'"
+            PonXML strXML, "apellidos", rs("ApellidosCliente"), , "xsi:type='xsd:string'"
+            PonXML strXML, "telefono", rs("TelefonoCliente"), , "xsi:type='xsd:string'"
+            PonXML strXML, "email", rs("EMail"), , "xsi:type='xsd:string'"
+            PonXML strXML, "fechaentrada", Format(rs("FechaLlegada"), "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+            PonXML strXML, "fechasalida", Format(rs("FechaSalida"), "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+        End If
+        PonXML strR, "cabecera", strXML
+    ElseIf intCabDet = 2 Then ' Detalle
+        strSQL = "SELECT * FROM tbFichasDet "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        strSQL = strSQL & " AND Nz(IdTipoPArcela,0) <> 0"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        Dim curImporte As Currency, strDet As String
+        While Not rs.EOF
+            strDet = ""
+            PonXML strDet, "concepto", rs("Concepto"), , "xsi:type='xsd:string'"
+            PonXML strDet, "idtipoalojamiento", rs("IdTipoParcela"), , "xsi:type='xsd:int'"
+            PonXML strDet, "tipoalojamiento", DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & Nz(rs("IdTipoParcela"), 0)), , "xsi:type='xsd:string'"
+            PonXML strDet, "cantidad", rs("Cantidad"), , "xsi:type='xsd:int'"
+            PonXML strDet, "paxhab", rs("PlazasOcupadas"), , "xsi:type='xsd:int'"
+            PonXML strDet, "noches", AH_DimeNochesDet(rs("IdFichaDet"), curImporte), , "xsi:type='xsd:int'"
+            PonXML strDet, "importelinea", ComaPunto(curImporte), , "xsi:type='xsd:double'"
+            PonXML strR, "detalle", strDet
+            rs.MoveNext
+        Wend
+    Else ' Pie
+        strSQL = "SELECT * FROM tbFichasCab_Totales "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        If Not rs.EOF Then
+            PonXML strXML, "totalimporte", ComaPunto(Nz(rs("TotalBase"), 0) + Nz(rs("TotalIVA"), 0)), , "xsi:type='xsd:double'"
+        End If
+        PonXML strR, "pie", strXML
+    End If
+    AH_DimeReservaXML = strR
+End Function
+
+Public Function AH_DimeNochesDet(lngIdFichaDet As Long, Optional ByRef curImporteLinea As Currency) As Integer
+    Dim rs As Recordset, strSQL As String, intNoches As Integer
+    strSQL = "SELECT FechaSalida, FechaInicio, FechaFin, Cantidad, PrecioUnitario, IvaIncluido, IVA"
+    strSQL = strSQL & " FROM tbFichasDet INNER JOIN tbFichasCab ON tbFichasDet.IdFichaCab = tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " WHERE IdFichaDet = " & lngIdFichaDet
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If Nz(rs("FechaInicio"), 0) = 0 Then
+            intNoches = 1
+        Else
+            intNoches = Nz(rs("FechaFin"), Nz(rs("FechaSalida"), rs("FechaInicio") + 1)) - rs("FechaInicio")
+        End If
+        curImporteLinea = intNoches * rs("PrecioUnitario") * rs("Cantidad")
+        If rs("IvaIncluido") = False Then curImporteLinea = curImporteLinea * (1 + rs("IVA"))
+        curImporteLinea = Round(curImporteLinea, 2)
+        rs.MoveNext
+    Wend
+    AH_DimeNochesDet = intNoches
+End Function
+
+Public Sub AH_SolicitaWS(strWS As String, Optional strParamXML As String = "", Optional strR As String, Optional strRP As String)
+    Dim strXML As String, strURL As String, intBusy As Integer
+    strXML = AH_DimePeticionXML(strWS, strParamXML)
+    'strURL = DameSetting("SincroAH", "txtURL", "")
+    'intBusy = DameSetting("SincroAH", "casBusy", True)
+    strURL = Nz(DameValorParam("SincroAH_txtURL"), "")
+    intBusy = Nz(DameValorParam("SincroAH_casBusy"), True)
+    SolicitarServicioWeb strXML, strURL, intBusy, strR, strRP
+End Sub
+
+Public Function AH_DimeErrorResponse(strResponseXML As String) As String
+    Dim strR As String, i As Integer
+    i = 1
+    strR = "Error: " & Nz(DimeXML(strResponseXML, "error", i), 0)
+    strR = strR & vbCrLf & Nz(DimeXML(strResponseXML, "descripcion", i), "¿?")
+    AH_DimeErrorResponse = strR
+End Function
+
+Public Function EnviaReserva_a_CR(lngIdFichaCab As Long) As Integer
+    On Error GoTo Error_EnviaReserva_a_CR
+    Dim strParamXML As String, vIt As Variant
+    Dim strXML As String, strAtributos As String, lngIdCentralR As Long
+    
+    Dim strTag As String, strATR As String, strValor As String, i As Integer
+    Dim lngIdCR As Long, lngIdGH As Long, rs As Recordset, strMensaje As String
+    Dim lngIdCR_Reserva  As Long
+    lngIdCentralR = Nz(DLookup("IdCentralR", "tbCentralesR", "CodCentralR = 'AH'"), 0)
+    If lngIdCentralR = 0 Then
+        MsgBox "No se encontró IdCentralR cuyo Código = 'AH'"
+        Exit Function
+    End If
+    
+    
+    PonXML strParamXML, "IdReserva", lngIdFichaCab
+    'SolicitaWS "TomaReservas", strParamXML
+    Dim strR As String, strRP As String
+    'lngIdCentralR = Nz(DLookup("IdCentralR", "tbCentralesR", "CodCentralR = 'AH'"), 0)
+    lngIdCR_Reserva = Nz(DLookup("IdCR", "tbCentralR_Fichas", "IdCentralR = " & lngIdCentralR & " AND IdGH = " & lngIdFichaCab), 0)
+    If lngIdCR_Reserva = 0 Then
+        strXML = AH_DimePeticionXML("TomaReservas", strParamXML)
+    Else
+        strXML = AH_DimePeticionXML("EditarReserva", strParamXML)
+    End If
+    SolicitarServicioWeb strXML, Nz(DameValorParam("SincroAH_txtURL"), "http://www.visitnavarra.info/xml/server.php"), , strR, strRP
+    'Me.txtResponse = strR
+    'Me.txtResponseProcesada = strRP
+    
+    strXML = strR
+    Set rs = CurrentDb.OpenRecordset("tbCentralR_Fichas", dbOpenDynaset)
+Bucle:
+    strValor = Nz(DimeXML(strXML, "Reserva", i, strATR), "")
+    lngIdCR = CLng(SpNz(DimeAtributo(strATR, "IdCR"), 0))
+    lngIdGH = CLng(SpNz(DimeAtributo(strATR, "IdGH"), 0))
+    strMensaje = Nz(DimeXML(strValor, "Mensaje"), "")
+    If strMensaje <> "" Then MsgBox "Nº Ficha: " & lngIdGH & vbCrLf & "Nº Reserva central: " & lngIdCR & vbCrLf & strMensaje
+    If lngIdGH > 0 And lngIdCR > 0 Then
+        rs.FindFirst "IdGH = " & lngIdGH & " AND IdCentralR = " & lngIdCentralR
+        If rs.NoMatch Then
+            rs.AddNew
+            rs("IdGH") = lngIdGH
+            rs("IdCentralR") = lngIdCentralR
+        Else
+            rs.Edit
+        End If
+        rs("IdCR") = lngIdCR
+        rs.Update
+    End If
+    If i > 0 Then
+        i = i + 1
+        GoTo Bucle
+    End If
+Salir_EnviaReserva_a_CR:
+    Exit Function
+Error_EnviaReserva_a_CR:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnviaReserva_a_CR" & vbCrLf & Err.Description
+            Resume Salir_EnviaReserva_a_CR
+    End Select
+End Function
+
+Public Sub RecibeReservas_de_CR(Optional intBusy As Integer = False)
+    Dim strXML As String, strR As String, strRP As String
+    Dim strURL As String
+    strXML = DimePeticionXML("DameReservas")
+    strURL = Nz(DameValorParam("SincroAH_txtURL"), "http://www.visitnavarra.info/xml/server.php")
+    SolicitarServicioWeb strXML, strURL, intBusy, strR, strRP
+'    Me.txtResponse = strR
+'    Me.txtResponseProcesada = strRP
+    AH_ProcesaResponseReservas strR
+'    Me.lstReservas.Requery
+
+End Sub
+
+Public Function DimePeticionXML(strTipo As String, Optional strParamXML As String = "") As String
+    ' strParamXML puede tener los siguientes parámetros entre etiquetas XML:
+    ' para strtipo='DameReservas:
+    '                           SoloNuevasReservasSN = "S" o "N"
+    '                           FechaDesde = 0 o una fecha como Long
+    '                           FechaHasta = 0 o una fecha como Long
+    '                           IdCRdesde = 0
+    '                           IdCRhasta = 0 o un valor long
+    ' para strtipo ='TomaReservas:
+    '                           IdTomaReserva ' (puede haber varios)
+    ' para strtipo ='ConfRes:
+    '                           ConfRes: contiene pareja de IdCR y IdGH ' (puede haber varias parejas)
+    '                           por ej. <ConfRes><IdCR>201200052145</IdCR><IdGH>1544</IdGH></ConfRes>
+    
+    On Error GoTo Error_DimePeticionXML
+    Dim strXML As String, rs As Recordset, strReg As String, strItem As String, strElem As String, i As Integer
+    Dim strSQL As String, vIt As Variant
+    Dim strUser As String, strPass As String, strIdHotel As String, j As Integer
+    'Me.txtSend = "": Me.txtResponse = "": Me.txtResponseProcesada = ""
+    'Me.Repaint
+    If strTipo Like "*Reservas" Then
+        strXML = AH_AbreSobreXML & "<tns:" & strTipo & " xmlns:tns='http://www.visitnavarra.info/xml'>"
+    Else
+        strXML = AH_AbreSobreXML & "<tns:Sinc" & strTipo & " xmlns:tns='http://www.visitnavarra.info/xml'>"
+    End If
+    
+    strUser = Nz(DameValorParam("SincroAH_txtUser"), "")
+    strPass = Nz(DameValorParam("SincroAH_txtPassword"), "")
+    strIdHotel = Nz(DameValorParam("SincroAH_txtIdHotel"), "")
+    strXML = strXML & vbCrLf & AH_AccesoXML(strUser, strPass)
+    Select Case strTipo
+        Case "TiposAlojamientos"
+            Set rs = CurrentDb.OpenRecordset("tbParcelasTipo", dbOpenSnapshot)
+            While Not rs.EOF
+                strReg = ""
+                PonXML strReg, "id_tipo", rs("IdTipoParcela")
+                PonXML strReg, "nombre", rs("TipoParcela")
+                PonXML strReg, "descripcion", rs("TipoParcela")
+                PonXML strReg, "caracteristicas", rs("TipoParcela")
+                PonXML strReg, "cantidad", CLng(rs("DisponiblesAH"))
+                PonXML strReg, "pax", rs("PaxAH")
+                PonXML strItem, "item", strReg
+                rs.MoveNext
+            Wend
+            PonXML strXML, "elementos", strItem
+        Case "Temporadas"
+            Set rs = CurrentDb.OpenRecordset("SELECT * FROM auxTemporadas ORDER BY FechaDesde", dbOpenSnapshot)
+            While Not rs.EOF
+                strReg = ""
+                PonXML strReg, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+                PonXML strReg, "id_tarifa", rs("IdTemporada"), , "xsi:type='xsd:int'"
+                PonXML strReg, "nombre", rs("NombreTemporada"), , "xsi:type='xsd:string'"
+                PonXML strReg, "fecha_desde", Format(rs("FechaDesde"), "yyyy-mm-dd"), , "xsi:type='xsd:string'"
+                PonXML strReg, "fecha_hasta", Format(rs("FechaHasta"), "yyyy-mm-dd"), , "xsi:type='xsd:string'"
+                PonXML strItem, "item", strReg
+                rs.MoveNext
+            Wend
+            PonXML strXML, "temporada", strItem
+        Case "Precios"
+            strSQL = "SELECT tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, tbServiciosDiarios.ServicioDiario, tbTemporadasNombre.IdTemporadaNombre, tbPreciosSD.PrecioDiario "
+            strSQL = strSQL & " FROM tbTemporadasNombre RIGHT JOIN ((tbParcelasTipo LEFT JOIN tbServiciosDiarios ON tbParcelasTipo.IdSD_PrecioAH=tbServiciosDiarios.IdSD) LEFT JOIN tbPreciosSD ON tbServiciosDiarios.IdSD=tbPreciosSD.IdSD) ON tbTemporadasNombre.IdTemporadaNombre=tbPreciosSD.IdTemporadaNombre ORDER BY tbParcelasTipo.TipoParcela, tbServiciosDiarios.ServicioDiario, tbTemporadasNombre.NombreTemporada"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            While Not rs.EOF
+                strReg = ""
+                PonXML strReg, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+                PonXML strReg, "id_fisica", rs("IdTipoParcela"), , "xsi:type='xsd:int'"
+                PonXML strReg, "id_tarifa", rs("IdTemporadaNombre"), , "xsi:type='xsd:int'"
+                PonXML strReg, "precio", ComaPunto(rs("PrecioDiario")), , "xsi:type='xsd:double'"
+                PonXML strItem, "item", strReg
+                rs.MoveNext
+            Wend
+            PonXML strXML, "precioss", strItem
+        Case "DameReservas"
+            Dim intSoloNuevasReservas As Integer, dtFechaDesde As Date, dtFechaHasta As Date
+            Dim lngIdCRdesde As Long, lngIdCRhasta As Long
+            
+            intSoloNuevasReservas = Nz(DimeXML(strParamXML, "SoloNuevasReservasSN"), "N") = "S"
+            dtFechaDesde = CDate(Nz(DimeXML(strParamXML, "FechaDesde"), 0))
+            dtFechaHasta = CDate(Nz(DimeXML(strParamXML, "FechaHasta"), 0))
+            lngIdCRdesde = Nz(DimeXML(strParamXML, "IdCRdesde"), 0)
+            lngIdCRhasta = Nz(DimeXML(strParamXML, "IdCRhasta"), 0)
+            PonXML strReg, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+            PonXML strReg, "nuevas_reservas", IIf(Nz(intSoloNuevasReservas, False), "true", "false"), , "xsi:type='xsd:boolean'"
+            If CLng(dtFechaDesde) <> 0 Then
+                PonXML strReg, "fecha_desde", Format(dtFechaDesde, "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+            Else
+                PonXML strReg, "fecha_desde", "", , "xsi:type='xsd:string'"
+            End If
+            If CLng(dtFechaHasta) <> 0 Then
+                PonXML strReg, "fecha_hasta", Format(dtFechaHasta, "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+            Else
+                PonXML strReg, "fecha_hasta", "", , "xsi:type='xsd:string'"
+            End If
+            PonXML strReg, "id_cr_desde", lngIdCRdesde, , "xsi:type='xsd:int'"
+            PonXML strReg, "id_cr_hasta", lngIdCRhasta, , "xsi:type='xsd:int'"
+            PonXML strItem, "item", strReg
+            PonXML strXML, "dame", strItem
+        Case "TomaReservas"
+            Dim lngIdTomaR As Long
+            i = 0
+VerTomaR:
+            i = i + 1
+            lngIdTomaR = Nz(DimeXML(strParamXML, "IdTomaReserva", i), 0)
+            If lngIdTomaR <> 0 Then
+                strReg = ""
+                For j = 1 To 3
+                    strReg = strReg & DimeReservaXML(lngIdTomaR, j)
+                Next j
+                PonXML strItem, "reserva", strReg
+                GoTo VerTomaR
+            End If
+            PonXML strXML, "toma", strItem
+        Case "ConfReservas"
+            Dim strConfRes As String
+            If strParamXML = "" Then
+                MsgBox "Se debe enviar parámetros a DimePeticionXML"
+                Exit Function
+            End If
+            i = 0
+VerConfRes:
+            i = i + 1
+            strConfRes = Nz(DimeXML(strParamXML, "ConfRes", i), "")
+            If strConfRes <> "" Then
+                strReg = ""
+                PonXML strReg, "idcr", DimeXML(strConfRes, "IdCR"), , "xsi:type='xsd:int'"
+                PonXML strReg, "idgh", DimeXML(strConfRes, "IdGH"), , "xsi:type='xsd:int'"
+                PonXML strItem, "item", strReg
+                GoTo VerConfRes
+            End If
+            PonXML strXML, "reservas", strItem
+    End Select
+    If strTipo Like "*Reservas" Then
+        strXML = strXML & "</tns:" & strTipo & ">" & vbCrLf & AH_CierraSobreXML
+    Else
+        strXML = strXML & "</tns:Sinc" & strTipo & ">" & vbCrLf & AH_CierraSobreXML
+    End If
+    'Me.txtSend = strXML
+    'If strTipo Like "*Reservas" Then
+    '    'strXML = Replace(strXML, "http://www.visitnavarra.info/xml", "http://www.visitnavarra.info/xmlPruebas")
+    'End If
+    DimePeticionXML = strXML
+Salir_DimePeticionXML:
+    Exit Function
+Error_DimePeticionXML:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimePeticionXML" & vbCrLf & Err.Description
+            Resume Salir_DimePeticionXML
+    End Select
+End Function
+
+Public Function DimeReservaXML(lngIdGH As Long, Optional intCabDet As Integer = 1) As String
+    Dim strSQL As String, rs As Recordset, strXML As String, strR As String
+    Dim strUser As String, strPass As String, strIdHotel As String
+    strUser = Nz(DameValorParam("SincroAH_txtUser"), "")
+    strPass = Nz(DameValorParam("SincroAH_txtPassword"), "")
+    strIdHotel = Nz(DameValorParam("SincroAH_txtIdHotel"), "")
+    If intCabDet = 1 Then 'Cabecera
+        strSQL = "SELECT * FROM tbFichasCab "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        If Not rs.EOF Then
+            PonXML strXML, "id_hotel", strIdHotel, , "xsi:type='xsd:int'"
+            PonXML strXML, "idgh", rs("IdFichaCab"), , "xsi:type='xsd:int'"
+            PonXML strXML, "nombre", rs("NombreCliente"), , "xsi:type='xsd:string'"
+            PonXML strXML, "apellidos", rs("ApellidosCliente"), , "xsi:type='xsd:string'"
+            PonXML strXML, "telefono", rs("TelefonoCliente"), , "xsi:type='xsd:string'"
+            PonXML strXML, "email", rs("EMail"), , "xsi:type='xsd:string'"
+            PonXML strXML, "fechaentrada", Format(rs("FechaLlegada"), "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+            PonXML strXML, "fechasalida", Format(rs("FechaSalida"), "dd/mm/yyyy"), , "xsi:type='xsd:string'"
+        End If
+        PonXML strR, "cabecera", strXML
+    ElseIf intCabDet = 2 Then ' Detalle
+        strSQL = "SELECT * FROM tbFichasDet "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        strSQL = strSQL & " AND Nz(IdTipoPArcela,0) <> 0"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        Dim curImporte As Currency, strDet As String
+        While Not rs.EOF
+            strDet = ""
+            PonXML strDet, "concepto", rs("Concepto"), , "xsi:type='xsd:string'"
+            PonXML strDet, "idtipoalojamiento", rs("IdTipoParcela"), , "xsi:type='xsd:int'"
+            PonXML strDet, "tipoalojamiento", DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & Nz(rs("IdTipoParcela"), 0)), , "xsi:type='xsd:string'"
+            PonXML strDet, "cantidad", rs("Cantidad"), , "xsi:type='xsd:int'"
+            PonXML strDet, "paxhab", rs("PlazasOcupadas"), , "xsi:type='xsd:int'"
+            PonXML strDet, "noches", DimeNochesDet(rs("IdFichaDet"), curImporte), , "xsi:type='xsd:int'"
+            PonXML strDet, "importelinea", ComaPunto(curImporte), , "xsi:type='xsd:double'"
+            PonXML strR, "detalle", strDet
+            rs.MoveNext
+        Wend
+    Else ' Pie
+        strSQL = "SELECT * FROM tbFichasCab_Totales "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdGH
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        If Not rs.EOF Then
+            PonXML strXML, "totalimporte", ComaPunto(Nz(rs("TotalBase"), 0) + Nz(rs("TotalIVA"), 0)), , "xsi:type='xsd:double'"
+        End If
+        PonXML strR, "pie", strXML
+    End If
+    DimeReservaXML = strR
+End Function
+
+Public Function DimeNochesDet(lngIdFichaDet As Long, Optional ByRef curImporteLinea As Currency) As Integer
+    Dim rs As Recordset, strSQL As String, intNoches As Integer
+    strSQL = "SELECT FechaSalida, FechaInicio, FechaFin, Cantidad, PrecioUnitario, IvaIncluido, IVA"
+    strSQL = strSQL & " FROM tbFichasDet INNER JOIN tbFichasCab ON tbFichasDet.IdFichaCab = tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " WHERE IdFichaDet = " & lngIdFichaDet
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If Nz(rs("FechaInicio"), 0) = 0 Then
+            intNoches = 1
+        Else
+            intNoches = Nz(rs("FechaFin"), Nz(rs("FechaSalida"), rs("FechaInicio") + 1)) - rs("FechaInicio")
+        End If
+        curImporteLinea = intNoches * rs("PrecioUnitario") * rs("Cantidad")
+        If rs("IvaIncluido") = False Then curImporteLinea = curImporteLinea * (1 + rs("IVA"))
+        curImporteLinea = Round(curImporteLinea, 2)
+        rs.MoveNext
+    Wend
+    DimeNochesDet = intNoches
+End Function
+
+
+Public Sub VerNuevasReservasEnCR()
+    On Error GoTo Error_VerNuevasReservasEnCR
+    Dim strXML As String, strR As String, strRP As String, strParamXML As String
+    PonXML strParamXML, "SoloNuevasReservasSN", "S"
+    PonXML strParamXML, "FechaDesde", CLng(Date)
+    'If Nz(Me.txtFechaEstanciaHasta, "") <> "" Then PonXML strParamXML, "FechaHasta", CLng(CDate(Me.txtFechaEstanciaHasta))
+    'If Nz(Me.txtID_CRDesde, "") <> "" Then PonXML strParamXML, "IdCRdesde", CLng(Me.txtID_CRDesde)
+    'If Nz(Me.txtID_CRHasta, "") <> "" Then PonXML strParamXML, "IdCRhasta", CLng(Me.txtID_CRHasta)
+    strXML = DimePeticionXML("DameReservas", strParamXML)
+    DoEvents
+    SolicitarServicioWeb strXML, DameValorParam("SincroAH_txtUrl"), False, strR, strRP
+    'Me.txtResponse = strR
+    'Me.txtResponseProcesada = strRP
+    AH_ProcesaResponseReservas strR
+Salir_VerNuevasReservasEnCR:
+    Exit Sub
+Error_VerNuevasReservasEnCR:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en VerNuevasReservasEnCR" & vbCrLf & Err.Description
+            Resume Salir_VerNuevasReservasEnCR
+    End Select
+End Sub
+
+Public Sub Form_Timer_FRM(frm As Form)
+    On Error GoTo Error_Form_Timer_FRM
+    Call VerNuevasReservasEnCR
+    Dim i As Integer, strMSG As String, strXML As String
+    i = DCount("Id", "auxFichasCab")
+    If i > 0 Then
+        strMSG = IIf(i > 1, "Existen " & i & " reservas ", "Existe una reserva ") & " pendiente de recibir de la Central de reservas. Pulsar aquí para recibirla" & IIf(i > 1, "s", "")
+        PonXML strXML, "IdFichaCab", -1
+        frm.lbl.Tag = strXML
+        frm.lbl.BackColor = vbRed
+    Else
+        strMSG = "No existen  reservas pendiente de recibir de la Central de reservas"
+        PonXML strXML, "IdFichaCab", 0
+        frm.lbl.Tag = strXML
+        frm.lbl.BackColor = vbWhite
+    End If
+    If frm.Name = "frmPlaningG" Then
+        frm.lbl = strMSG
+    Else
+        frm.lbl.Caption = strMSG
+    End If
+Salir_Form_Timer_FRM:
+    Exit Sub
+Error_Form_Timer_FRM:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_Timer_FRM" & vbCrLf & Err.Description
+            Resume Salir_Form_Timer_FRM
+    End Select
+End Sub
+
+Public Function DimeParcelaLibreAH(lngIdTipoParcela As Long, dtDesde As Date, dtHasta As Date) As String
+    On Error GoTo Error_DimeParcelaLibreAH
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT tbFichasDet.Parcela, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Hasta, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio)<" & CLng(dtHasta) & ") AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>" & CLng(dtDesde) & " Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null));"
+    strSQL = strSQL & " AND IdTipoParcela = " & lngIdTipoParcela
+    CurrentDb.QueryDefs("qry_fDimeParcelaLibreAH_A").SQL = strSQL
+    strSQL = "SELECT * FROM tbParcelas"
+    strSQL = strSQL & " WHERE IdTipoParcela = " & lngIdTipoParcela
+    CurrentDb.QueryDefs("qry_fDimeParcelaLibreAH_B").SQL = strSQL
+    DimeParcelaLibreAH = Nz(DLookup("NombreParcela", "qry_fDimeParcelaLibreAH"), "")
+    
+Salir_DimeParcelaLibreAH:
+    Exit Function
+Error_DimeParcelaLibreAH:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DimeParcelaLibreAH" & vbCrLf & Err.Description
+            Resume Salir_DimeParcelaLibreAH
+    End Select
+        
+
+End Function

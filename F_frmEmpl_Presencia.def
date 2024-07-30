@@ -1,0 +1,23 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If Shift And acAltMask > 0 Then
+        If KeyCode = vbKeyS Then Call Cerrar
+    End If
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, lngFecha As Long, strSQL As String
+    strXML = Nz(Me.OpenArgs, "")
+    lngFecha = Nz(DimeXML(strXML, "Fecha"), 0)
+    If lngFecha <> 0 Then
+        strSQL = "SELECT * FROM tbEmpl_Presencia WHERE Fecha = " & lngFecha
+        Me.RecordSource = strSQL
+        Me.Fecha.DefaultValue = lngFecha
+    End If
+End Sub

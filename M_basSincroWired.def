@@ -1,0 +1,215 @@
+Option Compare Database
+Option Explicit
+    
+    Global gwi_URL As String, gwi_Token As String, gwi_lCode As String
+    Dim xmlDoc As MSXML2.DOMDocument
+'----------------------------------------------------------
+Function wiPost(ByVal strXMLRPC As String) As String
+    On Error GoTo Error_wiPost
+    Dim oHTTP As xmlHttp, wiResponse As String
+    ' VBAProject References needed: "Microsoft XML"
+    ' wired URL: e.g. https://wired.wubook.net/xrws/
+    ' wired XMLRPC see: http://tdocs.wubook.net/wired/intro.html
+    If gwi_URL = "" Then gwi_URL = Nz(DameValorParam("WiredURLWebServices"), "https://wired.wubook.net/xrws/")
+    Set oHTTP = New xmlHttp
+    Call oHTTP.Open("POST", gwi_URL, False) ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Accept", "application/xml")
+    Call oHTTP.setRequestHeader("Content-Type", "application/xml")
+    Call oHTTP.Send(strXMLRPC)
+    'Debug.Print "Request:" & vbCrLf & strXMLRPC
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    wiPost = wiResponse
+    'Debug.Print "Response:" & vbCrLf & wiResponse
+Salir_wiPost:
+    Exit Function
+Error_wiPost:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en wiPost" & vbCrLf & Err.Description
+            Resume Salir_wiPost
+    End Select
+End Function
+'-----------------------------------------------------------
+
+
+Public Function wi_DameToken(Optional intRenovar As Integer = False) As String
+    On Error GoTo Error_wi_DameToken
+    If intRenovar And gwi_Token <> "" Then
+        wi_ReleaseToken gwi_Token
+    End If
+    If gwi_Token <> "" Then
+        If wi_ValeToken(gwi_Token) Then
+            wi_DameToken = gwi_Token
+            GoTo Salir_wi_DameToken
+        End If
+    End If
+    Dim strUser As String, strPass As String, strXMLRPC As String, strWB_Response As String
+    
+    strUser = Nz(DameValorParam("WiredUser"), "LE018")
+    If strUser = "" Then
+        MsgBox "Se debe indicar Usuario de Wubook en parámetros", vbExclamation
+        Exit Function
+    End If
+    strPass = Nz(DameValorParam("WiredPassword"), "22842")
+    If strPass = "" Then
+        MsgBox "Se debe indicar Contraseña de Wubook en parámetros", vbExclamation
+        Exit Function
+    End If
+    Dim vParams(0 To 2), vRespuesta
+    vParams(0) = strUser
+    vParams(1) = strPass
+    vParams(2) = Nz(DameValorParam("WiredProviderKey"), "68d506667f6841d514e8619c2b18c1c0e0d5c61a56e2ddf4")
+    strXMLRPC = wi_DimeXMLRPC("acquire_token", vParams)
+    strWB_Response = wiPost(strXMLRPC)
+    'Debug.Print strWB_Response
+    'TestXML strWB_Response
+    If IsOK(strWB_Response, "DameToken", vRespuesta) Then
+        gwi_Token = vRespuesta
+    Else
+        MsgBox "Error al conseguir Token:" & vbCrLf & vRespuesta, vbExclamation
+        gwi_Token = ""
+    End If
+    
+    wi_DameToken = gwi_Token
+Salir_wi_DameToken:
+    Exit Function
+Error_wi_DameToken:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en wi_DameToken" & vbCrLf & Err.Description
+            Resume Salir_wi_DameToken
+    End Select
+
+End Function
+
+Public Function wi_ValeToken(strToken As String) As String
+    On Error GoTo Error_wi_ValeToken
+    Dim strXMLRPC As String, strWB_Response As String
+    
+    Dim vParams(0)
+    vParams(0) = strToken
+    strXMLRPC = wi_DimeXMLRPC("is_token_valid", vParams)
+    strWB_Response = wiPost(strXMLRPC)
+    TestXML (strWB_Response)
+Salir_wi_ValeToken:
+    Exit Function
+Error_wi_ValeToken:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en wi_ValeToken" & vbCrLf & Err.Description
+            Resume Salir_wi_ValeToken
+    End Select
+
+End Function
+
+Public Function wi_ReleaseToken(strToken As String) As String
+    On Error GoTo Error_wi_ReleaseToken
+    Dim strXMLRPC As String, strWB_Response As String
+    
+    Dim vParams(0)
+    vParams(0) = strToken
+    strXMLRPC = wi_DimeXMLRPC("release_token", vParams)
+    strWB_Response = wiPost(strXMLRPC)
+    TestXML (strWB_Response)
+    gwi_Token = ""
+Salir_wi_ReleaseToken:
+    Exit Function
+Error_wi_ReleaseToken:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en wi_ReleaseToken" & vbCrLf & Err.Description
+            Resume Salir_wi_ReleaseToken
+    End Select
+
+End Function
+
+Public Function wi_DimeXMLRPC(strMethodName As String, vParams() As Variant)
+    On Error GoTo Error_wi_DimeXMLRPC
+    Dim strR As String, i As Integer
+    strR = "<methodCall> " & vbCrLf & _
+            vbTab & "<methodName>" & strMethodName & "</methodName>" & vbCrLf & _
+            vbTab & "<params>" & vbCrLf
+    For i = 0 To UBound(vParams)
+        strR = strR & vbTab & vbTab & "<param><value><string>" & vParams(i) & "</string></value></param>" & vbCrLf
+    Next i
+    strR = strR & vbTab & "</params>" & vbCrLf
+    strR = strR & "</methodCall>"
+    strR = "<?xml version='1.0'?>" & vbCrLf & strR
+    wi_DimeXMLRPC = strR
+Salir_wi_DimeXMLRPC:
+    Exit Function
+Error_wi_DimeXMLRPC:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en wi_DimeXMLRPC" & vbCrLf & Err.Description
+            Resume Salir_wi_DimeXMLRPC
+    End Select
+End Function
+
+Public Function TestNode(xmlNode As MSXML2.IXMLDOMNode)
+    Dim fieldNode As Object
+    For Each fieldNode In xmlNode.ChildNodes
+        Debug.Print "[" & fieldNode.BaseName & "] = [" & fieldNode.Text & "]"
+        If fieldNode.BaseName <> "" Then TestNode fieldNode
+    Next fieldNode
+End Function
+
+Public Function TestXML(strResponseXML As String)
+    
+    Dim xDoc As Object, root As Object, listNode As Object, fieldNode As Object
+    Set xDoc = CreateObject("MSXML2.DOMDocument")
+    xDoc.async = False: xDoc.validateOnParse = False
+    xDoc.LoadXML (strResponseXML)
+    Set root = xDoc.DocumentElement
+    TestNode root
+     
+    Set xDoc = Nothing
+    '...
+    
+End Function
+
+
+Public Function wi_FetchRooms(strToken As String) As String
+    On Error GoTo Error_wi_FetchRooms
+    Dim strXMLRPC As String, strWB_Response As String
+    
+    Dim vParams(1)
+    vParams(0) = strToken
+    vParams(1) = 1517663363
+    strXMLRPC = wi_DimeXMLRPC("fetch_rooms", vParams)
+    strWB_Response = wiPost(strXMLRPC)
+    Debug.Print strWB_Response
+    'TestXML (strWB_Response)
+Salir_wi_FetchRooms:
+    Exit Function
+Error_wi_FetchRooms:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en wi_FetchRooms" & vbCrLf & Err.Description
+            Resume Salir_wi_FetchRooms
+    End Select
+
+End Function
+
+Private Function IsOK(strRespuestaXML As String, strAskFunction As String, vRespuesta As Variant) As Integer
+    On Error GoTo Error_IsOK
+    Dim xDoc As Object, xNode As Object, i As Integer, strData As String
+'    Set XDoc = CreateObject("MSXML2.DOMDocument")
+'    XDoc.async = False: XDoc.validateOnParse = False
+'    XDoc.LoadXML (strRespuestaXML)
+    Select Case strAskFunction
+        Case "DameToken"
+            strData = DimeXML(strRespuestaXML, "data")
+            IsOK = DimeXML(DimeXML(strData, "value", 1, , 1), "int") = "0"
+            vRespuesta = DimeXML(DimeXML(strData, "value", 1, , 2), "string")
+    End Select
+Salir_IsOK:
+    Exit Function
+Error_IsOK:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en IsOK" & vbCrLf & Err.Description
+            Resume Salir_IsOK
+    End Select
+End Function

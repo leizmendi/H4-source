@@ -1,0 +1,153 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ImportarClientes_1()
+    On Error GoTo Error_ImportarClientes_1
+    Dim strSQL As String, rs As Recordset, rsCli As Recordset, strCIF As String
+    Dim k As Long, l As Long, lngCodCliente As Long, n As Long, strSexo As String
+    Set rs = CurrentDb.OpenRecordset("Clientjo", dbOpenSnapshot)
+    Set rsCli = CurrentDb.OpenRecordset("tbClientes", dbOpenDynaset)
+    lngCodCliente = CLng(Nz(DMax("CodCliente", "tbClientes"), "0"))
+'    If lngCodCliente < 10000 Then lngCodCliente = 10000
+    While Not rs.EOF
+        strCIF = Nz(rs("CIF"), "")
+        If strCIF = "" Then GoTo Siguiente
+        If Len(strCIF) = 9 Then
+            If IsNumeric(Left(strCIF, 8)) Then
+                If letra_dni(Mid(strCIF, 1, 8)) = Mid(strCIF, 9, 1) Then
+                    strCIF = Format(CLng(Mid(strCIF, 1, 8)), "00,000,000") & "-" & Mid(strCIF, 9, 1)
+                End If
+            ElseIf IsNumeric(Mid(strCIF, 2, 7)) And Mid(strCIF, 1, 1) = "X" Then
+                If letra_dni(Mid(strCIF, 2, 7)) = Mid(strCIF, 9, 1) Then
+                    strCIF = "X" & Format(CLng(Mid(strCIF, 2, 7)), "0,000,000") & "-" & Mid(strCIF, 9, 1)
+                End If
+            End If
+        End If
+        rsCli.FindFirst "NIF = " & ConComillas(strCIF)
+        If Not rsCli.NoMatch Then
+            k = k + 1
+            GoTo Siguiente
+        End If
+        'rsCli.FindFirst "NombreCli = " & ConComillas(Nz(rs("Nombre"), ""))
+        'If Not rsCli.NoMatch Then
+        '    strSexo = rsCli("SexoCliente")
+        '    k = k + 1
+        'Else
+        '    n = n + 1
+'IntroSexo:
+        '    strSexo = InputBox(k & vbCrLf & rs("Nombre") & ": Sexo--->M: Masculino, F:Femenino")
+        '    If strSexo <> "M" And strSexo <> "F" Then GoTo IntroSexo
+        '    k = 0
+        'End If
+        rsCli.AddNew
+        lngCodCliente = lngCodCliente + 1
+        rsCli("CodCliente") = Format(lngCodCliente, "00000")
+        rsCli("NIF") = strCIF
+        rsCli("NombreCli") = rs("Nombre")
+        rsCli("ApellidosCli") = Trim(rs("Apellido1") & " " & rs("Apellido2"))
+        rsCli("Direccion") = rs("Direccion")
+        rsCli("Ciudad") = rs("Localidad")
+        rsCli("EdoOProv") = RecDerTop(Nz(rs("Provincia"), ""), 0, 20)
+        rsCli("CodPostal") = rs("CodPostal")
+        rsCli("Telefono") = rs("Telefono")
+        rsCli("Notas") = rs("Campo14")
+        rsCli("FechaNacimiento") = rs("Fecha_Nacimiento")
+        'rsCli("SexoCliente") = strSexo
+        rsCli.Update
+        l = l + 1
+Siguiente:
+        rs.MoveNext
+    Wend
+    MsgBox "Se introdujeron:" & vbCrLf & l & " clientes, " & n & " nombres diferentes, " & k & " se encontraron existentes en la base de datos"
+Salir_ImportarClientes_1:
+    Exit Function
+Error_ImportarClientes_1:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ImportarClientes_1" & vbCrLf & Err.Description
+            Resume Salir_ImportarClientes_1
+    End Select
+End Function
+
+Public Function ImportarClientes_0()
+    On Error GoTo Error_ImportarClientes_0
+    Dim strSQL As String, rs As Recordset, rsCli As Recordset, strCIF As String
+    Dim k As Long, l As Long, lngCodCliente As Long, n As Long, strSexo As String, strCodCliente As String
+    Dim i As Integer
+    Set rs = CurrentDb.OpenRecordset("Emprejor", dbOpenSnapshot)
+    Set rsCli = CurrentDb.OpenRecordset("tbClientes", dbOpenDynaset)
+    lngCodCliente = CLng(Nz(DMax("CodCliente", "tbClientes"), "0"))
+    While Not rs.EOF
+        strCIF = Nz(rs("CIF"), "")
+        If strCIF = "" Then GoTo Siguiente
+        If Len(strCIF) = 9 Then
+            If IsNumeric(Left(strCIF, 8)) Then
+                If letra_dni(Mid(strCIF, 1, 8)) = Mid(strCIF, 9, 1) Then
+                    strCIF = Format(CLng(Mid(strCIF, 1, 8)), "00,000,000") & "-" & Mid(strCIF, 9, 1)
+                End If
+            ElseIf IsNumeric(Mid(strCIF, 2, 7)) And Mid(strCIF, 1, 1) = "X" Then
+                If letra_dni(Mid(strCIF, 2, 7)) = Mid(strCIF, 9, 1) Then
+                    strCIF = "X" & Format(CLng(Mid(strCIF, 2, 7)), "0,000,000") & "-" & Mid(strCIF, 9, 1)
+                End If
+            End If
+        End If
+        rsCli.FindFirst "NIF = " & ConComillas(strCIF)
+        If Not rsCli.NoMatch Then
+            k = k + 1
+            GoTo Siguiente
+        End If
+        'strCodCliente = Nz(rs("CodEmpresa"), "")
+        'If Len(strCodCliente) < 5 Then GoTo Siguiente
+        'strCodCliente = right(strCodCliente, 5)
+        'rsCli.FindFirst "CodCliente = " & ConComillas(strCodCliente)
+        'If Not rsCli.NoMatch Then
+        '    k = k + 1
+        '    GoTo Siguiente
+        'End If
+        
+        'rsCli.FindFirst "NombreCli = " & ConComillas(Nz(rs("Nombre"), ""))
+        'If Not rsCli.NoMatch Then
+        '    strSexo = rsCli("SexoCliente")
+        '    k = k + 1
+        'Else
+        '    n = n + 1
+'IntroSexo:
+        '    strSexo = InputBox(k & vbCrLf & rs("Nombre") & ": Sexo--->M: Masculino, F:Femenino")
+        '    If strSexo <> "M" And strSexo <> "F" Then GoTo IntroSexo
+        '    k = 0
+        'End If
+        rsCli.AddNew
+        lngCodCliente = lngCodCliente + 1
+        rsCli("CodCliente") = Format(lngCodCliente, "00000")
+        rsCli("NIF") = strCIF
+        rsCli("NombreCli") = rs("RazonSocial")
+        rsCli("ApellidosCli") = rs("Campo6")
+        rsCli("Direccion") = rs("Direccion")
+        rsCli("Ciudad") = rs("Localidad")
+        rsCli("EdoOProv") = RecDerTop(Nz(rs("Provincia"), ""), 0, 20)
+        rsCli("CodPostal") = rs("CodPostal")
+        rsCli("Telefono") = rs("Telefono") & "¬" & rs("Telefono2")
+        If Len(rs("Contacto")) > 0 Then
+            rsCli("Observaciones") = "Contacto: " & rs("Contacto") & vbCrLf
+        End If
+        If Len(rs("Pago")) > 0 Then rsCli("Observaciones") = rsCli("Observaciones") & rs("Pago") & vbCrLf
+        For i = 17 To 20
+            If Len(rs("Campo" & i)) > 0 Then rsCli("Observaciones") = RecDerTop(rsCli("Observaciones") & rs("Campo" & i), 0, 148) & vbCrLf
+        Next i
+        rsCli("Agencia") = True
+        rsCli.Update
+        l = l + 1
+Siguiente:
+        rs.MoveNext
+    Wend
+    MsgBox "Se introdujeron:" & vbCrLf & l & " clientes, " & n & " nombres diferentes, " & k & " se encontraron existentes en la base de datos"
+Salir_ImportarClientes_0:
+    Exit Function
+Error_ImportarClientes_0:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ImportarClientes_0" & vbCrLf & Err.Description
+            Resume Salir_ImportarClientes_0
+    End Select
+End Function

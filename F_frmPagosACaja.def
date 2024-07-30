@@ -1,0 +1,184 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+    Dim gintAlBloc As Integer
+
+Private Sub btnConceptosSN_Click()
+    Dim strSQL As String
+    If Me.btnConceptosSN.Tag = "S" Then
+        strSQL = "SELECT tbFPago.Descripcion AS F_Pago, llenaizq(Format(Sum(tbCajaDet.Cantidad),'Fixed'),14) AS Importe"
+        strSQL = strSQL & " FROM tbFPago RIGHT JOIN tbCajaDet ON tbFPago.CodFPago=tbCajaDet.CodFPago"
+        strSQL = strSQL & " GROUP BY tbFPago.Descripcion, tbCajaDet.IdCajaCab"
+        strSQL = strSQL & " HAVING (((tbCajaDet.IdCajaCab)=Forms!frmPagosACaja!IdCajaCab));"
+        'SELECT tbFPago.Descripcion AS F_Pago, llenaizq(Format(Sum(tbCajaDet.Cantidad),'Fixed'),14) AS Importe FROM tbFPago RIGHT JOIN tbCajaDet ON tbFPago.CodFPago=tbCajaDet.CodFPago GROUP BY tbFPago.Descripcion, tbCajaDet.IdCajaCab HAVING (((tbCajaDet.IdCajaCab)=Forms!frmPagosACaja!IdCajaCab));
+        Me.lstResumen.RowSource = strSQL
+        Me.lstResumen.ColumnCount = 2
+        Me.lstResumen.ColumnWidths = "1800;1134"
+        Me.btnConceptosSN.Tag = "N"
+    Else
+
+        strSQL = "SELECT tbCajaDet_Concepto.Concepto, llenaizq(Format(Sum(tbCajaDet.Cantidad),'Fixed'),14) AS Importe"
+        strSQL = strSQL & " FROM tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet"
+        strSQL = strSQL & " GROUP BY tbCajaDet_Concepto.Concepto, tbCajaDet.IdCajaCab"
+        strSQL = strSQL & " HAVING (((tbCajaDet.IdCajaCab)=[Forms]![frmPagosACaja]![IdCajaCab]));"
+        Me.lstResumen.RowSource = strSQL
+        Me.lstResumen.ColumnCount = 2
+        Me.lstResumen.ColumnWidths = "1800;1134"
+        Me.btnConceptosSN.Tag = "S"
+    End If
+    Me.lstResumen.Requery
+End Sub
+
+Private Sub btnImprimirCierre_Click()
+    If IsNull(Me.IdCajaCab) Then Exit Sub
+    ImprimeCierreDeCaja Me.IdCajaCab
+End Sub
+
+Private Sub btnImprimirCierreVP_Click()
+    If IsNull(Me.IdCajaCab) Then Exit Sub
+    ImprimeCierreDeCaja Me.IdCajaCab, True
+End Sub
+
+Private Sub btnImprimirDetalle_Click()
+    On Error GoTo Error_btnImprimirDetalle_Click
+    Dim strSQL As String, strPD As String, intCambiaAcentos As Integer, strTit As String
+    If Not gintAlBloc Then gintAlBloc = 88
+    strPD = space(10) & "Saldo Inicial: " & LlenaIzqChar(Format(Me.Cantidad_A, "Currency"), 19, ".") & vbCrLf
+    strPD = strPD & space(10) & "Saldo Inicial + Caja: " & LlenaIzqChar(Format(Me.txtTotalIniMasCaja, "Currency"), 12, ".") & vbCrLf
+    strPD = strPD & space(10) & "Saldo Final: " & LlenaIzqChar(Format(Me.Cantidad_C, "Currency"), 21, ".")
+   
+    strSQL = "SELECT tbCajaDet_Concepto.Concepto, llenaizq(Format(tbCajaDet.Cantidad,'Fixed'),14) AS Importe"
+    strSQL = strSQL & " FROM tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet"
+    strSQL = strSQL & " WHERE (((tbCajaDet.IdCajaCab)=" & Me.IdCajaCab & "));"
+    
+    strSQL = "SELECT tbCajaDet.Fecha, tbCajaDet_Concepto.NombrePersona as Nombre, tbCajaDet_Concepto.Concepto, llenaizq(Format(tbCajaDet.Cantidad,'Fixed'),14) AS Importe, tbFPago.Descripcion as [F Pago]"
+    strSQL = strSQL & " FROM (tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet) LEFT JOIN tbFPago ON tbCajaDet.CodFPago = tbFPago.CodFPago"
+    strSQL = strSQL & " WHERE (((tbCajaDet.IdCajaCab)=" & Me.IdCajaCab & "));"
+
+    strTit = "Detalle Caja" _
+    & vbCrLf & "Puesto:   " & Me.IdPuesto.Column(1) _
+    & vbCrLf & "Apertura: " & Me.Fecha_A & " " & Format(Me.Hora_A, "hh:nn") _
+    & vbCrLf & "Cierre:   " & Me.Fecha_C & " " & Format(Me.Hora_C, "hh:nn")
+    ImprimirSQL_DOS1 strSQL, strTit, "11111,1020102008,11131,51131,00010,10000", , strPD, gintAlBloc
+    
+Salir_btnImprimirDetalle_Click:
+    gintAlBloc = 0
+    Exit Sub
+Error_btnImprimirDetalle_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnImprimirDetalle_Click" & vbCrLf & Err.Description
+            Resume Salir_btnImprimirDetalle_Click
+    End Select
+    
+End Sub
+
+Private Sub btnImprimirDetalleVP_Click()
+    gintAlBloc = True
+    Call btnImprimirDetalle_Click
+End Sub
+
+
+Private Sub btnImprimirResumen_Click()
+    On Error GoTo Error_btnImprimirResumen_Click
+    Dim strSQL As String, strPD As String, intCambiaAcentos As Integer, strTit As String
+    If Not gintAlBloc Then gintAlBloc = 88
+    strPD = space(10) & "Saldo Inicial: " & LlenaIzqChar(Format(Me.Cantidad_A, "Currency"), 19, ".") & vbCrLf
+    strPD = strPD & space(10) & "Saldo Inicial + Caja: " & LlenaIzqChar(Format(Me.txtTotalIniMasCaja, "Currency"), 12, ".") & vbCrLf
+    strPD = strPD & space(10) & "Saldo Final: " & LlenaIzqChar(Format(Me.Cantidad_C, "Currency"), 21, ".")
+   
+    If Me.btnConceptosSN.Tag = "S" Then
+        strSQL = "SELECT tbCajaDet_Concepto.Concepto, llenaizq(Format(Sum(tbCajaDet.Cantidad),'Fixed'),14) AS Importe"
+        strSQL = strSQL & " FROM tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet"
+        strSQL = strSQL & " GROUP BY tbCajaDet_Concepto.Concepto, tbCajaDet.IdCajaCab"
+        strSQL = strSQL & " HAVING (((tbCajaDet.IdCajaCab)=" & Me.IdCajaCab & "));"
+        strTit = "Resumen Caja (Conceptos)" _
+        & vbCrLf & "Puesto:   " & Me.IdPuesto.Column(1) _
+        & vbCrLf & "Apertura: " & Me.Fecha_A & " " & Format(Me.Hora_A, "hh:nn") _
+        & vbCrLf & "Cierre:   " & Me.Fecha_C & " " & Format(Me.Hora_C, "hh:nn")
+        ImprimirSQL_DOS1 strSQL, strTit, "11,2520,13,13,01", , strPD, gintAlBloc
+    Else
+        strSQL = "SELECT tbFPago.Descripcion AS F_Pago, llenaizq(Format(Sum(tbCajaDet.Cantidad),'Fixed'),14) AS Importe"
+        strSQL = strSQL & " FROM tbFPago RIGHT JOIN tbCajaDet ON tbFPago.CodFPago=tbCajaDet.CodFPago"
+        strSQL = strSQL & " GROUP BY tbFPago.Descripcion, tbCajaDet.IdCajaCab"
+        strSQL = strSQL & " HAVING (((tbCajaDet.IdCajaCab)=" & Me.IdCajaCab & "));"
+        strTit = "Resumen Caja (Formas de Pago)" _
+        & vbCrLf & "Puesto:   " & Me.IdPuesto.Column(1) _
+        & vbCrLf & "Apertura: " & Me.Fecha_A & " " & Format(Me.Hora_A, "hh:nn") _
+        & vbCrLf & "Cierre:   " & Me.Fecha_C & " " & Format(Me.Hora_C, "hh:nn")
+        ImprimirSQL_DOS1 strSQL, strTit, "11,2520,13,13,01", , strPD, gintAlBloc
+    End If
+    
+Salir_btnImprimirResumen_Click:
+    gintAlBloc = 0
+    Exit Sub
+Error_btnImprimirResumen_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnImprimirResumen_Click" & vbCrLf & Err.Description
+            Resume Salir_btnImprimirResumen_Click
+    End Select
+    
+End Sub
+
+Private Sub btnImprimirResumenVP_Click()
+    gintAlBloc = True
+    Call btnImprimirResumen_Click
+End Sub
+
+Private Sub btnModificarPago_Click()
+    On Error Resume Next
+    If Me.lstPagos.ListIndex = -1 Then Exit Sub
+    ModificarPago Me.lstPagos
+    Me.lstResumen.Requery
+End Sub
+
+Private Sub Form_Current()
+    Me.lstResumen.Requery
+    Me.lstPagos.Requery
+End Sub
+
+Private Sub Form_Load()
+    On Error Resume Next
+    DoCmd.GoToRecord , , acLast
+    'Traducir me
+    If Me.CurrentView = 2 Then
+        AjustarColumnas Me
+    End If
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    On Error Resume Next
+    Cancel = Not DimePassword()
+    'Me.SubfrmFichasDetPagos.Form.AllowAdditions = False
+    'Me.SubfrmFichasDetPagos.Form.DatasheetBackColor = 12632256
+    'Me.SubfrmFichasDetPagos.Form.DatasheetGridlinesColor = 16777215
+End Sub
+Private Sub btnImprimirRecibo_Click()
+    On Error Resume Next
+    If Me.lstPagos.ListIndex = -1 Then Exit Sub
+    If DameValorParam("RecibosImpresionPor") = 2 Then
+        DoCmd.Hourglass True
+        ImprimirReciboDOS Me.lstPagos
+        DoCmd.Hourglass False
+        Exit Sub
+    End If
+    Dim strRPT As String
+    strRPT = Nz(DameValorParam("RecibosRPT"), "rptRecibo")
+    If DameValorParam("ImpresionInformes") = 1 Then
+        DoCmd.OpenReport strRPT, , , "IdCajaDet = " & Me.lstPagos
+    Else
+        DoCmd.OpenReport strRPT, acViewPreview, , "IdCajaDet = " & Me.lstPagos
+    End If
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    'If IsOpenForm("frmCajaA_C") Then Forms("frmCajaA_C").Visible = True
+End Sub

@@ -1,0 +1,35 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function SoloNumeros(strVar As Variant) As String
+'De una cadena de texto, devuelve otra cadena en la
+'que sólo aparecen los digitos numéricos (para buscar teléfonos
+'sin tener en cuenta si hay espacios u otros separadores)
+    Dim i As Integer
+    Dim strSol As String
+    On Error GoTo Error_SoloNumeros
+    If Len(strVar) > 0 Then
+        For i = 1 To Len(strVar)
+            'If (Mid(str, i, 1)) = ("1" Or "2" Or "3" Or "4" Or "5" Or "6" Or "7" Or "8" Or "9" Or "10") Then
+            If IsNumeric(Mid(strVar, i, 1)) Then
+                strSol = strSol & Mid(strVar, i, 1)
+            End If
+        Next i
+        SoloNumeros = strSol
+    Else
+        SoloNumeros = ""
+    End If
+Exit_SoloNumeros:
+    Exit Function
+Error_SoloNumeros:
+    Select Case Err.Number
+    Case Else
+        MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En SoloNumeros"
+        SoloNumeros = ""
+        Resume Exit_SoloNumeros
+    End Select
+
+
+
+End Function

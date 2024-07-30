@@ -1,0 +1,69 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+'    Dim strXML As String, lngAlto As Long, strVerEn As String
+'    strXML = SpNz(Parent.subrptTiraLogos.Tag, "<VerEn>1</VerEn>")
+'    strVerEn = Nz(DimeXML(strXML, "VerEn"), "")
+'    If strVerEn = "" Then Exit Sub
+'    PonTiraLogos strVerEn
+End Sub
+
+Public Sub PonTiraLogos(lngH As Long, lngW As Long)
+    Dim strOpenArgs As String
+    On Error Resume Next
+    strOpenArgs = Nz(Parent.OpenArgs, "")
+    On Error GoTo Error_PonTiraLogos
+    Dim strSQL As String, rs As Recordset, lngAlto As Long, i As Integer, strCarImages As String
+    Dim lngPictureAlignment As Long
+    If Nz(DimeXML(strOpenArgs, "PDFsn"), "N") = "N" Then
+        If Nz(DameValorParam("FacturasTiraLogosSN"), False) = False Then
+            lngH = 0
+            GoTo Salir_PonTiraLogos
+        End If
+    Else
+        If Nz(DameValorParam("FacturasTiraLogosSNpdf"), Nz(DameValorParam("FacturasTiraLogosSN"), False)) = False Then
+            lngH = 0
+            GoTo Salir_PonTiraLogos
+        End If
+    End If
+    strSQL = "SELECT * FROM tbLogotipos WHERE Nz(EnFacturaSN,False)=True ORDER BY Ord"
+    lngAlto = Nz(DameValorParam("AlturaTiraLogos_1"), 2) * TC_CmToPoints
+    lngPictureAlignment = Nz(DameValorParam("LogosPictureAlignment_1"), 2)
+    lngH = lngAlto
+    Me.PieDelInforme.Height = lngAlto
+'    Me.Width = 25 * TC_CmToPoints
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strCarImages = CarpetaImagenes
+    While Not rs.EOF
+        i = i + 1
+        Me("img" & i).Picture = strCarImages & rs("ImgLogo")
+        Me("img" & i).Height = lngAlto
+        Me("img" & i).Width = (rs("Ancho") / rs("Alto")) * lngAlto
+        If i > 1 Then Me("img" & i).Left = Me("img" & i - 1).Left + Me("img" & i - 1).Width
+        Me("img" & i).Visible = True
+        Me("img" & i).PictureAlignment = lngPictureAlignment
+        lngW = Me("img" & i).Left + Me("img" & i).Width
+        rs.MoveNext
+    Wend
+    While i < 10
+        i = i + 1
+        Me("img" & i).Left = 0
+        Me("img" & i).Width = 0
+        Me("img" & i).Visible = False
+    Wend
+'    Me.Width = lngW
+Salir_PonTiraLogos:
+    Exit Sub
+Error_PonTiraLogos:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PonTiraLogos" & vbCrLf & Err.Description
+            Resume Salir_PonTiraLogos
+    End Select
+End Sub

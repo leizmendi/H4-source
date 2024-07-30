@@ -1,0 +1,61 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+    Private Sub lstCli_AfterUpdate()
+    Dim rs As Recordset, frm As Form
+    If IsOpenForm("frmClientes") Then
+        Set frm = Forms("frmClientes")
+    ElseIf IsOpenForm("frmMaestros") Then
+        If Forms("frmMaestros").subfrm.SourceObject = "frmClientes" Then
+            Set frm = Forms("frmMaestros").subfrm.Form
+        Else
+            Exit Sub
+        End If
+    Else
+        Exit Sub
+    End If
+    Set rs = frm.RecordsetClone
+    rs.FindFirst "IdCliente = " & Me.lstCli
+    If Not rs.NoMatch Then frm.Bookmark = rs.Bookmark
+
+End Sub
+
+Private Sub lstTipo_AfterUpdate()
+    Dim strSQL As String
+    strSQL = "SELECT tbClientes.IdCliente, Trim([NombreCli] & ' ' & [ApellidosCli]) AS Cliente, Ciudad as Localidad"
+    strSQL = strSQL & " FROM tbClientes"
+    strSQL = strSQL & " WHERE True"
+    If Me.lstTipo <> 0 Then strSQL = strSQL & " AND Agencia = " & IIf(Me.lstTipo = 1, "False", "True")
+    If Replace(Nz(Me.txtFiltroCli, ""), "Nombre de Cliente", "") <> "" Then
+         strSQL = strSQL & " AND Trim([NombreCli] & ' ' & [ApellidosCli]) Like '*" & Me.txtFiltroCli & "*'"
+    End If
+    If Replace(Nz(Me.txtFiltroCiudad, ""), "Localidad", "") <> "" Then
+         strSQL = strSQL & " AND Ciudad Like '*" & Me.txtFiltroCiudad & "*'"
+    End If
+    If Replace(Nz(Me.txtFiltroFecha, ""), "Fecha de Estancia", "") <> "" Then
+         strSQL = strSQL & " AND MarcarSN=True"
+         MarcarClientesXFechaEstancia (CDate(Me.txtFiltroFecha))
+    End If
+    
+
+    strSQL = strSQL & " ORDER BY Trim([NombreCli] & ' ' & [ApellidosCli])"
+    Me.lstCli.RowSource = strSQL
+    'Call lstCli_AfterUpdate
+End Sub
+
+Private Sub txtFiltroCiudad_AfterUpdate()
+    Call lstTipo_AfterUpdate
+End Sub
+
+Private Sub txtFiltroCli_AfterUpdate()
+    Call lstTipo_AfterUpdate
+End Sub
+
+Private Sub txtFiltroFecha_AfterUpdate()
+    Call lstTipo_AfterUpdate
+End Sub

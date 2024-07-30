@@ -1,0 +1,76 @@
+Option Compare Database
+Option Explicit
+
+Public Function SolicitarServicioWeb(ByVal sXml As String, Optional sUrl As String = "", Optional intMsgBusy As Integer = True, Optional ByRef strResponse As String, Optional ByRef strResponseProcesada As String, Optional strEchoToken As String = "") As String
+    On Error GoTo Error_SolicitarServicioWeb
+    Dim i As Integer, intEchoTokenOk As Integer
+    Dim oXH As xmlHttp, oXD As DOMDocument
+    Set oXH = CreateObject("MSXML2.XMLHTTP")
+'    Me.txtSend = "": Me.txtResponse = "": Me.txtResponseProcesada = ""
+'    Me.Repaint
+    DoCmd.Hourglass True
+    oXH.Open "POST", sUrl, False
+    Set oXD = CreateObject("MSXML2.DOMDocument")
+    oXD.LoadXML sXml
+'    Me.txtSend = sXml
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    If intMsgBusy Then
+        MensajeBusyBox sXml, "Enviando"
+    Else
+        SysCmd acSysCmdSetStatus, "Enviando"
+    End If
+    oXH.Send oXD  'strXml 'oXD
+    strResponse = oXH.responseText
+    DoCmd.Hourglass False
+    SysCmd acSysCmdSetStatus, "Envío correcto"
+    DoCmd.Hourglass True
+    If intMsgBusy Then
+        MensajeBusyBox strResponse, "Respuesta"
+    Else
+        SysCmd acSysCmdSetStatus, "Respuesta"
+    End If
+    strResponseProcesada = ProcesarXML(strResponse, 2)
+    DoCmd.Hourglass False
+    If intMsgBusy Then MensajeBusyBox strResponseProcesada, "Respuesta", True
+    If strEchoToken <> "" Then
+        i = InStr(strResponse, "EchoToken=")
+        If i > 0 Then
+            If Mid(strResponse, i + 11, 6) = strEchoToken Then intEchoTokenOk = True
+        End If
+        If Not intEchoTokenOk Then
+            MsgBox "No se devolvió EchoToken correcto", vbExclamation
+        End If
+    End If
+    If Nz(DimeXML(strResponse, "error"), 0) = "0" Then
+        If intMsgBusy Then
+            MensajeBusyBox "Envío correcto", "OK", True
+            DoCmd.Close acForm, "frmBusyBox"
+        Else
+            SysCmd acSysCmdSetStatus, "Envío correcto"
+            'MsgBox "Envío correcto", vbInformation
+        End If
+    Else
+        If intMsgBusy Then
+            MensajeBusyBox AH_DimeErrorResponse(strResponse), True
+            'DoCmd.Close acForm, "frmBusyBox"
+        Else
+            SysCmd acSysCmdSetStatus, AH_DimeErrorResponse(strResponse)
+            'MsgBox "Error en el servicio web:" & vbcrlf & dimexml(strresponse,", vbInformation
+        End If
+    End If
+Salir_SolicitarServicioWeb:
+    DoCmd.Hourglass False
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_SolicitarServicioWeb:
+    Select Case Err
+        Case Else
+            If intMsgBusy Then
+                MensajeBusyBox "error nº " & Err & " en SolicitarServicioWeb" & vbCrLf & Err.Description, "Error", True
+            Else
+                MsgBox "error nº " & Err & " en SolicitarServicioWeb" & vbCrLf & Err.Description
+            End If
+            Resume Salir_SolicitarServicioWeb
+    End Select
+End Function

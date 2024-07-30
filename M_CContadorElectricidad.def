@@ -1,0 +1,271 @@
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+
+Private IdContadorE As Long
+Private ContadorE As String
+Private Lectura As Long
+Private FechaLectura As Date
+Private IdFichaCab As Long
+
+Private IsLoaded As Integer
+
+Public Property Get IdContadorE_() As Long
+    IdContadorE_ = IdContadorE
+End Property
+
+Public Property Get Lectura_() As Long
+    Lectura_ = Lectura
+End Property
+
+Public Property Let Lectura_(value As Long)
+    Lectura = value
+End Property
+
+Public Property Get IdFichaCab_() As Long
+    IdFichaCab_ = IdFichaCab
+End Property
+
+Public Property Let IdFichaCab_(value As Long)
+    IdFichaCab = value
+End Property
+
+Public Property Get ContadorE_() As String
+    ContadorE_ = ContadorE
+End Property
+
+Public Property Let ContadorE_(value As String)
+    ContadorE = value
+End Property
+
+Public Property Get FechaLectura_() As Date
+    FechaLectura_ = FechaLectura
+End Property
+
+Public Property Let FechaLectura_(value As Date)
+    FechaLectura = value
+End Property
+
+Public Function NewContador(Optional ByRef lngIdContadorE As Long = 0, Optional strContadorE As String = "", Optional intLoad As Integer = False, Optional lngIdParcela As Long = 0) As Integer
+    On Error GoTo Error_NewContador
+    Dim intR As Integer
+    If lngIdContadorE = 0 Then
+        lngIdContadorE = Nz(DMax("IdContadorE", "tbContadoresElectricidad"), 0) + 1
+        lngIdContadorE = Nz(DimeTeclado(2, "ID del Contador", lngIdContadorE), 0)
+        If lngIdContadorE = 0 Then Exit Function
+    End If
+    If Nz(DLookup("IdContadorE", "tbContadoresElectricidad", "IdContadorE = " & lngIdContadorE), 0) <> 0 Then
+        MsgBox "Ya se encontró un contador con el mismo ID: " & lngIdContadorE, vbExclamation
+        Exit Function
+    End If
+    If strContadorE = "" Then
+        strContadorE = Nz(DimeTeclado(1, "Denominación del Contador"), "")
+        If strContadorE = "" Then Exit Function
+    End If
+    If Nz(DLookup("IdContadorE", "tbContadoresElectricidad", "ContadorE = " & ConComillas(strContadorE)), 0) <> 0 Then
+        MsgBox "Ya se encontró un contador con la misma denominación: " & strContadorE, vbExclamation
+        Exit Function
+    End If
+    Dim rs As Recordset, lngIdContadorE2 As Long
+    If lngIdParcela <> 0 Then
+        lngIdContadorE2 = Nz(DLookup("IdContadorE", "tbParcelas", "IdParcela = " & lngIdParcela), 0)
+        If lngIdContadorE2 <> 0 And lngIdContadorE2 <> lngIdContadorE Then
+            intR = MsgBox("Se encontró otro Contador asignado a la parcela " & DLookup("NombrePArcela", "tbPArcelas", "IdParcela = " & lngIdParcela) & vbCrLf & "¿Reemplazar el Contador?", vbExclamation + vbOKCancel)
+            If intR = vbCancel Then Exit Function
+        End If
+    End If
+    Set rs = CurrentDb.OpenRecordset("tbContadoresElectricidad", dbOpenDynaset, dbAppendOnly)
+    InicializaContador
+    rs.AddNew
+    rs("IdContadorE") = lngIdContadorE
+    rs("ContadorE") = strContadorE
+    rs.Update
+    If lngIdParcela <> 0 Then CurrentDb.Execute "UPDATE tbParcelas SET IdContadorE = " & lngIdContadorE & " WHERE IdParcela = " & lngIdParcela, dbFailOnError
+    If intLoad Then LoadContador lngIdContadorE
+    NewContador = True
+Salir_NewContador:
+    Exit Function
+Error_NewContador:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en NewContador" & vbCrLf & Err.Description
+            Resume Salir_NewContador
+    End Select
+End Function
+
+Public Sub LoadContador(lngIdContadorE As Long)
+    On Error GoTo Error_LoadContador
+    Dim rs As Recordset, strSQL As String, i As Integer
+    IsLoaded = False
+    strSQL = "SELECT * FROM tbContadoresElectricidad WHERE IdContadorE = " & lngIdContadorE
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        IdContadorE = rs("IdContadorE")
+        ContadorE = rs("ContadorE")
+        Lectura = Nz(rs("UltimaLectura"), 0)
+        FechaLectura = Nz(rs("FechaUltimaLectura"), 0)
+        IdFichaCab = Nz(rs("IdFichaCab"), 0)
+        IsLoaded = True
+    Else
+        InicializaContador
+    End If
+    
+Salir_LoadContador:
+    Exit Sub
+Error_LoadContador:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LoadContador" & vbCrLf & Err.Description
+            Resume Salir_LoadContador
+    End Select
+End Sub
+
+
+Public Function SaveContador() As Integer
+    On Error GoTo Error_SaveContador
+    Dim rs As Recordset, strSQL As String, i As Integer
+    strSQL = "SELECT * FROM tbContadoresElectricidad WHERE IdContadorE = " & IdContadorE
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If Not rs.EOF Then
+        rs.Edit
+        'rs("IdContadorE") = IdContadorE
+        'rs("ContadorE") = ContadorE
+        rs("UltimaLectura") = Lectura
+        rs("FechaUltimaLectura") = FechaLectura
+        rs("IdFichaCab") = IdFichaCab
+        rs.Update
+        SaveContador = True
+    Else
+        MsgBox "No se encontró Contador ID: " & Me.IdContadorE_, vbExclamation
+    End If
+    
+Salir_SaveContador:
+    Exit Function
+Error_SaveContador:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SaveContador" & vbCrLf & Err.Description
+            Resume Salir_SaveContador
+    End Select
+End Function
+
+Private Sub InicializaContador()
+    IdContadorE = 0
+    ContadorE = ""
+    Lectura = 0
+    FechaLectura = Date
+    IdFichaCab = 0
+    IsLoaded = False
+End Sub
+
+
+Public Function BuscaIdContadorE(lngIdFichaCab As Long) As Long
+    On Error GoTo Error_BuscaIdContadorE
+    Dim strSQL As String
+
+    
+Error_BuscaIdContadorE:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BuscaIdContadorE" & vbCrLf & Err.Description
+            'Resume Salir_BuscaIdContadorE
+    End Select
+
+End Function
+
+
+Public Function LeerContador(Optional lngIdFichaCab As Long = 0) As Integer
+    On Error GoTo Error_LeerContador
+    Dim lngIdContadorE As Long, lngIdParcela As Long, strSQL As String, intR As Integer
+    lngIdContadorE = Nz(DLookup("IdContadorE", "tbContadoresElectricidad", "IdFichaCab = " & lngIdFichaCab), 0)
+    If lngIdContadorE = 0 Then
+        strSQL = "SELECT tbParcelas.IdParcela, tbParcelas.NombreParcela"
+        strSQL = strSQL & " FROM tbParcelas INNER JOIN tbFichasDet ON tbParcelas.NombreParcela = tbFichasDet.Parcela"
+        strSQL = strSQL & " WHERE tbFichasDet.IdFichaCab=" & lngIdFichaCab
+        CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = " & ConComillas(strSQL) & " WHERE CodBusqueda = " & ConComillas("Pdf01"), dbFailOnError
+        lngIdParcela = Nz(BuscaAyuda("Pdf01", , , , , , True), 0)
+        If lngIdParcela = 0 Then
+            MsgBox "Se debe indicar una parcela para poder asignar un contador", vbExclamation
+            Exit Function
+        End If
+        lngIdContadorE = Nz(DLookup("IdContadorE", "tbParcelas", "IdParcela = " & lngIdParcela), 0)
+        If lngIdContadorE = 0 Then
+            intR = MsgBox("Se deberá asignar un contador a la parcela " & DLookup("NombreParcela", "tbParcelas", "IdParcela = " & lngIdParcela), vbInformation + vbOKCancel)
+            If intR = vbCancel Then Exit Function
+            lngIdContadorE = Nz(BuscaAyuda("ContE", , 2, True), 0)
+            If lngIdContadorE = 0 Then Exit Function
+            If lngIdContadorE = -1 Then
+                lngIdContadorE = 0
+                If Me.NewContador(lngIdContadorE) = False Then
+                    Exit Function
+                End If
+            End If
+            strSQL = "UPDATE tbParcelas SET IdContadorE = " & lngIdContadorE & " WHERE IdParcela = " & lngIdParcela
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+    End If
+    If lngIdContadorE = 0 Then Exit Function
+    Dim strXML As String
+    PonXML strXML, "IdContadorE", lngIdContadorE
+    PonXML strXML, "IdFichaCabN", lngIdFichaCab
+    DoCmd.OpenForm "frmContadorE", , , , , acDialog, strXML
+    If Not IsOpenForm("frmContadorE") Then Exit Function
+    Dim lngNuevaLectura As Long, lngConsumo As Long, curImporte As Currency, dtFechaNuevaLectura As Date, curPrecio As Currency
+    Dim frm As Form, lngA_IdFichaCab As Long
+    Set frm = Forms("frmContadorE")
+    lngNuevaLectura = frm("UltimaLecturaN")
+    dtFechaNuevaLectura = frm("FechaUltimaLecturaN")
+    lngConsumo = frm("txtConsumo")
+    curImporte = frm("txtImporte")
+    curPrecio = frm("ElectricidadPrecio_kWh")
+    DoCmd.Close acForm, frm.Name
+    Set frm = Nothing
+    
+    Me.LoadContador lngIdContadorE
+    If Me.IdFichaCab_ = lngIdFichaCab Then lngA_IdFichaCab = lngIdFichaCab
+    If lngA_IdFichaCab <> 0 Then
+        Dim rs As Recordset, lngIdFichaDet As Long
+        Set rs = CurrentDb.OpenRecordset("tbFichasDet", dbOpenDynaset, dbAppendOnly)
+        rs.AddNew
+        rs("IdFichaCab") = lngA_IdFichaCab
+        rs("IdSD") = DameValorParam("Electricidad_IdSD_ConsumoE")
+        rs("Concepto") = DameValorParam("Electricidad_Concepto_ConsumoE") & " (desde el " & Format(Me.FechaLectura_, "dd/mm/yy") & ")"
+        rs("PrecioUnitario") = curPrecio
+        rs("Cantidad") = lngConsumo
+        rs("FechaFin") = dtFechaNuevaLectura
+        rs("IVA") = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & Nz(DLookup("TipoIVA", "tbServiciosDiarios", "IdSD = " & Nz(rs("IdSD"), 0)), 0)), IVASDporDefecto())
+        lngIdFichaDet = rs("IdFichaDet")
+        rs.Update
+    End If
+        
+    strSQL = "INSERT INTO tbContadorE_Lecturas ( IdContadorE, Fecha, Lectura, Consumo, Precio, A_IdFichaCab, IdFichaDet )"
+    strSQL = strSQL & " SELECT " & lngIdContadorE & " AS Expr1, " _
+                        & CLng(dtFechaNuevaLectura) & " AS Expr2, " _
+                        & lngNuevaLectura & " AS Expr3, " _
+                        & lngConsumo & " AS Expr4, " _
+                        & ComaPunto(curPrecio) & " AS Expr5, " _
+                        & lngA_IdFichaCab & " AS Expr6, " _
+                        & IIf(lngIdFichaDet > 0, lngIdFichaDet, "Null") & " AS Expr7"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.Lectura_ = lngNuevaLectura
+    Me.FechaLectura_ = dtFechaNuevaLectura
+    Me.IdFichaCab_ = lngIdFichaCab
+    Me.SaveContador
+    
+            
+Salir_LeerContador:
+    Exit Function
+Error_LeerContador:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LeerContador" & vbCrLf & Err.Description
+            Resume Salir_LeerContador
+    End Select
+    
+    
+
+End Function

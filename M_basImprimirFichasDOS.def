@@ -1,0 +1,604 @@
+Option Compare Database
+Option Explicit
+'Const FILEFicha = "C:\Ficha.txt"
+Dim gstrFILE As String
+Dim strPathPrintTeam As String
+Dim strPathPrintPort As String
+Dim strError As String
+Dim intCabecera As Integer
+Dim intMargSup As Integer
+Dim intMargIzdo As Integer
+Dim intLinDet As Integer
+Dim intNumCop As Integer
+Dim intLetraCN As Integer
+Dim glngIdFicha As Long
+Dim strgLinea As String
+Dim strMargen As String
+Dim intgCambiaAcentos As Integer, gintBloc As Integer
+
+Public Function ImprimirFichaDOS(lngIdFicha As Long, Optional intPag As Integer, Optional intEstancia As Integer = False, Optional intBloc As Integer = -2, Optional strFile As String = "") As Integer
+'    Dim lngIdFic As Long
+    On Error GoTo Error_ImprimirFichaDOS
+    If intBloc = -2 Then
+        gintBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    Else
+        gintBloc = intBloc
+    End If
+    If strFile = "" Then
+        gstrFILE = DirectorioDe(CurrentDb.Name) & "Ficha.txt"
+    Else
+        gstrFILE = strFile
+    End If
+        
+    ParametrosIniFicha
+    glngIdFicha = lngIdFicha
+    If ImprimirCabeceraFicha(lngIdFicha, intPag, intEstancia) = False Then
+        ImprimirFichaDOS = False
+        Close
+        Exit Function
+    End If
+'    lngIdFic = DLookup("IdFactura", "tbFacturasCab", "NumeroDeFactura = '" & lngIdFicha & "'")
+    If intEstancia = False Then
+        If ImprimirDetalleFicha(lngIdFicha) = False Then
+            ImprimirFichaDOS = False
+            Close
+            Exit Function
+        End If
+        If ImprimirPieFicha(lngIdFicha) = False Then
+            ImprimirFichaDOS = False
+            Close
+            Exit Function
+        End If
+    Else
+        If ImprimirDetalleEstancia(lngIdFicha) = False Then
+            ImprimirFichaDOS = False
+            Close
+            Exit Function
+        End If
+        If ImprimirPieEstancia(lngIdFicha) = False Then
+            ImprimirFichaDOS = False
+            Close
+            Exit Function
+        End If
+    End If
+    Print #1, seSaltPg;
+    Close
+    ImprimirDOS gstrFILE, strPathPrintTeam & strPathPrintPort, gintBloc
+
+Salir_ImprimirFichaDOS:
+    Exit Function
+Error_ImprimirFichaDOS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirFichaDOS"
+    End Select
+    Resume Salir_ImprimirFichaDOS
+End Function
+
+Private Sub ParametrosIniFicha()
+    Dim strImpresoraFichas  As String
+    On Error GoTo Error_ParametrosIniFicha
+    intCabecera = Nz(DameValorParam("FichasCabeceraSN"), True)
+    intMargSup = Nz(DameValorParam("FichasMargenSup"), 3)
+    intMargIzdo = Nz(DameValorParam("FichasMargenIzdo"), 3)
+    intLinDet = Nz(DameValorParam("FichasLineasDetalle"), 15)
+    intNumCop = Nz(DameValorParam("FichasNumCopias"), 1)
+    intLetraCN = Nz(DameValorParam("FichasLetraCN"), 1)
+    strImpresoraFichas = Nz(DameValorParam("FichasImpresora"), "")
+    intgCambiaAcentos = Nz(DLookup("CambiarAcentos", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFichas & "'"), False)
+    CargarCodigosEscape strImpresoraFichas, gintBloc
+    strPathPrintTeam = Nz(DLookup("NombrePuesto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFichas & "'"), "")
+    If strPathPrintTeam = Nz(DameValorParam("PuestoNombre"), "") Then
+        strPathPrintTeam = "c:\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFichas & "'"), 1, True)
+    Else
+        strPathPrintTeam = "\\" & strPathPrintTeam & "\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFichas & "'"), 2, True)
+    End If
+'    Open strPathPrintTeam & strPathPrintPort For Output As #1
+AbrirFichero:
+     'Open FILEFicha For Output As #1
+     Open gstrFILE For Output As #1
+     Print #1, seInicia
+   If intLetraCN = 1 Then
+        Print #1, seCOMPRI;
+    Else
+        Print #1, seNORMAL;
+    End If
+Salir_ParametrosIniFicha:
+    Exit Sub
+Error_ParametrosIniFicha:
+    Select Case Err
+        Case 55
+            Close
+            Resume AbrirFichero
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ParametrosIniFicha"
+            
+    End Select
+    
+    Resume Salir_ParametrosIniFicha
+End Sub
+Private Function ImprimirCabeceraFicha(lngIdFicha As Long, Optional intPag As Integer, Optional intEstancia As Integer = False) As Integer
+    Dim rs As Recordset
+    Dim i As Integer, intRestoPar As Integer
+    Dim strMiCab As String, strCabCli As String, strParcelas As String
+    
+    On Error GoTo Error_ImprimirCabeceraFicha
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab")
+    rs.FindFirst "IdFichaCab = " & lngIdFicha
+    If rs.NoMatch Then
+        MsgBox "No existe la ficha nº: " & lngIdFicha
+        ImprimirCabeceraFicha = False
+        Exit Function
+    End If
+    strCabCli = Trim(rs("NombreCliente") & " " & rs("ApellidosCliente"))
+    strCabCli = strCabCli & IIf(Len(rs("DireccionCliente")) > 0, vbCrLf & rs("DireccionCliente"), "")
+    strCabCli = strCabCli & IIf(Len(rs("CPCliente") & rs("LocalidadCliente")) > 0, vbCrLf & Trim(rs("CPCliente") & " " & rs("LocalidadCliente")), "")
+    strCabCli = strCabCli & IIf(Len(rs("ProvinciaCliente")) > 0, vbCrLf & rs("ProvinciaCliente"), "")
+    strCabCli = strCabCli & IIf(Len(rs("PaisCliente")) > 0, vbCrLf & rs("PaisCliente"), "")
+    If intCabecera = True Then
+        strMiCab = Nz(DameValorParam("FichasCabecera"), "")
+    Else
+        strMiCab = ""
+    End If
+    strParcelas = ParcelasDeUnaFicha(lngIdFicha)
+    intRestoPar = 35 - Len(g_strPH_s)
+    If Len(strParcelas) > intRestoPar Then
+        strParcelas = Left(strParcelas, intRestoPar) & vbCrLf & Mid(strParcelas, intRestoPar + 1)
+    End If
+    If intMargSup > 0 Then
+        For i = 1 To intMargSup
+            Print #1,
+        Next i
+    End If
+    If intMargIzdo > 0 Then
+        strMargen = space(intMargIzdo)
+    Else
+        strMargen = ""
+    End If
+    If rs("EstadoFicha") = 1 Then
+        strgLinea = strMargen & seSubrayON & " F i c h a  d e  R e s e r v a " & seSubrayOFF & LlenaIzq(IIf(intPag > 0, "Pag. " & intPag, " "), 30)
+        ImprimeLinea
+        strgLinea = strMargen & "N . " & LlenaIzq(rs("IdFichaCab"), 4) & "- Fecha Reserva: " & Format(rs("FechaReserva"), "dd/mm/yyyy") & "   " & g_strPH_s & ": " & ExtraeLin(strParcelas, 1)
+        ImprimeLinea
+    Else
+        If intEstancia = True Then
+            strgLinea = strMargen & seSubrayON & "F i c h a  d e  E s t a n c i a" & seSubrayOFF & LlenaIzq(IIf(intPag > 0, "Pag. " & intPag, " "), 30)
+        Else
+            strgLinea = strMargen & seSubrayON & " F i c h a  d e  E n t r a d a " & seSubrayOFF & LlenaIzq(IIf(intPag > 0, "Pag. " & intPag, " "), 30)
+        End If
+        ImprimeLinea
+        strgLinea = strMargen & "N . " & LlenaIzq(rs("IdFichaCab"), 4) & "-- Hora Llegada: " & Format(rs("HoraLlegada"), "hh:mm") & Llena(" ", 8) & g_strPH_s & ": " & ExtraeLin(strParcelas, 1)
+        ImprimeLinea
+    End If
+    
+    strgLinea = strMargen & "Fecha Llegada..........: " & Format(rs("FechaLlegada"), "dd/mm/yyyy") & LlenaChar(" ", 3) & Llena(ExtraeLin(strParcelas, 2), 35)
+'    strgLinea = strMargen & "                 " & Format(rs("FechaLlegada"), "dd/mm/yyyy") & LlenaChar(" ", 24) & Llena(ExtraeLin(strParcelas, 2), 24)
+    ImprimeLinea
+    strgLinea = strMargen & Llena(" ", 38) & seSubrayON & "C L I E N T E" & seSubrayOFF
+    ImprimeLinea
+    For i = 1 To 5
+        strgLinea = strMargen & Llena(ExtraeLin(strMiCab, i), 30) & space(8) & Llena(ExtraeLin(strCabCli, i), 40)
+        ImprimeLinea
+    Next i
+'    strgLinea = strMargen & Llena(" ", 30) & Space(8) & "Telef.: " & rs("TelefonoCliente")
+'    ImprimeLinea
+'    ImprimirCabeceraSD
+    ImprimirCabeceraFicha = True
+Salir_ImprimirCabeceraFicha:
+    Exit Function
+Error_ImprimirCabeceraFicha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraFicha"
+            
+    End Select
+    
+    Resume Salir_ImprimirCabeceraFicha
+End Function
+
+
+
+Private Function ImprimirDetalleFicha(lngIdFic As Long)
+    Dim rs As Recordset
+    Dim i As Integer, intPag As Integer, j As Integer
+    Dim strSQL As String
+    Dim strMiCab As String
+    Dim intIvaSN As Integer
+'    Dim intPtsEuros  As Integer
+    Dim dobTotalLin As Double
+    On Error GoTo Error_ImprimirDetalleFicha
+    
+'    intPtsEuros = DLookup("PtsEuros", "tbFichasCab", "IdFichaCab = " & lngIdFic)
+    strSQL = "SELECT tbFichasDet.*, 1 AS Dias, [Cantidad]*[PrecioUnitario]*[Dias] AS TotalLinea"
+    strSQL = strSQL & " FROM tbFichasDet"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngIdFic & "))"
+    'strSQL = strSQL & " AND (((tbFichasDet.Parcela Is Null)))"
+    strSQL = strSQL & " ORDER BY tbFichasDet.IdFichaDet;"
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then GoTo Extras
+    rs.MoveLast
+    rs.MoveFirst
+    intPag = 1
+'    If rs.RecordCount = 0 Then GoTo Extras
+    intIvaSN = NzCero(DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab= " & lngIdFic))
+    ImprimirCabeceraSD intIvaSN
+    'i = i + 5
+    While Not rs.EOF
+        i = i + 1
+        j = j + 1
+        If i >= intLinDet And rs.RecordCount > j Then
+            strgLinea = strMargen & LlenaIzq("Sigue...............", 75)
+            ImprimeLinea
+            Print #1, seSaltPg
+            intPag = intPag + 1
+            ImprimirCabeceraFicha lngIdFic, intPag
+            ImprimirCabeceraSD intIvaSN
+            i = 0
+        End If
+        If rs("Cantidad") = 0 And rs("PrecioUnitario") = 0 Then
+            strgLinea = strMargen & Llena(rs("Concepto"), 75)
+            ImprimeLinea
+        Else
+            strgLinea = strMargen & Llena(rs("Cantidad") & " " & rs("Concepto"), 44) & " " & LlenaIzq(CStr(rs("Dias")), 3) & LlenaIzq(Format(rs("PrecioUnitario"), "#,##0.00"), 10) & LlenaIzq(Format(rs("TotalLinea"), "#,##0.00"), 15) & " €"
+            ImprimeLinea
+        End If
+        dobTotalLin = dobTotalLin + rs("TotalLinea")
+        rs.MoveNext
+    Wend
+' Pie SD
+    Print #1, seRemarcON
+'    If intPtsEuros = 1 Then
+'        strgLinea = strMargen & LlenaIzq("TOTAL DIARIO:", 53) & LlenaIzq(Format(dobTotalLin, "#,##0") & " Pts.", 22)
+'        ImprimeLinea
+'    Else
+        strgLinea = strMargen & LlenaIzq("TOTAL DIARIO:", 53) & LlenaIzq(Format(dobTotalLin, "#,##0.00") & " €", 22)
+        ImprimeLinea
+'    End If
+    Print #1, seRemarcOFF
+    i = i + 3
+Extras:
+    
+FinFicha:
+    While i <= intLinDet
+        Print #1, seReturn;
+        i = i + 1
+    Wend
+    ImprimirDetalleFicha = True
+    
+Salir_ImprimirDetalleFicha:
+    Exit Function
+Error_ImprimirDetalleFicha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirDetalleFicha"
+            
+    End Select
+    
+    Resume Salir_ImprimirDetalleFicha
+
+End Function
+Private Function ImprimirPieFicha(lngIdFicha As Long) As Integer
+    Dim i As Integer
+    Dim strSaludos As String
+    Dim strLin As String
+    On Error GoTo Error_ImprimirPieFicha
+    Print #1, seRemarcON;
+    strSaludos = Nz(DameValorParam("FichasSaludoYConsejos"), "")
+    For i = 1 To 20
+        strLin = ExtraeLin(strSaludos, i)
+        If Len(strLin) > 0 Then
+            strgLinea = strMargen & strLin
+            ImprimeLinea
+        End If
+    Next i
+    Print #1, seRemarcOFF;
+    ImprimirPieFicha = True
+Salir_ImprimirPieFicha:
+    Exit Function
+Error_ImprimirPieFicha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirPieFicha"
+            
+    End Select
+    
+    Resume Salir_ImprimirPieFicha
+End Function
+
+Private Function ImprimirCabeceraExtras(intIVA_SN As Integer) As Integer
+    On Error GoTo Error_ImprimirCabeceraExtras
+    Print #1,
+    strgLinea = strMargen & "_________________" & " " & LlenaChar("_N C E P T O ", 31) & " " & "_________" & " " & "_______________"
+    ImprimeLinea
+    strgLinea = strMargen & "   E X T R A S   " & " " & Llena(" C O N C E P T O ", 31) & " " & "Precio U." & " " & "    Importe    "
+    ImprimeLinea
+    If intIVA_SN = True Then
+        strgLinea = strMargen & "_________________" & " " & LlenaChar("_E P T O ", 31) & " " & seSubrayON & " iva inc." & seSubrayOFF & " " & "_______________"
+        ImprimeLinea
+    Else
+        strgLinea = strMargen & "_________________" & " " & LlenaChar("_E P T O ", 31) & " " & seSubrayON & "  + iva  " & seSubrayOFF & " " & "_______________"
+        ImprimeLinea
+    End If
+    Print #1,
+    ImprimirCabeceraExtras = True
+Salir_ImprimirCabeceraExtras:
+    Exit Function
+Error_ImprimirCabeceraExtras:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraExtras"
+            
+    End Select
+    
+    Resume Salir_ImprimirCabeceraExtras
+End Function
+Private Function ImprimirCabeceraPagos() As Integer
+    On Error GoTo Error_ImprimirCabeceraPagos
+    Print #1,
+    strgLinea = strMargen & "_________________" & " " & LlenaChar("_N C E P T O ", 41) & " " & "_______________"
+    ImprimeLinea
+    strgLinea = strMargen & "PAGOS REALIZADOS " & " " & Llena(" C O N C E P T O ", 41) & " " & "    Importe    "
+    ImprimeLinea
+    strgLinea = strMargen & "_________________" & " " & LlenaChar("_E P T O ", 41) & " " & "_______________"
+    ImprimeLinea
+    Print #1,
+    ImprimirCabeceraPagos = True
+Salir_ImprimirCabeceraPagos:
+    Exit Function
+Error_ImprimirCabeceraPagos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraPagos"
+            
+    End Select
+    
+    Resume Salir_ImprimirCabeceraPagos
+End Function
+
+Private Function ImprimirCabeceraSD(intIVA_SN As Integer) As Integer
+    On Error GoTo Error_ImprimirCabeceraSD
+    Print #1, seReturn
+'    strgLinea = strMargen & "_________________" & " " & LlenaChar("_N C E P T O ", 26) & " " & "____" & " " & "_________" & " " & "_______________"
+'    strgLinea = strMargen & LlenaChar("_N C E P T O ", 44) & " " & "____" & " " & "_________" & " " & "_______________"
+'    ImprimeLinea
+'    strgLinea = strMargen & "SERVICIOS DIARIOS" & " " & Llena(" C O N C E P T O ", 26) & " " & "XDia" & " " & "Precio U." & " " & "    Importe    "
+    strgLinea = strMargen & Llena(" C O N C E P T O ", 44) & " " & "XDia" & " " & "Precio U." & " " & "    Importe    "
+    ImprimeLinea
+    If intIVA_SN = True Then
+'        strgLinea = strMargen & "_________________" & " " & LlenaChar("_N C E P T O ", 26) & " " & "____" & " " & seSubrayON & " iva inc." & seSubrayOFF & " " & "_______________"
+        strgLinea = strMargen & LlenaChar("_N C E P T O ", 44) & " " & "____" & " " & seSubrayON & " iva inc." & seSubrayOFF & " " & "_______________"
+        ImprimeLinea
+    Else
+'        strgLinea = strMargen & "_________________" & " " & LlenaChar("_N C E P T O ", 26) & " " & "____" & " " & seSubrayON & "   + iva " & seSubrayOFF & " " & "_______________"
+        strgLinea = strMargen & LlenaChar("_N C E P T O ", 44) & " " & "____" & " " & seSubrayON & "   + iva " & seSubrayOFF & " " & "_______________"
+        ImprimeLinea
+    End If
+    Print #1,
+    ImprimirCabeceraSD = True
+Salir_ImprimirCabeceraSD:
+    Exit Function
+Error_ImprimirCabeceraSD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraSD"
+            
+    End Select
+    Resume Salir_ImprimirCabeceraSD
+End Function
+Private Function ImprimirCabeceraEstancia() As Integer
+    On Error GoTo Error_ImprimirCabeceraEstancia
+'    Print #1, seReturn
+'    strgLinea = strMargen & LlenaChar("_", 76)
+'    ImprimeLinea
+    strgLinea = strMargen & Centra("Desde", 8) & " " & Centra("Hasta", 8) & " " & Llena(" C O N C E P T O ", 32) & " " & "Dias" & " " & "Precio U." & " " & "  Importe"
+    ImprimeLinea
+    strgLinea = strMargen & seSubrayON & Centra("Sarrera", 8) & " " & Centra("Irteera", 8) & " " & Llena(" K O N T Z E P T U A ", 32) & " " & "Egun" & " " & "Prezioa  " & " " & "  Guztira" & seSubrayOFF
+'   strgLinea = strMargen & LlenaChar("_", 76)
+    ImprimeLinea
+    ImprimirCabeceraEstancia = True
+Salir_ImprimirCabeceraEstancia:
+    Exit Function
+Error_ImprimirCabeceraEstancia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraEstancia"
+    End Select
+    Resume Salir_ImprimirCabeceraEstancia
+End Function
+Private Sub ImprimeLinea()
+    If intgCambiaAcentos = True And gintBloc = False Then
+        Print #1, CambiaAcentos(strgLinea)
+    Else
+        Print #1, strgLinea
+    End If
+End Sub
+
+
+Private Function ImprimirDetalleEstancia(lngIdFichaCab As Long)
+    Dim rs As Recordset
+    Dim i As Integer, intPag As Integer, j As Integer
+    Dim strSQL As String, strDias As String
+    Dim strMiCab As String
+    Dim strNF As String
+    On Error GoTo Error_ImprimirDetalleEstancia
+
+    strSQL = "SELECT tbFichasDet.*, IIf(IsDate([FechaFin]) And IsDate([FechaInicio]),CLng([FechaFin])-CLng([FechaInicio]),1) AS Dias, CCur([Cantidad]*[PrecioUnitario]*[Dias]) AS TotalLinea"
+    strSQL = strSQL & " FROM tbFichasDet"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngIdFichaCab & "))"
+    strSQL = strSQL & " ORDER BY tbFichasDet.IdFichaDet"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    rs.MoveLast
+    rs.MoveFirst
+    intPag = 1
+    ImprimirCabeceraEstancia
+    While Not rs.EOF
+        i = i + 1
+        j = j + 1
+        If i >= intLinDet And rs.RecordCount > j Then
+            strgLinea = strMargen & LlenaIzq("Sigue...............", 64)
+            ImprimeLinea
+            strgLinea = seSaltPg
+            ImprimeLinea
+            intPag = intPag + 1
+            ImprimirCabeceraFicha lngIdFichaCab, intPag, True
+            ImprimirCabeceraEstancia
+            i = 0
+        End If
+        If IsDate(rs("FechaFin")) Then
+            strDias = CStr(rs("Dias"))
+        Else
+            strDias = "-"
+        End If
+        If rs("Cantidad") = 0 Then
+            strgLinea = strMargen & Llena(Format(rs("FechaInicio"), "dd/mm/yy"), 8) & " " & Llena(Format(rs("FechaFin"), "dd/mm/yy"), 8) & " " & Llena(rs("Concepto"), 56)
+        Else
+            strgLinea = strMargen & Llena(Format(rs("FechaInicio"), "dd/mm/yy"), 8) & " " & Llena(Format(rs("FechaFin"), "dd/mm/yy"), 8) & " " & Llena(rs("Cantidad") & " " & rs("Concepto"), 32) & " " & LlenaIzq(strDias, 3) & LlenaIzq(Format(rs("PrecioUnitario"), "#,##0.00"), 10) & LlenaIzq(Format(rs("TotalLinea"), "#,##0.00"), 10)
+        End If
+        ImprimeLinea
+        rs.MoveNext
+    Wend
+    
+    While i <= intLinDet
+        Print #1, seReturn;
+        i = i + 1
+    Wend
+    ImprimirDetalleEstancia = True
+    
+Salir_ImprimirDetalleEstancia:
+    Exit Function
+Error_ImprimirDetalleEstancia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirDetalleEstancia"
+            
+    End Select
+    Resume Salir_ImprimirDetalleEstancia
+End Function
+Private Function ImprimirPieEstancia(lngIdFichaCab As Long) As Integer
+    Dim rs As Recordset
+    Dim rs2 As Recordset
+    Dim i As Integer
+    Dim strIVA As String, intHay1IVA As Integer
+    On Error GoTo Error_ImprimirPieEstancia
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab")
+    rs.FindFirst "IdFichaCab = " & lngIdFichaCab
+    If rs.NoMatch Then
+        MsgBox "No existe la ficha nº: " & lngIdFichaCab
+        ImprimirPieEstancia = False
+        Exit Function
+    End If
+    
+    strgLinea = strMargen & LlenaChar("_", 76)
+    ImprimeLinea
+    intHay1IVA = True ' si se quiere desglose de IVA que se facture ¿no?
+    If intHay1IVA = True Then
+        strgLinea = strMargen & Llena(" ", 42) & LlenaIzq("Base:", 12) & LlenaIzq(Format(TotalFicha(lngIdFichaCab, 1), "#,##0.00") & " €", 22)
+        ImprimeLinea
+        strgLinea = strMargen & Llena(" ", 42) & seRemarcON & LlenaIzq("IVA:", 12) & LlenaIzq(Format(TotalFicha(lngIdFichaCab, 2), "#,##0.00") & " €", 22) & seRemarcOFF
+        ImprimeLinea
+        strgLinea = strMargen & Llena(" ", 42) & seRemarcON & LlenaIzq("TOTAL:", 12) & LlenaIzq(Format(TotalFicha(lngIdFichaCab, 3), "#,##0.00") & " €", 22) & seRemarcOFF
+        ImprimeLinea
+        '''''''''''''''''''''''''''''
+        ' Ver si hay pagos Adelantados
+            Dim curAdelanto As Currency
+            curAdelanto = TotalFichaPagos(lngIdFichaCab)
+        ''''''''''''''''
+        If Nz(DameValorParam("FichasVerAdelantos"), True) = True Then
+            If curAdelanto > 0 Then
+                strgLinea = strMargen & "Adelantado: " & Format(curAdelanto, "#,##0.00") & " €" & " Pendiente: " & Format(TotalFicha(lngIdFichaCab, 3) - curAdelanto, "#,##0.00") & " €"
+                ImprimeLinea
+            End If
+        End If
+        Print #1, seSaltPg;
+    End If
+    ImprimirPieEstancia = True
+Salir_ImprimirPieEstancia:
+    Exit Function
+Error_ImprimirPieEstancia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirPieEstancia"
+    End Select
+    Resume Salir_ImprimirPieEstancia
+End Function
+
+Public Function ImprimirEntradaViajerosDOS(lngIdFicha As Long, Optional strFile As String = "") As Integer
+'    Dim lngIdFic As Long
+    Dim rs As Recordset, i As Integer
+    On Error GoTo Error_ImprimirEntradaViajerosDOS
+    gintBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    ParametrosIniFicha
+    glngIdFicha = lngIdFicha
+    If strFile = "" Then
+        gstrFILE = DirectorioDe(CurrentDb.Name) & "Ficha.txt"
+    Else
+        gstrFILE = strFile
+    End If
+    
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab")
+    rs.FindFirst "IdFichaCab = " & lngIdFicha
+    If rs.NoMatch Then
+        MsgBox "No existe la ficha nº: " & lngIdFicha
+        ImprimirEntradaViajerosDOS = False
+        Exit Function
+    End If
+'    If intMargSup > 0 Then
+    Print #1, seNORMAL
+        For i = 1 To 6 'intMargSup
+            Print #1,
+        Next i
+'    End If
+    If intMargIzdo > 0 Then
+        strMargen = space(intMargIzdo)
+    Else
+        strMargen = ""
+    End If
+    strMargen = space(27)
+    strgLinea = strMargen & seSubrayON & "Hoja de Registro. Entrada de Viajeros" & seSubrayOFF
+    ImprimeLinea
+    strgLinea = strMargen & seSubrayON & "DATOS DEL VIAJERO" & seSubrayOFF
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Nº de documento de identidad: " & seRemarcOFF & rs("DNICliente")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Tipo de documento: " & seRemarcOFF & rs("TipoDocumento")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Fecha de expedición del documento: " & seRemarcOFF & rs("FechaExpedicion")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Apellidos: " & seRemarcOFF & rs("ApellidosCliente")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Nombre: " & seRemarcOFF & rs("NombreCliente")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Sexo: " & seRemarcOFF & rs("SexoCliente")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Fecha de Nacimiento: " & seRemarcOFF & rs("FechaNacimiento")
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Nacionalidad: " & seRemarcOFF & DLookup("Nacionalidad", "valPaises", "NombrePais = " & ConComillas(Nz(rs("PaisCliente"), "")))
+    ImprimeLinea
+    strgLinea = strMargen & seRemarcON & "Fecha de entrada: " & seRemarcOFF & rs("FechaLlegada")
+    ImprimeLinea
+    For i = 1 To 2 'intMargSup
+        Print #1,
+    Next i
+    strgLinea = strMargen & "En ISABA, a " & Format(Date, "d"" de ""mmmm"" de ""yyyy")
+    ImprimeLinea
+    strgLinea = strMargen & seSubrayON & "Firma" & seSubrayOFF
+    ImprimeLinea
+    For i = 1 To 7 'intMargSup
+        Print #1,
+    Next i
+    
+    Print #1, seSaltPg;
+    Close
+    ImprimirDOS gstrFILE, strPathPrintTeam & strPathPrintPort
+Salir_ImprimirEntradaViajerosDOS:
+    Exit Function
+Error_ImprimirEntradaViajerosDOS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirEntradaViajerosDOS"
+    End Select
+    Resume Salir_ImprimirEntradaViajerosDOS
+End Function

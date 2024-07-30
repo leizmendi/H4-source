@@ -1,0 +1,46 @@
+Option Compare Database
+Option Explicit
+    Global glngMiPuesto As Long
+    Global gintHayServidor As Integer
+    Global gintSoyServidor As Integer
+    
+Public Sub Pon_glngMiPuesto()
+    On Error GoTo Error_Pon_glngMiPuesto
+    Dim strP As String, lngIdP As Long
+    glngMiPuesto = 0
+    strP = Nz(DameValorParam("PuestoNombre"), "")
+    If strP = "" Then
+        MsgBox "No se ha definido el puesto actual"
+        DoCmd.OpenForm "frmParametrosPuesto"
+        Exit Sub
+    End If
+    lngIdP = Nz(DLookup("IdPuesto", "cfgPuestos", "NombrePuesto = " & ConComillas(strP)), 0)
+    If lngIdP = 0 Then
+        MsgBox "No se ha encontrado el puesto " & ConComillas(strP) & " en la tabla de puestos"
+        DoCmd.OpenForm "frmParametrosPuesto"
+        Exit Sub
+    End If
+    glngMiPuesto = lngIdP
+    'If DLookup("ServidorSN", "cfgPuestos", "IdPuesto = " & glngMiPuesto) = True Then
+    '    gintSoyServidor = True
+    '    gintHayServidor = True
+    'Else
+    '    gintSoyServidor = False
+    '    If Nz(DLookup("IdPuesto", "cfgPuestos", "ServidorSN=True"), 0) <> 0 Then
+    '        gintHayServidor = True
+    '    Else
+    '        gintHayServidor = False
+    '    End If
+    'End If
+    
+    
+Salir_Pon_glngMiPuesto:
+    Exit Sub
+Error_Pon_glngMiPuesto:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Pon_glngMiPuesto" & vbCrLf & Err.Description
+            glngMiPuesto = 0
+            Resume Salir_Pon_glngMiPuesto
+    End Select
+End Sub

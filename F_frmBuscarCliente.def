@@ -1,0 +1,218 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gfrm As Form
+    Dim db As Database
+    Dim rs As Recordset
+    Dim intCont As Integer, intAct As Integer
+
+
+Private Sub btnAdelante_Click()
+    On Error GoTo Salir_btnAdelante_Click
+    If rs.EOF Then Exit Sub
+    rs.MoveNext
+    If rs.EOF Then Exit Sub
+    If intAct < intCont Then
+        intAct = intAct + 1
+    End If
+    SincronizarFicha
+Salir_btnAdelante_Click:
+    Exit Sub
+End Sub
+
+Private Sub btnAdelante_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyRight
+                Me.btnFin.SetFocus
+            Case vbKeyLeft
+                Me.btnBuscarCliente.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnAtras_Click()
+    On Error GoTo Salir_btnAtras_Click
+    If rs.BOF Then Exit Sub
+    rs.MovePrevious
+    If rs.BOF Then Exit Sub
+    If intAct > 1 Then
+        intAct = intAct - 1
+    End If
+    SincronizarFicha
+Salir_btnAtras_Click:
+    Exit Sub
+End Sub
+
+Private Sub btnAtras_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyRight
+                Me.btnBuscarCliente.SetFocus
+            Case vbKeyLeft
+                Me.btnInicio.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnBuscarCliente_Click()
+    Dim strSQL As String
+    Dim strMensaje As String
+    
+    On Error GoTo Error_btnBuscarCliente_Click
+    If Me.txtDNI = "" Then Me.txtDNI = "*"
+    If Me.txtNombre = "" Then Me.txtNombre = "*"
+    If Me.txtProcedencia = "" Then Me.txtProcedencia = "*"
+    If Me.Telefono = "" Then Me.Telefono = "*"
+    
+    strSQL = "SELECT [NIF], [NombreCli] & ' ' & [ApellidosCli] AS Expr1, [Ciudad] & ' ' & [EdoOProv] & ' ' & [Pais] AS Expr2, [Telefono] & ' ' & [Fax] AS Expr3"
+    strSQL = strSQL + " FROM tbClientes"
+    strSQL = strSQL + " WHERE ([NIF] Like '*" & Me![txtDNI] & "*')"
+    strSQL = strSQL & " AND ([NombreCli] & ' ' & [ApellidosCli] & ' ' & [MatriculaVehiculo] Like '*" & ConAcentos(Me![txtNombre]) & "*')"
+    strSQL = strSQL & " AND ([Ciudad] & ' ' & [EdoOProv] & ' ' & [Pais] Like '*" & ConAcentos(Me![txtProcedencia]) & "*')"
+    strSQL = strSQL & " AND (([TelefonoSoloNum]) & ' ' & ([Email]) Like '*" & Me.Telefono & "*')"
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        strMensaje = "No se encontró ninguna ficha de cliente que cumpla las condiciones de búsqueda"
+        MsgBox strMensaje
+        Exit Sub
+    Else
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    intCont = rs.RecordCount
+    intAct = 1
+    SincronizarFicha
+Salir_btnBuscarCliente_Click:
+    Exit Sub
+Error_btnBuscarCliente_Click:
+    Select Case Err
+    
+        Case Else
+            MsgBox Err.Description
+            Resume Salir_btnBuscarCliente_Click
+            Resume Next
+    End Select
+End Sub
+
+Public Sub SincronizarFicha()
+    Dim rsAux As Recordset
+    Dim varMarca As Variant
+    
+    Set rsAux = gfrm.RecordsetClone
+    rsAux.FindFirst "NIF = " & ConComillas(rs("NIF"))
+    varMarca = rsAux.Bookmark
+    gfrm.Bookmark = varMarca
+    Me.lblSeEncontraron.Caption = intAct & " de " & intCont
+    
+End Sub
+
+
+Private Sub btnBuscarCliente_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyDown Or KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyDown
+                Me.btnCerrar.SetFocus
+            Case vbKeyRight
+                Me.btnAdelante.SetFocus
+            Case vbKeyLeft
+                Me.btnAtras.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnCerrar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnCerrar_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyUp Then
+        Me.btnBuscarCliente.SetFocus
+    End If
+
+End Sub
+
+
+Private Sub btnFin_Click()
+    On Error Resume Next
+    rs.MoveLast
+    intAct = rs.RecordCount
+    SincronizarFicha
+End Sub
+
+Private Sub btnFin_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyRight Or KeyCode = vbKeyLeft Then
+        Select Case KeyCode
+            Case vbKeyLeft
+                Me.btnAdelante.SetFocus
+            Case vbKeyRight
+                Me.btnInicio.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnInicio_Click()
+    On Error Resume Next
+    rs.MoveFirst
+    intAct = 1
+    SincronizarFicha
+
+End Sub
+
+Private Sub btnInicio_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyRight Or KeyCode = vbKeyLeft Then
+        Select Case KeyCode
+            Case vbKeyLeft
+                Me.btnFin.SetFocus
+            Case vbKeyRight
+                Me.btnAtras.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    On Error GoTo HandleError
+    If Me.OpenArgs = "frmClientes" Then
+        Set gfrm = Forms("frmClientes")
+    Else
+        Set gfrm = Forms("frmMaestros")("subfrm").Form
+    End If
+    Me.Caption = "Buscar Cliente"
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Telefono_AfterUpdate()
+    'Me.Telefono = SoloNum(Me.Telefono)
+End Sub
+
+Private Sub txtDNI_AfterUpdate()
+    NuloNo Me.txtDNI
+    If IsNumeric(Me.txtDNI) And Len(Me.txtDNI) = 8 Then
+        Me.txtDNI = Format(Me.txtDNI, "#,##0") & "-" & letra_dni(Me.txtDNI)
+    End If
+End Sub
+
+Private Sub txtNombre_AfterUpdate()
+    NuloNo Me.txtNombre
+End Sub
+
+Public Sub NuloNo(ctl As Control)
+    If IsNull(ctl) Then
+        ctl = ""
+    End If
+End Sub
+
+Private Sub txtProcedencia_AfterUpdate()
+    NuloNo Me.txtProcedencia
+End Sub

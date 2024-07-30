@@ -1,0 +1,225 @@
+Option Compare Database
+Option Explicit
+
+Public Sub LimpiaDatosTarjeta(lngIdFichaCab As Long)
+    On Error Resume Next
+    DoCmd.RunCommand acCmdSaveRecord
+    On Error GoTo Error_LimpiaDatosTarjeta
+    Dim intR As Integer, strSQL As String, strDAT As String
+    strDAT = "" & DLookup("[NumeroTarjeta] & [CaducaTarjeta] & [TitularTarjeta] & [TarjetaCodigoSeguridad]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab)
+    If strDAT = "" Then GoTo Salir_LimpiaDatosTarjeta
+    Select Case Nz(DameValorParam("FichasAlCerrarBorrarDatosTarjetaSPN"), 2)
+        Case 1: intR = vbYes
+        Case 2: intR = MsgBox("¿Borrar datos de la tarjeta del cliente?", vbYesNo + vbQuestion)
+        Case 3: intR = vbNo
+    End Select
+    If intR = vbYes Then
+        strSQL = "UPDATE tbFichasCab SET NumeroTarjeta = Null, CaducaTarjeta = Null, TitularTarjeta = Null, TarjetaCodigoSeguridad=Null"
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE tbFichasCab INNER JOIN wbReservations ON tbFichasCab.WuBookID = wbReservations.reservation_code SET wbReservations.cc_data = null "
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+        CurrentDb.Execute strSQL, dbFailOnError
+
+    End If
+Salir_LimpiaDatosTarjeta:
+    Exit Sub
+Error_LimpiaDatosTarjeta:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LimpiaDatosTarjeta" & vbCrLf & Err.Description
+            Resume Salir_LimpiaDatosTarjeta
+    End Select
+
+End Sub
+
+Public Function VentaServicio()
+    On Error GoTo HandleError
+    Dim strXML As String
+    PonXML strXML, "VentaServicioSN", "S"
+    DoCmd.OpenForm "frmListaSD_puntear", , , , , acDialog, strXML
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Sub AplicarDtoFicha(lngIdFichaCab As Long, curDto As Currency, Optional intDecimales As Integer = 2)
+    Dim strSQL As String, rs0 As Recordset, rs1 As Recordset, rs2 As Recordset
+    Dim curTotal As Currency, intHayVarios As Integer
+    Dim lngIdSD As Long
+    On Error GoTo Error_AplicarDto
+    CurrentDb.Execute "DELETE * FROM auxFichasDetAplicarDto", dbFailOnError
+    CurrentDb.Execute "INSERT INTO auxFichasDetAplicarDto(IdFichaDet) SELECT IdFichaDet FROM tbFichasDet WHERE IdFichaCab = " & Nz(lngIdFichaCab, 0), dbFailOnError
+    
+    strSQL = "SELECT DISTINCTROW tbFichasDet.IVA, Sum([tbFichasDet]![Cantidad]*[tbFichasDet]![PrecioUnitario]*(IIf(IsNull([tbFichasDet]![FechaInicio]),1,FechaH([tbFichasDet]![IdFichaDet])-[tbFichasDet]![FechaInicio]))) AS Importe"
+    strSQL = strSQL & " FROM tbFichasDet INNER JOIN auxFichasDetAplicarDto ON tbFichasDet.IdFichaDet = auxFichasDetAplicarDto.IdFichaDet"
+    strSQL = strSQL & " GROUP BY tbFichasDet.IVA, tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " HAVING (((tbFichasDet.IdFichaCab)=" & lngIdFichaCab & "))"
+    strSQL = strSQL & " ORDER BY tbFichasDet.IVA;"
+    Set rs0 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rs1 = CurrentDb.OpenRecordset("tbFichasDet", dbOpenDynaset)
+    If Not rs0.EOF Then
+        rs0.MoveLast
+        rs0.MoveFirst
+        If rs0.RecordCount > 1 Then
+            intHayVarios = True
+        End If
+    End If
+    While Not rs0.EOF
+        curTotal = Redondea(-1 * rs0("Importe") * curDto, intDecimales)
+        If curTotal = 0 Then GoTo Siguiente
+''''''''''''''''''''' Localizar un IdSD''''''''''''''''''''''''''
+'        strSQL = "SELECT TOP 1 tbServiciosDiarios.IdSD"
+'        strSQL = strSQL & " FROM tbGruposDeIngresos INNER JOIN tbServiciosDiarios ON tbGruposDeIngresos.CodNombreGrupo = tbServiciosDiarios.CodGrupoIngresos"
+'        strSQL = strSQL & " WHERE (((tbGruposDeIngresos.IdEmpresa) = " & rs0("IdEmpresa") & "))"
+'        strSQL = strSQL & " ORDER BY tbServiciosDiarios.CodSD;"
+'        Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+'        If rs2.EOF Then
+'            lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios"), 0)
+'        Else
+'            rs2.MoveFirst
+'            lngIdSD = rs2("IdSD")
+'        End If
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+        rs1.AddNew
+        rs1("IdFichaCab") = lngIdFichaCab
+'        rs1("IdSD") = lngIdSD
+        rs1("IdSD") = Null
+        rs1("DtoSN") = True
+'        rs1("Concepto") = "*Descuento: " & Nz(DLookup("Empresa", "tbEmpresas", "IdEmpresa = " & rs0("IdEmpresa")), "-") & ", " & Format(curdto, "Percent")
+        rs1("Concepto") = "*Descuento: " & Format(curDto, "Percent")
+        If intHayVarios Then
+            rs1("Concepto") = rs1("Concepto") & "( IVA " & Format(rs0("IVA"), "percent") & ")"
+        End If
+        rs1("Cantidad") = 1
+        rs1("PrecioUnitario") = curTotal
+        rs1("IVA") = rs0("IVA")
+        'rs1("RecEq") = rs0("RecEq")
+        rs1.Update
+Siguiente:
+        rs0.MoveNext
+    Wend
+    G_RecalculaTotales lngIdFichaCab
+Salir_AplicarDto:
+    Exit Sub
+Error_AplicarDto:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AplicarDto" & vbCrLf & Err.Description
+            Resume Salir_AplicarDto
+            Resume Next
+    End Select
+End Sub
+
+
+Public Function DimeAgenciaDeIdFicha(lngIdFichaCab As Long, Optional iIdNombre As Integer = 2) As Variant
+    Dim lngIdA As Long, strR As String
+    lngIdA = Nz(DLookup("IdAgencia", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    If iIdNombre = 1 Then
+        DimeAgenciaDeIdFicha = lngIdA
+    Else
+        strR = Trim(Nz(DLookup("[NombreCli] & ' ' & [ApellidosCli]", "tbClientes", "IdCliente = " & lngIdA), ""))
+        DimeAgenciaDeIdFicha = strR
+    End If
+
+End Function
+
+Public Function GetCarpetaDatos(Optional bConBarraFinal As Boolean = True) As String
+    GetCarpetaDatos = ConBarraFinalSN(DameValorParam("AplicacionCarpetaDatos"), bConBarraFinal)
+End Function
+
+Public Function GetCarpetaImagenes(Optional bConBarraFinal As Boolean = True) As String
+    GetCarpetaImagenes = ConBarraFinalSN(GetCarpetaDatos & DameValorParam("AplicacionCarpetaImagenes"), bConBarraFinal)
+End Function
+
+Public Function GetCarpetaFacs(Optional bConBarraFinal As Boolean = True) As String
+    GetCarpetaFacs = ConBarraFinalSN(GetCarpetaDatos & "facs\", bConBarraFinal)
+End Function
+
+Public Function GetCarpetaQR(Optional bConBarraFinal As Boolean = True) As String
+    GetCarpetaQR = ConBarraFinalSN(GetCarpetaDatos & "facs\QR", bConBarraFinal)
+End Function
+
+
+Public Function GetFileQR(lIdFactura As Long, Optional fromPath As String = "") As String
+    On Error GoTo HandleError
+    Dim sR As String
+    sR = Nz(DLookup("Serie", "tbFacturasCab", "IdFactura = " & lIdFactura), "")
+    'sR = IIf(sR = "", "_", sR)
+    sR = sR & DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lIdFactura) & ".gif"
+    GetFileQR = GetRelativePath(fromPath, GetCarpetaQR) & NombreFicheroValido(sR)
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function GetCarpetaTbaiSalida(Optional bConBarraFinal As Boolean = True)
+    GetCarpetaTbaiSalida = ConBarraFinalSN(Nz(DameValorParam("TBai_CarpetaSalida"), ""), bConBarraFinal)
+End Function
+
+Public Function GetCarpetaTbaiEnviadas(Optional bConBarraFinal As Boolean = True)
+    GetCarpetaTbaiEnviadas = ConBarraFinalSN(Nz(DameValorParam("TBai_CarpetaEnviadas"), ""), bConBarraFinal)
+End Function
+
+Public Function ConBarraFinalSN(sPath As String, bConBarraFinal As Boolean) As String
+    On Error GoTo HandleError
+    Dim sR As String
+    sR = sPath
+    If bConBarraFinal = True And Right(sPath, 1) <> "\" Then
+        sR = sR & "\"
+    ElseIf bConBarraFinal = False And Right(sPath, 1) = "\" Then
+        sR = Left(sR, Len(sR) - 1)
+    End If
+    ConBarraFinalSN = sR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+
+Public Sub H4_TiraLogos(rptTiraLogos As SubForm, rptCall As Report)
+    On Error GoTo HandleError
+    Dim lngW As Long, lngH As Long, lngL As Long
+    Call rptTiraLogos.Report.PonTiraLogos(lngH, lngW)
+    If lngH = 0 Then
+        rptTiraLogos.Visible = False
+    Else
+        'Colocar subInforme TiraLogo
+        rptTiraLogos.Width = lngW
+        Select Case Nz(DameValorParam("FacturasTiraLogosAlinH"), 1)
+            Case 1
+                lngL = 10
+            Case 2
+                lngL = (rptCall.Width - lngW) \ 2
+            Case 3
+                lngL = rptCall.Width - lngW
+        End Select
+        If lngL < 0 Then lngL = 0
+        rptTiraLogos.Left = lngL
+        '''''''''''''''''''''''''''''
+        If lngH + rptTiraLogos.Height > rptCall.PieDePágina.Height Then
+            rptTiraLogos.Top = rptCall.PieDePágina.Height - lngH
+            rptTiraLogos.Height = lngH
+        Else
+            rptTiraLogos.Height = lngH
+            'rptTiraLogos.Top = Me.PieDePágina.Height - lngH - 400
+        End If
+        rptTiraLogos.Visible = True
+    End If
+
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

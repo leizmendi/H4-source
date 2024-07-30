@@ -1,0 +1,280 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim strBusca As String
+    Dim gstrCarpetaImg As String
+
+
+Private Sub Agencia_AfterUpdate()
+'    Dim intVer As Integer
+'    intVer = Nz(Me.Agencia, False)
+'    Me.Descuento.Visible = intVer
+'    Me.FacturasAgrupadas.Visible = intVer
+'    Me.DetalleEnFacturas.Visible = intVer
+    Me.FacturaACliente.Visible = Nz(Me.Agencia, False)
+    Call FacturaACliente_AfterUpdate
+End Sub
+
+Private Sub btnBuscar_Click()
+    On Error GoTo HandleError
+    Me.FilterOn = False
+    Dim frm As Form
+    On Error Resume Next
+    Set frm = Me.Parent
+    If Err <> 0 Then
+        DoCmd.OpenForm "frmBuscarCliente", , , , , acDialog, "frmClientes"
+    Else
+        DoCmd.OpenForm "frmBuscarCliente", , , , , acDialog, "frmMaestros"
+    End If
+    'DoCmd.OpenForm "frmBuscaCliente", , , , , , "frmClientes"
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnEmail_Click()
+    On Error GoTo HandleError
+    If Me.lstFacturas.ItemsSelected.Count = 0 Then
+        MsgBox "Se debe seleccionar alguna factura", vbExclamation
+        Exit Sub
+    End If
+    Dim vIt As Variant, strIdFacs As String, strMsgResp As String, strEmail As String
+    For Each vIt In Me.lstFacturas.ItemsSelected
+        strIdFacs = strIdFacs & Me.lstFacturas.ItemData(vIt) & ";"
+    Next vIt
+    strEmail = Nz(Me.EMail, "")
+    EnviarFacturaXEmail 0, strEmail, , , strMsgResp, strIdFacs
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnListado_Click()
+    On Error GoTo HandleError
+    If Me.lstFacturas.ItemsSelected.Count = 0 Then
+        MsgBox "Se debe seleccionar alguna factura", vbExclamation
+        Exit Sub
+    End If
+    Dim vIt As Variant, strW As String, strMsgResp As String, strEmail As String, strTitulo As String
+    For Each vIt In Me.lstFacturas.ItemsSelected
+        strW = strW & "IdFactura = " & Me.lstFacturas.ItemData(vIt) & " OR "
+    Next vIt
+    strW = RecDerTop(strW, 4, 0)
+    Dim strFilePDF As String, strBody As String, strAttachs As String
+    strTitulo = "Facturas Seleccionadas de " & Me.NombreCli & " " & Me.ApellidosCli
+    strFilePDF = DameValorParam("AplicacionCarpetaListados") & "ListadoFacturasSeleccionadas_" & Format(Now(), "dd_mm_yy_hh_nn") & ".pdf"
+    PrintReportAsPDF "rptListadoFacturasSeleccionadas", strW, strFilePDF, strTitulo, , , False, , False
+    strBody = "Estimado/a cliente" & vbCrLf & "Adjuntamos listado de " & strTitulo & vbCrLf & vbCrLf & "Reciba un cordial saludo" & vbCrLf & DameValorParam("EstablecimientoNombre")
+    strAttachs = strFilePDF
+    strBody = Nz(MyInputBox("Introduzca texto del mensaje", "Texto del mensaje", strBody, , , strAttachs), "")
+    If strBody = "" Then
+        MsgBox "Se canceló el envío", vbExclamation
+        GoTo HandleExit
+    End If
+    strEmail = Nz(Me.EMail, "")
+    strEmail = Nz(MyInputBox("Enviar a email:", "Dirección de email donde enviar:", strEmail), "")
+    If strEmail = "" Then
+        MsgBox "Se canceló el envío", vbExclamation
+        GoTo HandleExit
+    End If
+    Envia_Email strTitulo, strBody, strEmail, , , strAttachs
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnModi_Click()
+    BloqueoFormulario Me
+End Sub
+
+
+Private Sub FacturaACliente_AfterUpdate()
+    Me.DatosViajeroEnDetalleSN.Visible = Me.FacturaACliente.Visible And Me.FacturaACliente = False
+End Sub
+
+Private Sub Fax_AfterUpdate()
+    Me.FaxSoloNum = SoloNum(Nz(Me.Fax, ""))
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.CodCliente = Format(CLng(Nz(DMax("CodCliente", "tbClientes"), 0)) + 1, "00000")
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    Dim intRes As Integer
+    Dim strRes As String
+    If IsNull(Me.CodigoEntidad) Or IsNull(Me.CodigoSucursal) Or IsNull(Me.DigitoControl) Or IsNull(Me.NumeroCuenta) Then Exit Sub
+    If Len(Me.CodigoEntidad) = 0 Or Len(Me.CodigoSucursal) = 0 Or Len(Me.DigitoControl) = 0 Or Len(Me.NumeroCuenta) = 0 Then Exit Sub
+    strRes = CompruebaDC(Me.CodigoEntidad & "-" & Me.CodigoSucursal & "-" & Me.DigitoControl & "-" & Me.NumeroCuenta, intRes)
+    If intRes = False Then
+        MsgBox "Se debe corregir el nº de cuenta"
+        Cancel = True
+        Me.CodigoEntidad.SetFocus
+    End If
+End Sub
+
+Private Sub Form_Current()
+    If Me.NewRecord Then
+        BloqueoFormulario Me, False
+    Else
+        BloqueoFormulario Me, True
+    End If
+    Call Agencia_AfterUpdate
+    Call PagoDomiciliadoSN_AfterUpdate
+    CargaListas
+    'Me.lstFichas.Requery
+    'Me.lstFacturas.Requery
+    PonCli
+End Sub
+Private Sub PonCli()
+    Me.lblCli.Caption = "Cliente: " & Me.NombreCli & " " & Me.ApellidosCli
+    
+End Sub
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, ""
+End Sub
+
+Private Sub Form_Load()
+    'CargarSettingsForm Me
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, intFiltrado As Integer, ctl As Control
+    strXML = Nz(Me.OpenArgs, "")
+    intFiltrado = Nz(DimeXML(strXML, "FiltradoSN"), "N") = "S"
+    If intFiltrado = True Then
+        Me.EncabezadoDelFormulario.Visible = True
+        For Each ctl In Me.Controls
+            If InStr(ctl.Tag, "_filtro") > 0 Then
+                ctl.Visible = False
+            End If
+        Next ctl
+        Me.FilterOn = True
+    Else
+        Me.FilterOn = False
+    End If
+    If Nz(DimeXML(strXML, "AñadirSN"), "S") = "N" Then Me.AllowAdditions = False
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    GrabarSettingsForm Me
+End Sub
+
+Private Sub lstFacturas_DblClick(Cancel As Integer)
+    On Error GoTo HandleError
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    If Me.lstFacturas.ItemsSelected.Count = 0 Then Exit Sub
+    Dim lngIdFac As Long, vIt As Variant
+    For Each vIt In Me.lstFacturas.ItemsSelected
+        lngIdFac = Me.lstFacturas.ItemData(vIt)
+        Exit For
+    Next vIt
+    DoCmd.OpenForm "frmFacturas", , , "IdFactura = " & lngIdFac
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub lstFichas_DblClick(Cancel As Integer)
+    If Me.lstFichas.ListIndex = -1 Then Exit Sub
+    AbrirFichaNum Me.lstFichas
+End Sub
+
+Private Sub NIF_AfterUpdate()
+    Dim db As DAO.Database
+    Dim rs As Recordset
+    On Error GoTo Error_NIF_AfterUpdate
+    If IsNull(Me.NIF) Then Exit Sub
+    If IsNumeric(Me.NIF) And Len(Me.NIF) = 8 Then
+        Me.NIF = Format(Me.NIF, "#,##0") & "-" & letra_dni(Me.NIF)
+    End If
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("tbClientes")
+    If Not Me.NewRecord Then Exit Sub
+    rs.FindFirst "NIF = '" & Me.NIF & "'"
+    If Not rs.NoMatch Then
+        MsgBox "El cliente ya está en la base"
+        Me.NIF.SetFocus
+    End If
+Exit_NIF_AfterUpdate:
+    Exit Sub
+Error_NIF_AfterUpdate:
+    Select Case Err.Number
+    Case Else
+        MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En NIF_AfterUpdate"
+        Resume Exit_NIF_AfterUpdate
+    End Select
+End Sub
+
+Private Sub NIF_BeforeUpdate(Cancel As Integer)
+    Dim v As Variant
+    v = DLookup("IdFactura", "tbFacturasCab", "NIF = " & ConComillas(Nz(Me.NIF.OldValue, "¿?")))
+    If Not IsNull(v) Then
+        MsgBox "Se encontraron facturas con el NIF antíguo (" & Me.NIF.OldValue & "), no se puede modificar"
+        Cancel = True
+        SendKeys "{ESC}"
+        Exit Sub
+    End If
+    v = DLookup("IdFichaCab", "tbFichasCab", "DNICliente = " & ConComillas(Nz(Me.NIF.OldValue, "¿?")))
+    If Not IsNull(v) Then
+        MsgBox "Se encontraron estancias con el NIF antíguo (" & Me.NIF.OldValue & "), no se puede modificar"
+        Cancel = True
+        SendKeys "{ESC}"
+        Exit Sub
+    End If
+        
+End Sub
+
+Private Function AMayus_PonCli()
+    Call AMayus
+    Call PonCli
+End Function
+
+Private Sub PagoDomiciliadoSN_AfterUpdate()
+    Me.FechaMandato.Visible = Nz(Me.PagoDomiciliadoSN, False)
+    Me.ReferenciaMandato.Visible = Nz(Me.PagoDomiciliadoSN, False)
+End Sub
+
+Private Sub Telefono_AfterUpdate()
+    Me.TelefonoSoloNum = SoloNum(Nz(Me.Telefono, ""))
+End Sub
+
+Public Sub CargaListas()
+    Dim strSQL As String
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Ficha nº], tbFichasCab.FechaLlegada AS Fecha, (TotalBase + TotalIVA + TotalRecEq) AS [Total Ficha]"
+    strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab)"
+    strSQL = strSQL & " LEFT JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.DNICliente=" & ConComillas(Nz(Me.NIF, ""))
+    strSQL = strSQL & " OR tbFichasCab.IdAgencia=" & (Nz(Me.IdCliente, 0))
+    strSQL = strSQL & " OR tbPartesPolicia.DocIdEspaña=" & ConComillas(Nz(Me.NIF, ""))
+    strSQL = strSQL & " OR tbPartesPolicia.DocIdExtranjeros=" & ConComillas(Nz(Me.NIF, ""))
+    strSQL = strSQL & " ORDER BY tbFichasCab.FechaLlegada DESC"
+    Me.lstFichas.RowSource = strSQL
+    strSQL = "SELECT tbFacturasCab.IdFactura, tbFacturasCab.NumeroDeFactura AS [Factura nº], Format(tbFacturasCab.FechaFactura,'dd/mm/yy') AS fecha, (TotalBase + TotalIVA) AS [Total Factura]"
+    strSQL = strSQL & " FROM tbFacturasCab WHERE "
+    strSQL = strSQL & " tbFacturasCab.NIF=" & ConComillas(Nz(Me.NIF, ""))
+    strSQL = strSQL & " ORDER BY IdFactura DESC"
+    Me.lstFacturas.RowSource = strSQL
+    
+    strSQL = "SELECT tbClientesParcelasHistorial.Id, tbClientesParcelasHistorial.NombreParcela, tbClientesParcelasHistorial.Desde, tbClientesParcelasHistorial.Hasta"
+    strSQL = strSQL & " From tbClientesParcelasHistorial"
+    strSQL = strSQL & " WHERE tbClientesParcelasHistorial.IdCliente = " & Nz(Me.IdCliente, 0)
+    strSQL = strSQL & " ORDER BY tbClientesParcelasHistorial.Desde DESC , tbClientesParcelasHistorial.Hasta DESC , tbClientesParcelasHistorial.NombreParcela;"
+    Me.lstParcelasUtilizadas.RowSource = strSQL
+End Sub

@@ -1,0 +1,333 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+Option Compare Database
+Option Explicit
+    Dim db As DAO.Database
+    Dim rs As Recordset
+    Dim intCont As Integer, intAct As Integer
+
+
+Private Sub btnAdelante_Click()
+    On Error GoTo Salir_btnAdelante_Click
+    If rs.EOF Then Exit Sub
+    rs.MoveNext
+    If rs.EOF Then Exit Sub
+    If intAct < intCont Then
+        intAct = intAct + 1
+    End If
+    SincronizarFicha
+Salir_btnAdelante_Click:
+    Exit Sub
+End Sub
+
+Private Sub btnAdelante_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyRight
+                Me.btnFin.SetFocus
+            Case vbKeyLeft
+                Me.btnBuscarCliente.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnAtras_Click()
+    On Error GoTo Salir_btnAtras_Click
+    If rs.BOF Then Exit Sub
+    rs.MovePrevious
+    If rs.BOF Then Exit Sub
+    If intAct > 1 Then
+        intAct = intAct - 1
+    End If
+    SincronizarFicha
+Salir_btnAtras_Click:
+    Exit Sub
+End Sub
+
+Private Sub btnAtras_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyRight
+                Me.btnBuscarCliente.SetFocus
+            Case vbKeyLeft
+                Me.btnInicio.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnBuscarCliente_Click()
+    Dim strSQL As String
+    Dim strMensaje As String
+    
+    On Error GoTo Error_btnBuscarCliente_Click
+    If IsEmpty(Me.txtCoche) Then Me.txtCoche = "*"
+    If Me.txtParcela = "" Then Me.txtParcela = "*"
+    If Me.txtFicha = "" Then Me.txtFicha = "*"
+    If Me.txtDNI = "" Then Me.txtDNI = "*"
+    If Me.txtCoche = "" Then Me.txtCoche = "*"
+    If Me.txtNombre = "" Then Me.txtNombre = "*"
+    If Me.txtProcedencia = "" Then Me.txtProcedencia = "*"
+    
+    strSQL = "SELECT tbFichasCab.IdFichaCab"
+    If Me.txtParcela = "*" Then
+        strSQL = strSQL & " FROM tbFichasCab"
+    Else
+        strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    End If
+    Select Case Me.cmbTipoFicha
+        Case "Fijos"
+            strSQL = strSQL & " WHERE (EstadoFicha = 10)"
+        Case "Actuales"
+            strSQL = strSQL & " WHERE (EstadoFicha Between 2 And 4)"
+        Case "Antiguas"
+            strSQL = strSQL & " WHERE (EstadoFicha > 4)"
+        Case "Reservas"
+            strSQL = strSQL & " WHERE (EstadoFicha = 1)"
+        Case "Canceladas"
+            strSQL = strSQL & " WHERE (EstadoFicha = 9)"
+        Case Else
+            strSQL = strSQL & " WHERE (EstadoFicha >= 1)" ' = 0 es Entradas en Caja
+    End Select
+    If Me.txtDNI <> "*" Then
+        strSQL = strSQL & " AND([DNICliente] & ' ' & [TelefonoCliente] & ' ' & [Email] Like '*" & Me![txtDNI] & "*')"
+    End If
+    If Me.txtNombre <> "*" Then
+        strSQL = strSQL & " AND(([NombreCliente] & ' ' & [ApellidosCliente])  & ' ' & [MatriculaVehiculo] Like '*" & Me![txtNombre] & "*') "
+    End If
+    If Not IsNull(Me.cmbIdAgencia) Then
+        strSQL = strSQL & " AND(IdAgencia = " & Me.cmbIdAgencia & ") "
+    End If
+    If Me.txtProcedencia <> "*" Then
+        strSQL = strSQL & " AND (([LocalidadCliente] & ' ' & [ProvinciaCliente] & ' ' & [PaisCliente]) Like '*" & Me![txtProcedencia] & "*') "
+    End If
+    If Me.txtCoche <> "*" Then
+        strSQL = strSQL & " AND (([MatriculaVehiculo] & ' ' & [ModeloVehiculo]) Like '*" & Me![txtCoche] & "*') "
+    End If
+    If Me.txtFicha <> "*" Then
+        strSQL = strSQL & " AND (tbFichasCab.IdFichaCab = " & Me.txtFicha & ")"
+    End If
+    If Me.txtParcela <> "*" Then
+        strSQL = strSQL & " AND (tbFichasDet.Parcela = '" & Me.txtParcela & "')"
+    End If
+    If Len(Me.txtFechaEntrada) > 0 Then
+        strSQL = strSQL & " AND (tbFichasCab.FechaLlegada = #" & Format(CDate(Me.txtFechaEntrada), "mm/dd/yyyy") & "#)"
+    End If
+    If Len(Me.txtFechaSalida) > 0 Then
+        strSQL = strSQL & " AND (tbFichasCab.FechaSalida = #" & Format(CDate(Me.txtFechaSalida), "mm/dd/yyyy") & "#)"
+    End If
+    strSQL = strSQL & " ORDER BY tbFichasCab.IdFichaCab"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        strMensaje = "No se encontró ninguna Ficha de Estancia que cumpla las condiciones de búsqueda"
+        Select Case Me.cmbTipoFicha
+            Case "Reservas"
+                strMensaje = strMensaje & " entre las Reservas"
+            Case "Actuales"
+                strMensaje = strMensaje & " entre las Actuales"
+            Case "Antiguas"
+                strMensaje = strMensaje & " entre las Antiguas"
+        End Select
+        MsgBox strMensaje
+        Exit Sub
+    Else
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    intCont = rs.RecordCount
+    intAct = 1
+    SincronizarFicha
+Salir_btnBuscarCliente_Click:
+    Exit Sub
+Error_btnBuscarCliente_Click:
+    Select Case Err
+    
+        Case Else
+            MsgBox Err.Description
+            Resume Salir_btnBuscarCliente_Click
+    End Select
+End Sub
+
+Public Sub SincronizarFicha()
+    Dim rsAux As Recordset
+    Dim varMarca As Variant, strCriteria As String
+    If Not IsOpenForm("frmFichas") Then
+        Select Case Me.cmbTipoFicha
+            Case "Actuales"
+                strCriteria = "EstadoFicha Between 2 and 4"
+            Case "Antiguas"
+                strCriteria = "EstadoFicha > 4"
+            Case "Reservas"
+                strCriteria = "EstadoFicha = 1"
+        End Select
+        DoCmd.OpenForm "frmFichas", , , strCriteria
+    End If
+    Set rsAux = Forms![frmFichas].RecordsetClone
+    rsAux.FindFirst "IdFichaCab = " & rs("IdFichaCab")
+    varMarca = rsAux.Bookmark
+    Forms![frmFichas].Bookmark = varMarca
+    If intCont = 1 Then
+        DoCmd.Close acForm, Me.Name
+    Else
+        Me.lblSeEncontraron.Caption = intAct & " de " & intCont
+    End If
+    
+End Sub
+
+
+Private Sub btnBuscarCliente_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyDown Or KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyDown
+                Me.btnCerrar.SetFocus
+            Case vbKeyRight
+                Me.btnAdelante.SetFocus
+            Case vbKeyLeft
+                Me.btnAtras.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnCerrar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnCerrar_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyUp Then
+        Me.btnBuscarCliente.SetFocus
+    End If
+
+End Sub
+
+
+Private Sub btnFechaD_Click()
+    Me.txtFechaEntrada = Nz(adhDoCalendar(Me.txtFechaEntrada), Me.txtFechaEntrada)
+End Sub
+
+Private Sub btnFechaH_Click()
+    Me.txtFechaSalida = Nz(adhDoCalendar(Me.txtFechaSalida), Me.txtFechaSalida)
+End Sub
+
+Private Sub btnFin_Click()
+    On Error Resume Next
+    rs.MoveLast
+    intAct = rs.RecordCount
+    SincronizarFicha
+End Sub
+
+Private Sub btnFin_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyRight Or KeyCode = vbKeyLeft Then
+        Select Case KeyCode
+            Case vbKeyLeft
+                Me.btnAdelante.SetFocus
+            Case vbKeyRight
+                Me.btnInicio.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnInicio_Click()
+    On Error Resume Next
+    rs.MoveFirst
+    intAct = 1
+    SincronizarFicha
+
+End Sub
+
+Private Sub btnInicio_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyRight Or KeyCode = vbKeyLeft Then
+        Select Case KeyCode
+            Case vbKeyLeft
+                Me.btnFin.SetFocus
+            Case vbKeyRight
+                Me.btnAtras.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub cmbTipoFicha_AfterUpdate()
+    PonValorParam "BuscarFichaTipoFicha", Me.cmbTipoFicha
+End Sub
+
+Private Sub cmbTipoFicha_Click()
+    Select Case Me.cmbTipoFicha
+        Case "Actuales"
+            Forms("frmFichas").Filter = "EstadoFicha Between 2 And 4"
+            Forms("frmFichas").FilterOn = True
+        Case "Antiguas"
+            Forms("frmFichas").Filter = "EstadoFicha > 4"
+            Forms("frmFichas").FilterOn = True
+        Case "Reservas"
+            Forms("frmFichas").Filter = "EstadoFicha = 1"
+            Forms("frmFichas").FilterOn = True
+        Case Else
+            Forms("frmFichas").FilterOn = False
+    End Select
+End Sub
+
+Private Sub Form_Load()
+    Me.cmbTipoFicha = DameValorParam("BuscarFichaTipoFicha")
+    Call cmbTipoFicha_Click
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Me.Caption = "Buscar Ficha"
+    Me.lblPH.Caption = g_strPH
+End Sub
+
+Private Sub txtCoche_AfterUpdate()
+    NuloNo Me.txtCoche
+End Sub
+
+Private Sub txtDNI_AfterUpdate()
+    NuloNo Me.txtDNI
+    'If IsNumeric(Me.txtDNI) And Len(Me.txtDNI) = 8 Then
+    '    Me.txtDNI = Format(Me.txtDNI, "#,##0") & "-" & letra_dni(Me.txtDNI)
+    'End If
+End Sub
+
+Private Sub txtFicha_AfterUpdate()
+    NuloNo Me.txtFicha
+    If Me.txtFicha <> "" Then
+        Me.txtCoche.Enabled = False
+        Me.txtDNI.Enabled = False
+        Me.txtNombre.Enabled = False
+        Me.txtParcela.Enabled = False
+        Me.txtProcedencia.Enabled = False
+        Me.cmbTipoFicha = "Todas"
+        Forms("frmFichas").FilterOn = False
+    Else
+        Me.txtCoche.Enabled = True
+        Me.txtDNI.Enabled = True
+        Me.txtNombre.Enabled = True
+        Me.txtParcela.Enabled = True
+        Me.txtProcedencia.Enabled = True
+    End If
+End Sub
+
+Private Sub txtNombre_AfterUpdate()
+    NuloNo Me.txtNombre
+End Sub
+
+Public Sub NuloNo(ctl As Control)
+    If IsNull(ctl) Then
+        ctl = ""
+    End If
+End Sub
+
+Private Sub txtParcela_AfterUpdate()
+    NuloNo Me.txtParcela
+End Sub
+
+Private Sub txtProcedencia_AfterUpdate()
+    NuloNo Me.txtProcedencia
+End Sub

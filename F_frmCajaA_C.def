@@ -1,0 +1,430 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim gcurTotal As Currency
+Dim gstrResu As String
+
+Private Sub btnCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnDejaMoneda_Click()
+    IndicarDesglose 2
+    PonResumen
+End Sub
+
+Private Sub btnOK_Click()
+'    If Me.OpenArgs = "C" Then Call btnPrint_Click
+    Me.Visible = False
+End Sub
+
+Private Sub btnPrint_Click()
+    Dim strTitulo As String, strComando As String, strPwd As String, strDestino As String, strFile As String
+    Dim strFileZip As String, dt As Date
+    strTitulo = "CIERRE DE CAJA" & vbCrLf
+    If gstrUser <> "" Then strTitulo = strTitulo & "USUARIO/A: " & DLookup("Barman", "tbBarm", "CodBarman = '" & gstrUser & "'") & vbCrLf
+    strTitulo = strTitulo & "PUESTO: " & DameValorParam("EstablecimientoNombre") & " - " & DameValorParam("PuestoNombre") & vbCrLf _
+                & "FECHA y HORA: " & Me.Hora_A & vbCrLf _
+                & Llena("Se retira de caja: " & LlenaChar(".", 20), 20) & LlenaIzqChar(Format(Nz(Me.txtSeRetira, 0), "currency"), 19, ".") & vbCrLf _
+                & Llena("Se deja en caja:   " & LlenaChar(".", 20), 20) & LlenaIzqChar(Format(Nz(Me.Cantidad_A, 0), "currency"), 19, ".") & vbCrLf & vbCrLf _
+                & Me.Observaciones
+    If Nz(DameValorParam("PuestoCierreDeCajaCiego"), False) = True Then ' no se imprime
+        'Se genera el informe de caja a un fichero y se comprime en un zip mensual...................................
+        strFile = DirectorioDe(CurrentDb.Name) & DameValorParam("PuestoNombre") & "_Caja_" & CambiaChar(CambiaChar(CambiaChar(Me.Hora_A, "/", "-"), " ", "_"), ":", "_") & ".txt"
+        ImprimirSQL_DOS1 "", strTitulo, "", , , -3
+        strComando = Nz(DameValorParam("CopiaSeguridadComando"), "")
+        strPwd = Nz(DameValorParam("CajasyZsContraseña"), "")
+        'If strPwd <> "" Then strComando = strComando & " -s " & strPwd
+        dt = Now()
+        If Format(dt, "hh:nn") <= Nz(DameValorParam("TicketsHoraCambioDia"), "04:00") Then
+            dt = dt - 1
+        End If
+        strFileZip = DameValorParam("PuestoNombre") & "_" & Format(dt, "yyyymmmm")
+        strDestino = Nz(DameValorParam("CajasyZsCarpeta"), DirectorioDe(CurrentDb.Name))
+        If InStr(strDestino, ":") = 0 Then strDestino = DirectorioDe(CurrentDb.Name) & strDestino
+        If Right(strDestino, 1) <> "\" Then strDestino = strDestino & "\"
+        strDestino = strDestino & strFileZip
+        WaitShell ConComillas(strComando) & " -m -s" & strPwd & " " & strDestino & " " & ConComillas(strFile), vbMaximizedFocus
+        'se genera informe en papel reducido..............................................................
+        strTitulo = "CIERRE DE CAJA" & vbCrLf
+        If gstrUser <> "" Then strTitulo = strTitulo & "USUARIO/A: " & DLookup("Barman", "tbBarm", "CodBarman = '" & gstrUser & "'") & vbCrLf
+        strTitulo = strTitulo & "PUESTO: " & DameValorParam("EstablecimientoNombre") & " - " & DameValorParam("PuestoNombre") & vbCrLf _
+                    & "FECHA y HORA: " & Me.Hora_A & vbCrLf _
+                    & Llena("Se retira de caja: " & LlenaChar(".", 20), 20) & LlenaIzqChar(Format(Nz(Me.txtSeRetira, 0), "currency"), 19, ".") & vbCrLf _
+                    & Llena("Se deja en caja:   " & LlenaChar(".", 20), 20) & LlenaIzqChar(Format(Nz(Me.Cantidad_A, 0), "currency"), 19, ".")
+        ImprimirSQL_DOS1 "", strTitulo, ""
+    Else
+        ImprimirSQL_DOS1 "", strTitulo, ""
+    End If
+    
+End Sub
+
+Private Sub btnRetiraMoneda_Click()
+    IndicarDesglose 1
+    PonResumen
+End Sub
+
+Private Sub btnZ_Click()
+    DoCmd.OpenForm "frmPagosACaja", , , , , acDialog
+End Sub
+
+Private Sub Cantidad_A_AfterUpdate()
+    If Me.OpenArgs = "A" Then Exit Sub
+    If Nz(DameValorParam("PuestoCierreDeCajaCiego"), False) = True Then
+    Else
+        If Me.txtSeRetira = 0 Or Me.txtSeRetira = "" Then Me.txtSeRetira = gcurTotal - Me.Cantidad_A
+    End If
+    PonResumen
+    Dim strXML As String
+    PonDesgloses
+End Sub
+
+Private Sub Cantidad_A_Click()
+    Dim curCant As Currency, strXML As String, strTit As String
+    curCant = Nz(Me.Cantidad_A, 0)
+    If Me.OpenArgs = "A" Then
+        strTit = "Introduzca la cantidad con la que se abre la caja"
+    Else
+        If Me.btnDejaMoneda.Visible = True Then Exit Sub
+        strTit = "Introduzca la cantidad que se deja en la caja"
+    End If
+    PonXML strXML, "Titulo", strTit
+    PonXML strXML, "Display", curCant
+    DoCmd.OpenForm "frmTecladoN", , , , , acDialog, strXML
+    If Not IsOpenForm("frmTecladoN") Then Exit Sub
+    Dim v As Variant
+    v = Forms("frmTecladoN")("txtDisplay")
+    DoCmd.Close acForm, "frmTecladoN"
+    If Not IsNumeric(v) Then v = 0
+    Me.Cantidad_A = Redondea(CCur(v), 2)
+    Call Cantidad_A_AfterUpdate
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim lngIdCajaCab As Long, curCant As Currency
+    Dim strSQL As String, rs As Recordset, strResu As String
+    Dim curTotal As Currency
+    Dim db As DAO.Database, rsC As Recordset
+    Dim curSeRetiraFijo As Currency
+    On Error GoTo Error_Form_Open
+    If gstrUser <> "" Then
+        Me.txtUsuario = DLookup("Barman", "tbBarm", "CodBarman = '" & gstrUser & "'")
+        Me.EncabezadoDelFormulario.Visible = True
+    Else
+        Me.EncabezadoDelFormulario.Visible = False
+    End If
+    If Me.OpenArgs = "A" Then ' apertura
+        Me.Caption = "Apertura de Caja"
+        Me.txtSeRetira.Visible = False
+        Me.Cantidad_A_Etiqueta.Caption = "Se abre caja con cantidad..."
+        lngIdCajaCab = Nz(DMax("IdCajaCab", "tbCajaCab", "IdPuesto = " & glngMiPuesto), 0)
+        If lngIdCajaCab = 0 Then
+            'Set db = OpenDatabase(DirectorioDe(CurrentDb.Name) & "R4_His.mdb")
+            'strSQL = "SELECT TOP 1 tbCajaCab.Cantidad_C"
+            'strSQL = strSQL & " FROM tbCajaCab"
+            'strSQL = strSQL & " WHERE (tbCajaCab.IdPuesto) = " & glngMiPuesto
+            'strSQL = strSQL & " ORDER BY tbCajaCab.IdCajaCab DESC;"
+            'Set rsC = db.OpenRecordset(strSQL, dbOpenSnapshot)
+            'If Not rsC.EOF Then
+            '    curCant = rsC("Cantidad_C")
+            'Else
+                curCant = 0
+            'End If
+        Else
+            curCant = Nz(DLookup("Cantidad_C", "tbCajaCab", "IdCajaCab = " & lngIdCajaCab), 0)
+        End If
+        Me.Cantidad_A = curCant
+        Me.Observaciones.Locked = False
+        Me.btnDejaMoneda.Visible = False
+        Me.btnRetiraMoneda.Visible = False
+        If Nz(DameValorParam("PuestoCierreDeCajaCiego"), False) = True Then
+            Me.btnZ.Visible = False
+        Else
+            'Me.btnZ.Visible = True
+        End If
+    ElseIf Me.OpenArgs = "C" Then
+        Me.Caption = "Cierre de Caja"
+        Me.txtSeRetira.Visible = True
+        Me.Cantidad_A_Etiqueta.Caption = "Dinero que se deja en caja ..."
+        PonResumen
+        curSeRetiraFijo = Nz(DameValorParam("PuestoCantidadSeDejaEnCaja"), 0)
+        If Nz(DameValorParam("PuestoCierreDeCajaCiego"), False) = True Then
+            Me.txtSeRetira = 0
+            Me.Cantidad_A = curSeRetiraFijo
+        ElseIf curSeRetiraFijo <> 0 Then
+            Me.txtSeRetira = 0
+            Me.Cantidad_A = curSeRetiraFijo
+        ElseIf Nz(DameValorParam("CajaAlCerrarSeRetira0XDefectoSN"), False) = True Then
+            Me.txtSeRetira = 0
+            Me.Cantidad_A = gcurTotal
+        Else
+            Me.txtSeRetira = gcurTotal
+            Me.Cantidad_A = 0
+        End If
+        PonResumen
+        Me.Observaciones.Locked = True
+        If Nz(DameValorParam("PuestoDesgloseMonedasEnCaja"), True) = True Then
+            Me.btnDejaMoneda.Visible = True
+            Me.btnRetiraMoneda.Visible = True
+        Else
+            Me.btnDejaMoneda.Visible = False
+            Me.btnRetiraMoneda.Visible = False
+        End If
+        If Nz(DameValorParam("PuestoCierreDeCajaCiego"), False) = True Then
+            Me.Observaciones.Visible = False
+            Me.btnZ.Visible = False
+        Else
+            Me.Observaciones.Visible = True
+            'Me.btnZ.Visible = True
+        End If
+    Else
+        MsgBox "Se deben pasar argumentos"
+        Cancel = True
+    End If
+    PonDesgloses
+    'Me.txtSeRetira = gcurTotal
+    'gcurTotal = curTotal
+    'gstrResu = strResu
+    'Me.Cantidad_A = curTotal
+Salir_Form_Open:
+    Exit Sub
+Error_Form_Open:
+        Select Case Err
+            Case 3021
+                Resume Salir_Form_Open
+            Case Else
+                MsgBox "Error nº " & Err & " en Form_Open" & vbCrLf & Err.Description
+                Resume Salir_Form_Open
+        End Select
+
+End Sub
+
+Private Sub Observaciones_Click()
+    SendKeys "+{F2}"
+    Exit Sub
+    If Me.Observaciones.Locked Then Exit Sub
+    Dim strObs As String, strXML As String, strTit As String
+    strObs = ""
+    If Me.OpenArgs = "A" Then
+        strTit = "Observaciones en la apertura de caja"
+    Else
+        strTit = "Observaciones en el cierre de caja"
+    End If
+    PonXML strXML, "Titulo", strTit
+    PonXML strXML, "Display", strObs
+    DoCmd.OpenForm "frmTeclado", , , , , acDialog, strXML
+    If Not IsOpenForm("frmTeclado") Then Exit Sub
+    Me.Observaciones = gstrResu & vbCrLf & Nz(Forms("frmTeclado")("txtDisplay"), "")
+    DoCmd.Close acForm, "frmTeclado"
+End Sub
+
+Private Sub txtSeRetira_AfterUpdate()
+    If Nz(DameValorParam("PuestoCierreDeCajaCiego"), False) = True Then
+    Else
+        If Me.Cantidad_A = 0 Or Me.Cantidad_A = "" Then Me.Cantidad_A = gcurTotal - Me.txtSeRetira
+    End If
+    PonResumen
+    PonDesgloses
+'    Dim strXML As String
+'    PonXML strXML, "Total_Retira", ComaPunto(CCur(Me.txtSeRetira))
+'    PonXML strXML, "Total_Deja", ComaPunto(CCur(Me.Cantidad_A))
+'    Me.txtDesgloses_C = strXML
+End Sub
+
+Private Sub txtSeRetira_Click()
+'    If Me.btnRetiraMoneda.Visible = True Then Exit Sub
+    Dim curCant As Currency, strXML As String, strTit As String, v As Variant
+    curCant = Nz(Me.txtSeRetira, 0)
+    v = DimeTeclado(2, "Introduzca la cantidad que se retira de la caja", curCant)
+    If Not IsNumeric(v) Then v = 0
+    Me.txtSeRetira = Redondea(CCur(v), 2)
+    Call txtSeRetira_AfterUpdate
+End Sub
+
+Public Sub PonResumen()
+    Dim lngIdCajaCab As Long, curCant As Currency, strResu As String, strSQL As String
+    Dim rs As Recordset, curTotal As Currency, intPri As Integer, rs2 As Recordset
+    Dim lngNumTickD As Long, lngNumTickH As Long, intMargenIzdo As Integer, intAncho As Integer
+    Dim intC1 As Integer, intC2 As Integer, intC3 As Integer, intC1_2 As Integer
+    lngIdCajaCab = IsCajaOpen()
+    intMargenIzdo = Nz(DameValorParam("ListadosMargenIzdo"), 0)
+    intAncho = Nz(DameValorParam("TicketsAncho"), 40) - intMargenIzdo
+    intC1 = 10
+    intC3 = 12
+    intC2 = intAncho - (intC1 + intC3)
+    intC1_2 = intC1 + intC2
+    curCant = Nz(DLookup("Cantidad_A", "tbCajaCab", "IdCajaCab = " & lngIdCajaCab), 0)
+    strResu = "Según los datos registrados, el resumen" & vbCrLf & "de caja es:" & vbCrLf
+    strResu = strResu & Llena("Nº de pagos realizados: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(DCount("IdCajaDet", "tbCajaDet", "IdCajaCab = " & lngIdCajaCab), intC3, ".") & vbCrLf
+'    TiquesDeCaja lngIdCajaCab, lngNumTickD, lngNumTickH
+'    strResu = strResu & Llena("Nº de tiques realizados: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(IIf(lngNumTickH = 0, 0, lngNumTickH - lngNumTickD + 1), intC3, ".") & vbCrLf
+'    strResu = strResu & Llena("Desde tique Nº: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(CStr(lngNumTickD), intC3, ".") & vbCrLf
+'    strResu = strResu & Llena("Hasta tique Nº: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(CStr(lngNumTickH), intC3, ".") & vbCrLf
+'    strResu = strResu & Llena("Fecha apertura Caja : " & LlenaChar(".", 20), 20) & LlenaIzqChar(Format(DLookup("Hora_A", "tbCajaCab", "IdCajaCab = " & lngIdCajaCab), "dd/mm/yy hh:nn"), 19, ".") & vbCrLf
+'    strResu = strResu & vbCrLf
+'   SALIDAS Y APORTACIONES - CAJA
+
+    strSQL = "SELECT tbCajaDet.Fecha, tbCajaDet_Concepto.NombrePersona, tbCajaDet.Cantidad"
+    strSQL = strSQL & " FROM tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet"
+    strSQL = strSQL & " WHERE tbCajaDet.IdCajaCab=" & lngIdCajaCab
+    strSQL = strSQL & " AND Origen = 'C'"
+    Set rs = CurrentDb.OpenRecordset(strSQL & " AND tbCajaDet.Cantidad<0", dbOpenSnapshot)
+    Set rs2 = CurrentDb.OpenRecordset(strSQL & " AND tbCajaDet.Cantidad>0", dbOpenSnapshot)
+    curTotal = 0
+    If Not rs.EOF Or Not rs2.EOF Then
+        strResu = strResu & LlenaChar("-", intAncho) & vbCrLf
+        strResu = strResu & Centra("Caja-Salidas y/o Aportaciones", intAncho) & vbCrLf
+        If Not rs.EOF Then
+            strResu = strResu & Centra("Salidas", intAncho) & vbCrLf
+            While Not rs.EOF
+                strResu = strResu & Llena(rs("NombrePersona") & "-" & Format(rs("Fecha"), "dd/mm hh:nn") & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(rs("Cantidad"), "currency"), intC3, ".") & vbCrLf
+                curTotal = curTotal + rs("Cantidad")
+                rs.MoveNext
+            Wend
+        End If
+        If Not rs2.EOF Then
+            strResu = strResu & Centra("Aportaciones", intAncho) & vbCrLf
+            While Not rs2.EOF
+                strResu = strResu & Llena(rs2("NombrePersona") & "-" & Format(rs2("Fecha"), "dd/mm hh:nn") & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(rs2("Cantidad"), "currency"), intC3, ".") & vbCrLf
+                curTotal = curTotal + rs2("Cantidad")
+                rs2.MoveNext
+            Wend
+        End If
+        strResu = strResu & Llena("Total Caja Metálico" & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(curTotal, "currency"), intC3, ".") & vbCrLf
+        strResu = strResu & LlenaChar("-", intAncho) & vbCrLf
+    End If
+    strResu = strResu & Centra("Metálico", intAncho) & vbCrLf
+    strResu = strResu & Llena("Apertura de Caja: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(curCant, "Currency"), intC3, ".") & vbCrLf
+    curTotal = curCant
+    strSQL = "SELECT tbCajaDet.IdCajaCab, tbFPago.Descripcion, Sum(tbCajaDet.Cantidad) AS SumaDeCantidad"
+    strSQL = strSQL & " FROM tbFPago RIGHT JOIN tbCajaDet ON tbFPago.CodFPago = tbCajaDet.CodFPago"
+    strSQL = strSQL & " GROUP BY tbCajaDet.IdCajaCab, tbFPago.Descripcion, tbCajaDet.CodFPago"
+    strSQL = strSQL & " HAVING (((tbCajaDet.IdCajaCab) = " & lngIdCajaCab & "))"
+    strSQL = strSQL & " ORDER BY tbCajaDet.CodFPago;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If InStr(rs("Descripcion"), "met") > 0 Then
+            strResu = strResu & Llena(rs("Descripcion") & ": " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(rs("SumaDeCantidad"), "Currency"), intC3, ".") & vbCrLf
+            curTotal = curTotal + rs("SumaDeCantidad")
+        End If
+        rs.MoveNext
+    Wend
+    strResu = strResu & LlenaChar("-", intAncho) & vbCrLf
+    strResu = strResu & Llena("TOTAL Met." & ": " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(curTotal, "Currency"), intC3, ".") & vbCrLf
+    strResu = strResu & Llena("Se retira: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(Nz(Me.txtSeRetira, 0), "Currency"), intC3, ".") & vbCrLf
+    Dim strDesglose As String
+    strDesglose = DimeDesglose(1)
+    If strDesglose <> "" Then strResu = strResu & strDesglose & vbCrLf
+    strResu = strResu & Llena("Se deja: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(Nz(Me.Cantidad_A, 0), "Currency"), intC3, ".") & vbCrLf
+    strDesglose = DimeDesglose(2)
+    If strDesglose <> "" Then strResu = strResu & strDesglose & vbCrLf
+    
+    If Nz(Me.Cantidad_A, 0) + Nz(Me.txtSeRetira, 0) - curTotal = 0 Then
+        strResu = strResu & Centra("Cuadre de caja OK", intAncho) & vbCrLf
+    Else
+        strResu = strResu & Llena("Descuadre de caja: " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(Nz(Me.Cantidad_A, 0) + Nz(Me.txtSeRetira, 0) - curTotal, "+#,##0.00 €;-#,##0.00 €;-"), intC3, ".") & vbCrLf
+    End If
+    gcurTotal = curTotal
+    If Not rs.BOF Then rs.MoveFirst
+    intPri = 0
+    curTotal = 0
+    strResu = strResu & vbCrLf
+    While Not rs.EOF
+        If InStr(rs("Descripcion"), "met") > 0 Then
+        Else
+            If intPri = 0 Then
+                strResu = strResu & Centra("Otras F. Pago", intAncho) & vbCrLf
+            End If
+            intPri = intPri + 1
+            strResu = strResu & Llena(rs("Descripcion") & ": " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(rs("SumaDeCantidad"), "Currency"), intC3, ".") & vbCrLf
+            curTotal = curTotal + rs("SumaDeCantidad")
+        End If
+        rs.MoveNext
+    Wend
+    If intPri > 1 Then
+        strResu = strResu & LlenaChar("-", intAncho) & vbCrLf
+        strResu = strResu & Llena("TOTAL Otras F. Pago" & ": " & LlenaChar(".", intC1_2), intC1_2) & LlenaIzqChar(Format(curTotal, "Currency"), intC3, ".") & vbCrLf
+    End If
+    Me.Observaciones = strResu
+
+End Sub
+
+Public Sub IndicarDesglose(intRetira_Deja As Integer)
+    Dim strXML_r As String, strXML_d As String, strXML_T As String, i As Integer, frm As Form
+    Dim strOpenArgs As String
+    strXML_r = Nz(DimeXML(Nz(Me.txtDesgloses_C, ""), "Desglose_Retira"), "")
+    strXML_d = Nz(DimeXML(Nz(Me.txtDesgloses_C, ""), "Desglose_Deja"), "")
+    If intRetira_Deja = 1 Then
+        strOpenArgs = strXML_r
+    Else
+        strOpenArgs = strXML_d
+    End If
+    DoCmd.OpenForm "frmMonedaCuenta", , , , , acDialog, strOpenArgs
+    If Not IsOpenForm("frmMonedaCuenta") Then Exit Sub
+    Set frm = Forms("frmMonedaCuenta")
+    If intRetira_Deja = 1 Then
+        Me.txtSeRetira = frm("txtTotal")
+        Call txtSeRetira_AfterUpdate
+    Else
+        Me.Cantidad_A = frm("txtTotal")
+        Call Cantidad_A_AfterUpdate
+    End If
+    strOpenArgs = ""
+    For i = 1 To 15
+        If IsNumeric(frm("lbl" & i).Caption) Then
+            PonXML strOpenArgs, "m" & i, frm("lbl" & i).Caption
+        Else
+            PonXML strOpenArgs, "m" & i, 0
+        End If
+    Next i
+    Set frm = Nothing
+    DoCmd.Close acForm, "frmMonedaCuenta"
+    If intRetira_Deja = 1 Then
+        PonXML strXML_T, "Desglose_Retira", strOpenArgs
+        PonXML strXML_T, "Desglose_Deja", strXML_d
+    Else
+        PonXML strXML_T, "Desglose_Retira", strXML_r
+        PonXML strXML_T, "Desglose_Deja", strOpenArgs
+    End If
+    PonXML strXML_T, "Total_Retira", ComaPunto(CCur(Me.txtSeRetira))
+    PonXML strXML_T, "Total_Deja", ComaPunto(CCur(Me.Cantidad_A))
+    Me.txtDesgloses_C = strXML_T
+End Sub
+
+Private Sub PonDesgloses()
+    Dim strXML As String
+    PonXML strXML, "Total_Retira", (CCur(Nz(Me.txtSeRetira, 0)))
+    PonXML strXML, "Total_Deja", (CCur(Nz(Me.Cantidad_A, 0)))
+    Me.txtDesgloses_C = strXML
+End Sub
+
+
+Private Function DimeDesglose(intRetira_Deja As Integer) As String
+    On Error GoTo HandleError
+    Dim strXML As String, i As Integer, intCant As Integer, strR As String
+    If intRetira_Deja = 1 Then
+        strXML = Nz(DimeXML(Nz(Me.txtDesgloses_C, ""), "Desglose_Retira"), "")
+    Else
+        strXML = Nz(DimeXML(Nz(Me.txtDesgloses_C, ""), "Desglose_Deja"), "")
+    End If
+    Dim m As Variant
+    m = Array(0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500)
+    For i = 15 To 1 Step -1
+        intCant = Nz(DimeXML(strXML, "m" & i), 0)
+        If intCant <> 0 Then
+            strR = strR & Llena(Replace(CStr(m(i)), ".", ","), 6) & "X" & LlenaIzq(CStr(intCant), 6) & "   =" & LlenaIzq(Format(intCant * m(i), "currency"), 12) & vbCrLf
+        End If
+    Next i
+    If Len(strR) > 2 Then strR = RecDerTop(strR, 2, 0)
+    DimeDesglose = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

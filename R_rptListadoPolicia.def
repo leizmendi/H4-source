@@ -1,0 +1,53 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    If Len(Me.Cliente) < 3 Then
+        Cancel = True
+    End If
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox ("No existen entradas entre las fechas indicadas")
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim strSQL As String, strXML As String, lngIdPPF As Long, dtD As Date, dtH As Date
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdPPF = Nz(DimeXML(strXML, "IdPPF"), 0)
+    If Nz(DameValorParam("PartesPoliciaFcE_TlF"), 2) = 2 Then
+        strSQL = "SELECT tbFichasCab.TipoDocumento, tbFichasCab.NumeroPolicia, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.DNICliente, Trim([ApellidosCliente] & ' ' & [NombreCliente]) AS Cliente, Trim([DireccionCliente] & ' ' & [LocalidadCliente]) AS Direccion, tbFichasCab.Adultos, tbFichasCab.Niños, tbFichasCab.PaisCliente, tbFichasCab.ProvinciaCliente, tbFichasCab.FechaNacimiento, tbFichasCab.TipoDocumento, tbFichasCab.FechaExpedicion, tbFichasCab.SexoCliente, tbFichasCab.DireccionCliente, tbFichasCab.ProvinciaCliente"
+        strSQL = strSQL & " FROM tbFichasCab"
+        strSQL = strSQL & " WHERE True"
+    Else
+        strSQL = "SELECT tbPartesPolicia.TipoDocId AS TipoDocumento, tbPartesPolicia.FechaExpedicion, tbPartesPolicia.Sexo AS SexoCliente, tbPartesPolicia.NumParte AS NumeroPolicia, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, [DocIdEspaña] & [DocIdExtranjeros] AS DNICliente, Trim([Apellido1] & ' ' & [Apellido2] & ' ' & [Nombre]) AS Cliente, tbPartesPolicia.Pais AS PaisCliente, tbFichasCab.Adultos, tbFichasCab.Niños, [FechaNacimientoDD] & '/' & [FechaNacimientoMM] & '/' & [FechaNacimientoAAAA] AS FechaNacimiento, tbPartesPolicia.DireccionCliente, tbPartesPolicia.ProvinciaCliente"
+        strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab"
+        strSQL = strSQL & " WHERE True"
+        If lngIdPPF <> 0 Then strSQL = strSQL & " AND IdPartePoliciaFichero = " & lngIdPPF
+    End If
+    dtD = Nz(DimeXML(strXML, "FechaDesde"), 0)
+    dtH = Nz(DimeXML(strXML, "FechaHasta"), 0)
+    Me.lblDesdeHasta.Visible = False
+    If dtD <> 0 Then
+        strSQL = strSQL & " AND tbFichasCab.FechaLlegada>= " & CLng(dtD)
+        Me.lblDesdeHasta.Caption = "Entradas del : " & Format(dtD, "dd/mm/yyyy") & vbCrLf
+        Me.lblDesdeHasta.Visible = True
+    End If
+    If dtH <> 0 Then
+        strSQL = strSQL & " AND tbFichasCab.FechaLlegada<= " & CLng(dtH)
+        If dtD <> dtH Then Me.lblDesdeHasta.Caption = Me.lblDesdeHasta.Caption & "    hasta el : " & Format(dtH, "dd/mm/yyyy")
+        Me.lblDesdeHasta.Visible = True
+    End If
+    If lngIdPPF <> 0 Then
+        Me.lblDesdeHasta.Caption = "Entradas del fichero: " & DLookup("[CodEstablecimiento] & '.' & Right([NumFichero],3)", "tbPartesPoliciaFicheros", "IdPartePoliciaFichero = " & lngIdPPF)
+        Me.lblDesdeHasta.Visible = True
+    End If
+    Me.RecordSource = strSQL
+
+End Sub

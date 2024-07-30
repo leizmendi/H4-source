@@ -1,0 +1,156 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+Option Compare Database
+Option Explicit
+Dim gintActualizarIngresosXActividadAux As Integer
+
+
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+
+Private Sub btnEntradas_Click()
+    Dim strSQL As String, qdf As QueryDef, strIn As String, dt As Date, fld As DAO.Field
+    Dim strTitulo As String, strTitulo1 As String
+    Dim varReturn As Variant
+    On Error GoTo Error_btnEntradas_Click
+    strSQL = "SELECT tbAuxAcampados.Fecha"
+    If DameValorParam("ListadoAcampadosParcelasOcupadas") = True Then
+        strSQL = strSQL & ", tbAuxAcampados.ParcelasOcupadas AS [Parcelas Ocupadas]"
+    End If
+    If DameValorParam("ListadoAcampadosParcelasEntradas") = True Then
+        strSQL = strSQL & ", tbAuxAcampados.ParcelasEntradas AS [Parcelas Entradas]"
+    End If
+    If DameValorParam("ListadoAcampadosPaxAcampados") = True Then
+        strSQL = strSQL & ", tbAuxAcampados.PaxAcampados AS [Pax Acampadas]"
+    End If
+    If DameValorParam("ListadoAcampadosPaxEntradas") = True Then
+        strSQL = strSQL & ", tbAuxAcampados.PaxEntradas AS [Pax Entradas]"
+    End If
+    strSQL = strSQL & " FROM tbAuxAcampados"
+    strSQL = strSQL & " WHERE (tbAuxAcampados.Fecha) Between #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "# AND #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#"
+    strSQL = strSQL & " ORDER BY (tbAuxAcampados.Fecha)"
+    Set qdf = CurrentDb.QueryDefs("qryAcampados")
+    qdf.SQL = strSQL
+    qdf.Close
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    If Me.mrcPantImp = 1 Then
+        DoCmd.OpenQuery "qryAcampados", acViewNormal, acReadOnly
+    Else
+        strTitulo1 = "Listado de Acampados-Parcelas"
+        strTitulo = strTitulo1 & vbCrLf & "Entradas y Ocupación  entre el " & Me.txtDesde & " y el " & Me.txtHasta
+        DoCmd.Hourglass True
+        ImprimirSQL_DOS1 CurrentDb.QueryDefs("qryAcampados").SQL, strTitulo, "11,1017,13,14,01", True
+        DoCmd.Hourglass False
+    End If
+    DoCmd.Hourglass False
+
+Salir_btnEntradas_Click:
+    DoCmd.Hourglass False
+    varReturn = SysCmd(acSysCmdClearStatus)
+    Exit Sub
+Error_btnEntradas_Click:
+    Select Case Err
+        Case 3190
+            MsgBox "Para listados del INE, se deben señalar entre fechas, comprendiendo normalmente 7 días" & _
+            vbCrLf & vbCrLf & "Error nº " & Err & " en btnEntradas_Click " & vbCrLf & Err.Description
+        Case Else
+            MsgBox "Error nº " & Err & " en btnEntradas_Click " & vbCrLf & Err.Description
+            'Resume Salir_btnEntradas_Click
+            Resume Next
+    End Select
+            
+End Sub
+
+Private Sub btnAceptar_Click()
+    DoCmd.Hourglass True
+    If Rellenar_tbAuxAcampados(CDate(Me.txtDesde), CDate(Me.txtHasta)) <> True Then
+        DoCmd.Hourglass False
+        Exit Sub
+    End If
+    Call btnEntradas_Click
+End Sub
+
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+
+Private Sub Form_Load()
+    CargarParam Me
+    MascaraFechasForm Me
+End Sub
+
+Private Sub ListadoAcampadosIncluirGogos_AfterUpdate()
+    PonValorParam "ListadoAcampadosIncluirGogos", Me.ListadoAcampadosIncluirGogos, dbBoolean
+End Sub
+
+Private Sub ListadoAcampadosParcelasEntradas_AfterUpdate()
+    PonValorParam "ListadoAcampadosParcelasEntradas", Me.ListadoAcampadosParcelasEntradas, dbBoolean
+End Sub
+
+Private Sub ListadoAcampadosParcelasOcupadas_AfterUpdate()
+    PonValorParam "ListadoAcampadosParcelasOcupadas", Me.ListadoAcampadosParcelasOcupadas, dbBoolean
+End Sub
+
+Private Sub ListadoAcampadosPaxAcampados_AfterUpdate()
+    PonValorParam "ListadoAcampadosPaxAcampados", Me.ListadoAcampadosPaxAcampados, dbBoolean
+End Sub
+
+Private Sub ListadoAcampadosPaxEntradas_AfterUpdate()
+    PonValorParam "ListadoAcampadosPaxEntradas", Me.ListadoAcampadosPaxEntradas, dbBoolean
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    Me.txtHasta = Me.txtDesde + 6
+End Sub
+
+Private Sub txtDesde_BeforeUpdate(Cancel As Integer)
+    If Not IsDate(Me.txtDesde) Then
+        MsgBox "Debe introducir una fecha"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtDesde)
+        If IsDate(varFecha) Then
+            Me.txtDesde = varFecha
+            Call txtDesde_AfterUpdate
+        End If
+    End If
+End Sub
+
+
+Private Sub txtHasta_BeforeUpdate(Cancel As Integer)
+    If Not IsDate(Me.txtHasta) Then
+        MsgBox "Debe introducir una fecha"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtHasta)
+        If IsDate(varFecha) Then
+            Me.txtHasta = varFecha
+        End If
+    End If
+    
+End Sub

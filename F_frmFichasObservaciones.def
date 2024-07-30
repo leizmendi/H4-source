@@ -1,0 +1,35 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), "Sin título")
+    Me.Observaciones = DimeXML(strXML, "Texto")
+End Sub
+
+Private Sub Observaciones_Change()
+    'If Len(Me.Observaciones.Text) > 50 Then
+    '    Me.Observaciones.Text = Left(Me.Observaciones.Text, 50)
+    '    Me.Observaciones.SelStart = 50
+    '    MsgBox "Sólo se admiten 50 caracteres por línea"
+    'End If
+End Sub
+
+Private Sub Observaciones_Enter()
+    Me.Observaciones.SelStart = Nz(Len(Me.Observaciones), 0)
+End Sub

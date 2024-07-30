@@ -1,0 +1,788 @@
+Option Compare Database
+Option Explicit
+    Global gdtFechaDesdeFlexCell As Date
+    
+Public Function GeneraGridXML(dtDesde As Date, Optional intCols As Integer = 7, Optional strNombreParcela As String = "", Optional lngIdTipoParcela As Long = 0, Optional intActualizar_auxPlanning As Integer = True) As String
+    GeneraGridXML = GeneraGrid_xml_Vacio(dtDesde, intCols)
+End Function
+
+Public Function GeneraCabeceraXML(Optional intRows As Integer = 271, Optional intCols As Integer = 15) As String
+    On Error GoTo Error_GeneraCabeceraXML
+    Dim strXML As String, i As Integer
+    strXML = "" & _
+            "<DocumentProperties>" & _
+                "<LastSaved>" & Format(Now, "yyyy-mm-dd hh:nn:ss") & "</LastSaved>" & _
+                "<Version>6.0.1</Version>" & _
+            "</DocumentProperties>" & _
+            "<GridProperties>" & _
+                "<BackColorBkg>&amp;H8000000C</BackColorBkg>" & _
+                "<AllowUserResizing>True</AllowUserResizing>" & _
+                "<ReadOnlyFocusRect>Dot</ReadOnlyFocusRect>" & _
+                "<ScreenTwipsPerPixelX>15</ScreenTwipsPerPixelX>" & _
+                "<ScreenTwipsPerPixelY>15</ScreenTwipsPerPixelY>" & _
+                "<DefaultRowHeight>" & Nz(DameValorParam("PlanningGAltoRows"), 18) & "</DefaultRowHeight>" & _
+                "<Rows>" & intRows & "</Rows>" & _
+                "<Cols>" & intCols & "</Cols>" & _
+                "<FixedRows>" & IIf(Nz(DameValorParam("PlaningG_PrimeraFilaFija"), True) = True, 2, 0) & "</FixedRows>" & _
+                "<FixedCols>0</FixedCols>" & _
+                "<ActiveCell Row1=""0"" Col1=""0"" Row2=""0"" Col2=""0""/>" & _
+                "<Selection Row1=""0"" Col1=""0"" Row2=""0"" Col2=""0""/>" & _
+            "</GridProperties>"
+            
+    strXML = strXML & _
+            "<PageSetup>" & _
+                "<HeaderAlignment>Left</HeaderAlignment>" & _
+                "<FooterAlignment>Center</FooterAlignment>" & _
+                "<HeaderFont FontName=""MS Sans Serif"" Size=""8.25""/>" & _
+                "<FooterFont FontName=""MS Sans Serif"" Size=""8.25""/>" & _
+                "<PaperSize>256</PaperSize>" & _
+                "<Orientation>Portrait</Orientation>" & _
+                "<PaperWidth>21</PaperWidth>" & _
+                "<PaperHeight>29</PaperHeight>" & _
+                "<LeftMargin>2</LeftMargin>" & _
+                "<RightMargin>2</RightMargin>" & _
+                "<TopMargin>3</TopMargin>" & _
+                "<BottomMargin>3</BottomMargin>" & _
+                "<HeaderMargin>2</HeaderMargin>" & _
+                "<FooterMargin>2</FooterMargin>" & _
+                "<Zoom>100</Zoom>" & _
+            "</PageSetup>"
+            Dim intAnchoCols As Integer
+            intAnchoCols = Nz(DameValorParam("PlanningGAnchoCols"), 55)
+    strXML = strXML & _
+            "<Columns>" & _
+                "<Column Col=""0"">" _
+                    & "<Type>Default</Type>" _
+                    & "<Width>" & Nz(DameValorParam("PlanningGAnchoCol1"), 100) & "</Width>" _
+                    & "<Alignment>CenterCenter</Alignment>" _
+                    & "<BackColor>#cccccc</BackColor>" _
+                & "</Column>"
+                For i = 1 To intCols
+                    strXML = strXML & "<Column Col=""" & i & """>" _
+                                        & "<Type>TextBox</Type>" _
+                                        & "<Width>" & intAnchoCols & "</Width>" _
+                                        & "<Alignment>GeneralGeneral</Alignment>" _
+                                    & "</Column>"
+                Next i
+    strXML = strXML & _
+            "</Columns>"
+    strXML = strXML & _
+                "<Fonts>" & _
+                    "<Font ID=""f0"" FontName=""Tahoma"" Size=""" & ComaPunto(Nz(DameValorParam("PlanningGTamañoFuente"), "8.25")) & """/>" & _
+                "</Fonts>" & _
+                "<Styles>" & _
+                    "<Style ID=""st0""><Border/><Alignment>GeneralGeneral</Alignment></Style>" & _
+                    "<Style ID=""st1Habitacion""><Border/><Alignment>CenterCenter</Alignment><BackColor>#cccccc</BackColor><ForeColor>#0000ff</ForeColor></Style>" & _
+                    "<Style ID=""st2Dom""><Border Left=""Thick"" Right=""Thin"" Top=""Thin"" Bottom=""Thin""/><Alignment>CenterCenter</Alignment><ForeColor>#ff0000</ForeColor></Style>" & _
+                    "<Style ID=""st3Libre""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>#ffffff</BackColor></Style>" & _
+                    "<Style ID=""st4Fijos""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorFijos & "</BackColor></Style>" & _
+                    "<Style ID=""st5Reserva""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorReservas & "</BackColor></Style>" & _
+                    "<Style ID=""st6Actuales""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorActuales & "</BackColor></Style>" & _
+                    "<Style ID=""st7FacturaPreparada""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorFacturaPreparada & "</BackColor></Style>" & _
+                    "<Style ID=""st8PagadoConCliente""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorPagadoConCliente & "</BackColor></Style>" & _
+                    "<Style ID=""st9Limpieza""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorLimpieza & "</BackColor></Style>" & _
+                    "<Style ID=""st99Cancelada""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorCancelada & "</BackColor></Style>" & _
+                    "<Style ID=""st10Antigua""><Border/><Alignment>GeneralGeneral</Alignment><Fill>True</Fill><BackColor>" & G_lngColorAntigua & "</BackColor></Style>" & _
+                    "<Style ID=""st11CenterTop""><Border/><Alignment>CenterTop</Alignment><Fill>True</Fill><BackColor>" & "#cccccc" & "</BackColor></Style>" & _
+                    "<Style ID=""st12OverBooking""><Border/><Alignment>CenterTop</Alignment><Fill>True</Fill><BackColor>" & "#ff0000" & "</BackColor><ForeColor>" & "#ffffff" & "</ForeColor></Style>" & _
+                    "<Style ID=""st13DiaLaboral""><Border/><Alignment>CenterCenter</Alignment><BackColor>#ffffff</BackColor><ForeColor>#000000</ForeColor></Style>" & _
+                    "<Style ID=""st14PreciosWubook""><Border/><Alignment>CenterCenter</Alignment><BackColor>13952764</BackColor><ForeColor>#000000</ForeColor></Style>" & _
+                "</Styles>"
+    GeneraCabeceraXML = strXML
+Salir_GeneraCabeceraXML:
+    Exit Function
+Error_GeneraCabeceraXML:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en GeneraCabeceraXML" & vbCrLf & Err.Description
+            Resume Salir_GeneraCabeceraXML
+    End Select
+End Function
+
+Public Function DimeStyle(intEstadoFicha) As Integer
+    Dim intStyle As Integer
+    Select Case intEstadoFicha
+        Case 10: intStyle = 4
+        Case 1: intStyle = 5
+        Case 2: intStyle = 6
+        Case 3: intStyle = 7
+        Case 4: intStyle = 8
+        Case 5: intStyle = 10
+        Case 6: intStyle = 9
+        Case 9: intStyle = 99
+        Case Else: intStyle = 3
+    End Select
+    DimeStyle = intStyle
+
+End Function
+
+Public Sub PonStyleCelda(cell As Object, intStyle As Integer)
+    On Error GoTo HandleError
+    Select Case intStyle
+        Case 0
+        Case 1
+            cell.Alignment = 10
+            cell.BackColor = &HCCCCCC
+            cell.ForeColor = &HFFFFFF
+        Case 2
+            cell.Alignment = 0
+            cell.BackColor = &H0
+            cell.ForeColor = &HFFFFFF
+        Case 3
+            cell.Alignment = 0
+            cell.BackColor = &HFFFFFF
+            'cell.ForeColor = "#0000ff"
+        Case 4
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorFijos
+            cell.ForeColor = 0
+        Case 5
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorReservas
+            cell.ForeColor = 0
+        Case 6
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorActuales
+            cell.ForeColor = 0
+        Case 7
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorFacturaPreparada
+            cell.ForeColor = 0
+        Case 8
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorPagadoConCliente
+            cell.ForeColor = 0
+        Case 9
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorLimpieza
+            cell.ForeColor = vbWhite
+        Case 99
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorCancelada
+            cell.ForeColor = vbWhite
+        Case 10
+            cell.Alignment = 0
+            cell.BackColor = G_lngColorAntigua
+            cell.ForeColor = 0
+        Case 11
+            cell.Alignment = 9
+            cell.BackColor = &HCCCCCC
+            cell.ForeColor = 0
+        Case 12
+            cell.Alignment = 9
+            cell.BackColor = &HFF0000
+            cell.ForeColor = &HFFFFFF
+        Case 13
+            cell.Alignment = 9
+            cell.BackColor = &HFFFFFF
+            cell.ForeColor = &H0
+        Case 14
+            cell.Alignment = 9
+            cell.BackColor = RGB(252, 230, 212)
+            cell.ForeColor = &HFFFFFF
+        Case Else
+            cell.Alignment = 10
+            cell.BackColor = &HCCCCCC
+            cell.ForeColor = 0
+    End Select
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Function GeneraFila0XML(dtIni As Date, Optional intCols As Integer = 15, Optional intNoMerged As Integer = True, Optional xMergeCells As Object) As String
+    On Error GoTo Error_GeneraFila0XML
+    Dim i As Integer, dt As Date, strXML As String, strAño As String
+    Dim lngIdTemp As Long, lngIdTempAnt As Long, lngColor As Long, lngColorFuente As Long, intMes As Integer
+    Dim strFormatDate  As String, strLang As String
+    'For dt = dtIni To dtIni + 14
+    If Year(dtIni) = Year(dtIni + intCols) Then
+        strAño = Format(dtIni, "yyyy")
+    Else
+        strAño = Format(dtIni, "yyyy") & "-" & Format(dtIni + intCols, "yyyy")
+    End If
+    strXML = "<Cell Row=""0"" Col=""0"" >" & strAño & "</Cell>"
+    For i = 1 To intCols
+        dt = dtIni + i - 1
+        strXML = strXML & "<Cell Row=""0"" Col=""" & i & """>" & Format(dt, "mmmm") & "</Cell>"
+    Next i
+    GeneraFila0XML = strXML
+Salir_GeneraFila0XML:
+    Exit Function
+Error_GeneraFila0XML:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GeneraFila0XML" & vbCrLf & Err.Description
+            Resume Salir_GeneraFila0XML
+    End Select
+    
+End Function
+
+Public Function GeneraFila1XML(dtIni As Date, Optional intCols As Integer = 15) As String
+    On Error GoTo Error_GeneraFila1XML
+    Dim i As Integer, dt As Date, strXML As String, strAño As String
+    Dim lngIdTemp As Long, lngIdTempAnt As Long, lngColor As Long, lngColorFuente As Long
+    Dim strFormatDate  As String, strLang As String
+    Dim intDiaD_SNF As Integer
+    'strFormatDate = IIf(Nz(DameValorParam("FormatoFechaEUS_SN"), False), "MM/dd", "dd/MM")
+    If (Nz(DameValorParam("FormatoFechaEUS_SN"), False)) = True Then
+        strFormatDate = "MM/dd"
+        strLang = "EU"
+    Else
+        strFormatDate = "dd/MM"
+        strLang = "ES"
+    End If
+    intDiaD_SNF = Nz(DameValorParam("PlaningG_DiaD_SNF"), 1)
+    strXML = "<Cell Row=""1"" Col=""0"" ></Cell>"
+    For i = 1 To intCols
+        dt = dtIni + i - 1
+        strXML = strXML & "<Cell Row=""1"" Col=""" & i & """ style=""" & IIf(EsFestivo(dt), 2, 13) & """>" & Format(dt, "d") & DiaD(dt, , strLang, True, intDiaD_SNF, " - ") & "</Cell>"
+    Next i
+    GeneraFila1XML = strXML
+Salir_GeneraFila1XML:
+    Exit Function
+Error_GeneraFila1XML:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GeneraFila1XML" & vbCrLf & Err.Description
+            Resume Salir_GeneraFila1XML
+    End Select
+    
+End Function
+
+Public Function VaciaFilaGrd(grd As Object, intRow As Integer, Optional intColDesde As Integer = -1, Optional intColHasta As Integer = -1, Optional intEsTipoParcela As Integer = False)
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo Error_VaciaFilaParcelaFichas
+    Dim intCol As Integer, intStyle As Integer
+    Dim intR As Integer, intC As Integer, i As Integer, j As Integer
+    If intColDesde = -1 Then intColDesde = 1
+    If intColHasta = -1 Then intColHasta = grd.Cols - 1
+    For intCol = intColDesde To intColHasta
+        grd.cell(intRow, intCol).Text = ""
+        If intEsTipoParcela = False Then
+            intStyle = 3
+        Else
+            intStyle = 11
+        End If
+        PonStyleCelda grd.cell(intRow, intCol), intStyle
+        grd.cell(intRow, intCol).Tag = ""
+        grd.cell(intRow, intCol).Text = ""
+    Next intCol
+    With grd.Range(intRow, intColDesde, intRow, intColHasta)
+        .MergeCells = False
+    End With
+    
+Salir_VaciaFilaParcelaFichas:
+    Exit Function
+Error_VaciaFilaParcelaFichas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en VaciaFilaParcelaFichas" & vbCrLf & Err.Description
+            Resume Salir_VaciaFilaParcelaFichas
+    End Select
+    
+End Function
+
+Public Function GeneraGrid_xml_Vacio(dtDesde As Date, Optional intCols As Integer = 15, Optional ByRef lngRows As Long, Optional intSinTipos As Integer = 88) As String
+    On Error GoTo Error_GeneraGrid_xml_Vacio
+    Dim strXML As String, intRows As Integer, strSQL As String, rs As Recordset
+    Dim strAntTipo As String, i As Integer, strMerge As String, strOverBookingXML As String
+    Dim intVerParcelasSN As Integer
+    gdtFechaDesdeFlexCell = dtDesde
+    'If Nz(DameValorParam("PlaningGSoloParcelasControlReservas"), False) = False Then
+    '    intRows = Nz(DCount("IdTipoParcela", "tbParcelasTipo"), 0)
+    'Else
+    '    intRows = Nz(DCount("IdTipoParcela", "tbParcelasTipo", "ControlReservas = True"), 0)
+    'End If
+    If Nz(DameValorParam("PlanningGVerFichasSinParcelas"), True) Then
+        i = 2
+        strXML = GeneraFilaTipoParcela_xml_Vacio(0, dtDesde, i, intCols)
+    Else
+        i = 1
+        strXML = ""
+    End If
+    ' al final se inserta la cabecera sabiendo ya el nº de filas i
+    If intSinTipos = 88 Then intSinTipos = Nz(DameValorParam("PlanningGSinTipos"), False)
+    If intSinTipos = False Then
+        Dim iLineas As Integer
+        'El filtro o no de las parcelas con ControlReservas S/N se hace al modificar el parámetro-> se modifica la qryParcelasPlaning
+        Set rs = CurrentDb.OpenRecordset("qryParcelasPlaning", dbOpenSnapshot)
+        While Not rs.EOF
+            If strAntTipo <> rs("TipoParcela") Then
+                i = i + 1
+                strXML = strXML & GeneraFilaTipoParcela_xml_Vacio(rs("IdTipoParcela"), dtDesde, i, intCols)
+                i = i + iLineas
+                strAntTipo = rs("TipoParcela")
+                intVerParcelasSN = Nz(DameValorParam("FlexCell_VerIdTipoParcela_" & rs("IdTipoParcela") & "SN"), True)
+            End If
+            If intVerParcelasSN = True Then
+                If Not IsNull(rs("NombreParcela")) Then
+                    i = i + 1
+                    strXML = strXML & GeneraFilaParcela_xml_Vacio(rs("NombreParcela"), dtDesde, i, intCols)
+                End If
+            End If
+            rs.MoveNext
+        Wend
+    Else
+        'El filtro o no de las parcelas con ControlReservas S/N se hace al modificar el parámetro-> se modifica la qryParcelasPlaning
+        Set rs = CurrentDb.OpenRecordset("qryParcelasPlaningSinTipo", dbOpenSnapshot)
+        While Not rs.EOF
+            If Not IsNull(rs("NombreParcela")) Then
+                i = i + 1
+                strXML = strXML & GeneraFilaParcela_xml_Vacio(rs("NombreParcela"), dtDesde, i, intCols, Nz(rs("TypeCode"), "?"))
+            End If
+            rs.MoveNext
+        Wend
+    End If
+'    strXML = strXML & "</Cells>"
+'    strXML = strXML & "<MergeCells>" & strMerge & "</MergeCells>"
+'    strXML = strXML & "</FlexCell>"
+    
+    strXML = "<FlexCell xml:space=""preserve"">" & GeneraCabeceraXML(i, intCols) _
+            & "<Cells>" _
+            & GeneraFila0XML(dtDesde, intCols) _
+            & GeneraFila1XML(dtDesde, intCols) _
+            & strXML _
+            & "</Cells>" _
+            & "</FlexCell>"
+            
+    lngRows = i
+    GeneraGrid_xml_Vacio = strXML
+Salir_GeneraGrid_xml_Vacio:
+  Exit Function
+Error_GeneraGrid_xml_Vacio:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GeneraGrid_xml_Vacio" & vbCrLf & Err.Description
+            Resume Salir_GeneraGrid_xml_Vacio
+    End Select
+    
+End Function
+
+
+Public Function GeneraFilaTipoParcela_xml_Vacio(lngIdTipoParcela As Long, dtIni As Date, intRow As Integer, Optional intCols As Integer = 15) As String
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo Error_GeneraFilaTipoParcela_xml_Vacio
+    Dim strXML As String, strTag As String, i As Integer, strTipoParcela As String, intCant As Integer
+    Dim intComparteEspacio As Integer, intPax As Integer
+    Dim strSQL As String
+    strTipoParcela = Nz(DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), "¿?")
+    intComparteEspacio = Nz(DLookup("CompartirHabitacionSN", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), False)
+    intCant = Nz(DCount("IdTipoParcela", "tbParcelas", "IdTipoParcela = " & lngIdTipoParcela), 0)
+    intPax = Nz(DSum("NumPlazas", "tbParcelas", "IdTipoParcela = " & lngIdTipoParcela), 0)
+    PonXML strTag, "IdTipoParcela", lngIdTipoParcela
+    strXML = "<Cell Row=""" & intRow & """ Col=""0"" Tag=""" & Replace(Replace(strTag, "<", "&lt;"), ">", "&gt;") & """>" & strTipoParcela & " [" & intCant & "]" & IIf(Not intComparteEspacio, "", " (" & intPax & " Pax)") & "</Cell>"
+    For i = 1 To intCols
+        strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & i & """ Style=""" & 11 & """"
+        strXML = strXML & ">" & "</Cell>"
+    Next i
+    
+    If g_SincroWB And Nz(DameValorParam("Planing_VerPreciosYRestricciones"), False) Then
+        Dim rs As Recordset, k As Integer
+        strSQL = "SELECT tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, wbRooms.id as idR, wbRooms.shortname as sname, wbRooms.name, wbRooms_1.id as idR1, wbRooms_1.shortname as sname1, wbRooms_1.occupancy"
+        strSQL = strSQL & " FROM (tbParcelasTipo LEFT JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname) LEFT JOIN wbRooms AS wbRooms_1 ON wbRooms.id = wbRooms_1.subroom"
+        strSQL = strSQL & " WHERE tbParcelasTipo.TipoParcela = """ & strTipoParcela & """"
+        strSQL = strSQL & " ORDER BY tbParcelasTipo.CatINE, wbRooms.shortname, wbRooms_1.shortname;"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rs.EOF
+            If k = 0 Then
+                If Nz(rs("sname"), "") <> "" Then
+                    intRow = intRow + 1
+                    PonXML strTag, "IdRoom", rs("idR")
+                    strXML = strXML & "<Cell Row=""" & intRow & """ Col=""0"" Tag=""" & Replace(Replace(strTag, "<", "&lt;"), ">", "&gt;") & """ Style=""" & 14 & """>" & rs("sname") & "</Cell>"
+                    For i = 1 To intCols
+                        strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & i & """ Style=""" & 14 & """"
+                        strXML = strXML & ">" & "</Cell>"
+                    Next i
+                End If
+                If Nz(rs("sname1"), "") <> "" Then
+                    intRow = intRow + 1
+                    PonXML strTag, "IdRoom", rs("idR1")
+                    strXML = strXML & "<Cell Row=""" & intRow & """ Col=""0"" Tag=""" & Replace(Replace(strTag, "<", "&lt;"), ">", "&gt;") & """ Style=""" & 14 & """>" & rs("sname1") & "</Cell>"
+                    For i = 1 To intCols
+                        strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & i & """ Style=""" & 14 & """"
+                        strXML = strXML & ">" & "</Cell>"
+                    Next i
+                End If
+                k = 1
+            Else
+                If Nz(rs("sname1"), "") <> "" Then
+                    intRow = intRow + 1
+                    PonXML strTag, "IdRoom", rs("idR1")
+                    strXML = strXML & "<Cell Row=""" & intRow & """ Col=""0"" Tag=""" & Replace(Replace(strTag, "<", "&lt;"), ">", "&gt;") & """ Style=""" & 14 & """>" & rs("sname1") & "</Cell>"
+                    For i = 1 To intCols
+                        strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & i & """ Style=""" & 14 & """"
+                        strXML = strXML & ">" & "</Cell>"
+                    Next i
+                End If
+            End If
+            rs.MoveNext
+        Wend
+    End If
+    
+    GeneraFilaTipoParcela_xml_Vacio = strXML
+Salir_GeneraFilaTipoParcela_xml_Vacio:
+    Exit Function
+Error_GeneraFilaTipoParcela_xml_Vacio:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GeneraFilaTipoParcela_xml_Vacio" & vbCrLf & Err.Description
+            Resume Salir_GeneraFilaTipoParcela_xml_Vacio
+    End Select
+    
+End Function
+
+
+Public Function GeneraFilaParcela_xml_Vacio(strNombreParcela As String, dtIni As Date, intRow As Integer, Optional intCols As Integer = 15, Optional strTipo As String = "") As String
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo Error_GeneraFilaParcela_xml_Vacio
+    Dim i As Integer, strXML As String
+    strXML = "<Cell Row=""" & intRow & """ Col=""0"" Style = ""1"">" & strNombreParcela & IIf(strTipo <> "", " (" & strTipo & ")", "") & "</Cell>"
+    For i = 1 To intCols
+        strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & i & """ Style=""" & 3 & """"
+        strXML = strXML & ">" & "</Cell>"
+    Next i
+            
+    GeneraFilaParcela_xml_Vacio = strXML '& vbCrLf & "Merge: " & strMerge & vbCrLf & strOverBookingXML
+
+Salir_GeneraFilaParcela_xml_Vacio:
+    Exit Function
+Error_GeneraFilaParcela_xml_Vacio:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GeneraFilaParcela_xml_Vacio" & vbCrLf & Err.Description
+            Resume Salir_GeneraFilaParcela_xml_Vacio
+    End Select
+    
+End Function
+
+Public Sub CargaGridVacio(grd As Object, dtDesde As Date, Optional intCols As Integer = 15)
+    Dim strGridXML As String, lRows As Long, strAntMes As String, intAntMesCol As Integer
+    SysCmd acSysCmdSetStatus, "Generando GridXML"
+    strGridXML = GeneraGrid_xml_Vacio(dtDesde, intCols, lRows)
+    SysCmd acSysCmdSetStatus, "Cargando GridXML"
+    Debug.Print "LoadFromXML Ini:", Format(Now(), "hh:nn:ss")
+    grd.LoadFromXMLString (strGridXML)
+    Debug.Print "LoadFromXML Fin:", Format(Now(), "hh:nn:ss")
+    With grd.Range(0, 0, 1, 0)
+        .MergeCells = True
+    End With
+    
+    Dim lngIdTempo As Long, lngIdTempoAnt As Long, lngColor As Long, lngColorFuente As Long, i As Integer, dtCambiaTemporada As Date
+    lngIdTempoAnt = -1
+    For i = 1 To grd.Cols - 1
+        If strAntMes <> grd.cell(0, i).Text Then
+            If strAntMes <> "" Then
+                With grd.Range(0, intAntMesCol, 0, i - 1)
+                    .MergeCells = True
+                End With
+            End If
+            strAntMes = grd.cell(0, i).Text
+            intAntMesCol = i
+        End If
+        If (dtDesde + i - 1) >= dtCambiaTemporada And dtCambiaTemporada <> -1 Then
+            lngIdTempo = QueTemporadaEs(dtDesde + i - 1, lngColor, lngColorFuente, dtCambiaTemporada)
+        End If
+        'If lngIdTempoAnt <> lngIdTempo Then
+        '    lngColor = Nz(DLookup("Color", "tbTemporadasNombre", "IdTemporadaNombre = " & lngIdTempo), RGB(128, 128, 128))
+        '    lngIdTempoAnt = lngIdTempo
+        'End If
+        grd.Range(1, i, 1, i).BackColor = lngColor
+        grd.Range(1, i, 1, i).ForeColor = lngColorFuente
+    Next i
+    If intAntMesCol < grd.Cols - 1 Then
+        With grd.Range(0, intAntMesCol, 0, grd.Cols - 1)
+            .MergeCells = True
+        End With
+    End If
+    SysCmd acSysCmdClearStatus
+End Sub
+
+Public Function CargaGridFichas(grd As Object, dtDesde As Date, Optional intCols As Integer = 15, Optional strNombreParcela As String = "", Optional lngIdTipoParcela As Long = 0, Optional intActualizar_auxPlanning As Integer = True, Optional intSinTipos As Integer = 88) As String
+    On Error GoTo Error_CargaGridFichas
+    Dim strXML As String, intRows As Integer, strSQL As String, rs As Recordset
+    Dim strAntTipo As String, i As Integer, strMerge As String, strOverBookingXML As String
+    Dim intVerParcelasSN As Integer
+    Dim intPrimeroPax As Integer, intVerCanceladas As Integer
+    Dim y As Long, z As Long
+    Dim lngIdPlan As Long, lngIdRPlan As Long
+    lngIdPlan = Nz(DameValorParam("PlaningVerWubookIdPlan"), 0)
+    lngIdRPlan = Nz(DameValorParam("PlaningVerWubookIdRPlan"), 0)
+    gdtFechaDesdeFlexCell = dtDesde
+    DoEvents
+    Debug.Print "CargaGridFichas INI:" & Format(Now(), "hh:nn:ss")
+    'If intActualizar_auxPlanning Then Actualizar_auxPlanning dtDesde, dtDesde + intCols - 1, lngIdTipoParcela, strNombreParcela
+    intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+    SysCmd acSysCmdSetStatus, "Carga Grid Fichas"
+    If Nz(DameValorParam("PlanningGVerFichasSinParcelas"), True) Then
+        i = 2
+        Call CargaRowTipoParcelaFichas(grd, 0, dtDesde, i, intCols)
+    Else
+        i = 1
+    End If
+    intVerCanceladas = Nz(DameValorParam("PlaningVerCanceladas"), True)
+
+    If intSinTipos = 88 Then intSinTipos = Nz(DameValorParam("PlanningGSinTipos"), False)
+    If intSinTipos = False Then
+        Set rs = CurrentDb.OpenRecordset("qryParcelasPlaning", dbOpenSnapshot)
+        If Not rs.EOF Then
+            rs.MoveLast
+            rs.MoveFirst
+        End If
+        z = rs.RecordCount
+        While Not rs.EOF
+            y = y + 1
+            If strAntTipo <> rs("TipoParcela") Then
+                SysCmd acSysCmdSetStatus, "Carga Grid Fichas Tipo Parcela " & y & " / " & z
+                i = i + 1
+                DoEvents
+                'Debug.Print "CargaFilaTipoParcelaFichas  Id=" & rs("IdTipoParcela") & " Ini: " & Format(Now(), "hh:nn:ss")
+                Call CargaRowTipoParcelaFichas(grd, rs("IdTipoParcela"), dtDesde, i, intCols, , , intVerCanceladas)
+                'Call CargaRowTipoParcelaPrecios(grd, rs("IdTipoParcela"), dtDesde, i, intCols)
+                'Debug.Print "CargaFilaTipoParcelaFichas  Id=" & rs("IdTipoParcela") & " Fin: " & Format(Now(), "hh:nn:ss")
+                strAntTipo = rs("TipoParcela")
+                intVerParcelasSN = Nz(DameValorParam("FlexCell_VerIdTipoParcela_" & rs("IdTipoParcela") & "SN"), True)
+            End If
+            If intVerParcelasSN = True Then
+                SysCmd acSysCmdSetStatus, "Carga Grid Fichas Parcela " & y & " / " & z
+                If Not IsNull(rs("NombreParcela")) Then
+                    i = i + 1
+                    DoEvents
+                    Debug.Print "CargaFilaParcelaFichas  =" & rs("NombreParcela") & " Ini: " & Format(Now(), "hh:nn:ss")
+                    'Call CargaFilaParcelaFichas(grd, rs("NombreParcela"), dtDesde, i, intCols, strMerge, strOverBookingXML, , intPrimeroPax)
+                    CargaRowParcelaFichas grd, rs("NombreParcela"), dtDesde, i, intCols, strMerge, strOverBookingXML, , intPrimeroPax, intVerCanceladas, intSinTipos
+                    'Debug.Print "CargaFilaParcelaFichas  =" & rs("NombreParcela") & " Fin: " & Format(Now(), "hh:nn:ss")
+                End If
+            End If
+            rs.MoveNext
+        Wend
+    Else
+        Set rs = CurrentDb.OpenRecordset("qryParcelasPlaningSinTipo", dbOpenSnapshot)
+        If Not rs.EOF Then
+            rs.MoveLast
+            rs.MoveFirst
+        End If
+        z = rs.RecordCount
+        While Not rs.EOF
+            y = y + 1
+            SysCmd acSysCmdSetStatus, "Carga Grid Fichas Parcela " & y & " / " & z
+            If Not IsNull(rs("NombreParcela")) Then
+                i = i + 1
+                DoEvents
+                'Call CargaFilaParcelaFichas(grd, rs("NombreParcela"), dtDesde, i, intCols, strMerge, strOverBookingXML, , intPrimeroPax)
+                CargaRowParcelaFichas grd, rs("NombreParcela"), dtDesde, i, intCols, strMerge, strOverBookingXML, , intPrimeroPax, intVerCanceladas, intSinTipos
+            End If
+            rs.MoveNext
+        Wend
+    End If
+    Dim strMSG As String, intR As Integer
+    If strOverBookingXML <> "" Then
+        For i = 1 To DimeXML(strOverBookingXML, "NumItems")
+            strMSG = strMSG & "Parcela: " & DimeXML(strOverBookingXML, "Parcela", , , i)
+            strMSG = strMSG & " (" & DimeXML(strOverBookingXML, "Fecha", , , i) & ")"
+            strMSG = strMSG & "Ficha: " & DimeXML(strOverBookingXML, "IdFichaCab", , , i) & vbCrLf
+        Next i
+        strMSG = "Atención OverBooking en la/s siguientes ficha/s: " & vbCrLf & strMSG
+        intR = MsgBox(strMSG & vbCrLf & "¿Imprimir al Bloc de Notas?", vbYesNoCancel + vbExclamation)
+        If intR = vbYes Then ImprimirSQL_DOS1 "", strMSG, "", , , True
+    End If
+    CargaGridFichas = strXML
+'    If IsOpenForm("frmPlaningH") Then
+'        Forms("frmPlaningH").Grid0.Width = 15 * Nz(DameValorParam("PlanningHAnchoCols"), 55) + 100 + 40 '40 para el scroll
+'        Forms("frmPlaningH").Width = Forms("frmPlaningH").Grid0.Left + Forms("frmPlaningH").Grid0.Width
+'    End If
+Salir_CargaGridFichas:
+    Debug.Print "CargaGridFichas FIN:" & Format(Now(), "hh:nn:ss")
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_CargaGridFichas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaGridFichas" & vbCrLf & Err.Description
+            Resume Salir_CargaGridFichas
+    End Select
+    
+End Function
+
+Public Function RecargaGridFichas(grd As Object, dtDesde As Date, strListaRecarga As String, Optional intCols As Integer = 15) As String
+    On Error GoTo Error_RecargaGridFichas
+    Dim strXML As String, intRows As Integer, strSQL As String, rs As Recordset, rs2 As Recordset, intRow As Integer
+    Dim strAntTipo As String, strMerge As String, strOverBookingXML As String
+    Dim intVerParcelasSN As Integer
+    Dim intPrimeroPax As Integer, intVerCanceladas As Integer
+    Dim k As Integer, lngIdTPAnt As Long
+    intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+    gdtFechaDesdeFlexCell = dtDesde
+    DoEvents
+    'probando---------------------------------------------------------
+    'Generar_auxPlaning dtDesde, intCols
+    'fin probando-----------------------------------------------------
+    Dim lngIdTipoParcela As Long, strParcela As String, i As Integer, j As Integer, strW As String
+    intVerCanceladas = Nz(DameValorParam("PlaningVerCanceladas"), True)
+    'If strListaRecarga = "" Then strListaRecarga = "{{0}}"
+    j = 1: i = InStr(j, strListaRecarga, "{{")
+    While i <> 0
+        i = i + 2
+        j = InStr(i, strListaRecarga, "}}")
+        If j > 0 Then
+            If Mid(strListaRecarga, i, j - i) = "IdRooms" Then ' Recargar las capeceras de las UdRooms de Wubook
+            
+                strSQL = "SELECT tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, wbRooms.id as idR, wbRooms.shortname as sname, wbRooms.name, wbRooms_1.id as idR1, wbRooms_1.shortname as sname1, wbRooms_1.occupancy"
+                strSQL = strSQL & " FROM (tbParcelasTipo LEFT JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname) LEFT JOIN wbRooms AS wbRooms_1 ON wbRooms.id = wbRooms_1.subroom"
+                strSQL = strSQL & " ORDER BY tbParcelasTipo.IdTipoParcela, wbRooms.shortname, wbRooms_1.shortname;"
+                Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                While Not rs.EOF
+                    If rs("IdTipoParcela") <> lngIdTPAnt Then
+                        lngIdTPAnt = rs("IdTipoParcela")
+                        k = 0
+                    End If
+                    If k = 0 Then
+                        If Nz(rs("sname"), "") <> "" Then
+                            intRow = -1
+                            CargaRowTipoParcelaPrecios grd, rs("IdR"), dtDesde, intRow, intCols
+                        
+                            'comprueba disponibilidad
+                            strSQL = "SELECT * FROM wbTabla"
+                            strSQL = strSQL & " WHERE IdRoom = " & rs("IdR")
+                            strSQL = strSQL & " AND Fecha Between " & CLng(dtDesde) & " AND " & CLng(dtDesde + intCols - 1)
+                            Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                            While Not rs2.EOF
+                                If Nz(rs2("avail"), 0) <> Nz(rs2("availH4"), 0) Then
+                                    i = rs2("Fecha") - dtDesde + 1
+                                    grd.cell(intRow, i).Text = Nz(rs2("avail"), 0) & "x ! " & grd.cell(intRow, i).Text
+                                    grd.cell(intRow, i).ForeColor = vbRed
+                                   ' grd.cell(intRow, i).ControlTipText = "Avail WB: " & Nz(rs("avail"), 0) & " - H4: " & Nz(rs("availH4"), 0)
+                                End If
+                                rs2.MoveNext
+                            Wend
+                        End If
+                        If Nz(rs("sname1"), "") <> "" Then
+                            CargaRowTipoParcelaPrecios grd, rs("IdR1"), dtDesde, -1, intCols
+                        End If
+                        k = 1
+                    Else
+                        If Nz(rs("sname1"), "") <> "" Then
+                            CargaRowTipoParcelaPrecios grd, rs("IdR1"), dtDesde, -1, intCols
+                        End If
+                    End If
+                    rs.MoveNext
+                Wend
+            Else
+                lngIdTipoParcela = CLng(Mid(strListaRecarga, i, j - i))
+                'Actualizar_auxPlanning dtDesde, dtDesde + intCols - 1, lngIdTipoParcela
+                Call CargaRowTipoParcelaFichas(grd, lngIdTipoParcela, dtDesde, -1, intCols, , , intVerCanceladas)
+            End If
+            i = InStr(j, strListaRecarga, "{{")
+        Else
+            i = 0
+        End If
+    Wend
+    SysCmd acSysCmdSetStatus, "Carga Grid Fichas"
+    If Nz(DameValorParam("PlanningGVerFichasSinParcelas"), True) Then
+        i = 2
+        Call CargaRowTipoParcelaFichas(grd, 0, dtDesde, i, intCols)
+    Else
+        i = 1
+    End If
+    j = 1: i = InStr(j, strListaRecarga, "[[")
+    'strW = "True AND ("
+    While i <> 0
+        i = i + 2
+        j = InStr(i, strListaRecarga, "]]")
+        If j > 0 Then
+            strParcela = Mid(strListaRecarga, i, j - i)
+            strAntTipo = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = " & ConComillas(strParcela)), "0")
+            intVerParcelasSN = Nz(DameValorParam("FlexCell_VerIdTipoParcela_" & strAntTipo & "SN"), True)
+            If intVerParcelasSN = True And strParcela <> "" And strParcela <> "-" Then
+                DoEvents
+                Call CargaRowParcelaFichas(grd, strParcela, dtDesde, -1, intCols, strMerge, strOverBookingXML, True, intPrimeroPax, intVerCanceladas)
+            End If
+            i = InStr(j, strListaRecarga, "[[")
+        Else
+            i = 0
+        End If
+    Wend
+    Dim strMSG As String, intR As Integer
+    If strOverBookingXML <> "" Then
+        For i = 1 To DimeXML(strOverBookingXML, "NumItems")
+            strMSG = strMSG & "Parcela: " & DimeXML(strOverBookingXML, "Parcela", , , i)
+            strMSG = strMSG & " (" & DimeXML(strOverBookingXML, "Fecha", , , i) & ")"
+            strMSG = strMSG & "Ficha: " & DimeXML(strOverBookingXML, "IdFichaCab", , , i) & vbCrLf
+        Next i
+        strMSG = "Atención OverBooking en la/s siguientes ficha/s: " & vbCrLf & strMSG
+        intR = MsgBox(strMSG & vbCrLf & "¿Imprimir al Bloc de Notas?", vbYesNoCancel + vbExclamation)
+        If intR = vbYes Then ImprimirSQL_DOS1 "", strMSG, "", , , True
+    End If
+    RecargaGridFichas = strXML
+'    If IsOpenForm("frmPlaningH") Then
+'        Forms("frmPlaningH").Grid0.Width = 15 * Nz(DameValorParam("PlanningHAnchoCols"), 55) + 100 + 40 '40 para el scroll
+'        Forms("frmPlaningH").Width = Forms("frmPlaningH").Grid0.Left + Forms("frmPlaningH").Grid0.Width
+'    End If
+    
+Salir_RecargaGridFichas:
+    SysCmd acSysCmdClearStatus
+  
+  Exit Function
+Error_RecargaGridFichas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en RecargaGridFichas" & vbCrLf & Err.Description
+            Resume Salir_RecargaGridFichas
+    End Select
+End Function
+
+Public Sub AñadeParcelaARecarga(strNombreParcela As String, Optional lngIdTipoParcela As Long = 0)
+    If Not IsOpenForm("frmPlaningG") Then Exit Sub
+    If strNombreParcela <> "" Then
+        lngIdTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = " & ConComillas(strNombreParcela)), 0)
+    End If
+    If InStr(Forms("frmPlaningG")("lblRecargaParcelas").Caption, "[[" & strNombreParcela & "]]") = 0 Then
+        Forms("frmPlaningG")("lblRecargaParcelas").Caption = Forms("frmPlaningG")("lblRecargaParcelas").Caption & "[[" & strNombreParcela & "]]"
+    End If
+    If InStr(Forms("frmPlaningG")("lblRecargaParcelas").Caption, "{{" & lngIdTipoParcela & "}}") = 0 Then
+        Forms("frmPlaningG")("lblRecargaParcelas").Caption = Forms("frmPlaningG")("lblRecargaParcelas").Caption & "{{" & lngIdTipoParcela & "}}"
+    End If
+End Sub
+
+Public Sub AñadeParcelasDeFichaARecarga(lngIdFichaCab As Long)
+    On Error GoTo Error_AñadeParcelasDeFichaARecarga
+    Dim strSQL As String, rs As Recordset, lngIdTipoParcela As Long
+    If Not IsOpenForm("frmPlaningG") Then Exit Sub
+    strSQL = "SELECT DISTINCT IdTipoParcela, Parcela FROM tbFichasDet WHERE IdFichaCab = " & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        AñadeParcelaARecarga Nz(rs("Parcela"), ""), Nz(rs("IdTipoParcela"), 0)
+        rs.MoveNext
+    Wend
+Salir_AñadeParcelasDeFichaARecarga:
+    Exit Sub
+Error_AñadeParcelasDeFichaARecarga:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AñadeParcelasDeFichaARecarga" & vbCrLf & Err.Description
+            Resume Salir_AñadeParcelasDeFichaARecarga
+    End Select
+End Sub
+
+Public Sub AñadeParcelasDeFichaDetARecarga(lngIdFichaDet As Long)
+    On Error GoTo Error_AñadeParcelasDeFichaDetARecarga
+    Dim strSQL As String, rs As Recordset, lngIdTipoParcela As Long
+    If Not IsOpenForm("frmPlaningG") Then Exit Sub
+    strSQL = "SELECT IdTipoParcela, Parcela FROM tbFichasDet WHERE IdFichaDet = " & lngIdFichaDet
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        AñadeParcelaARecarga Nz(rs("Parcela"), ""), Nz(rs("IdTipoParcela"), 0)
+        rs.MoveNext
+    Wend
+Salir_AñadeParcelasDeFichaDetARecarga:
+    Exit Sub
+Error_AñadeParcelasDeFichaDetARecarga:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AñadeParcelasDeFichaDetARecarga" & vbCrLf & Err.Description
+            Resume Salir_AñadeParcelasDeFichaDetARecarga
+    End Select
+End Sub

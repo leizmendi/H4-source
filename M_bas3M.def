@@ -1,0 +1,222 @@
+Option Compare Database
+Option Explicit
+
+Type Viajero
+    strTipoDoc As String * 1 'Tipo de Documento: D: DNI, P: Pasaporte, C: Carnet de conducir, I: Documento de Identidad, N: permiso de residencia español, X: permiso de residencia extranjero
+    strNumDoc As String
+    dtFechaNacimiento As Date
+    dtFechaExpedicion As Date
+    strSexo As String * 1 'F: femenino, M: masculino
+    strNombre As String
+    strApellidos As String
+    strNacionalidad As String
+End Type
+
+Public Function DatosViajeroZLM(strData As String) As Viajero
+    On Error GoTo Error_DatosViajeroZLM
+    Dim intLin As Integer, i As Integer, viaR As Viajero
+    intLin = LineasDeStr(strData)
+    Select Case intLin
+        Case 2
+            viaR = DatosViajeroZLM2lin(strData)
+        Case 3
+            viaR = DatosViajeroZLM3lin(strData)
+        Case Else
+            MsgBox "Nº de líneas inesperado al leer en lecto 3M", vbExclamation
+    End Select
+    DatosViajeroZLM = viaR
+Salir_DatosViajeroZLM:
+    Exit Function
+Error_DatosViajeroZLM:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DatosViajeroZLM" & vbCrLf & Err.Description
+            Resume Salir_DatosViajeroZLM
+    End Select
+
+End Function
+
+Public Function DatosViajeroZLM2lin(strData As String) As Viajero
+    On Error GoTo Error_DatosViajeroZLM2lin
+    Dim intLin As Integer, i As Integer, viaR As Viajero
+    Dim strL1 As String, strL2 As String, strMSG As String
+    Dim strNombre As String, strApellidos As String, strX As String, dtX As Date, strPais As String, intAño As Integer
+    strL1 = ExtraeLin(strData, 1)
+    strL2 = ExtraeLin(strData, 2)
+    If Mid(strL1, 1, 1) = "P" Then
+        viaR.strTipoDoc = "P"
+    Else
+        strMSG = "Tipo de documento no esperado: " & ConComillas(Mid(strL1, 1, 1)) & vbCrLf
+    End If
+    'Nombre y Apellidos
+    strNombre = Mid(strL1, 6)
+    i = InStr(strNombre, "<<")
+    If i > 0 Then
+        strApellidos = Left(strNombre, i - 1)
+        strNombre = Mid(strNombre, i + 2)
+    Else
+        strApellidos = strNombre
+        strNombre = ""
+    End If
+    strApellidos = Replace(strApellidos, "<", " ")
+    strNombre = Trim(Replace(strNombre, "<", " "))
+    viaR.strApellidos = strApellidos
+    viaR.strNombre = strNombre
+    strX = Mid(strL2, 1, 9)
+    If DigitoControlZLM(strX) <> Mid(strL2, 10, 1) Then
+        strMSG = strMSG & "Error 3n digito control de Número de Documento" & vbCrLf
+        strX = "??"
+    End If
+    strX = Trim(Replace(strX, "<", " "))
+    viaR.strNumDoc = strX
+    strX = Mid(strL2, 11, 3)
+    strPais = Nz(DLookup("NombrePais", "valPaises", "ClaveOACI Like '*" & strX & "|*'"), "")
+    viaR.strNacionalidad = strPais
+    strX = Mid(strL2, 14, 6)
+    If DigitoControlZLM(strX) <> Mid(strL2, 20, 1) Then
+        strMSG = strMSG & "Error 3n digito control de Fecha de Nacimiento" & vbCrLf
+    End If
+    intAño = CInt(Mid(strX, 1, 2))
+    If Format(intAño, "00") > Format(Year(Date), "00") Then
+        intAño = intAño + 1900
+    Else
+        intAño = intAño + 2000
+    End If
+    
+    dtX = CDate(CStr(intAño) & "/" & Mid(strX, 3, 2) & "/" & Mid(strX, 5, 2))
+    viaR.dtFechaNacimiento = dtX
+    viaR.strSexo = Mid(strL2, 21, 1)
+    strX = Mid(strL2, 22, 6)
+    If DigitoControlZLM(strX) <> Mid(strL2, 28, 1) Then
+        strMSG = strMSG & "Error en digito control de Fecha de Expedición" & vbCrLf
+    End If
+    intAño = CInt(Mid(strX, 1, 2)) - 5
+    'If intAño < 0 Then intAño = intAño + 100
+    intAño = intAño + 2000
+    dtX = CDate(CStr(intAño) & "/" & Mid(strX, 3, 2) & "/" & Mid(strX, 5, 2))
+    viaR.dtFechaExpedicion = dtX
+    DatosViajeroZLM2lin = viaR
+Salir_DatosViajeroZLM2lin:
+    Exit Function
+Error_DatosViajeroZLM2lin:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DatosViajeroZLM2lin" & vbCrLf & Err.Description
+            Resume Salir_DatosViajeroZLM2lin
+    End Select
+
+End Function
+
+Public Function DatosViajeroZLM3lin(strData As String) As Viajero
+    On Error GoTo Error_DatosViajeroZLM3lin
+    Dim intLin As Integer, i As Integer, viaR As Viajero
+    Dim strL1 As String, strL2 As String, strL3 As String, strMSG As String
+    Dim strNombre As String, strApellidos As String, strX As String, dtX As Date, strPais As String, intAño As Integer
+    strL1 = ExtraeLin(strData, 1)
+    strL2 = ExtraeLin(strData, 2)
+    strL3 = ExtraeLin(strData, 3)
+    'Nacionalidad
+    strX = Mid(strL2, 16, 3)
+    strPais = Nz(DLookup("NombrePais", "valPaises", "ClaveOACI Like '*" & strX & "|*'"), "")
+    viaR.strNacionalidad = strPais
+    If Mid(strL1, 1, 1) = "I" Then
+        strX = Mid(strL1, 3, 3)
+        If strX = "ESP" Then
+            If strPais = "España" Then
+                viaR.strTipoDoc = "D"
+            Else
+                viaR.strTipoDoc = "N"
+            End If
+        Else
+            viaR.strTipoDoc = "I"
+        End If
+    Else
+        strMSG = "Tipo de documento no esperado: " & ConComillas(Mid(strL1, 1, 1)) & vbCrLf
+    End If
+    'Nombre y Apellidos
+    strNombre = strL3
+    i = InStr(strNombre, "<<")
+    If i > 0 Then
+        strApellidos = Left(strNombre, i - 1)
+        strNombre = Mid(strNombre, i + 2)
+    Else
+        strApellidos = strNombre
+        strNombre = ""
+    End If
+    strApellidos = Replace(strApellidos, "<", " ")
+    strNombre = Trim(Replace(strNombre, "<", " "))
+    viaR.strApellidos = strApellidos
+    viaR.strNombre = strNombre
+    strX = Mid(strL1, 6, 9)
+    If DigitoControlZLM(strX) <> Mid(strL1, 15, 1) Then
+        strMSG = strMSG & "Error 3n digito control de Número de Documento" & vbCrLf
+        strX = "??"
+    End If
+    If Mid(strL1, 16, 3) <> "<<<" Then
+        strX = Mid(strL1, 16)
+    End If
+    strX = Trim(Replace(strX, "<", " "))
+    viaR.strNumDoc = strX
+    strX = Mid(strL2, 1, 6)
+    If DigitoControlZLM(strX) <> Mid(strL2, 7, 1) Then
+        strMSG = strMSG & "Error 3n digito control de Fecha de Nacimiento" & vbCrLf
+    End If
+    intAño = CInt(Mid(strX, 1, 2))
+    If Format(intAño, "00") > Format(Year(Date), "00") Then
+        intAño = intAño + 1900
+    Else
+        intAño = intAño + 2000
+    End If
+    
+    dtX = CDate(CStr(intAño) & "/" & Mid(strX, 3, 2) & "/" & Mid(strX, 5, 2))
+    viaR.dtFechaNacimiento = dtX
+    viaR.strSexo = Mid(strL2, 8, 1)
+    strX = Mid(strL2, 9, 6)
+    If DigitoControlZLM(strX) <> Mid(strL2, 15, 1) Then
+        strMSG = strMSG & "Error en digito control de Fecha de Expedición" & vbCrLf
+    End If
+    intAño = CInt(Mid(strX, 1, 2)) - 10
+    'If intAño < 0 Then intAño = intAño + 100
+    intAño = intAño + 2000
+    dtX = CDate(CStr(intAño) & "/" & Mid(strX, 3, 2) & "/" & Mid(strX, 5, 2))
+    viaR.dtFechaExpedicion = dtX
+    DatosViajeroZLM3lin = viaR
+Salir_DatosViajeroZLM3lin:
+    Exit Function
+Error_DatosViajeroZLM3lin:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DatosViajeroZLM3lin" & vbCrLf & Err.Description
+            Resume Salir_DatosViajeroZLM3lin
+    End Select
+
+End Function
+
+Public Function DigitoControlZLM(strDataControl As String) As Integer
+    On Error GoTo Error_DigitoControlZLM
+    Dim i As Integer, lSum As Long, k As Integer, intV As Integer, v As Variant, intR As Integer
+    Dim intPond(0 To 2) As Integer
+    intPond(0) = 7: intPond(1) = 3: intPond(2) = 1
+    k = 0
+    For i = 1 To Len(strDataControl)
+        v = Mid(strDataControl, i, 1)
+        If IsNumeric(v) Then
+            intV = CInt(v)
+        Else
+            intV = Asc(CStr(v)) - 55
+            If intV < 10 Or intV > 35 Then intV = 0
+        End If
+        lSum = lSum + intV * intPond(k)
+        k = k + 1: If k > 2 Then k = 0
+    Next i
+    intR = lSum Mod 10
+    DigitoControlZLM = intR
+Salir_DigitoControlZLM:
+    Exit Function
+Error_DigitoControlZLM:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ControlZLM" & vbCrLf & Err.Description
+            Resume Salir_DigitoControlZLM
+    End Select
+End Function

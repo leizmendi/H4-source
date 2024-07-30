@@ -1,0 +1,37 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Close()
+    If IsOpenForm("frmArtV") Then
+        Forms("frmArtV")("txtTicketHizk").Requery
+'        Forms("frmArtV")("txtFacturaHizk").Requery
+    End If
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, ""
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim lngIdArtV As Long, strSQL As String
+    If Len(Me.OpenArgs) > 0 Then
+        lngIdArtV = CLng(Me.OpenArgs)
+        strSQL = "SELECT * FROM tbArtv_Hizk WHERE IdArtV = " & lngIdArtV
+        Me.RecordSource = strSQL
+        Me.Caption = "Traducciones de " & Nz(DLookup("ArticuloVenta", "tbArtV", "IdArtV = " & lngIdArtV), "-")
+    Else
+        strSQL = "SELECT * FROM tbArtv_Hizk"
+        Me.RecordSource = strSQL
+        Me.Caption = ""
+    End If
+    Me.TxtTicket.SetFocus
+End Sub
+
+Private Sub TxtTicket_AfterUpdate()
+    If IsNull(Me.TxtFactura) Then Me.TxtFactura = Me.TxtTicket
+End Sub

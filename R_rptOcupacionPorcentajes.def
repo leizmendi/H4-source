@@ -1,0 +1,17 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    'If IsOpenForm("frmListadosTodos") Then
+    If strXML <> "" Then
+        Me.lblSubTit.Caption = Nz(DimeXML(strXML, "Titulo"), "") 'Forms("frmListadosTodos")("lblTit").Caption
+    End If
+    Me.lblTitulo.Caption = "Ocupación de " & g_strPHs
+End Sub

@@ -1,0 +1,21 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No hay registros en las fechas y servicios seleccionados", vbInformation
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.lblTit.Caption = "Servicios Comedor: " & Nz(DimeXML(strXML, "Titulo"), "")
+    Me.lblPH.Caption = g_strPH
+    Me.Hab.Visible = Not Nz(DameValorParam("ParteComedor_Hab1Linea"), False)
+    Me.Hab1lin.Visible = Not Me.Hab.Visible
+End Sub

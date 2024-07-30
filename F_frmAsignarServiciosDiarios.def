@@ -1,0 +1,163 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim gstrSelected As String
+
+Private Sub btnAsignar_Click()
+    Dim lngIdFicha As Long, strParcela  As String
+    Dim varItem As Variant
+    Dim curCant As Currency, strSQL As String
+    On Error GoTo Error_btnAsignar_Click
+    If Me.lstDisponibles.ListIndex = -1 Then Exit Sub
+    If IsNull(Forms![frmFichas]![IdFichaCab]) Then Exit Sub
+    lngIdFicha = Forms![frmFichas]![IdFichaCab]
+    curCant = Nz(DLookup("[Adultos]+[Niños]", "tbFichascab", "IdFichaCab = " & lngIdFicha), 0)
+    curCant = Nz(DimeTeclado(2, "Indique cantidad", curCant), -1.234)
+    If curCant = -1.234 Then Exit Sub
+    DoCmd.Hourglass True
+    
+    For Each varItem In Me.lstDisponibles.ItemsSelected
+        Añade_FichaDet lngIdFicha, Me.lstDisponibles.Column(0, varItem), CDate(Me.txtDesde), CDate(Me.txtHasta), curCant
+    Next varItem
+    
+    DoCmd.Hourglass False
+    'Me.lstDisponibles.Requery
+    Me.lstAsignadas.Requery
+    'Forms![frmFichas]![lstHabitaciones].Requery
+    Forms![frmFichas].RecalculaTotales
+    AsignarServiciosDia lngIdFicha
+    Me.subfrmFichasDetServiciosXDia.Requery
+Salir_btnAsignar_Click:
+    Exit Sub
+Error_btnAsignar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en btnAsignar_Click" & vbCrLf & Err.Description
+            Resume Salir_btnAsignar_Click
+            Resume Next
+    End Select
+End Sub
+
+Private Sub btnQuitar_Click()
+    'On Error Resume Next
+    'DoCmd.GoToControl "SubfrmFichasDetParcelas"
+    'DoCmd.RunCommand acCmdDeleteRecord
+    Dim db As DAO.Database
+    Dim strSQL As String
+    Dim varItem As Variant, strParcela As String, lngIdDet As Long
+    On Error Resume Next
+    If Me.lstAsignadas.ListIndex = -1 Then Exit Sub
+    If IsNull(Forms![frmFichas]![IdFichaCab]) Then Exit Sub
+    Set db = CurrentDb
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        strSQL = "DELETE tbFichasDet.IdFichaDet"
+        strSQL = strSQL + " FROM tbFichasDet"
+        strSQL = strSQL + " WHERE (((tbFichasDet.IdFichaDet)=" & Me.lstAsignadas.Column(0, varItem) & "));"
+        db.Execute strSQL, dbFailOnError
+        If DCount("IdParcela", "tbParcelas", "IdFichaCab = " & Forms![frmFichas]![IdFichaCab]) Then ' Si es Ficha del Panel, actualizar conexión con botones de Panel
+            CurrentDb.Execute "UPDATE tbParcelas SET tbParcelas.IdFicha = 0" _
+                        & " WHERE tbParcelas.NombreParcela ='" & Me.lstAsignadas.Column(1, varItem) & "'", dbFailOnError
+            If IsOpenForm("frmPanel") Then
+                    Call PintaBotones(Forms!frmPanel, Me.lstAsignadas.Column(1, varItem), , True)
+            End If
+        End If
+    Next varItem
+    'Me.lstDisponibles.Requery
+    Me.lstAsignadas.Requery
+    'Forms![frmFichas]![lstHabitaciones].Requery
+    Forms![frmFichas].RecalculaTotales
+    AsignarServiciosDia Forms![frmFichas]![IdFichaCab]
+    Me.subfrmFichasDetServiciosXDia.Requery
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnSXD_Click()
+On Error GoTo Err_btnSXD_Click
+    Dim rs As Recordset
+    Set rs = CurrentDb.OpenRecordset("tbFichasDetServiciosXDia", dbOpenDynaset)
+    If Not IsDate(Me.txtDesde) Then
+        MsgBox "Se debe introducir Fecha de Inicio"
+        Me.txtDesde.SetFocus
+        Exit Sub
+    End If
+    If Not IsDate(Me.txtHasta) Then
+        MsgBox "Se debe introducir Fecha de Fin"
+        Me.txtHasta.SetFocus
+        Exit Sub
+    End If
+    Dim dt As Date, dtIni As Date, dtFin As Date, lngIdFicha As Long
+    dtIni = CDate(Me.txtDesde)
+    dtFin = CDate(Me.txtHasta)
+    If dtIni > dtFin Then
+        dt = dtIni
+        dtIni = dtFin
+        dtFin = dt
+    End If
+    lngIdFicha = Forms![frmFichas]![IdFichaCab]
+    For dt = dtIni To dtFin
+        rs.FindFirst "IdFichaCab = " & lngIdFicha & " AND Fecha = " & CLng(dt)
+        If rs.NoMatch Then
+            rs.AddNew
+            rs("IdFichaCab") = lngIdFicha
+            rs("Fecha") = dt
+            rs.Update
+        End If
+    Next dt
+Exit_btnSXD_Click:
+    Me.subfrmFichasDetServiciosXDia.Requery
+    Exit Sub
+
+Err_btnSXD_Click:
+    MsgBox Err.Description
+    Resume Exit_btnSXD_Click
+    
+End Sub
+
+Private Sub Form_Load()
+    'Traducir Me
+    Me.Caption = "Asignar Servicios de Restaurante-Cocina"
+    If IsOpenForm("frmFichas") Then
+        Dim frm As Form
+        Set frm = Forms("frmFichas")
+        Me.txtDesde = frm.Controls("txtFechaLlegada")
+        Me.txtHasta = frm.Controls("txtFechaSalida")
+    End If
+End Sub
+
+Private Sub lstAsignadas_DblClick(Cancel As Integer)
+    Call btnQuitar_Click
+End Sub
+
+Private Sub lstDisponibles_DblClick(Cancel As Integer)
+    Call btnAsignar_Click
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtDesde)
+        If IsDate(varFecha) Then
+            Me.txtDesde = varFecha
+            'Call txtDesde_AfterUpdate
+        End If
+    End If
+        
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtHasta)
+        If IsDate(varFecha) Then
+            Me.txtHasta = varFecha
+            'Call txtHasta_AfterUpdate
+        End If
+    End If
+End Sub

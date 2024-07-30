@@ -1,0 +1,87 @@
+Option Compare Database
+Option Explicit
+
+Public Function LeerFicheroTexto(Ruta As String) As String
+    On Error GoTo Error_Function:
+      
+    Dim ObjDatos As TextStream     ' Objeto Fso para el Contenido del archivo
+    Dim Datos As String            ' datos del fichero
+    Dim FSO As New FileSystemObject
+    
+    Datos = ""
+    Set ObjDatos = FSO.OpenTextFile(Ruta, ForReading, False, TristateMixed)
+    While Not ObjDatos.AtEndOfStream
+          Datos = Datos & ObjDatos.ReadAll
+    Wend
+    ' retorna el contenido leido
+    LeerFicheroTexto = Datos
+    ' cierra el archivo abierto
+    ObjDatos.Close
+    Set FSO = Nothing
+Exit Function
+Error_Function:
+  
+    MsgBox Err.Description
+    On Local Error Resume Next
+    Set FSO = Nothing
+End Function
+
+Function ReadUTF8File(ByVal FilePath As String) As String
+    Dim TextStream As Object
+    Dim FileContent As String
+    
+    Set TextStream = CreateObject("ADODB.Stream")
+    
+    TextStream.Charset = "utf-8"
+    TextStream.Open
+    TextStream.LoadFromFile FilePath
+    FileContent = TextStream.ReadText(-1)
+    
+    TextStream.Close
+    Set TextStream = Nothing
+    
+    ReadUTF8File = FileContent
+End Function
+
+
+Public Function EscribirFicheroTexto(sFile As String _
+                         , sTexto As String _
+                         , Optional bOverWrite As Boolean = True _
+                         , Optional sCharSet As String = "UTF-8") As Boolean
+    On Error GoTo HandleError
+'    Dim fs As Scripting.FileSystemObject 'Object
+'    Dim a As TextStream
+'    Set fs = CreateObject("Scripting.FileSystemObject")
+'    Set a = fs.CreateTextFile(sFile, bOverWrite)
+'    a.Char
+'    a.Write (sTexto)
+'    a.Close
+'
+    Dim objStream As ADODB.stream, iR As Integer
+    Set objStream = New ADODB.stream
+    objStream.Open
+    objStream.Charset = sCharSet
+    objStream.WriteText sTexto
+    If Dir(sFile) <> "" Then
+        If bOverWrite Then
+            iR = vbOK
+        Else
+            iR = MsgBox("Se encontró el fichero: " & sFile & ". ¿Reemplazarlo?", vbOKCancel + vbQuestion + vbDefaultButton2)
+        End If
+        If iR = vbCancel Then
+            objStream.Close
+            Set objStream = Nothing
+            GoTo HandleExit
+        End If
+        Kill sFile
+    End If
+    objStream.SaveToFile sFile
+    objStream.Close
+    Set objStream = Nothing
+    EscribirFicheroTexto = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

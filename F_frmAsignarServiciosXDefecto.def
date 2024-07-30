@@ -1,0 +1,98 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim glngIdTipoParcela As Long
+Private Sub btnAsignar_Click()
+    Dim rs As Recordset
+    Dim varItem As Variant
+    'On Error Resume Next
+    If Me.lstDisponibles.ListIndex = -1 Then Exit Sub
+    If glngIdTipoParcela = 0 Then Exit Sub
+    Set rs = CurrentDb.OpenRecordset("tbParcelasYServiciosXDefecto")
+    For Each varItem In Me.lstDisponibles.ItemsSelected
+        rs.AddNew
+        rs("IdTipoParcela") = glngIdTipoParcela
+        rs("IdSD") = Me.lstDisponibles.Column(0, varItem)
+        If IsNull(DLookup("IdTipoParcela", "tbParcelasYServiciosXDefecto", "IdTipoParcela = " & rs("IdTipoParcela"))) Then
+            rs("Principal") = True
+        Else
+            rs("Principal") = False
+        End If
+        rs.Update
+    Next varItem
+'    Me.lstDisponibles.Requery
+    Me.lstAsignadas.Requery
+End Sub
+
+
+Private Sub btnPaxSN_Click()
+    Dim strSQL As String, varItem As Variant
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        strSQL = "UPDATE tbParcelasYServiciosXDefecto SET PaxSN = Not Nz(PaxSN,False) WHERE Id = " & Me.lstAsignadas.Column(0, varItem)
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next varItem
+    Me.lstAsignadas.Requery
+End Sub
+
+Public Sub btnPrSN_Click()
+    If Me.lstAsignadas.ListIndex = -1 Then Exit Sub
+    Dim strSQL As String, varItem As Variant
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        strSQL = "UPDATE tbParcelasYServiciosXDefecto SET Principal = Not Principal WHERE Id = " & Me.lstAsignadas.Column(0, varItem)
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next varItem
+    Me.lstAsignadas.Requery
+    
+End Sub
+
+Private Sub btnQuitar_Click()
+    'On Error Resume Next
+    'DoCmd.GoToControl "SubfrmFichasDetParcelas"
+    'DoCmd.RunCommand acCmdDeleteRecord
+    Dim db As DAO.Database
+    Dim strSQL As String
+    Dim varItem As Variant
+    On Error Resume Next
+    If Me.lstAsignadas.ListIndex = -1 Then Exit Sub
+    If glngIdTipoParcela = 0 Then Exit Sub
+    Set db = CurrentDb
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        strSQL = "DELETE tbParcelasYServiciosXDefecto.Id"
+        strSQL = strSQL & " FROM tbParcelasYServiciosXDefecto"
+        strSQL = strSQL & " WHERE (((tbParcelasYServiciosXDefecto.Id)=" & Me.lstAsignadas.Column(0, varItem) & "));"
+        db.Execute strSQL
+    Next varItem
+'    Me.lstDisponibles.Requery
+    Me.lstAsignadas.Requery
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, strTipo As String, strSQL As String
+    strXML = Nz(Me.OpenArgs, "")
+    glngIdTipoParcela = Nz(DimeXML(strXML, "IdTipoParcela"), 0)
+    strTipo = Nz(DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & glngIdTipoParcela), "¿?")
+    Me.Texto0.ControlSource = "='Asignada/s a Tipo de " & g_strPH & ": " & strTipo & "'"
+    strSQL = "SELECT tbParcelasYServiciosXDefecto.Id, tbParcelasYServiciosXDefecto.IdSD, tbParcelasYServiciosXDefecto.IdTipoParcela, tbServiciosDiarios.ServicioDiario, IIf([Principal],'X','') AS Hab_Par, IIf([PaxSN],'X','') AS Pax"
+    strSQL = strSQL & " FROM tbServiciosDiarios RIGHT JOIN tbParcelasYServiciosXDefecto ON tbServiciosDiarios.IdSD = tbParcelasYServiciosXDefecto.IdSD"
+    strSQL = strSQL & " WHERE tbParcelasYServiciosXDefecto.IdTipoParcela=" & glngIdTipoParcela
+    Me.lstAsignadas.RowSource = strSQL
+
+End Sub
+
+Private Sub lstAsignadas_DblClick(Cancel As Integer)
+    Call btnQuitar_Click
+End Sub
+
+Private Sub lstDisponibles_DblClick(Cancel As Integer)
+    Call btnAsignar_Click
+End Sub

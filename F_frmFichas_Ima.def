@@ -1,0 +1,466 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gstrFotos() As String, glngIdFotos() As Long, gi As Integer, gj As Integer
+    Dim gintSituSNT As Integer, gstrW As String
+    Dim glngIdFichaCab As Long, glngW As Long, glngH As Long
+
+Public Sub CargaFotos(Optional strW As String = "")
+    Dim strSQL As String, strCarImgs As String, rsF As Recordset, i As Integer
+    Dim strRow As String
+    If strW = "" Then strW = gstrW
+    strSQL = " SELECT tbFotos.*"
+    strSQL = strSQL & " FROM tbFotos "
+    strSQL = strSQL & " WHERE true"
+    If strW = "" Then strW = "IdFichaCab = " & glngIdFichaCab
+    If strW <> "" Then strSQL = strSQL & " AND (" & strW & ")"
+    'Select Case intSituSNT
+    '    Case 1
+    '        strSQL = strSQL & " AND Nz(SituacionSN,False)=True"
+    '    Case 2
+    '        strSQL = strSQL & " AND Nz(SituacionSN,False)=False"
+    'End Select
+    strSQL = strSQL & " ORDER BY tbFotos.Nom_Foto;"
+    Set rsF = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rsF.EOF Then
+        rsF.MoveLast
+        rsF.MoveFirst
+    End If
+    gi = rsF.RecordCount
+    If gi = 0 Then
+        ReDim gstrFotos(0)
+        ReDim glngIdFotos(0)
+    Else
+        ReDim gstrFotos(1 To gi)
+        ReDim glngIdFotos(1 To gi)
+    End If
+    strCarImgs = CarpetaImg()
+    While Not rsF.EOF
+        i = i + 1
+        gstrFotos(i) = strCarImgs & rsF("Nom_Foto")
+        glngIdFotos(i) = rsF("IdFoto")
+        strRow = strRow & ConComillas(gstrFotos(i)) & ";" & ConComillas(rsF("Nom_Foto")) & ";"
+        rsF.MoveNext
+    Wend
+    If gj = 0 Then gj = 1
+    Me.lstFiles.RowSource = strRow
+    CargaFoto (gj)
+    gstrW = strW
+End Sub
+
+Private Sub btnAbrirFile_Click()
+    Call imgFoto_DblClick(False)
+End Sub
+
+Private Sub btnFoto1_Click()
+    If gi = 0 Then Exit Sub
+    CargaFoto gj - 1
+End Sub
+
+Private Sub btnFoto2_Click()
+    If gi = 0 Then Exit Sub
+    CargaFoto gj + 1
+End Sub
+
+Public Sub CargaFoto(i As Integer)
+    On Error GoTo Error_CargaFoto
+    Dim rs As Recordset, ctl As Control
+    Dim fechas As FechasDeArchivo
+    Me.AcroPDFreader.Visible = False
+    Me.imgFoto.Visible = False
+    If i > gi Then i = IIf(gi >= 1, 1, 0)
+    If i < 1 Then i = gi
+    gj = i
+    Me.lstFiles = Me.lstFiles.Column(0, gj - 1)
+    If gj = 0 Then
+        Me.imgFoto.Picture = ""
+        Me.txtFecha = ""
+        Me.txtSize = ""
+        For Each ctl In Me.Controls
+            If InStr(ctl.Tag, "Lo_ad") > 0 Then
+                ctl.value = Null
+            End If
+        Next ctl
+        Me.lblFotosInd.Caption = gj & " de " & gi
+        Exit Sub
+    End If
+    
+    
+    
+    'MsgBox fechas.Creacion & vbCrLf & fechas.Modificacion & vbCrLf & fechas.Acceso
+
+    DoCmd.Hourglass True
+    If Dir(gstrFotos(i)) = "" Then
+        Me.imgFoto.Picture = ""
+        Me.txtFecha = ""
+        Me.txtSize = ""
+    Else
+        Me.imgFoto.Picture = gstrFotos(i)
+        fechas = LeerFechas(gstrFotos(i))
+        'Me.txtFecha = Left(FileDateTime(Me.imgFoto.Picture), 10)
+        Me.txtFecha = Left(fechas.Modificacion, 10)
+        If FileLen(gstrFotos(i)) > 500000 Then
+            Me.txtSize = Format((CLng(FileLen(gstrFotos(i))) / 1024) / 1024, "0.00") & " Mb"
+        Else
+            Me.txtSize = Format((CLng(FileLen(gstrFotos(i))) / 1024), "#,##0.00") & " Kb"
+        End If
+    End If
+    DoCmd.Hourglass False
+    Me.lblFotosInd.Caption = gj & " de " & gi
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFotos WHERE IdFoto = " & glngIdFotos(i), dbOpenSnapshot)
+    If Not rs.EOF Then
+        For Each ctl In Me.Controls
+            If InStr(ctl.Tag, "Lo_ad") > 0 Then
+                ctl.value = rs(ctl.Name)
+            End If
+        Next ctl
+    Else
+        For Each ctl In Me.Controls
+            If InStr(ctl.Tag, "Lo_ad") > 0 Then
+                ctl.value = Null
+            End If
+        Next ctl
+    End If
+    Me.imgFoto.Visible = True
+    Me.txtNombre = DLookup("IdFichaCab", "tbFichasCab", "IdFichaCab = " & Nz(Me.IdFichaCab, 0))
+Salir_CargaFoto:
+    Exit Sub
+Error_CargaFoto:
+    Select Case Err
+        Case 2114 ' no admite formato o archivo demasiado grande
+            'MsgBox "Error nº " & Err & " en CargaFoto" & vbCrLf & Err.Description
+            'MsgBox "Cambiar el archivo de la imagen", vbInformation
+            On Error Resume Next
+            If Nz(DameValorParam("AcroPDFreaderSN"), False) And Right(gstrFotos(i), 3) = "pdf" Then
+                Me.AcroPDFreader.LoadFile gstrFotos(i)
+                Me.AcroPDFreader.Visible = True
+                Me.imgFoto.Picture = ""
+            Else
+                If Dir(CarpetaImg() & "vista-previa-no-disponible.jpg") = "" Then
+                    MsgBox "Falta imagen de vista previa no disponible", vbExclamation
+                Else
+                    Me.imgFoto.Picture = CarpetaImg() & "vista-previa-no-disponible.jpg"
+                End If
+            End If
+            
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaFoto" & vbCrLf & Err.Description
+            Resume Salir_CargaFoto
+    End Select
+End Sub
+
+Private Sub btnModificarFecha_Click()
+
+    'If AccesoPerfil("DT") = False Then
+    '    MsgBox gstrUserDomain & "->" & gstrComputerName & "->" & gstrUserName & " no tiene permisos para esta acción"
+    '    Exit Sub
+    'End If
+    Dim fechas As FechasDeArchivo, dtCr As Date, dtCr0 As Date
+    fechas = LeerFechas(gstrFotos(gj))
+    'Consultar_Archivo gstrFotos(gj)
+    'MsgBox GetPicDate(gstrFotos(gj))
+    dtCr0 = CDate(fechas.Modificacion)
+    dtCr = Nz(adhDoCalendar(dtCr0), dtCr0)
+    If dtCr <> dtCr0 Then
+        fechas.Modificacion = dtCr
+        If GuardarFechas(gstrFotos(gj), fechas) = False Then
+            MsgBox "No se pudo grabar la fecha de modificación"
+        End If
+    End If
+    CargaFoto gj
+End Sub
+
+Private Sub btnNotas_Click()
+    'BloqueoFormulario Me
+    'If AccesoPerfil("DT") = False Then
+    '    MsgBox gstrUserDomain & "->" & gstrComputerName & "->" & gstrUserName & " no tiene permisos para esta acción"
+    '    Exit Sub
+    'End If
+    Dim strNotas As String, strSQL As String
+    strNotas = Nz(MyInputBox("Introduzca notas a la imagen", "Notas: ", Nz(Me.Notas, "")), "\@\")
+    If strNotas = "\@\" Then Exit Sub
+    If strNotas = "" Then
+        strSQL = "UPDATE tbFotos SET Notas=Null"
+    Else
+        strSQL = "UPDATE tbFotos SET Notas=" & ConComillas(strNotas)
+    End If
+    strSQL = strSQL & "WHERE IdFoto = " & Me.IdFoto
+    CurrentDb.Execute strSQL, dbFailOnError
+    CargaFoto gj
+End Sub
+
+Private Sub btnScan_Click()
+    Dim strF_File As String, strPref As String, strCarpetaFotos As String
+    Dim k As Integer
+    On Error GoTo Error_btnScan_Click
+    strPref = CStr(glngIdFichaCab)
+    If strPref = "" Then Exit Sub
+    strPref = strPref & "_"
+    strCarpetaFotos = CarpetaImg()
+    For k = 1 To 50
+        If Dir(strCarpetaFotos & strPref & Format(k, "00") & ".*") = "" Then Exit For
+    Next k
+    If Dir(strCarpetaFotos & strPref & Format(k, "00") & ".*") = "" Then
+        strF_File = strPref & Format(k, "00") & ".jpg"
+    Else
+        MsgBox "Se encontraron 50 imágenes del espacio en la carpeta de fotos !?", vbExclamation
+        Exit Sub
+    End If
+    Me.Twain0.SelectDevice
+    Me.Twain0.Acquire
+    Me.Twain0.SaveToFile strCarpetaFotos & strF_File
+    Dim rsF As Recordset
+    Set rsF = CurrentDb.OpenRecordset("tbFotos", dbOpenDynaset, dbAppendOnly)
+    rsF.AddNew
+    rsF("IdFichaCab") = glngIdFichaCab
+    'rsF("CodEspacioDG") = Parent.CodEspacioDG
+    rsF("Nom_Foto") = strF_File
+    rsF.Update
+    CargaFotos
+    CargaFoto (gi)
+Salir_btnScan_Click:
+    Exit Sub
+Error_btnScan_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnScan_Click" & vbCrLf & Err.Description
+            Resume Salir_btnScan_Click
+    End Select
+        
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Then
+        Call btnFoto1_Click
+        KeyCode = 0
+    End If
+    If KeyCode = vbKeyRight Then
+        Call btnFoto2_Click
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    glngIdFichaCab = Nz(DimeXML(strXML, "IdFichaCab"), 0)
+    Me.Caption = "Imágenes de Ficha Nº " & glngIdFichaCab
+    glngW = Nz(DameValorParam(Me.Name & "_Ancho"), 0)
+    glngH = Nz(DameValorParam(Me.Name & "_Alto"), 0)
+    If glngW = 0 Then
+        If IsOpenForm("frmFichas") Then
+            'Dim lngW As Long, lngH As Long
+            glngW = Forms("frmFichas").Width * 0.5
+            glngH = Forms("frmFichas").Detalle.Height * 0.5
+            
+    '        CentrarTodoFRM Me, "cdrMarco"
+        End If
+    End If
+    If glngW <> 0 Then Call TamañoControles(glngW, glngH)
+    CargaFotos
+End Sub
+
+Private Sub Form_Resize()
+    glngW = Me.WindowWidth
+    glngH = Me.WindowHeight
+    TamañoControles glngW, glngH
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    PonValorParam Me.Name & "_Ancho", glngW, 4
+    PonValorParam Me.Name & "_Alto", glngH, 4
+End Sub
+
+Private Sub imgFoto_DblClick(Cancel As Integer)
+    If Me.imgFoto.Picture = "" Then Exit Sub
+    'Shell strRutaFoto
+    Dim Resultado As Variant
+
+    ' intentamos abrir el archivo
+    'Resultado = OpenFile(Me.imgFoto.Picture)
+    Resultado = OpenFile(Me.lstFiles)
+    ' si ha habido cualquier problema ...
+    If Resultado <> True Then
+        ' mostramos el mensaje que nos envía el sistema
+        MsgBox Resultado
+    End If
+End Sub
+
+
+Private Sub btnAñadirImagenes_Click()
+    On Error GoTo Error_btnAñadirImagenes_Click
+    Dim strfiles As String, strCarpetaFotos As String, strF As String, strFNew As String, strPref As String, strF_Dir As String, strF_File As String
+    Dim i As Integer, j As Integer, k As Integer, intR As Integer, intCopiar As Integer, intAsignar As Integer, strMSG As String
+    'If AccesoPerfil("DT") = False Then
+    '    MsgBox gstrUserDomain & "->" & gstrComputerName & "->" & gstrUserName & " no tiene permisos para esta acción"
+    '    Exit Sub
+    'End If
+    If glngIdFichaCab = 0 Then Exit Sub
+    strPref = CStr(glngIdFichaCab)
+    If strPref = "" Then Exit Sub
+    strPref = strPref & "_"
+    strCarpetaFotos = CarpetaImg()
+    strfiles = Nz(DimeFicheros("", "Imágenes"), "")
+    If strfiles = "" Then Exit Sub
+    j = LineasDeStr(strfiles)
+    'intR = MsgBox("¿Añadir " & j & " foto/s al obstáculo?" & vbCrLf & "(Si no se encuentran en la carpeta de fotos o el nombre de los ficheros no comienza por la denominación del obstáculo se copiaran y renombraran de forma conveniente", vbOKCancel)
+    'If intR = vbCancel Then Exit Sub
+    For i = 1 To j
+        strF = ExtraeLin(strfiles, i)
+        strF_Dir = DirectorioDe(strF)
+        strF_File = Mid(strF, Len(strF_Dir) + 1)
+        If strF_Dir = strCarpetaFotos And InStr(strF_File, strPref) = 1 Then
+            intAsignar = intAsignar + 1
+        Else
+            intCopiar = intCopiar + 1
+        End If
+    Next i
+    If intCopiar > 0 Then strMSG = "Se copiarán y renombrarán " & intCopiar & " fichero/s"
+    If intAsignar > 0 Then
+        If strMSG <> "" Then strMSG = strMSG & vbCrLf
+        strMSG = strMSG & "Se asignarán " & intAsignar & " ficheros"
+    End If
+    intR = MsgBox(strMSG, vbOKCancel + vbQuestion)
+    If intR = vbCancel Then Exit Sub
+    Dim rsF As Recordset
+    Set rsF = CurrentDb.OpenRecordset("tbFotos", dbOpenDynaset, dbAppendOnly)
+    For i = 1 To j
+        strF = ExtraeLin(strfiles, i)
+        'If ExtensionDeFile(strF) <> ".JPG" Then
+        '    MsgBox strF & " no se incluirá. Solo se admiten imágenes .JPG"
+        '    GoTo SiguienteFoto
+        'End If
+        strF_Dir = DirectorioDe(strF)
+        strF_File = Mid(strF, Len(strF_Dir) + 1)
+        If strF_Dir = strCarpetaFotos And InStr(strF_File, strPref) = 1 Then
+            'intAsignar = intAsignar + 1
+        Else
+            'intCopiar = intCopiar + 1
+            For k = 1 To 50
+                If Dir(strCarpetaFotos & strPref & Format(k, "00") & ".*") = "" Then Exit For
+            Next k
+            If Dir(strCarpetaFotos & strPref & Format(k, "00") & ".*") = "" Then
+                strF_File = strPref & Format(k, "00") & ExtensionDeFile(strF, True)
+                FileCopy strF, strCarpetaFotos & strF_File
+            Else
+                MsgBox "Se encontraron 50 imágenes del espacio en la carpeta de fotos !?", vbExclamation
+                GoTo SiguienteFoto
+            End If
+        End If
+        rsF.AddNew
+        rsF("IdFichaCab") = glngIdFichaCab
+        'rsF("CodEspacioDG") = Parent.CodEspacioDG
+        rsF("Nom_Foto") = strF_File
+        rsF.Update
+SiguienteFoto:
+    Next i
+    CargaFotos
+Salir_btnAñadirImagenes_Click:
+    Exit Sub
+Error_btnAñadirImagenes_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnAñadirImagenes_Click" & vbCrLf & Err.Description
+            Resume Salir_btnAñadirImagenes_Click
+    End Select
+    
+End Sub
+
+Private Sub btnBorrarImagenes_Click()
+    Dim i As Integer, j As Integer, intR As Integer, lngIdFoto As Long, strSQL As String, strCarpetaBorradas As String
+    On Error GoTo Error_btnBorrarImagenes_Click
+    If Nz(Me.IdFoto, 0) = 0 Then Exit Sub
+    'If AccesoPerfil("DT") = False Then
+    '    MsgBox gstrUserDomain & "->" & gstrComputerName & "->" & gstrUserName & " no tiene permisos para esta acción"
+    '    Exit Sub
+    'End If
+    intR = MsgBox("Se eliminará la imagen", vbOKCancel + vbDefaultButton2 + vbQuestion)
+    If intR = vbCancel Then Exit Sub
+    strSQL = "DELETE * FROM tbFotos WHERE IdFoto = " & Me.IdFoto
+    CurrentDb.Execute strSQL, dbFailOnError
+    strCarpetaBorradas = CarpetaImg()
+    If Dir(strCarpetaBorradas & "Borradas", vbDirectory) = "" Then
+        MkDir strCarpetaBorradas & "Borradas"
+    End If
+    strCarpetaBorradas = strCarpetaBorradas & "Borradas\"
+    i = 0
+    While Dir(strCarpetaBorradas & "x" & i & "_" & Me.Nom_Foto) <> ""
+        i = i + 1
+    Wend
+    FileCopy gstrFotos(gj), strCarpetaBorradas & "x" & i & "_" & Me.Nom_Foto
+    
+    Kill gstrFotos(gj)
+    'For i = 1 To j
+    '    lngIdFoto = CLng(ExtraeLin(strABorrarId, i))
+    '    strRutaFoto = ExtraeLin(strABorrar, i)
+    '    FileCopy strRutaFoto, strCarpetaBorradas & DLookup("Nom_Foto", "tbFotos", "IdFoto = " & lngIdFoto)
+'    strSQL = "DELETE * FROM tbFotos WHERE IdFoto = " & lngIdFoto
+'    CurrentDb.Execute strSQL, dbFailOnError
+'    Kill strRutaFoto
+    'Next i
+Salir_btnBorrarImagenes_Click:
+    Call CargaFotos
+    Exit Sub
+Error_btnBorrarImagenes_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnBorrarImagenes_Click" & vbCrLf & Err.Description
+            Resume Salir_btnBorrarImagenes_Click
+    End Select
+End Sub
+
+
+Public Sub TamañoControles(Optional lngW As Long = 0, Optional lngH As Long = 0)
+    On Error GoTo Error_TamañoControles
+    If lngW = 0 Then lngW = Me.WindowWidth
+    If lngH = 0 Then lngH = Me.WindowHeight - 500
+    If lngW > Me.Width Then Me.Width = lngW
+    If lngH > Me.Detalle.Height Then Me.Detalle.Height = lngH
+    Me.cdrMarco.Width = lngW - 300
+    Me.btnSalir.Left = Me.cdrMarco.Width - Me.btnSalir.Width
+    Me.cdrMarco.Height = lngH - 600
+    Me.imgFoto.Width = Me.cdrMarco.Width - Me.imgFoto.Left
+    Me.imgFoto.Height = Me.cdrMarco.Height - Me.btnAñadirImagenes.Height * 3
+    Me.AcroPDFreader.Width = Me.imgFoto.Width
+    Me.AcroPDFreader.Height = Me.imgFoto.Height
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "lin0") > 0 Then
+            ctl.Top = Me.imgFoto.Top + Me.imgFoto.Height - Me.btnScan.Height
+        ElseIf InStr(ctl.Tag, "lin1") > 0 Then
+            ctl.Top = Me.imgFoto.Top + Me.imgFoto.Height
+        ElseIf InStr(ctl.Tag, "lin2") > 0 Then
+            ctl.Top = Me.imgFoto.Top + Me.imgFoto.Height + ctl.Height
+        ElseIf InStr(ctl.Tag, "lin3") > 0 Then
+            ctl.Top = Me.imgFoto.Top + Me.imgFoto.Height + ctl.Height * 2
+        ElseIf InStr(ctl.Tag, "lin_1") > 0 Then
+            ctl.Top = Me.imgFoto.Top + Me.imgFoto.Height - Me.btnScan.Height - Me.lstFiles.Height
+        End If
+    Next ctl
+    Me.btnFoto1.Left = (Me.imgFoto.Width \ 2) + Me.imgFoto.Left - Me.btnFoto1.Width
+    Me.btnFoto2.Left = Me.btnFoto1.Left + Me.btnFoto1.Width
+    Me.lblFotosInd.Left = Me.btnFoto2.Left + Me.btnFoto2.Width
+    Me.btnNotas.Left = Me.cdrMarco.Width + Me.cdrMarco.Left - Me.btnNotas.Width
+    Me.Notas.Width = Me.btnNotas.Left - Me.Notas.Left
+    DoCmd.MoveSize 0, 0, lngW, lngH
+Salir_TamañoControles:
+    Exit Sub
+Error_TamañoControles:
+    Select Case Err
+        Case 2100
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en TamañoControles" & vbCrLf & Err.Description
+            Resume Salir_TamañoControles
+    End Select
+End Sub
+
+Private Sub lstFiles_Click()
+    If Me.lstFiles.ListIndex = -1 Then Exit Sub
+    CargaFoto Me.lstFiles.ListIndex + 1
+End Sub

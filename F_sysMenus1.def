@@ -1,0 +1,40 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_AfterDelConfirm(status As Integer)
+    Dim rs As Recordset, rs2 As Recordset
+    Dim strSQL As String
+    If status = acDeleteOK Then
+        strSQL = "SELECT * FROM sysMenus2 WHERE Menu = " & Me.Menu
+        Set rs = CurrentDb.OpenRecordset(strSQL)
+        While Not rs.EOF
+            strSQL = "SELECT * FROM sysMenus3 WHERE Menu = " & rs("IdComando")
+            Set rs2 = CurrentDb.OpenRecordset(strSQL)
+            While Not rs2.EOF
+                rs2.Delete
+                rs2.MoveNext
+            Wend
+            rs.Delete
+            rs.MoveNext
+        Wend
+    End If
+        
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.Menu = NzCero(DMax("Menu", "sysMenus1")) + 1
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+    Dim intResp As Integer
+    intResp = MsgBox("¿Borrar el menú " & Me.Descripcion & " y todos sus comandos?", vbOKCancel + vbDefaultButton2 + vbQuestion)
+    If intResp = vbCancel Then
+        Cancel = True
+    End If
+End Sub

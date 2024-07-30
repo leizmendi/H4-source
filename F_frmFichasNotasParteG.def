@@ -1,0 +1,27 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnSalir2_Click()
+    Call btnSalir_Click
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Me.Caption = "Notas de la Ficha nº " & Me.OpenArgs
+End Sub
+
+Private Sub Notas_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyEscape Then
+        KeyCode = 0
+        DoCmd.Close
+    End If
+End Sub

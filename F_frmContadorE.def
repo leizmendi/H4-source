@@ -1,0 +1,85 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+    Dim gcCE As cContadorElectricidad
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnFecha_Click()
+    Me.FechaUltimaLecturaN = Nz(adhDoCalendar(Me.FechaUltimaLecturaN, 1, "Fecha de lectura"), Me.FechaUltimaLecturaN)
+End Sub
+
+Private Sub btnPrecio_kWh_Click()
+    Me.ElectricidadPrecio_kWh = Nz(DimeTeclado(2, "Precio kWh", Me.ElectricidadPrecio_kWh), Me.ElectricidadPrecio_kWh)
+    PonValorParam "ElectricidadPrecio_kWh", Me.ElectricidadPrecio_kWh, 5
+    Call UltimaLecturaN_AfterUpdate
+End Sub
+
+Private Sub Electricidad_Concepto_ConsumoE_AfterUpdate()
+    Call PonValorParamAC(10)
+End Sub
+
+Private Sub Electricidad_IdSD_ConsumoE_AfterUpdate()
+    PonValorParamAC 4
+    Me.Electricidad_Concepto_ConsumoE = Me.Electricidad_IdSD_ConsumoE.Column(2)
+    PonValorParam "Electricidad_Concepto_ConsumoE", Me.Electricidad_Concepto_ConsumoE, 10
+End Sub
+
+Private Sub FechaUltimaLecturaN_KeyDown(KeyCode As Integer, Shift As Integer)
+    Select Case KeyCode
+        Case vbKey1, vbKey2, vbKey3, vbKey0, vbKeyNumpad1, vbKeyNumpad2, vbKeyNumpad3, vbKeyNumpad0
+            Call btnFecha_Click
+    End Select
+        
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, lngIdContadorE As Long, lngIdFichaCabN As Long
+    
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdContadorE = Nz(DimeXML(strXML, "IdContadorE"), 0)
+    lngIdFichaCabN = Nz(DimeXML(strXML, "IdFichaCabN"), 0)
+    If lngIdContadorE > 0 Then
+        Set gcCE = New cContadorElectricidad
+        gcCE.LoadContador lngIdContadorE
+        Me.IdContadorE = gcCE.IdContadorE_
+        Me.ContadorE = gcCE.ContadorE_
+        Me.UltimaLectura = gcCE.Lectura_
+        Me.FechaUltimaLectura = gcCE.FechaLectura_
+        Me.IdFichaCab = gcCE.IdFichaCab_
+        Me.Caption = "Lectura de Contador ID: " & lngIdContadorE
+        Me.IdFichaCabN = lngIdFichaCabN
+    Else
+        MsgBox "Se deben pasar argumentos", vbExclamation
+        'Cancel = True
+        Exit Sub
+    End If
+    
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "det") > 0 Then
+            ctl.Visible = lngIdContadorE > 0
+        End If
+    Next ctl
+End Sub
+
+Private Sub UltimaLecturaN_AfterUpdate()
+    Me.UltimaLecturaN = Round(Me.UltimaLecturaN, 0)
+    Me.txtConsumo = Me.UltimaLecturaN - Me.UltimaLectura
+    Me.txtImporte = Me.txtConsumo * Me.ElectricidadPrecio_kWh
+End Sub

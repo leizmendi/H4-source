@@ -1,0 +1,50 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub PuestoNombre_AfterUpdate()
+    Dim strSQL As String
+    On Error GoTo Error_PuestoNombre_AfterUpdate
+    strSQL = "UPDATE qrycfgPuestos SET cfgPuestos.EnUso = False"
+    strSQL = strSQL & " WHERE (((cfgPuestos.NombrePuesto)='" & Me.PuestoNombre.OldValue & "'));"
+    CurrentDb.Execute strSQL, dbFailOnError
+    If DLookup("EnUso", "cfgPuestos", "NombrePuesto = '" & Me.PuestoNombre & "'") = True Then
+        MsgBox "El puesto " & Me.PuestoNombre & " ya está asignado a otro PC"
+        Me.PuestoNombre = Me.PuestoNombre.OldValue
+    End If
+    strSQL = "UPDATE qrycfgPuestos SET cfgPuestos.EnUso = True"
+    strSQL = strSQL & " WHERE (((cfgPuestos.NombrePuesto)='" & Me.PuestoNombre & "'));"
+    CurrentDb.Execute strSQL, dbFailOnError
+Salir_PuestoNombre_AfterUpdate:
+    Exit Sub
+Error_PuestoNombre_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PuestoNombre_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_PuestoNombre_AfterUpdate
+    End Select
+End Sub
+
+Private Sub PuestoNombre_BeforeUpdate(Cancel As Integer)
+    If IsCajaOpen() > 0 Then
+        MsgBox "Se debe cerrar la caja antes de cambiar de puesto"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub PuestoNombre_Enter()
+    Me.PuestoNombre.Requery
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub

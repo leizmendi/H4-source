@@ -1,0 +1,111 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function SeleccionaDe(strSQL As String, Optional strTitulo As String = "Seleccione una opción", Optional intNumCols As Integer = 3, Optional strAnchoCols As String = "0cm; 3cm; 1cm", Optional intBoundColumn As Integer = 1, Optional lngAnchoForm As Long = 2500, Optional vDefault As Variant, Optional intEncabezados As Integer = True) As Variant
+    On Error GoTo Error_SeleccionaDe
+    Dim strXML As String
+    SeleccionaDe = Null
+    PonXML strXML, "SQL", strSQL
+    PonXML strXML, "NumCols", intNumCols
+    PonXML strXML, "AnchoCols", strAnchoCols
+    PonXML strXML, "ColValor", intBoundColumn
+    PonXML strXML, "AnchoForm", lngAnchoForm
+    PonXML strXML, "Titulo", strTitulo
+    PonXML strXML, "ValorPredet", vDefault
+    PonXML strXML, "Encabezados", intEncabezados
+    DoCmd.OpenForm "frmSeleccionar", , , , , acDialog, strXML
+    If Not IsOpenForm("frmSeleccionar") Then
+        Exit Function
+    End If
+    If Forms("frmSeleccionar")("lstLista").ListIndex <> -1 Then
+        SeleccionaDe = Forms("frmSeleccionar")("lstLista")
+    End If
+    DoCmd.Close acForm, "frmSeleccionar"
+Salir_SeleccionaDe:
+    Exit Function
+Error_SeleccionaDe:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SeleccionaDe" & vbCrLf & Err.Description
+            Resume Salir_SeleccionaDe
+    End Select
+End Function
+
+Public Function SeleccionaID_SN(strTabla As String, strSeleccionInicial As String) As String
+    On Error GoTo Error_SeleccionaID_SN
+    Dim strSQL As String, rsI As Recordset, rsAux As Recordset, lngId As Long, strR As String
+    
+    Set rsI = CurrentDb.OpenRecordset(strTabla, dbOpenSnapshot)
+    CurrentDb.Execute "DELETE * FROM auxID_SN", dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxID_SN", dbOpenDynaset)
+    While Not rsI.EOF
+        rsAux.AddNew
+        rsAux(0) = rsI(0)
+        rsAux("SN") = InStr(strSeleccionInicial, "|" & rsI(0) & "¬") > 0
+        rsAux.Update
+        rsI.MoveNext
+    Wend
+    
+    Select Case strTabla
+        Case "tbParcelasTipo"
+            strSQL = "SELECT auxID_SN.Id, tbParcelasTipo.TipoParcela, IIf([SN],'X','-') AS Selección"
+            strSQL = strSQL & " FROM auxID_SN INNER JOIN tbParcelasTipo ON auxID_SN.Id = tbParcelasTipo.IdTipoParcela;"
+            CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = " & ConComillas(strSQL) & ", Titulo = 'Selección de Tipo de " & g_strPH & "'" & _
+                              " WHERE CodBusqueda = 'ID_SN'", dbFailOnError
+    End Select
+Bucle:
+    lngId = Nz(BuscaAyuda("ID_SN", , 2, , , False), 0)
+    If lngId <> 0 Then
+        strSQL = "UPDATE qryauxID_SN SET SN = Not SN WHERE Id = " & lngId
+        CurrentDb.Execute strSQL, dbFailOnError
+        GoTo Bucle
+    End If
+    rsAux.MoveFirst
+    While Not rsAux.EOF
+        If rsAux("SN") = True Then strR = strR & "|" & rsAux("Id") & "¬"
+        rsAux.MoveNext
+    Wend
+    SeleccionaID_SN = strR
+
+Salir_SeleccionaID_SN:
+    Exit Function
+Error_SeleccionaID_SN:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SeleccionaID_SN" & vbCrLf & Err.Description
+            Resume Salir_SeleccionaID_SN
+    End Select
+            
+
+End Function
+
+Public Function DimeIDsConceptos(strTabla As String, strSeleccionInicial As String) As String
+    On Error GoTo Error_DimeIDsConceptos
+    Dim strSQL As String, rs As Recordset, strR As String
+    Select Case strTabla
+        Case "tbParcelasTipo"
+            strSQL = "SELECT IdTipoParcela, TipoParcela"
+            strSQL = strSQL & " FROM tbParcelasTipo "
+    End Select
+Bucle:
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    
+    While Not rs.EOF
+        If InStr(strSeleccionInicial, "|" & rs(0) & "¬") > 0 Then strR = strR & rs(1) & ", "
+        rs.MoveNext
+    Wend
+    If Len(strR) > 2 Then strR = RecDerTop(strR, 2, 0)
+    DimeIDsConceptos = strR
+
+Salir_DimeIDsConceptos:
+    Exit Function
+Error_DimeIDsConceptos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeIDsConceptos" & vbCrLf & Err.Description
+            Resume Salir_DimeIDsConceptos
+    End Select
+            
+
+End Function

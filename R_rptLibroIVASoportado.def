@@ -1,0 +1,54 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    On Error GoTo Error_Detalle_Format
+    If Me.Imputable = 1 Then
+        Me.Imputable.Visible = False
+    Else
+        Me.Imputable.Visible = True
+    End If
+Salir_Detalle_Format:
+    Exit Sub
+Error_Detalle_Format:
+    Select Case Err
+        Case 2427
+            Resume Salir_Detalle_Format
+        Case Else
+            MsgBox "Error nº " & Err & " en Detalle_Format" & vbCrLf & Err.Description
+            Resume Salir_Detalle_Format
+    End Select
+
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros con las condiciones seleccionadas"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim frm As Form
+    If IsOpenForm("frmListadosIVA") Then
+        Set frm = Forms("frmListadosIVA")
+    Else
+        Set frm = Forms("frmMaestros").subfrm.Form
+    End If
+    If frm![mrcTrimestre] < 5 Then
+        Me.EncabezadoDelGrupo0.Visible = False
+        Me.PieDelGrupo1.Visible = False
+    Else
+        Me.EncabezadoDelGrupo0.Visible = True
+        Me.PieDelGrupo1.Visible = True
+    End If
+    Me.subrptRegistroComprasResumenIVA.Visible = Nz(DameValorParam("LibroIVAS_verResumenTiposIVA"), True)
+    Me.txtSubTitulo.Visible = Me.subrptRegistroComprasResumenIVA.Visible
+    Me.subrptRegistroComprasResumenIVAInversion.Visible = Nz(DameValorParam("LibroIVAS_verResumenGI"), True)
+    Me.txtSubTitulo2.Visible = Me.subrptRegistroComprasResumenIVAInversion.Visible
+    
+End Sub

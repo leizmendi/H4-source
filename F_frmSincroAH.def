@@ -1,0 +1,289 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub EnviarComando(ByVal sXml As String, Optional sUrl As String = "http://www.visitnavarra.info/xml/server.php", Optional intMsgBusy As Integer = True)
+    Dim oXH As xmlHttp, oXD As DOMDocument
+    Set oXH = CreateObject("MSXML2.XMLHTTP")
+    Me.txtSend = "": Me.txtResponse = "": Me.txtResponseProcesada = ""
+    Me.Repaint
+    oXH.Open "POST", sUrl, False
+    Set oXD = CreateObject("MSXML2.DOMDocument")
+    oXD.LoadXML sXml
+    Me.txtSend = sXml
+    If intMsgBusy Then MensajeBusyBox sXml, "Enviando"
+    oXH.Send oXD  'strXml 'oXD
+    Me.txtResponse = oXH.responseText
+    If intMsgBusy Then MensajeBusyBox Me.txtResponse, "Respuesta"
+    Me.txtResponseProcesada = ProcesarXML(Me.txtResponse, 2)
+    If intMsgBusy Then MensajeBusyBox Me.txtResponseProcesada, "Respuesta", True
+    If Nz(DimeXML(Me.txtResponse, "error"), -1) = "0" Then
+        If intMsgBusy Then
+            MensajeBusyBox "Envío correcto", "OK", True
+        Else
+            MsgBox "Envío correcto", vbInformation
+        End If
+    End If
+            
+End Sub
+
+Private Sub btnActualizaH4_Click()
+    Dim intR As Integer
+    Dim strXML As String, strParamXML As String
+    
+    If Me.lstReservas.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un registro de la lista"
+        Exit Sub
+    End If
+    Dim lngIdFichaCab As Long
+    lngIdFichaCab = AH_ImportaReserva_aux(Me.lstReservas)
+    If lngIdFichaCab <> 0 Then
+        Me.lstReservas.Requery
+        Me.lstReservas = lngIdFichaCab
+        Call lstReservas_Click
+        PonXML strXML, "IdGH", lngIdFichaCab
+        PonXML strXML, "IdCR", Me.lstReservas.Column(1)
+        PonXML strParamXML, "ConfRes", strXML
+        SolicitaWS "ConfReservas", strParamXML
+        'AñadeParcelasDeFichaARecarga lngIdFichaCab
+    End If
+End Sub
+
+Private Sub btnAsignarServicio_Click()
+    If Me.lstPrecios.ListIndex = -1 Then Exit Sub
+    Dim lngIdSD As Long, strSQL As String
+    lngIdSD = Nz(DLookup("IdSD_PrecioAH", "tbParcelasTipo", "IdTipoPArcela = " & Me.lstPrecios), 0)
+    lngIdSD = Nz(BuscaAyuda("SD0", lngIdSD, 1), 0)
+    If lngIdSD = 0 Then Exit Sub
+    strSQL = "UPDATE tbParcelasTipo SET IdSD_PrecioAH = " & lngIdSD
+    strSQL = strSQL & " WHERE IdTipoParcela = " & Me.lstPrecios
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.lstPrecios.Requery
+End Sub
+
+Private Sub btnAtributos_Click()
+    Dim strTag As String, strATR As String, strATR2 As String, strXML As String, strValor As String, strValor2 As String, i As Integer
+    strXML = Me.txtResponse
+    strTag = InputBox("Tag", "Reserva", "Reserva")
+    strATR2 = InputBox("Atr", "IdCR", "IdCR")
+Bucle:
+    strValor = Nz(DimeXML(strXML, strTag, i, strATR), "")
+    strValor2 = Nz(DimeAtributo(strATR, strATR2), "")
+    MsgBox "Tag:" & strTag & vbCrLf & "Valor: " & strValor & vbCrLf & "Atributos: " & strATR & vbCrLf & strATR2 & ": " & strValor2
+    
+    If i > 0 Then
+        i = i + 1
+        GoTo Bucle
+    End If
+    
+End Sub
+
+Private Sub btnExistentes_Click()
+    Dim rs As Recordset
+    Set rs = CurrentDb.OpenRecordset("tbParcelasTipo", dbOpenDynaset)
+    While Not rs.EOF
+        rs.Edit
+        rs("DisponiblesAH") = DCount("IdParcela", "tbParcelas", "IdTipoParcela = " & rs("IdTipoParcela"))
+        rs("PaxAH") = DLookup("NumPlazas", "tbParcelas", "IdTipoParcela = " & rs("IdTipoParcela"))
+        rs.Update
+        rs.MoveNext
+    Wend
+    Me.lstTiposPArcela.Requery
+End Sub
+
+Private Sub btnFechas_Click()
+    DoCmd.OpenForm "frmTemporadasFechas", acFormDS, , , , acDialog
+    Me.lstTemporadas.Requery
+End Sub
+
+Private Sub btnLIMPIAR_Click()
+    Me.txtResponse = ""
+    Me.txtSend = ""
+End Sub
+
+Private Sub btnPreparaReservasEnvio_Click()
+    PreparaReservasEnvio Nz(Me.casSoloNuevas_Envio, False), SpNz(Me.txtFechaEstanciaDesde_Envios, 0), SpNz(Me.txtFechaEstanciaHasta_Envios, 0), SpNz(Me.txtIdGHDesde, 0), SpNz(Me.txtIdGHHasta, 0)
+    Me.lstReservas2.Requery
+    Me.lstReservaDetalle2.Requery
+End Sub
+
+Private Sub btnSend1_Click()
+    EnviarComando Me.txtSend
+End Sub
+
+Private Sub btnSend3_Click()
+    Me.txtResponseProcesada = ProcesarXML(Me.txtResponse, 2)
+End Sub
+
+Private Sub btnSendDameReservas_Click()
+    Dim strXML As String, strR As String, strRP As String, strParamXML As String
+    PonXML strParamXML, "SoloNuevasReservasSN", IIf(Nz(Me.casSoloNuevasReservas, False), "S", "N")
+    If Nz(Me.txtFechaEstanciaDesde, "") <> "" Then PonXML strParamXML, "FechaDesde", CLng(CDate(Me.txtFechaEstanciaDesde))
+    If Nz(Me.txtFechaEstanciaHasta, "") <> "" Then PonXML strParamXML, "FechaHasta", CLng(CDate(Me.txtFechaEstanciaHasta))
+    If Nz(Me.txtID_CRDesde, "") <> "" Then PonXML strParamXML, "IdCRdesde", CLng(Me.txtID_CRDesde)
+    If Nz(Me.txtID_CRHasta, "") <> "" Then PonXML strParamXML, "IdCRhasta", CLng(Me.txtID_CRHasta)
+    strXML = DimePeticionXML("DameReservas", strParamXML)
+    
+    SolicitarServicioWeb strXML, Me.txtUrl, Me.casBusy, strR, strRP
+    Me.txtResponse = strR
+    Me.txtResponseProcesada = strRP
+    AH_ProcesaResponseReservas strR
+    Me.lstReservas.Requery
+End Sub
+
+Private Sub btnSendPrecios_Click()
+    SolicitaWS "Precios"
+End Sub
+
+Private Sub btnSendTemporadas_Click()
+    SolicitaWS "Temporadas"
+End Sub
+
+Private Sub btnSendTipos_Click()
+    SolicitaWS "TiposAlojamientos"
+End Sub
+
+Private Sub btnSendTomaReservas_Click()
+    Dim strParamXML As String, vIt As Variant
+    For Each vIt In Me.lstReservas2.ItemsSelected
+        PonXML strParamXML, "IdReserva", Me.lstReservas2.ItemData(vIt)
+    Next vIt
+    SolicitaWS "TomaReservas", strParamXML
+    Dim strXML As String, strAtributos As String
+    
+    Dim strTag As String, strATR As String, strValor As String, i As Integer
+    Dim lngIdCR As Long, lngIdGH As Long, rs As Recordset, strMensaje As String
+    strXML = Me.txtResponse
+    Set rs = CurrentDb.OpenRecordset("tbCentralR_Fichas", dbOpenDynaset)
+Bucle:
+    strValor = Nz(DimeXML(strXML, "Reserva", i, strATR), "")
+    lngIdCR = CLng(SpNz(DimeAtributo(strATR, "IdCR"), 0))
+    lngIdGH = CLng(SpNz(DimeAtributo(strATR, "IdGH"), 0))
+    strMensaje = Nz(DimeXML(strValor, "Mensaje"), "")
+    If strMensaje <> "" Then MsgBox "Nº Ficha: " & lngIdGH & vbCrLf & "Nº Reserva central: " & lngIdCR & vbCrLf & strMensaje
+    
+    If lngIdGH > 0 Then
+    
+        rs.FindFirst "IdGH = " & lngIdGH & " AND IdCentralR = " & Me.lstCR
+        If rs.NoMatch Then
+            rs.AddNew
+            rs("IdGH") = lngIdGH
+            rs("IdCentralR") = Me.lstCR
+        Else
+            rs.Edit
+        End If
+        rs("IdCR") = lngIdCR
+        rs.Update
+    End If
+    If i > 0 Then
+        i = i + 1
+        GoTo Bucle
+    End If
+    Call btnPreparaReservasEnvio_Click
+    
+End Sub
+
+Private Sub btnTemporadas_Click()
+    DoCmd.OpenForm "frmTemporadas", acFormDS, , , , acDialog
+    Me.lstTemporadas.Requery
+End Sub
+
+Private Sub btnTipoAlojamientos_Click()
+    DoCmd.OpenForm "frmParcelasTipoAH", acFormDS, , , , acDialog
+    Me.lstTiposPArcela.Requery
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If acCtrlMask And Shift > 0 Then
+        If KeyCode = vbKeyF12 Then
+            Dim ctl As Control
+            For Each ctl In Me.Controls
+                If InStr(ctl.Tag, "VerSN") > 0 Then
+                    ctl.Visible = Not ctl.Visible
+                End If
+            Next ctl
+        End If
+    End If
+End Sub
+
+Private Sub Form_Load()
+    'DoCmd.Maximize
+    CargarParam Me, "SincroAH_"
+    CargarSettingsForm Me
+    Call txtAño_AfterUpdate
+    Call txtUrl_AfterUpdate
+    Dim vPage
+    vPage = DameSetting("SincroAH", "tabSinc", 0)
+    Me("pge" & vPage + 1).SetFocus
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, i As Integer, ctl As Control
+    strXML = Nz(Me.OpenArgs, "")
+    If Nz(DimeXML(strXML, "SoloNuevasReservas"), "NO") = "SI" Then
+        For i = 1 To 5
+            Me("pge" & i).Visible = i = 3
+        Next i
+        For Each ctl In Me.pge3.Controls
+            ctl.Visible = InStr(ctl.Tag, "SoloNuevasReservas") > 0
+        Next ctl
+    End If
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, , "SincroAH_"
+    GrabarSettingsForm Me
+End Sub
+
+Private Sub lstReservas_Click()
+    Dim strSQL As String
+    strSQL = "SELECT auxFichasDet.Cantidad, auxFichasDet.Concepto, auxFichasDet.PrecioUnitario, auxFichasDet.FechaInicio, auxFichasDet.FechaFin "
+    strSQL = strSQL & " FROM auxFichasCab INNER JOIN auxFichasDet ON auxFichasCab.IdGH=auxFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE IdGH= " & Me.lstReservas
+    Me.lstReservaDetalle.RowSource = strSQL
+End Sub
+
+Private Sub lstReservas2_Click()
+    Dim strSQL As String
+    If Me.lstReservas2.ListIndex = -1 Then Exit Sub
+    strSQL = "SELECT auxFichasDet.Cantidad, auxFichasDet.Concepto, auxFichasDet.PrecioUnitario, auxFichasDet.FechaInicio, auxFichasDet.FechaFin "
+    strSQL = strSQL & " FROM auxFichasCab INNER JOIN auxFichasDet ON auxFichasCab.IdGH=auxFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE IdFichaCab= " & Me.lstReservas2.Column(0)
+    Me.lstReservaDetalle2.RowSource = strSQL
+End Sub
+
+Private Sub lstTiposPArcela_DblClick(Cancel As Integer)
+    DoCmd.OpenForm "frmTiposParcela", acFormDS, , , , acDialog
+    Me.lstTiposPArcela.Requery
+End Sub
+
+Private Sub tabSinc_Change()
+    PonSetting "SincroAH", "tabSinc", Me.tabSinc.value
+    If Me.tabSinc.value = 2 Or Me.tabSinc.value = 3 Then
+        CurrentDb.Execute "DELETE * FROM auxFichasCab", dbFailOnError
+        CurrentDb.Execute "DELETE * FROM auxFichasDet", dbFailOnError
+        Me.lstReservas.Requery:        Me.lstReservaDetalle.Requery
+        Me.lstReservas2.Requery:       Me.lstReservaDetalle2.Requery
+    End If
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    GenerarAuxTemporadas Nz(Me.txtAño, Year(Date))
+    Me.lstTemporadas.Requery
+End Sub
+
+Private Sub txtUrl_AfterUpdate()
+    Me.lblProbando.Caption = "SERVICIOS-WEB EN " & (Me.txtUrl)
+End Sub
+
+Private Sub SolicitaWS(strWS As String, Optional strParamXML As String = "")
+    Dim strXML As String, strR As String, strRP As String
+    strXML = AH_DimePeticionXML(strWS, strParamXML)
+    SolicitarServicioWeb strXML, Me.txtUrl, Me.casBusy, strR, strRP
+    Me.txtResponse = strR
+    Me.txtResponseProcesada = strRP
+End Sub

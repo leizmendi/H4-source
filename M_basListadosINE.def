@@ -1,0 +1,879 @@
+Option Compare Database
+Option Explicit
+
+Public Function Rellenar_auxINEProcedencia(datDesde As Date, datHasta As Date, intIncReservas As Integer, intIncFijos As Integer, IdFiltroGrupo As Integer, intExcNoFacturadas As Integer) As Integer
+    On Error GoTo Error_Rellenar_auxINEProcedencia
+    Dim strSQL As String, dt As Date, rs As Recordset, rsVal As Recordset, intResp As Integer
+    Dim dtD As Date, dtH As Date
+    Rellenar_auxINEProcedencia = False
+    strSQL = "DELETE auxINEProcedencia.Fecha"
+    strSQL = strSQL & " FROM auxINEProcedencia"
+    strSQL = strSQL & " WHERE (((auxINEProcedencia.Fecha) Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#));"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsVal = CurrentDb.OpenRecordset("auxINEProcedencia", dbOpenDynaset)
+    If DameValorParam("ListadoINEVerCeros") = False Then GoTo Rellenar
+' Primero llenar a ceros los registros entre fechas
+    Set rs = CurrentDb.OpenRecordset("valComunidadesAutonomas", dbOpenSnapshot)
+    While Not rs.EOF
+        For dt = datDesde To datHasta
+            rsVal.AddNew
+            rsVal("LugarResidencia") = "01." & Format(rs("Orden"), "00") & " " & rs("NombreComunidad")
+            rsVal("Fecha") = dt
+            rsVal("EntradaViajeros") = 0
+            rsVal("PlazasOcupadas") = 0
+            rsVal.Update
+        Next dt
+        rs.MoveNext
+    Wend
+    Dim strPais As String, sSinPais As String
+    strPais = IIf(Nz(DameValorParam("INE_PaisesSegunPN"), 1) = 1, "NombrePais", "Nacionalidad")
+    sSinPais = IIf(Nz(DameValorParam("INE_PaisesSegunPN"), 1) = 1, "España", "Española")
+    strSQL = "SELECT DISTINCT Orden, " & strPais & " FROM valPaises"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If rs("Orden") = 1 Then GoTo NextPais
+        For dt = datDesde To datHasta
+            rsVal.AddNew
+            rsVal("LugarResidencia") = Format(rs("Orden"), "00") & " " & rs(strPais)
+            rsVal("Fecha") = dt
+            rsVal("EntradaViajeros") = 0
+            rsVal("PlazasOcupadas") = 0
+            rsVal.Update
+        Next dt
+NextPais:
+        rs.MoveNext
+    Wend
+Rellenar:
+'Segundo ver si existen Fichas con Adultos + Niños = 0
+'Tercero ver si existen Fichas con Provincia y Pais Nulo
+    strSQL = "SELECT DISTINCT tbFichasCab.*"
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    Else
+        strSQL = strSQL & ", tbGruposPlaning_Parcelas.IdGrupoPlaning FROM (tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    If intIncReservas = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    End If
+    If intIncFijos = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10)"
+    End If
+    strSQL = strSQL & " AND ((tbFichasDet.Parcela) Is Not Null)"
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    End If
+    If intExcNoFacturadas Then strSQL = strSQL & " AND (tbFichasCab.IdFactura>0)"   'AAA: Excluimos no facturadas
+    strSQL = strSQL & " AND ((tbFichasCab.ProvinciaCliente) Is Null) AND ((tbFichasCab.PaisCliente) Is Null)"
+    strSQL = strSQL & " AND tbFichasDet.FechaInicio <= #" & Format(datHasta, "mm/dd/yyyy") & "# "
+    strSQL = strSQL & " AND (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])>#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null)"
+'MsgBox strSQL
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        intResp = MsgBox("Existen " & rs.RecordCount & " fichas entre el " & datDesde & " y el " & datHasta & " sin indicar ni Provincia ni País" & vbCrLf & "¿Quiere repasarlas? (Si no el dato de Lugar de Residencia será erróneo)", vbExclamation + vbYesNoCancel + vbDefaultButton1)
+        If intResp = vbCancel Then Exit Function
+        If intResp = vbYes Then
+            CurrentDb.Execute "DELETE * FROM auxFichasCab_Marcar", dbFailOnError
+            While Not rs.BOF
+                CurrentDb.Execute "INSERT INTO auxFichasCab_Marcar (IdFichaCab) SELECT " & rs("IdFichaCab") & " As IDF"
+                rs.MovePrevious
+            Wend
+            DoCmd.OpenForm "frmFichas", , , , , , "Fichas Marcadas"
+            Exit Function
+        End If
+    End If
+'Cuarto, rellenar la auxINEProcedencia (Comunidades)
+    strSQL = "SELECT ('01.' & Format(valComunidadesAutonomas.Orden,'00') & ' ' & valComunidadesAutonomas.NombreComunidad) AS Comunidad, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FechaHasta, tbFichasDet.PlazasOcupadas, tbFichasDet.Parcela"
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM ((valProvincias INNER JOIN tbFichasCab ON valProvincias.NombreProvincia = tbFichasCab.ProvinciaCliente) INNER JOIN valComunidadesAutonomas ON valProvincias.CodComunidad = valComunidadesAutonomas.CodComunidad) INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    Else
+        strSQL = strSQL & ", tbGruposPlaning_Parcelas.IdGrupoPlaning FROM ((((valProvincias INNER JOIN tbFichasCab ON valProvincias.NombreProvincia = tbFichasCab.ProvinciaCliente) INNER JOIN valComunidadesAutonomas ON valProvincias.CodComunidad = valComunidadesAutonomas.CodComunidad) INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN tbParcelas  ON tbParcelas.NombreParcela = tbFichasDet.Parcela) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    If intIncReservas = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    End If
+    strSQL = strSQL & " AND tbFichasDet.Parcela Is Not Null"
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    End If
+    If intExcNoFacturadas Then strSQL = strSQL & " AND (tbFichasCab.IdFactura>0)"   'AAA: Excluimos no facturadas
+    If intIncFijos = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10)"
+    End If
+    strSQL = strSQL & " AND tbFichasDet.FechaInicio <= #" & Format(datHasta, "mm/dd/yyyy") & "# "
+    strSQL = strSQL & " AND (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])>#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null)"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        rsVal.FindFirst "LugarResidencia = " & ConComillas(rs("Comunidad")) & " AND Fecha = #" & Format(rs("FechaInicio"), "mm/dd/yyyy") & "#"
+        If rsVal.NoMatch Then
+            rsVal.AddNew
+            rsVal("LugarResidencia") = rs("Comunidad")
+            rsVal("Fecha") = rs("FechaInicio")
+        Else
+            rsVal.Edit
+        End If
+        rsVal("EntradaViajeros") = rsVal("EntradaViajeros") + rs("PlazasOcupadas")
+        rsVal.Update
+        If datDesde < rs("FechaInicio") Then
+            dtD = rs("FechaInicio")
+        Else
+            dtD = datDesde
+        End If
+        If Not IsNull(rs("FechaHasta")) Then
+            If datHasta >= rs("FechaHasta") Then
+                dtH = rs("FechaHasta")
+            Else
+                dtH = datHasta + 1
+            End If
+        Else
+            dtH = datHasta + 1
+        End If
+        If dtD = dtH Then dtH = dtH + 1
+        For dt = dtD To dtH - 1
+            rsVal.FindFirst "LugarResidencia = " & ConComillas(rs("Comunidad")) & " AND Fecha = #" & Format(dt, "mm/dd/yyyy") & "#"
+            If rsVal.NoMatch Then
+                rsVal.AddNew
+                rsVal("LugarResidencia") = rs("Comunidad")
+                rsVal("Fecha") = dt
+            Else
+                rsVal.Edit
+            End If
+            rsVal("PlazasOcupadas") = rsVal("PlazasOcupadas") + rs("PlazasOcupadas")
+            rsVal.Update
+        Next dt
+        rs.MoveNext
+    Wend
+'Quinto, rellenar la auxINEProcedencia (Paises)
+    If Nz(DameValorParam("INE_PaisesSegunPN"), 1) = 1 Then
+        strSQL = "SELECT (Format(valPaises.Orden,'00') & ' ' & valPaises.NombrePais) AS Pais, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FechaHasta, tbFichasDet.PlazasOcupadas"
+    Else
+        strSQL = "SELECT (Format(valPaises.Orden,'00') & ' ' & valPaises.Nacionalidad) AS Pais, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FechaHasta, tbFichasDet.PlazasOcupadas"
+    End If
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM (tbFichasCab INNER JOIN valPaises ON tbFichasCab.PaisCliente = valPaises.NombrePais) INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    Else
+        strSQL = strSQL & ", tbFichasDet.Parcela, tbGruposPlaning_Parcelas.IdGrupoPlaning FROM (((tbFichasCab INNER JOIN valPaises ON tbFichasCab.PaisCliente = valPaises.NombrePais) INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN tbParcelas  ON tbParcelas.NombreParcela = tbFichasDet.Parcela) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    If intIncReservas = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    End If
+    strSQL = strSQL & " AND tbFichasDet.Parcela Is Not Null"
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    End If
+    If intExcNoFacturadas Then strSQL = strSQL & " AND (tbFichasCab.IdFactura>0)"   'AAA: Excluimos no facturadas
+    If intIncFijos = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10)"
+    End If
+    strSQL = strSQL & " AND (valPaises.Orden <> 1)"
+    strSQL = strSQL & " AND tbFichasDet.FechaInicio <= #" & Format(datHasta, "mm/dd/yyyy") & "# "
+    strSQL = strSQL & " AND (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])>#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null)"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        rsVal.FindFirst "LugarResidencia = " & ConComillas(rs("Pais")) & " AND Fecha = #" & Format(rs("FechaInicio"), "mm/dd/yyyy") & "#"
+        If rsVal.NoMatch Then
+            rsVal.AddNew
+            rsVal("LugarResidencia") = rs("Pais")
+            rsVal("Fecha") = rs("FechaInicio")
+        Else
+            rsVal.Edit
+        End If
+        rsVal("EntradaViajeros") = rsVal("EntradaViajeros") + rs("PlazasOcupadas")
+        rsVal.Update
+        If datDesde < rs("FechaInicio") Then
+            dtD = rs("FechaInicio")
+        Else
+            dtD = datDesde
+        End If
+        If Not IsNull(rs("FechaHasta")) Then
+            If datHasta >= rs("FechaHasta") Then
+                dtH = rs("FechaHasta")
+            Else
+                dtH = datHasta + 1
+            End If
+        Else
+            dtH = datHasta + 1
+        End If
+        If dtD = dtH Then dtH = dtH + 1
+        For dt = dtD To dtH - 1
+            rsVal.FindFirst "LugarResidencia = " & ConComillas(rs("Pais")) & " AND Fecha = #" & Format(dt, "mm/dd/yyyy") & "#"
+            If rsVal.NoMatch Then
+                rsVal.AddNew
+                rsVal("LugarResidencia") = rs("Pais")
+                rsVal("Fecha") = dt
+            Else
+                rsVal.Edit
+            End If
+            rsVal("PlazasOcupadas") = rsVal("PlazasOcupadas") + rs("PlazasOcupadas")
+            rsVal.Update
+        Next dt
+        rs.MoveNext
+    Wend
+    Rellenar_auxINEProcedencia = True
+Salir_Rellenar_auxINEProcedencia:
+    Exit Function
+Error_Rellenar_auxINEProcedencia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_auxINEProcedencia" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_auxINEProcedencia
+            Resume Next
+    End Select
+End Function
+
+Public Function Rellenar_auxINEParcelasOcupadas(datDesde As Date, datHasta As Date, Optional intIncluirReservas As Integer = False, Optional intIncluirFijos As Integer = False, Optional IdFiltroGrupo As Integer = 0, Optional intExcNoFacturadas As Integer = True) As Integer
+    On Error GoTo Error_Rellenar_auxINEParcelasOcupadas
+    Dim strSQL As String, dt As Date, rs As Recordset, rsVal As Recordset, intResp As Integer
+    Dim dtD As Date, dtH As Date, strFF As String
+    Rellenar_auxINEParcelasOcupadas = False
+    strSQL = "DELETE auxINEParcelasOcupadas.Fecha"
+    strSQL = strSQL & " FROM auxINEParcelasOcupadas"
+    strSQL = strSQL & " WHERE (((auxINEParcelasOcupadas.Fecha) Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#));"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsVal = CurrentDb.OpenRecordset("auxINEParcelasOcupadas", dbOpenDynaset)
+    
+'rellenar auxINEParcelasOcupadas
+    'strFF = " IIf(IsNull(tbFichasDet.FechaFin), tbFichasCab.FechaSalida,tbFichasDet.FechaFin) "
+    'strFF = "FechaH(IdFichaDet)"
+    'strFF = " tbFichasDet.FechaFin"
+    strFF = " tbFichasDet.Fecha_H"
+    strSQL = "SELECT tbFichasDet.FechaInicio, " & strFF & " AS FF, tbFichasDet.Cantidad, tbFichasDet.Parcela, tbFichasDet.PlazasOcupadas, tbFichasDet.IdTipoParcela, tbParcelasTipo.CatINE, valCategoriaParcelasINE.CategoriaParcela"
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM (tbParcelasTipo INNER JOIN" _
+                               & " (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab)" _
+                               & " ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela)" _
+                               & " LEFT JOIN valCategoriaParcelasINE ON tbParcelasTipo.CatINE = valCategoriaParcelasINE.CodCatPar"
+    Else
+        strSQL = strSQL & ", tbGruposPlaning_Parcelas.IdGrupoPlaning" _
+                        & " FROM (tbParcelas INNER JOIN " _
+                        & " ((tbParcelasTipo LEFT JOIN valCategoriaParcelasINE ON tbParcelasTipo.CatINE = valCategoriaParcelasINE.CodCatPar)" _
+                        & " INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab)" _
+                        & " ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela)" _
+                        & " ON tbParcelas.NombreParcela = tbFichasDet.Parcela)" _
+                        & " INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE ((tbFichasCab.EstadoFicha<>9)"
+    If intIncluirReservas = True Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    End If
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    End If
+    If intIncluirFijos = True Then
+        strSQL = strSQL & ")"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10))"
+    End If
+    If intExcNoFacturadas Then strSQL = strSQL & " AND (tbFichasCab.IdFactura>0)"   'AAA: Excluimos no facturadas
+    strSQL = strSQL & " AND"
+'    strSQL = strSQL & " ((tbFichasDet.FechaInicio Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+'    strSQL = strSQL & " OR (tbFichasDet.FechaInicio < #" & Format(datHasta, "mm/dd/yyyy") & "# And ((" & strFF & " > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR " & strFF & " Is Null)))"
+    strSQL = strSQL & " (tbFichasDet.FechaInicio <= #" & Format(datHasta, "mm/dd/yyyy") & "# And ((" & strFF & " > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR " & strFF & " Is Null))"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If datDesde < rs("FechaInicio") Then
+            dtD = rs("FechaInicio")
+        Else
+            dtD = datDesde
+        End If
+        If Not IsNull(rs("FF")) Then
+            If datHasta >= rs("FF") Then
+                dtH = rs("FF")
+            Else
+                dtH = datHasta + 1
+            End If
+        Else
+            dtH = datHasta + 1
+        End If
+        If dtD = dtH Then dtH = dtH + 1
+        For dt = dtD To dtH - 1
+            rsVal.FindFirst "TipoParcela = " & ConComillas(rs("CatINE") & "-" & rs("CategoriaParcela")) & " AND Fecha = #" & Format(dt, "mm/dd/yyyy") & "#"
+            If rsVal.NoMatch Then
+                rsVal.AddNew
+                rsVal("TipoParcela") = rs("CatINE") & "-" & rs("CategoriaParcela")
+                rsVal("Fecha") = dt
+            Else
+                rsVal.Edit
+            End If
+            rsVal("Ocupadas") = rsVal("Ocupadas") + rs("Cantidad")
+            If rs("CatINE") = "D" Then
+                If rs("PlazasOcupadas") >= 2 Then
+                    rsVal("DobleUsoDoble") = Nz(rsVal("DobleUsoDoble"), 0) + rs("Cantidad")
+                Else
+                    rsVal("DobleUsoIndividual") = Nz(rsVal("DobleUsoIndividual"), 0) + rs("Cantidad")
+                End If
+            Else
+                rsVal("Otras") = Nz(rsVal("Otras"), 0) + rs("Cantidad")
+            End If
+            rsVal.Update
+        Next dt
+        rs.MoveNext
+    Wend
+    Rellenar_auxINEParcelasOcupadas = True
+Salir_Rellenar_auxINEParcelasOcupadas:
+    Exit Function
+Error_Rellenar_auxINEParcelasOcupadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_auxINEParcelasOcupadas" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_auxINEParcelasOcupadas
+            Resume Next
+    End Select
+End Function
+
+Public Function Rellenar_auxINE_TipoClienteADR(datDesde As Date, datHasta As Date, Optional intIncluirReservas As Integer = False, Optional intIncluirFijos As Integer = False, Optional IdFiltroGrupo As Integer = 0, Optional intExcNoFacturadas As Integer = True) As Integer
+    On Error GoTo Error_Rellenar_auxINE_TipoClienteADR
+    Dim strSQL As String, dt As Date, rs As Recordset, rsAux As Recordset, intResp As Integer
+    Dim dtD As Date, dtH As Date, strFF As String
+    Dim strListaTipos  As String, strTipoCliente As String
+    Rellenar_auxINE_TipoClienteADR = False
+    strSQL = "DELETE * FROM auxINE_TipoCliente"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "DELETE * FROM auxINE_TipoCliente_TOTAL"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxINE_TipoCliente", dbOpenDynaset)
+    
+'rellenar auxINE_TipoCliente
+    strListaTipos = Nz(DameValorParam("INE_IdTipoParcelasADR"), "")
+    
+    'strFF = " IIf(IsNull(tbFichasDet.FechaFin), tbFichasCab.FechaSalida,tbFichasDet.FechaFin) "
+    
+    strSQL = "SELECT * FROM tbINE"
+    strSQL = strSQL & " WHERE Fecha Between " & CLng(datDesde) & " AND " & CLng(datHasta)
+    strSQL = strSQL & " AND DiasEstancia > 0"
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If strListaTipos <> "" And InStr(strListaTipos, "|" & rs("IdTipoParcela") & "¬") = 0 Then
+            GoTo Siguiente
+        End If
+        rsAux.AddNew
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("TipoCliente") = rs("TipoCliente")
+        rsAux("PrecioDiario") = rs("PrecioDia")
+        rsAux("Dias") = rs("DiasEstancia")
+        rsAux.Update
+Siguiente:
+        rs.MoveNext
+    Wend
+    Dim lngTotalDias As Long
+    lngTotalDias = Nz(DSum("Dias", "auxINE_TipoCliente"), 0)
+    strSQL = "SELECT auxINE_TipoCliente.TipoCliente, Sum([PrecioDiario]*[Dias]) AS SumaImporte, Avg(auxINE_TipoCliente.PrecioDiario) AS PromedioDePrecioDiario, Sum(auxINE_TipoCliente.Dias) AS SumaDias, Format([SumaImporte]/[SumaDias],'Currency') AS PrecioMedio"
+    strSQL = strSQL & " From auxINE_TipoCliente"
+    strSQL = strSQL & " GROUP BY auxINE_TipoCliente.TipoCliente;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAux = CurrentDb.OpenRecordset("auxINE_TipoCliente_TOTAL", dbOpenDynaset)
+    While Not rs.EOF
+        rsAux.AddNew
+        rsAux("TipoCliente") = rs("TipoCliente")
+        rsAux("TarifaPromedioDiaria") = rs("PromedioDePrecioDiario")
+        rsAux("PorcentajeOcupacion") = rs("SumaDias") / lngTotalDias
+        rsAux.Update
+        rs.MoveNext
+    Wend
+    Rellenar_auxINE_TipoClienteADR = True
+Salir_Rellenar_auxINE_TipoClienteADR:
+    Exit Function
+Error_Rellenar_auxINE_TipoClienteADR:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_auxINE_TipoClienteADR" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_auxINE_TipoClienteADR
+            Resume Next
+    End Select
+End Function
+
+
+
+Public Function Rellenar_auxINE_TipoClienteADR_OLD(datDesde As Date, datHasta As Date, Optional intIncluirReservas As Integer = False, Optional intIncluirFijos As Integer = False, Optional IdFiltroGrupo As Integer = 0, Optional intExcNoFacturadas As Integer = True) As Integer
+    On Error GoTo Error_Rellenar_auxINE_TipoClienteADR_OLD
+    Dim strSQL As String, dt As Date, rs As Recordset, rsAux As Recordset, intResp As Integer
+    Dim dtD As Date, dtH As Date, strFF As String
+    Dim strListaTipos  As String, strTipoCliente As String
+    Rellenar_auxINE_TipoClienteADR_OLD = False
+    strSQL = "DELETE * FROM auxINE_TipoCliente"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "DELETE * FROM auxINE_TipoCliente_TOTAL"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxINE_TipoCliente", dbOpenDynaset)
+    
+'rellenar auxINE_TipoCliente
+    strListaTipos = Nz(DameValorParam("INE_IdTipoParcelasADR"), "")
+    
+    strFF = " IIf(IsNull(tbFichasDet.FechaFin), tbFichasCab.FechaSalida,tbFichasDet.FechaFin) "
+    'strFF = "FechaH(IdFichaDet)"
+    'strFF = " tbFichasDet.FechaFin"
+    strSQL = "SELECT tbFichasCab.IdProcedencia, tbFichasCab.IdFichaCab, tbFichasDet.PrecioUnitario, tbFichasDet.FechaInicio, " & strFF & " AS FF, tbFichasDet.Cantidad, tbFichasDet.Parcela, tbFichasDet.PlazasOcupadas, tbFichasDet.IdTipoParcela, tbParcelasTipo.CatINE, valCategoriaParcelasINE.CategoriaParcela"
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM (tbParcelasTipo INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela) LEFT JOIN valCategoriaParcelasINE ON tbParcelasTipo.CatINE = valCategoriaParcelasINE.CodCatPar"
+    Else
+        strSQL = strSQL & ", tbGruposPlaning_Parcelas.IdGrupoPlaning FROM (tbParcelas INNER JOIN ((tbParcelasTipo LEFT JOIN valCategoriaParcelasINE ON tbParcelasTipo.CatINE = valCategoriaParcelasINE.CodCatPar) INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela) ON (tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela) AND (tbParcelas.NombreParcela = tbFichasDet.Parcela)) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE ((tbFichasCab.EstadoFicha<>9)"
+    If intIncluirReservas = True Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    End If
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    End If
+    If intIncluirFijos = True Then
+        strSQL = strSQL & ")"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10))"
+    End If
+    If intExcNoFacturadas Then strSQL = strSQL & " AND (tbFichasCab.IdFactura>0)"   'AAA: Excluimos no facturadas
+    strSQL = strSQL & " AND"
+'    strSQL = strSQL & " ((tbFichasDet.FechaInicio Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+'    strSQL = strSQL & " OR (tbFichasDet.FechaInicio < #" & Format(datHasta, "mm/dd/yyyy") & "# And ((" & strFF & " > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR " & strFF & " Is Null)))"
+    strSQL = strSQL & " (tbFichasDet.FechaInicio <= #" & Format(datHasta, "mm/dd/yyyy") & "# And ((" & strFF & " > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR " & strFF & " Is Null))"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If strListaTipos <> "" And InStr(strListaTipos, "|" & rs("IdTipoParcela") & "¬") = 0 Then GoTo Siguiente
+        If datDesde < rs("FechaInicio") Then
+            dtD = rs("FechaInicio")
+        Else
+            dtD = datDesde
+        End If
+        If Not IsNull(rs("FF")) Then
+            If datHasta >= rs("FF") Then
+                dtH = rs("FF")
+            Else
+                dtH = datHasta + 1
+            End If
+        Else
+            dtH = datHasta + 1
+        End If
+        If dtD = dtH Then dtH = dtH + 1
+        strTipoCliente = Nz(DLookup("TipoClienteIne", "tbProcedencias", "IdProcedencia = " & (Nz(rs("IdProcedencia"), 0))), "")
+        If strTipoCliente = "" Then strTipoCliente = Nz(DLookup("Procedencia", "tbProcedencias", "IdProcedencia = " & (Nz(rs("IdProcedencia"), 0))), "")
+        If strTipoCliente = "" Then strTipoCliente = "Otros"
+        rsAux.AddNew
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("TipoCliente") = strTipoCliente
+        rsAux("PrecioDiario") = rs("PrecioUnitario")
+        rsAux("Dias") = dtH - dtD
+        rsAux.Update
+Siguiente:
+        rs.MoveNext
+    Wend
+    Dim lngTotalDias As Long
+    lngTotalDias = Nz(DSum("Dias", "auxINE_TipoCliente"), 0)
+    strSQL = "SELECT auxINE_TipoCliente.TipoCliente, Sum([PrecioDiario]*[Dias]) AS SumaImporte, Avg(auxINE_TipoCliente.PrecioDiario) AS PromedioDePrecioDiario, Sum(auxINE_TipoCliente.Dias) AS SumaDias, Format([SumaImporte]/[SumaDias],'Currency') AS PrecioMedio"
+    strSQL = strSQL & " From auxINE_TipoCliente"
+    strSQL = strSQL & " GROUP BY auxINE_TipoCliente.TipoCliente;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAux = CurrentDb.OpenRecordset("auxINE_TipoCliente_TOTAL", dbOpenDynaset)
+    While Not rs.EOF
+        rsAux.AddNew
+        rsAux("TipoCliente") = rs("TipoCliente")
+        rsAux("TarifaPromedioDiaria") = rs("PromedioDePrecioDiario")
+        rsAux("PorcentajeOcupacion") = rs("SumaDias") / lngTotalDias
+        rsAux.Update
+        rs.MoveNext
+    Wend
+    Rellenar_auxINE_TipoClienteADR_OLD = True
+Salir_Rellenar_auxINE_TipoClienteADR_OLD:
+    Exit Function
+Error_Rellenar_auxINE_TipoClienteADR_OLD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_auxINE_TipoClienteADR_OLD" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_auxINE_TipoClienteADR_OLD
+            Resume Next
+    End Select
+End Function
+
+
+
+Public Function Rellenar_tbAuxAcampados(datDesde As Date, datHasta As Date) As Integer
+    On Error GoTo Error_Rellenar_tbAuxAcampados
+    Dim strSQL As String, dt As Date, rs As Recordset, rsVal As Recordset, intResp As Integer
+    Dim dtD As Date, dtH As Date
+    Dim intNumParcelas As Integer
+    Rellenar_tbAuxAcampados = False
+    strSQL = "DELETE tbAuxAcampados.Fecha"
+    strSQL = strSQL & " FROM tbAuxAcampados"
+    strSQL = strSQL & " WHERE (((tbAuxAcampados.Fecha) Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#));"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsVal = CurrentDb.OpenRecordset("tbAuxAcampados", dbOpenDynaset)
+Rellenar:
+'Segundo ver si existen Fichas con Adultos + Niños = 0
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbFichasCab "
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha>1) AND (([Adultos] + [Niños]) = 0)"
+    strSQL = strSQL & " AND"
+    strSQL = strSQL & " ((tbFichasCab.FechaLlegada Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+    strSQL = strSQL & " OR (tbFichasCab.FechaLlegada < #" & Format(datHasta, "mm/dd/yyyy") & "# And ((tbFichasCab.FechaSalida > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR tbFichasCab.FechaSalida Is Null)))"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        'DoCmd.Hourglass False
+        rs.MoveLast
+        intResp = MsgBox("Existen " & rs.RecordCount & " fichas entre el " & datDesde & " y el " & datHasta & " con Nº de Adultos y Niños = 0" & vbCrLf & "¿Quiere repasarlas? (Si no el dato de entrada de viajeros y plazas ocupadas será erróneo)", vbExclamation + vbYesNoCancel + vbDefaultButton1)
+        If intResp = vbCancel Then Exit Function
+        If intResp = vbYes Then
+            DoCmd.OpenForm "frmFichas"
+            Forms("frmFichas").RecordSource = strSQL
+            Exit Function
+        End If
+    End If
+'Cuarto, rellenar la tbAuxAcampados
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.Adultos, tbFichasCab.Niños "
+    strSQL = strSQL & " FROM tbFichasCab "
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    'If DameValorParam("ListadoAcampadosIncluirFijos") = True Then
+    '    strSQL = strSQL & " OR (tbFichasCab.EstadoFicha=-1)"
+    'End If
+    strSQL = strSQL & " AND ((tbFichasCab.FechaLlegada Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+    strSQL = strSQL & " OR (tbFichasCab.FechaLlegada < #" & Format(datHasta, "mm/dd/yyyy") & "# And ((tbFichasCab.FechaSalida > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR tbFichasCab.FechaSalida Is Null)))"
+    'DoCmd.Hourglass True
+    Dim varReturn As Variant, lngX As Long, strMSG As String
+    strMSG = "Calculando ... "
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    varReturn = SysCmd(acSysCmdInitMeter, strMSG, rs.RecordCount)
+    While Not rs.EOF
+        rsVal.FindFirst "Fecha = #" & Format(rs("FechaLlegada"), "mm/dd/yyyy") & "#"
+        If rsVal.NoMatch Then
+            rsVal.AddNew
+            rsVal("Fecha") = rs("FechaLlegada")
+        Else
+            rsVal.Edit
+        End If
+        rsVal("PaxEntradas") = rsVal("PaxEntradas") + rs("Adultos") + rs("Niños")
+        If DameValorParam("ListadoAcampadosIncluirGogos") = True Then
+            intNumParcelas = Nz(DCount("IdFichaDet", "tbFichasDet", "IdFichaCab = " & rs("IdFichaCab") & " And IdTipoParcela Is Not Null"), 0)
+        Else
+            intNumParcelas = Nz(DCount("IdFichaDet", "tbFichasDet", "IdFichaCab = " & rs("IdFichaCab") & " And Parcela Is Not Null"), 0)
+        End If
+        rsVal("ParcelasEntradas") = rsVal("ParcelasEntradas") + intNumParcelas
+        rsVal.Update
+        If datDesde < rs("FechaLlegada") Then
+            dtD = rs("FechaLlegada")
+        Else
+            dtD = datDesde
+        End If
+        If Not IsNull(rs("FechaSalida")) Then
+            If datHasta >= rs("FechaSalida") Then
+                dtH = rs("FechaSalida")
+            Else
+                dtH = datHasta + 1
+            End If
+        Else
+            dtH = datHasta + 1
+        End If
+        If dtD = dtH Then dtH = dtH + 1
+        For dt = dtD To dtH - 1
+            rsVal.FindFirst "Fecha = #" & Format(dt, "mm/dd/yyyy") & "#"
+            If rsVal.NoMatch Then
+                rsVal.AddNew
+                rsVal("Fecha") = dt
+            Else
+                rsVal.Edit
+            End If
+            rsVal("PaxAcampados") = rsVal("PaxAcampados") + rs("Adultos") + rs("Niños")
+            rsVal("ParcelasOcupadas") = rsVal("ParcelasOcupadas") + intNumParcelas
+            rsVal.Update
+        Next dt
+        lngX = lngX + 1
+        varReturn = SysCmd(acSysCmdUpdateMeter, lngX)
+        rs.MoveNext
+    Wend
+    Rellenar_tbAuxAcampados = True
+Salir_Rellenar_tbAuxAcampados:
+    'DoCmd.Hourglass False
+    Exit Function
+Error_Rellenar_tbAuxAcampados:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_tbAuxAcampados" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_tbAuxAcampados
+            Resume Next
+    End Select
+End Function
+
+Public Function Rellenar_auxINE_Mensual(intMes As Integer, intAño As Integer, Optional intIncReservas As Integer = False, Optional intIncFijos As Integer = False, Optional IdFiltroGrupo As Integer = 0) As Integer
+    On Error GoTo Error_Rellenar_auxINE_Mensual
+    Dim strSQL As String, dt As Date, rs As Recordset, rsVal As Recordset, intResp As Integer
+    Dim dtD As Date, dtH As Date
+    Dim datDesde As Date, datHasta As Date, i As Long, z As Long
+    Rellenar_auxINE_Mensual = False
+    strSQL = "DELETE auxINE_Mensual.Fecha"
+    strSQL = strSQL & " FROM auxINE_Mensual"
+    strSQL = strSQL & " WHERE Month(auxINE_Mensual.Fecha)= " & intMes & " And Year(auxINE_Mensual.Fecha)= " & intAño
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsVal = CurrentDb.OpenRecordset("auxINE_Mensual", dbOpenDynaset)
+    datDesde = CDate(intAño & "/" & intMes & "/1")
+    datHasta = CDate(intAño & "/" & intMes & "/" & CStr(DDM(intMes, intAño)))
+    GoTo Rellenar
+' Primero nada
+Rellenar:
+'Segundo ver si existen Fichas con Adultos + Niños = 0
+'    strSQL = "SELECT *"
+'    strSQL = strSQL & " FROM tbFichasCab "
+    strSQL = "SELECT DISTINCT tbFichasCab.*"
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    Else
+        strSQL = strSQL & ", tbGruposPlaning_Parcelas.IdGrupoPlaning FROM (tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    If intIncReservas = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    End If
+    If intIncFijos = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10)"
+    End If
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    End If
+   If DameValorParam("ListadoINENoIncluirSinHabitaciones") = True Then
+        'strSQL = strSQL & " AND Len(ParcelasDeUnaFicha([IdFichaCab]))>0"
+    End If
+    strSQL = strSQL & " AND (([Adultos] + [Niños]) = 0)"
+    strSQL = strSQL & " AND"
+    strSQL = strSQL & " ((tbFichasCab.FechaLlegada Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+    strSQL = strSQL & " OR (tbFichasCab.FechaLlegada < #" & Format(datHasta, "mm/dd/yyyy") & "# And ((tbFichasCab.FechaSalida > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR tbFichasCab.FechaSalida Is Null)))"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        'DoCmd.Hourglass False
+        rs.MoveLast
+        intResp = MsgBox("Existen " & rs.RecordCount & " fichas entre el " & datDesde & " y el " & datHasta & " con Nº de Adultos y Niños = 0" & vbCrLf & "¿Quiere repasarlas? (Si no el dato de entrada de viajeros y plazas ocupadas será erróneo)", vbExclamation + vbYesNoCancel + vbDefaultButton1)
+        If intResp = vbCancel Then Exit Function
+        If intResp = vbYes Then
+            DoCmd.OpenForm "frmFichas"
+            Forms("frmFichas").RecordSource = strSQL
+            Exit Function
+        End If
+    End If
+'Tercero nada
+'Cuarto, rellenar la auxINE_Mensual (Comunidades)
+    strSQL = "SELECT tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasDet.PlazasOcupadas As Pax, tbFichasCab.IdFichaCab"
+    'strSQL = strSQL & " FROM tbFichasCab"
+    If IdFiltroGrupo = 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    Else
+        strSQL = strSQL & ", tbGruposPlaning_Parcelas.IdGrupoPlaning FROM (tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    If intIncReservas = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>1)"
+    Else
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha>0)"
+    End If
+    If intIncFijos = False Then
+        strSQL = strSQL & " AND (tbFichasCab.EstadoFicha<10)"
+    End If
+    If IdFiltroGrupo <> 0 Then 'AAA: Añado filtro de GRUPO DE PARCELAS
+        strSQL = strSQL & " AND (tbGruposPlaning_Parcelas.IdGrupoPlaning=" & IdFiltroGrupo & ")"
+    Else
+        strSQL = strSQL & " AND (tbFichasDet.IdTipoParcela>0)"
+    End If
+    'strSQL = strSQL & " AND"
+    'strSQL = strSQL & " ((tbFichasCab.FechaLlegada Between #" & Format(datDesde, "mm/dd/yyyy") & "# And #" & Format(datHasta, "mm/dd/yyyy") & "#)"
+    'strSQL = strSQL & " OR (tbFichasCab.FechaLlegada < #" & Format(datHasta, "mm/dd/yyyy") & "# And ((tbFichasCab.FechaSalida > #" & Format(datDesde, "mm/dd/yyyy") & "#)OR tbFichasCab.FechaSalida Is Null)))"
+    strSQL = strSQL & " AND tbFichasDet.FechaInicio <= #" & Format(datHasta, "mm/dd/yyyy") & "# "
+    strSQL = strSQL & " AND (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])>#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null)"
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        rsVal.FindFirst "Fecha = #" & Format(rs("FechaLlegada"), "mm/dd/yyyy") & "#"
+        If rsVal.NoMatch Then
+            rsVal.AddNew
+            rsVal("Fecha") = rs("FechaLlegada")
+        Else
+            rsVal.Edit
+        End If
+        rsVal("EntradaViajeros") = rsVal("EntradaViajeros") + rs("Pax")
+        rsVal.Update
+        If datDesde < rs("FechaLlegada") Then
+            dtD = rs("FechaLlegada")
+        Else
+            dtD = datDesde
+        End If
+        If Not IsNull(rs("FechaSalida")) Then
+            If datHasta >= rs("FechaSalida") Then
+                dtH = rs("FechaSalida")
+            Else
+                dtH = datHasta + 1
+            End If
+        Else
+            dtH = datHasta + 1
+        End If
+        If dtD = dtH Then dtH = dtH + 1
+        For dt = dtD To dtH - 1
+            rsVal.FindFirst "Fecha = #" & Format(dt, "mm/dd/yyyy") & "#"
+            If rsVal.NoMatch Then
+                rsVal.AddNew
+                rsVal("Fecha") = dt
+            Else
+                rsVal.Edit
+            End If
+            rsVal("PlazasOcupadas") = rsVal("PlazasOcupadas") + rs("Pax")
+            rsVal("Habitaciones") = Nz(rsVal("Habitaciones"), 0) + 1 'DCount("IdFichaDet", "tbFichasDet", "IdFichaCab = " & rs("IdFichaCab") & " AND Nz(IdTipoParcela,0)>0")
+            rsVal.Update
+        Next dt
+        rs.MoveNext
+        i = i + 1
+        SysCmd acSysCmdSetStatus, "Actualizando INE mensual: " & i & "/" & z
+    Wend
+'Quinto, nada
+    Rellenar_auxINE_Mensual = True
+Salir_Rellenar_auxINE_Mensual:
+    Exit Function
+Error_Rellenar_auxINE_Mensual:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_auxINE_Mensual" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_auxINE_Mensual
+            Resume Next
+    End Select
+End Function
+
+Public Sub Rellenar_auxResumido(dtDesde As Date, lngNumDias As Long)
+    On Error GoTo Error_Rellenar_auxResumido
+    Dim strSQL As String, rs As Recordset, rsAux As Recordset, dtHasta As Date
+    Dim dt As Date, dtD As Date, dtH As Date
+    dtHasta = dtDesde + lngNumDias - 1
+    CurrentDb.Execute "DELETE * FROM auxResumido", dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxResumido", dbOpenDynaset)
+    strSQL = "SELECT tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, Count(tbParcelas.IdParcela) AS CuentaDeIdParcela"
+    strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+    strSQL = strSQL & " GROUP BY tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        For dt = dtDesde To dtHasta
+            rsAux.AddNew
+            rsAux("Fecha") = dt
+            rsAux("IdTipoParcela") = rs("IdTipoParcela")
+            rsAux("TipoHabitacion") = rs("TipoParcela")
+            rsAux("Libres") = rs("CuentaDeIdParcela")
+            rsAux.Update
+        Next dt
+        rs.MoveNext
+    Wend
+    strSQL = "SELECT tbFichasDet.Cantidad, tbFichasDet.IdTipoParcela, tbFichasDet.FechaInicio, IIf(Not IsNull([FechaFin]),[FechaFin],IIf(Not IsNull([FechaSalida]),[FechaSalida],[FechaLlegada]+1)) AS FFin"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (tbFichasCab.EstadoFicha<>9)"
+    strSQL = strSQL & " AND ((((tbFichasDet.IdTipoParcela) Is Not Null) AND ((tbFichasDet.FechaInicio) Between #" & Format(dtDesde, "mm/dd/yyyy") & "# And #" & Format(dtHasta, "mm/dd/yyyy") & "#)) OR (((tbFichasDet.IdTipoParcela) Is Not Null) AND ((tbFichasDet.FechaInicio)<#" & Format(dtHasta, "mm/dd/yyyy") & "#) AND ((IIf(Not IsNull([FechaFin]),[FechaFin],IIf(Not IsNull([FechaSalida]),[FechaSalida],[FechaLlegada]+1)))>#" & Format(dtDesde, "mm/dd/yyyy") & "#)));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        dtD = IIf(rs("FechaInicio") < dtDesde, dtDesde, rs("FechaInicio"))
+        dtH = IIf(rs("FFin") > dtHasta, dtHasta, rs("FFin"))
+        For dt = dtD To dtH
+            rsAux.FindFirst "Fecha = #" & Format(dt, "mm/dd/yyyy") & "# AND IdTipoParcela = " & rs("IdTipoParcela")
+            If rsAux.NoMatch Then
+                MsgBox "No puede ser"
+                GoTo SiguienteDt
+            End If
+            rsAux.Edit
+            rsAux("Libres") = rsAux("Libres") - rs("Cantidad")
+            rsAux("Ocupadas") = rsAux("Ocupadas") + rs("Cantidad")
+            rsAux.Update
+SiguienteDt:
+        Next dt
+        rs.MoveNext
+    Wend
+
+Salir_Rellenar_auxResumido:
+    Exit Sub
+Error_Rellenar_auxResumido:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Rellenar_auxResumido" & vbCrLf & Err.Description
+            Resume Salir_Rellenar_auxResumido
+    End Select
+
+End Sub
+
+Public Function GeneraFichaINE_Año(intAño As Integer)
+    'Rellenar_auxResumido Date, 15
+    Dim strSQL As String, rs As Recordset, y As Long, z As Long
+    strSQL = "SELECT IdFichaCab FROM tbFichasCab WHERE Year(FechaLlegada) = " & intAño & " AND EstadoFicha = 5"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    DoEvents
+    While Not rs.EOF
+        DoEvents
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Generando Ficha INE " & y & "/" & z
+        GeneraFichaINE rs(0)
+        rs.MoveNext
+    Wend
+    SysCmd acSysCmdClearStatus
+    MsgBox "Se generaron " & y & "/" & z & " fichas INE", vbInformation
+   
+End Function
+Sub popo()
+    GeneraFichaINE_Año 2018
+    
+End Sub
+
+Public Function GeneraFichaINE(lngIdFichaCab As Long, Optional intDiasEstanciaMaxima As Integer = 30) As Integer
+'Purpose    : Al cerrar una ficha se generan registros en tbINE_Viajeros y tbINE_Parcelas para listados INE
+'Author     : Lorenzo
+'Description:
+'Date       : 05abr.19
+    DoCmd.Hourglass True
+    On Error GoTo HandleError
+    Dim strSQL0 As String, strSQL As String, rs As Recordset, dt As Date, dtI As Date, dtF As Date
+    
+    strSQL = "DELETE * FROM tbINE WHERE IdFichaCab = " & lngIdFichaCab
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT tbFichasDet.*, tbParcelasTipo.TipoParcela, tbParcelasTipo.CatINE, PaisCliente, ProvinciaCliente, TipoClienteINE"
+    strSQL = strSQL & " FROM ((tbFichasCab LEFT JOIN tbProcedencias ON tbFichasCab.IdProcedencia = tbProcedencias.IdProcedencia) INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab)INNER JOIN tbParcelasTipo ON tbFichasDet.IdTipoParcela = tbParcelasTipo.IdTipoParcela"
+    strSQL = strSQL & " WHERE tbFichasDet.IdFichaCab = " & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strSQL0 = "INSERT INTO tbINE(Fecha, IdFichaCab, IdTipoParcela, TipoParcela, TipoINE, Viajeros, Pernoctaciones, Parcelas, PrecioDia, Pais, Provincia, TipoCliente, DiasEstancia)"
+    While Not rs.EOF
+    
+        If rs("FechaInicio") < rs("FechaFin") Then 'Si alguna de las dos es nula, la condicion no se cumple
+            If rs("FechaFin") - rs("FechaInicio") > intDiasEstanciaMaxima Then GoTo Siguiente
+            For dt = rs("FechaInicio") To rs("FechaFin") - 1
+                strSQL = strSQL0 & " SELECT " & CLng(dt) & " AS Fe, " & lngIdFichaCab & " AS IdFi, " & rs("IdTipoParcela") & " AS IdTi, " & ConComillas(rs("TipoParcela")) & " AS TPar, " _
+                                & ConComillas(rs("CatINE")) & " AS Tine, " & IIf(dt = rs("FechaInicio"), Nz(rs("PlazasOcupadas"), 0), 0) & " AS Via, " _
+                                & rs("PlazasOcupadas") & " AS Pern, " & rs("Cantidad") & " AS Par, " & ComaPunto(rs("PrecioUnitario")) & " AS Pre, " _
+                                & IIf(SpNz(rs("PaisCliente"), "") = "", ConComillas("España"), ConComillas(Nz(rs("PaisCliente"), ""))) & " AS Pais, " & IIf(SpNz(rs("ProvinciaCliente"), "") = "", "null", ConComillas(Nz(rs("ProvinciaCliente"), ""))) & " AS Prov, " _
+                                & ConComillas(Nz(rs("TipoClienteINE"), "Otros")) & " AS TipoCli, " & IIf(dt = rs("FechaInicio"), rs("FechaFin") - rs("FechaInicio"), 0) & " AS Dias"
+                CurrentDb.Execute strSQL, dbFailOnError
+            Next dt
+        End If
+Siguiente:
+        rs.MoveNext
+    Wend
+            
+    GeneraFichaINE = True
+HandleExit:
+    DoCmd.Hourglass False
+    Exit Function
+HandleError:
+    MsgBox "Error nº " & Err & " en GeneraFichaINE" & vbCrLf & Err.Description
+    Resume HandleExit
+End Function

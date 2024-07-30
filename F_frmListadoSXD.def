@@ -1,0 +1,213 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+
+
+Private Sub btnAceptar_Click()
+    Dim lngGuia As Long
+    Dim strXML As String, strRPT As String
+    On Error GoTo Error_btnAceptar_Click
+    'GenerartbAuxSXD
+    If Me.cmbSer.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un servicio"
+        Me.cmbSer.SetFocus
+        Exit Sub
+    End If
+    If Not IsDate(Me.txtDesde) Then
+        MsgBox "Se debe indicar una fecha"
+        Me.txtDesde.SetFocus
+        Exit Sub
+    End If
+    
+    Generar_auxServiciosComedor CDate(Me.txtDesde), Me.cmbSer, SpNz(Me.ListadoSXD_Dias, 1)
+    PonXML strXML, "Titulo", Me.cmbSer.Column(1) & " del " & Me.txtDesde & " al " & Me.txtHasta
+    If Me.ListadoSXDSoloTotalesSN = True Then
+        strRPT = "rptServiciosComedorTotales"
+    Else
+        strRPT = "rptServiciosComedor"
+    End If
+    DoCmd.OpenReport strRPT, acViewPreview, , , , strXML
+    
+Exit_btnAceptar_click:
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnMas_Click()
+    'Me.txtDesde = Format(CLng(CDate(Me.txtDesde)) + 1, "dd/mm/yyyy")
+    PonFecha "txtDesde", 1
+    Call ListadoSXD_Dias_AfterUpdate
+End Sub
+
+Private Sub btnMenos_Click()
+'    Me.txtDesde = Format(CLng(CDate(Me.txtDesde)) - 1, "dd/mm/yyyy")
+    PonFecha "txtDesde", -1
+    Call ListadoSXD_Dias_AfterUpdate
+End Sub
+
+Private Sub btnNumDiasMas_Click()
+    Me.ListadoSXD_Dias = SpNz(Me.ListadoSXD_Dias, 1)
+    Me.ListadoSXD_Dias = Me.ListadoSXD_Dias + 1
+    Call ListadoSXD_Dias_AfterUpdate
+End Sub
+
+Private Sub btnNumDiasMenos_Click()
+    Me.ListadoSXD_Dias = SpNz(Me.ListadoSXD_Dias, 1)
+    If Me.ListadoSXD_Dias > 1 Then Me.ListadoSXD_Dias = Me.ListadoSXD_Dias - 1
+    Call ListadoSXD_Dias_AfterUpdate
+End Sub
+
+Private Sub Form_Load()
+   ' Traducir Me
+    CargarParam Me
+    MascaraFechasForm Me
+    Call mrcTipo_AfterUpdate
+    Call ListadoSXD_Dias_AfterUpdate
+    Call PonListaServicios(Me.cmbSer, True)
+End Sub
+
+Private Sub ListadoSXD_Dias_AfterUpdate()
+    Me.txtHasta = Format(CDate(Me.txtDesde) + Me.ListadoSXD_Dias - 1, "dd/mm/yyyy")
+End Sub
+
+Private Sub ListadoSXDCabecera_AfterUpdate()
+    PonValorParam "ListadoSXDCabecera", Me.ListadoSXDCabecera
+End Sub
+
+Private Sub mrcTipo_AfterUpdate()
+    'If Me.mrcTipo = 1 Then
+    '    Me.lblTitulo.Caption = "Listado de Servicios/Dia"
+    'Else
+    '    Me.lblTitulo.Caption = "Listado de Ocupación"
+    'End If
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtDesde)
+        If IsDate(varFecha) Then
+            Me.txtDesde = varFecha
+        End If
+    End If
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtHasta)
+        If IsDate(varFecha) Then
+            Me.txtHasta = varFecha
+        End If
+    End If
+End Sub
+
+Public Sub GenerartbAuxSXD()
+    On Error GoTo Error_GenerartbAuxSXD
+    Dim rs As Recordset, strSQL As String, rsAux As Recordset
+    CurrentDb.Execute "DELETE * FROM tbAuxSXD", dbFailOnError
+    strSQL = "SELECT tbFichasDetServiciosXDia.Fecha, [NombreCliente] & ' ' & [ApellidosCliente] AS Grupo, tbFichasDetServiciosXDia.IdFichaCab, Sum(tbFichasDetServiciosXDia.Desayunos) AS SumaDeDesayunos, Sum(tbFichasDetServiciosXDia.Picnic) AS SumaDePicnic, Sum(tbFichasDetServiciosXDia.Comidas) AS SumaDeComidas, Sum(tbFichasDetServiciosXDia.Cenas) AS SumaDeCenas, Sum(tbFichasDetServiciosXDia.Pernoctaciones) AS SumaDePernoctaciones"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDetServiciosXDia ON tbFichasCab.IdFichaCab = tbFichasDetServiciosXDia.IdFichaCab"
+    strSQL = strSQL & " GROUP BY tbFichasDetServiciosXDia.Fecha, [NombreCliente] & ' ' & [ApellidosCliente], tbFichasCab.ApellidosCliente, tbFichasDetServiciosXDia.IdFichaCab"
+    strSQL = strSQL & " HAVING (((tbFichasDetServiciosXDia.Fecha) Between #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "# And #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#));"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    Set rsAux = CurrentDb.OpenRecordset("tbAuxSXD", dbOpenDynaset)
+    Dim antDt As Date, strSer(1 To 5) As String, intCont(1 To 5) As Integer, intTot(1 To 5) As Integer
+    Dim i As Integer
+    antDt = 0
+    While Not rs.EOF
+        If rs("Fecha") <> antDt Then
+            If antDt = 0 Then
+            Else
+                For i = 1 To 5
+                    If intCont(i) > 1 Then
+                        strSer(i) = strSer(i) & "Total: " & intTot(i)
+                    End If
+                Next i
+                rsAux.AddNew
+                rsAux("Fecha") = antDt
+                rsAux("Desayunos") = strSer(1)
+                rsAux("Picnic") = strSer(2)
+                rsAux("Comidas") = strSer(3)
+                rsAux("Cenas") = strSer(4)
+                rsAux("Pernoctaciones") = strSer(5)
+                rsAux.Update
+            End If
+            antDt = rs("Fecha")
+            For i = 1 To 5
+                strSer(i) = ""
+                intCont(i) = 0
+                intTot(i) = 0
+            Next i
+        End If
+        If rs("SumaDeDesayunos") > 0 Then
+            strSer(1) = strSer(1) & rs("SumaDeDesayunos") & "-->" & rs("Grupo") & vbCrLf
+            intCont(1) = intCont(1) + 1
+            intTot(1) = intTot(1) + rs("SumaDeDesayunos")
+        End If
+        If rs("SumaDePicnic") > 0 Then
+            strSer(2) = strSer(2) & rs("SumaDePicnic") & "-->" & rs("Grupo") & vbCrLf
+            intCont(2) = intCont(2) + 1
+            intTot(2) = intTot(2) + rs("SumaDePicnic")
+        End If
+        If rs("SumaDeComidas") > 0 Then
+            strSer(3) = strSer(3) & rs("SumaDeComidas") & "-->" & rs("Grupo") & vbCrLf
+            intCont(3) = intCont(3) + 1
+            intTot(3) = intTot(3) + rs("SumaDeComidas")
+        End If
+        If rs("SumaDeCenas") > 0 Then
+            strSer(4) = strSer(4) & rs("SumaDeCenas") & "-->" & rs("Grupo") & vbCrLf
+            intCont(4) = intCont(4) + 1
+            intTot(4) = intTot(4) + rs("SumaDeCenas")
+        End If
+        If rs("SumaDePernoctaciones") > 0 Then
+            strSer(5) = strSer(5) & rs("SumaDePernoctaciones") & "-->" & rs("Grupo") & vbCrLf
+            intCont(5) = intCont(5) + 1
+            intTot(5) = intTot(5) + rs("SumaDePernoctaciones")
+        End If
+        
+        rs.MoveNext
+    Wend
+    If antDt <> 0 Then
+        For i = 1 To 4
+            If intCont(i) > 1 Then
+                strSer(i) = strSer(i) & "Total: " & intTot(i)
+            End If
+        Next i
+        rsAux.AddNew
+        rsAux("Fecha") = antDt
+        rsAux("Desayunos") = strSer(1)
+        rsAux("Picnic") = strSer(2)
+        rsAux("Comidas") = strSer(3)
+        rsAux("Cenas") = strSer(4)
+        rsAux("Pernoctaciones") = strSer(5)
+        rsAux.Update
+    End If
+    
+Salir_GenerartbAuxSXD:
+    Exit Sub
+Error_GenerartbAuxSXD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerartbAuxSXD" & vbCrLf & Err.Description
+            Resume Salir_GenerartbAuxSXD
+    End Select
+End Sub

@@ -1,0 +1,806 @@
+Option Compare Database
+Option Explicit
+
+Sub AddAttrNode(strNombreAttr As String, strValueAttr As String, xNode As Object, xDoc As DOMDocument)
+    On Error GoTo HandleError
+    Dim xAttr As IXMLDOMAttribute
+    'Add Attribute to the child
+    Set xAttr = xDoc.createAttribute(strNombreAttr)
+    xAttr.NodeValue = strValueAttr
+    xNode.setAttributeNode xAttr
+    'Debug.Print xDoc.XML
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Function AddNodeText(strNombreNode As String, strValueNode As String, xNode As Object, xDoc As DOMDocument) As IXMLDOMNode
+    On Error GoTo HandleError
+    Dim xNT As IXMLDOMNode, xT As IXMLDOMText
+    Set xNT = xDoc.createElement(strNombreNode)
+    
+    Set xT = xDoc.createTextNode(strValueNode)
+    xNT.appendChild xT
+    xNode.appendChild xNT
+    Set AddNodeText = xNT
+    'Debug.Print xDoc.XML
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Function AddNode(strNombreNode As String, xNode As Object, xDoc As DOMDocument) As IXMLDOMNode
+    On Error GoTo HandleError
+    Dim xT As IXMLDOMNode
+    Set xT = xDoc.createElement(strNombreNode)
+    xNode.appendChild xT
+    Set AddNode = xT
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function CellsXML(dtIni As Date, intCols As Integer)
+    On Error GoTo HandleError
+    Dim xCells As IXMLDOMNode, xMergedCells As IXMLDOMNode
+    
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function CargaRowParcelaFichas(grd As Object, strNombreParcela As String, _
+                                      dtIni As Date, intRow As Integer, _
+                                      Optional intCols As Integer = 15, Optional ByRef strMerge As String, _
+                                      Optional ByRef strOverBookingXML As String, Optional intVaciaPrimero As Integer = False, _
+                                      Optional intPrimeroPax As Integer, _
+                                      Optional intVerCanceladas As Integer = 88, _
+                                      Optional intSinTipos As Integer = 88) As String
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, strXML As String, rs2 As Recordset
+    Dim dt As Date, intCol As Integer, intCol2 As Integer, intStyle As Integer
+    Dim intNumNoches As Integer, lngAntIdFichaCab As Long, strTag As String
+    Dim i As Integer, lngIdTipoParcela As Long, strNombreParcelaT As String
+    Dim cFC As cFichaCab
+    If intVerCanceladas = 88 Then intVerCanceladas = Nz(DameValorParam("PlaningVerCanceladas"), True)
+'    strXML = "<Cell Row=""" & intRow & """ Col=""0"" Style = ""1"">" & strNombreParcela & "</Cell>"
+    If intSinTipos = 88 Then intSinTipos = Nz(DameValorParam("PlanningGSinTipos"), False)
+    If intSinTipos Then
+        lngIdTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strNombreParcela & "'"), 0)
+        strNombreParcelaT = strNombreParcela & " (" & DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela) & ")"
+    Else
+        strNombreParcelaT = strNombreParcela
+    End If
+    If intRow = -1 Then
+        For i = 1 To grd.Rows - 1
+            If grd.cell(i, 0).Text = strNombreParcelaT Then
+                intRow = i
+                Exit For
+            End If
+        Next i
+        If intRow = -1 Then
+            MsgBox "No se encontró Fila con parcela = " & strNombreParcelaT
+            Exit Function
+        End If
+    End If
+    If intVaciaPrimero = True Then VaciaRowGrd grd, intRow, 1
+    
+    ' En 1ª columna enlacer celda de habitación-parcela con fichas actuales.
+    
+    Dim lngIdFicha As Long
+    lngIdFicha = Nz(DLookup("IdFicha", "tbParcelas", "NombreParcela = '" & strNombreParcela & "'"), 0)
+    strXML = ""
+    PonXML strXML, "NombreParcela", strNombreParcela
+    If lngIdFicha > 0 Then
+        intStyle = DimeStyle(Nz(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & lngIdFicha), 1))
+        PonStyleCelda grd.cell(intRow, 0), intStyle
+        PonXML strXML, "IdFichaCab", lngIdFicha
+    Else
+        PonStyleCelda grd.cell(intRow, 0), 0
+    End If
+    grd.cell(intRow, intCol).Tag = strXML
+    
+    'strSQL = "SELECT auxPlanning2.*, tbFichasCab.EstadoFicha"
+    'strSQL = strSQL & " FROM auxPlanning2 LEFT JOIN tbFichasCab ON auxPlanning2.IdFichaCab = tbFichasCab.IdFichaCab"
+    'strSQL = strSQL & " WHERE auxPlanning2.Parcela = """ & strNombreParcela & """"
+    'strSQL = strSQL & " ORDER BY auxPlanning2.Dia, auxPlanning2.IdFichaCab;"
+    
+    'strSQL = "SELECT tbPlani.Parcela, tbPlani.Fecha, tbPlani.IdFichaCab, Sum(tbPlani.Cantidad) AS SumaDeCantidad, Sum(IIf([EntradaSN],1,0)) AS E, EstadoFicha"
+    'strSQL = strSQL & " From tbPlani INNER JOIN tbFichasCab ON tbPlani.IdFichaCab = tbFichasCab.IdFichaCab"
+    'strSQL = strSQL & " WHERE tbPlani.Fecha Between " & CLng(dtIni) & " AND " & CLng(dtIni + intCols - 1)
+    'strSQL = strSQL & " AND tbPlani.Parcela = " & ConComillas(strNombreParcela)
+    'strSQL = strSQL & " GROUP BY tbPlani.Parcela, tbPlani.Fecha, tbPlani.IdFichaCab, EstadoFicha"
+    'strSQL = strSQL & " ORDER BY tbPlani.Parcela, tbPlani.Fecha, tbPlani.IdFichaCab;"
+    
+    strSQL = "SELECT tbPlaning.*"
+    strSQL = strSQL & " From tbPlaning"
+    strSQL = strSQL & " WHERE tbPlaning.Dia Between " & CLng(dtIni) & " AND " & CLng(dtIni + intCols - 1)
+    strSQL = strSQL & " AND tbPlaning.Parcela = """ & strNombreParcela & """"
+    If Not intVerCanceladas Then strSQL = strSQL & " AND EstadoFicha <> 9"
+    strSQL = strSQL & " ORDER BY tbPlaning.Dia;"
+
+    
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    dt = dtIni
+    Set cFC = New cFichaCab
+    While Not rs.EOF And dt < dtIni + intCols
+        While dt < rs("Dia")
+            If intNumNoches > 1 Then
+                intCol2 = intCol + intNumNoches - 1
+                If intCol2 > intCols Then intCol2 = intCols
+                'strMerge = strMerge & "<MergeCell Row1=""" & intRow & """ Col1=""" & intCol & """ Row2=""" & intRow & """ Col2=""" & intCol2 & """/>"
+                grd.Range(intRow, intCol, intRow, intCol2).Selected
+                grd.Selection.Merge
+                intNumNoches = 0
+            End If
+            lngAntIdFichaCab = 0
+            intCol = dt - dtIni + 1
+            'strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & intCol & """ Style=""3""></Cell>"
+            PonStyleCelda grd.cell(intRow, intCol), 3
+            dt = dt + 1
+        Wend
+        If lngAntIdFichaCab = Nz(rs("IdF"), 0) Then
+            intNumNoches = intNumNoches + 1
+        Else 'If Nz(rs("IdFichaCab"), 0) > 0 Then
+            If intNumNoches > 1 Then
+                intCol2 = intCol + intNumNoches - 1
+                If intCol2 > intCols Then intCol2 = intCols
+                'strMerge = strMerge & "<MergeCell Row1=""" & intRow & """ Col1=""" & intCol & """ Row2=""" & intRow & """ Col2=""" & intCol2 & """/>"
+                grd.Range(intRow, intCol, intRow, intCol2).Selected
+                grd.Selection.Merge
+            End If
+            intCol = dt - dtIni + 1
+            If Nz(rs("IdF"), 0) > 0 Then
+                intStyle = DimeStyle(rs("EstadoFicha"))
+                PonStyleCelda grd.cell(intRow, intCol), intStyle
+                grd.cell(intRow, intCol).Tag = "<IdFichaCab>" & rs("IdF") & "</IdFichaCab>"
+                If cFC.FindFirst("IdFichaCab = " & rs("IdF")) Then grd.cell(intRow, intCol).Text = cFC.ResumenFicha(intPrimeroPax) ' DimeFicha(rs("IdFichaCab"), intPrimeroPax)
+                'strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & intCol & """ Style=""" & intStyle & """ Tag=""&lt;IdFichaCab&gt;" & rs("IdFichaCab") & "&lt;/IdFichaCab&gt;"">"
+                'strXML = strXML & DimeFicha(rs("IdFichaCab"))
+                'strXML = strXML & "</Cell>"
+                lngAntIdFichaCab = rs("IdF")
+            Else ' overbooking
+                intStyle = 12
+                PonStyleCelda grd.cell(intRow, intCol), intStyle
+                strXML = ""
+                PonXML strXML, "IdPl", rs("IdPl")
+                PonXML strXML, "TipoParcelaSN", "N"
+                grd.cell(intRow, intCol).Tag = strXML
+                grd.cell(intRow, intCol).Text = "¡¡++!!"
+                'strTag = ReemplazaChars(ReemplazaChars(rs("IdFichaCabXML"), "<", "&lt;"), ">", "&gt;")
+                'strXML = strXML & "<Cell Row=""" & intRow & """ Col=""" & intCol & """ Style=""" & intStyle & """ Tag=""" & strTag & """>"
+                'strXML = strXML & "¡¡++!!"
+                'strXML = strXML & "</Cell>"
+                lngAntIdFichaCab = -1
+            End If
+            intNumNoches = 1
+        End If
+        dt = dt + 1
+Segi:
+        rs.MoveNext
+    Wend
+    If intNumNoches > 1 Then
+        intCol2 = intCol + intNumNoches - 1
+        If intCol2 > intCols Then intCol2 = intCols
+        'strMerge = strMerge & "<MergeCell Row1=""" & intRow & """ Col1=""" & intCol & """ Row2=""" & intRow & """ Col2=""" & intCol2 & """/>"
+        grd.Range(intRow, intCol, intRow, intCol2).Selected
+        grd.Selection.Merge
+        intNumNoches = 0
+    End If
+    'CargaRowParcelaFichas = strXML '& vbCrLf & "Merge: " & strMerge & vbCrLf & strOverBookingXML
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaRowParcelaFichas" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+    
+End Function
+
+
+Public Function CargaRowParcelaFichas2(grd As Object, strNombreParcela As String, _
+                                      dtIni As Date, intRow As Integer, _
+                                      Optional intCols As Integer = 15, Optional ByRef strMerge As String, _
+                                      Optional ByRef strOverBookingXML As String, Optional intVaciaPrimero As Integer = False, _
+                                      Optional intPrimeroPax As Integer, _
+                                      Optional intVerCanceladas As Integer = 88, _
+                                      Optional intSinTipos As Integer = 88) As String
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, strXML As String, rs2 As Recordset
+    Dim dt As Date, intCol As Integer, intCol2 As Integer, intStyle As Integer
+    Dim iNumNoches As Integer, lngAntIdFichaCab As Long, strTag As String
+    Dim i As Integer, lngIdTipoParcela As Long, strNombreParcelaT As String
+    Dim cFC As cFichaCab
+    Dim sAntDia As String, iCol0 As Integer, j As Integer, lIdF As Long, vFichas As Variant
+    If intVerCanceladas = 88 Then intVerCanceladas = Nz(DameValorParam("PlaningVerCanceladas"), True)
+'    strXML = "<Cell Row=""" & intRow & """ Col=""0"" Style = ""1"">" & strNombreParcela & "</Cell>"
+    If intSinTipos = 88 Then intSinTipos = Nz(DameValorParam("PlanningGSinTipos"), False)
+'    If intSinTipos Then
+'        lngIdTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strNombreParcela & "'"), 0)
+'        strNombreParcelaT = strNombreParcela & " (" & DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela) & ")"
+'    Else
+'        strNombreParcelaT = strNombreParcela
+'    End If
+'    If intRow = -1 Then
+'        For i = 1 To grd.Rows - 1
+'            If grd.cell(i, 0).Text = strNombreParcelaT Then
+'                intRow = i
+'                Exit For
+'            End If
+'        Next i
+'        If intRow = -1 Then
+'            MsgBox "No se encontró Fila con parcela = " & strNombreParcelaT
+'            Exit Function
+'        End If
+'    End If
+    If intVaciaPrimero = True Then VaciaRowGrd grd, intRow, 1
+    
+    ' En 1ª columna enlacer celda de habitación-parcela con fichas actuales.
+    
+'    Dim lngIdFicha As Long
+'    lngIdFicha = Nz(DLookup("IdFicha", "tbParcelas", "NombreParcela = '" & strNombreParcela & "'"), 0)
+'    strXML = ""
+'    PonXML strXML, "NombreParcela", strNombreParcela
+'    If lngIdFicha > 0 Then
+'        intStyle = DimeStyle(Nz(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & lngIdFicha), 1))
+'        PonStyleCelda grd.cell(intRow, 0), intStyle
+'        PonXML strXML, "IdFichaCab", lngIdFicha
+'    Else
+'        PonStyleCelda grd.cell(intRow, 0), 0
+'    End If
+'    grd.cell(intRow, intCol).Tag = strXML
+'
+'
+
+    strSQL = "SELECT * FROM auxPlaning_Parcelas WHERE True"
+    If strNombreParcela <> "" Then strSQL = strSQL & " AND Parcela = """ & strNombreParcela & """"
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    dt = dtIni
+    Set cFC = New cFichaCab
+    
+    While Not rs.EOF
+        
+        If intSinTipos Then
+            lngIdTipoParcela = rs("IdTipoParcela")
+            strNombreParcelaT = rs("Parcela") & " (" & DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela) & ")"
+        Else
+            strNombreParcelaT = rs("Parcela")
+        End If
+        intRow = -1
+        For i = 1 To grd.Rows - 1
+            If grd.cell(i, 0).Text = strNombreParcelaT Then
+                intRow = i
+                Exit For
+            End If
+        Next i
+        If intRow = -1 Then
+            MsgBox "No se encontró Fila con parcela = " & strNombreParcelaT
+            Exit Function
+        End If
+        
+        
+        sAntDia = "-"
+        iNumNoches = 0
+        For i = 1 To intCols
+            If sAntDia = rs("Dia" & i) Then
+                iNumNoches = iNumNoches + 1
+            Else
+                If iNumNoches > 1 Then
+                    grd.Range(intRow, iCol0, intRow, i - 1).Selected
+                    grd.Selection.Merge
+                End If
+                iCol0 = i
+                iNumNoches = 1
+            End If
+            If IsNumeric(rs("Dia" & i)) Then
+                lIdF = rs("Dia" & i)
+                If cFC.FindFirst("IdFichaCab = " & lIdF) Then
+                    intStyle = DimeStyle(cFC.EstadoFicha)
+                    PonStyleCelda grd.cell(intRow, i), intStyle
+                    grd.cell(intRow, i).Tag = "<IdFichaCab>" & lIdF & "</IdFichaCab>"
+                    grd.cell(intRow, i).Text = cFC.ResumenFicha(intPrimeroPax)
+                End If
+            ElseIf Nz(rs("Dia" & i), "") = "" Then 'disponible
+                PonStyleCelda grd.cell(intRow, i), 3
+                sAntDia = "-"
+            Else 'Overbooking
+                intStyle = 12
+                PonStyleCelda grd.cell(intRow, i), intStyle
+                strXML = ""
+                vFichas = Split(rs("Dia" & i), ",")
+                For j = 0 To UBound(vFichas)
+                    PonXML strXML, "IdFichaCab", vFichas(j)
+                Next j
+                PonXML strXML, "TipoParcelaSN", "N"
+                grd.cell(intRow, i).Tag = strXML
+                grd.cell(intRow, i).Text = "¡¡++!!"
+            End If
+        Next i
+        If iNumNoches > 1 Then
+            grd.Range(intRow, iCol0, intRow, i - 1).Selected
+            grd.Selection.Merge
+        End If
+        rs.MoveNext
+    Wend
+                
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaRowParcelaFichas" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+    
+End Function
+
+
+
+
+Public Function CargaRowTipoParcelaFichas(grd As Object, lngIdTipoParcela As Long, _
+                                          dtIni As Date, intRow As Integer, _
+                                          Optional intCols As Integer = 15, Optional ByRef strMerge As String, _
+                                          Optional ByRef strOverBookingXML As String, Optional intVerCanceladas As Integer = 88) As String
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo Error_CargaRowTipoParcelaFichas
+    Dim strSQL As String, rs As Recordset, strXML As String
+    Dim dt1 As Date, dt2 As Date, dtFin As Date, intCol1 As Integer, intCol2 As Integer, intStyle As Integer
+    'Dim strAsigN() As String, strAsigS() As String, strEntradas() As String, strTags() As String,
+    Dim strTipoParcela As String, i As Integer, intNumFichas As Integer
+    Dim strTag As String, intMaximo As Integer
+    Dim intComparteEspacio As Integer
+    Dim rs2 As Recordset
+    ReDim strAsigN(1 To intCols)
+    ReDim strAsigS(1 To intCols)
+    ReDim strEntradas(1 To intCols)
+    ReDim strTags(1 To intCols)
+    
+    If intVerCanceladas = 88 Then intVerCanceladas = Nz(DameValorParam("PlaningVerCanceladas"), True)
+    intComparteEspacio = Nz(DLookup("CompartirHabitacionSN", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), False)
+    If Not intComparteEspacio Then
+        intMaximo = Nz(DCount("NombreParcela", "tbParcelas", "IdTipoPArcela = " & lngIdTipoParcela), 0)
+    Else
+        intMaximo = Nz(DSum("NumPlazas", "tbParcelas", "IdTipoParcela = " & lngIdTipoParcela), 0)
+    End If
+        
+    strSQL = "SELECT IdPl, (tbPlaning.AsigS) AS AsS, (tbPlaning.AsigN) AS AsN, (tbPlaning.EntS) AS Ent, tbPlaning.Dia"
+    If Not intComparteEspacio Then
+        strSQL = strSQL & ", tbPlaning.CantidadT as CantT"
+    Else
+        strSQL = strSQL & ", tbPlaning.PaxT as CantT"
+    End If
+    strSQL = strSQL & ", tbPlaning.CancS as CancS"
+    strSQL = strSQL & " From tbPlaning"
+    strSQL = strSQL & " WHERE tbPlaning.Dia Between " & CLng(dtIni) & " AND " & CLng(dtIni + intCols - 1)
+    strSQL = strSQL & " AND tbPlaning.IdTipoParcela = " & lngIdTipoParcela
+    strSQL = strSQL & " AND tbPlaning.Parcela = '-'"
+    'If Not intVerCanceladas Then strSQL = strSQL & " AND EstadoFicha <> 9"
+    'strSQL = strSQL & " GROUP BY tbPlaning.Dia"
+    strSQL = strSQL & " ORDER BY tbPlaning.Dia;"
+
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    dtFin = dtIni + intCols
+    strTipoParcela = Nz(DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), "¿?")
+    PonXML strTag, "IdTipoParcela", lngIdTipoParcela
+    If intRow = -1 Then
+        For i = 1 To grd.Rows - 1
+            If grd.cell(i, 0).Tag = strTag Then
+                intRow = i
+            End If
+        Next i
+        If intRow = -1 Then
+            'MsgBox "No se encontró fila con Tag: " & strTag
+            Exit Function
+        End If
+    Else
+        grd.cell(intRow, 0).Tag = strTag 'ReemplazaChars(ReemplazaChars(strTag, "<", "&lt;"), ">", "&gt;")
+    End If
+    VaciaFilaGrd grd, intRow, , , True
+    grd.cell(intRow, 0).BackColor = &HCCCCCC
+    While Not rs.EOF
+        i = rs("Dia") - dtIni + 1
+        strTag = ""
+        PonXML strTag, "IdPl", rs("IdPl")
+        grd.cell(intRow, i).Tag = strTag
+        grd.cell(intRow, i).Text = IIf(rs("Ent") <> 0, rs("Ent") & "e. ", "") & IIf(rs("AsS") <> 0, rs("AsS"), "") & IIf(rs("AsN") <> 0, "+" & rs("AsN"), "") & IIf(rs("CancS") <> 0, " " & rs("CancS") & "c", "")
+        If rs("AsS") + rs("AsN") > intMaximo Then
+            grd.cell(intRow, i).BackColor = vbRed
+            grd.cell(intRow, i).ForeColor = vbWhite
+        ElseIf rs("AsS") + rs("AsN") = intMaximo And intMaximo <> 0 Then
+            grd.cell(intRow, i).BackColor = 3024495
+            grd.cell(intRow, i).ForeColor = vbWhite
+        End If
+        If Nz(rs("AsS"), 0) + Nz(rs("AsN"), 0) <= intMaximo And Nz(rs("AsN"), 0) > 0 Then _
+            grd.cell(intRow, i).ForeColor = vbRed
+        rs.MoveNext
+    Wend
+            
+    If g_SincroWB And Nz(DameValorParam("Planing_VerPreciosYRestricciones"), False) = True Then
+        Dim k As Integer
+        
+        strSQL = "SELECT tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, wbRooms.id as idR, wbRooms.shortname as sname, wbRooms.name, wbRooms_1.id as idR1, wbRooms_1.shortname as sname1, wbRooms_1.occupancy"
+        strSQL = strSQL & " FROM (tbParcelasTipo LEFT JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname) LEFT JOIN wbRooms AS wbRooms_1 ON wbRooms.id = wbRooms_1.subroom"
+        strSQL = strSQL & " WHERE tbParcelasTipo.IdTipoParcela = " & lngIdTipoParcela
+        strSQL = strSQL & " ORDER BY tbParcelasTipo.CatINE, wbRooms.shortname, wbRooms_1.shortname;"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rs.EOF
+            If k = 0 Then
+                If Nz(rs("sname"), "") <> "" Then
+                    intRow = intRow + 1
+                    CargaRowTipoParcelaPrecios grd, rs("IdR"), dtIni, intRow, intCols
+                    'comprueba disponibilidad
+                    strSQL = "SELECT * FROM wbTabla"
+                    strSQL = strSQL & " WHERE IdRoom = " & rs("IdR")
+                    strSQL = strSQL & " AND Fecha Between " & CLng(dtIni) & " AND " & CLng(dtIni + intCols - 1)
+                    Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                    While Not rs2.EOF
+                        If Nz(rs2("avail"), 0) <> Nz(rs2("availH4"), 0) Then
+                            i = rs2("Fecha") - dtIni + 1
+                            grd.cell(intRow, i).Text = Nz(rs2("avail"), 0) & "x ! " & grd.cell(intRow, i).Text
+                            grd.cell(intRow, i).ForeColor = vbRed
+                           ' grd.cell(intRow, i).ControlTipText = "Avail WB: " & Nz(rs("avail"), 0) & " - H4: " & Nz(rs("availH4"), 0)
+                        End If
+                        rs2.MoveNext
+                    Wend
+                End If
+                If Nz(rs("sname1"), "") <> "" Then
+                    intRow = intRow + 1
+                    CargaRowTipoParcelaPrecios grd, rs("IdR1"), dtIni, intRow, intCols
+                End If
+                k = 1
+            Else
+                If Nz(rs("sname1"), "") <> "" Then
+                    intRow = intRow + 1
+                    CargaRowTipoParcelaPrecios grd, rs("IdR1"), dtIni, intRow, intCols
+                End If
+            End If
+            rs.MoveNext
+        Wend
+    End If
+    
+Salir_CargaRowTipoParcelaFichas:
+    Exit Function
+Error_CargaRowTipoParcelaFichas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaRowTipoParcelaFichas" & vbCrLf & Err.Description
+            Resume Salir_CargaRowTipoParcelaFichas
+    End Select
+    
+End Function
+
+Public Function CargaRowTipoParcelaPrecios(grd As Object, lngIdRoom As Long, _
+                                          dtIni As Date, intRow As Integer, _
+                                          Optional intCols As Integer = 15, _
+                                          Optional lngIdPlan As Long = -1, Optional lngIdRPlan As Long = -1) As String
+    
+    On Error GoTo Error_CargaRowTipoParcelaPrecios
+    Dim strSQL As String, rs As Recordset, strXML As String
+    Dim dt1 As Date, dt2 As Date, dtFin As Date, intCol1 As Integer, intCol2 As Integer, intStyle As Integer
+    'Dim strAsigN() As String, strAsigS() As String, strEntradas() As String, strTags() As String,
+    Dim strTipoParcela As String
+    Dim strTxt() As String, strTag As String, i As Integer, bClosed As Boolean
+    Dim ColorWB  As Long
+    ColorWB = RGB(252, 230, 212)
+    'lngIdRoom = Nz(DLookup("id", "qryParcelasTipo_Rooms", "IdTipoParcela = " & lngIdTipoParcela), 0)
+    If lngIdPlan = -1 Then lngIdPlan = Nz(DameValorParam("Planing_pid"), 0)
+    If lngIdRPlan = -1 Then lngIdRPlan = Nz(DameValorParam("Planing_rpid"), 0)
+    strSQL = "SELECT wbTabla.IdRoom, wbTabla.Fecha, wbTabla.price, wbTabla.min_stay, wbTabla.max_stay, wbTabla.closed"
+    If lngIdPlan <> 0 Then strSQL = strSQL & ", wbTabla_Precios.price, wbTabla_Precios.IdPricingPlan"
+    If lngIdRPlan <> 0 Then strSQL = strSQL & ", wbTabla_Restricciones.min_stay, wbTabla_Restricciones.max_stay, wbTabla_Restricciones.closed, wbTabla_Restricciones.IdRestrictionPlan"
+    strSQL = strSQL & " FROM (wbTabla "
+    If lngIdPlan <> 0 Then
+        strSQL = strSQL & "LEFT JOIN wbTabla_Precios ON wbTabla.wbTablaID = wbTabla_Precios.wbTablaID)"
+    Else
+        strSQL = strSQL & ")"
+    End If
+    If lngIdRPlan <> 0 Then
+        strSQL = strSQL & " LEFT JOIN wbTabla_Restricciones ON wbTabla.wbTablaID = wbTabla_Restricciones.wbTablaID"
+    End If
+    strSQL = strSQL & " WHERE wbTabla.IdRoom = " & lngIdRoom
+    strSQL = strSQL & " AND wbTabla.Fecha Between " & CLng(dtIni)
+    strSQL = strSQL & " AND " & CLng(dtIni + intCols - 1)
+    ' En caso de querer que aparezcan más de una pareja de valores precio-estancia m´nima se pueden quitar las dos siguientes condiciones
+    ' y en el recorrido de los registros y sacando todos los datos, de momento lo dejo en una pareja pues no entran más datos en la celda del planing
+    If lngIdPlan <> 0 Then strSQL = strSQL & " AND IdPricingPlan = " & lngIdPlan
+    If lngIdRPlan <> 0 Then strSQL = strSQL & " AND IdRestrictionPlan = " & lngIdRPlan
+    
+    strSQL = strSQL & " ORDER BY wbTabla.Fecha"
+    If lngIdPlan <> 0 Then strSQL = strSQL & ", wbTabla_Precios.IdPricingPlan"
+    If lngIdRPlan <> 0 Then strSQL = strSQL & ", wbTabla_Restricciones.IdRestrictionPlan"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    dtFin = dtIni + intCols
+    'strTipoParcela = Nz(DLookup("TipoParcela", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), "¿?")
+    PonXML strTag, "IdRoom", lngIdRoom
+    If intRow = -1 Then
+        For i = 1 To grd.Rows - 1
+            If grd.cell(i, 0).Tag = strTag Then
+                intRow = i
+            End If
+        Next i
+        If intRow = -1 Then
+            'MsgBox "No se encontró fila con Tag: " & strTag
+            Exit Function
+        End If
+    Else
+        grd.cell(intRow, 0).Tag = strTag 'ReemplazaChars(ReemplazaChars(strTag, "<", "&lt;"), ">", "&gt;")
+    End If
+    VaciaFilaGrd grd, intRow, , , True
+    ReDim strTxt(2)
+    Dim dtAnt As Date, pidAnt As Long, rpidAnt As Long, k As Integer
+    dtAnt = 0
+    grd.cell(intRow, 0).BackColor = ColorWB
+    While Not rs.EOF
+        If rs("Fecha") <> dtAnt Then
+            If dtAnt <> 0 Then
+                'PonXML strTag, "CondicionesWB", ""
+                grd.cell(intRow, i).Tag = strTag
+                grd.cell(intRow, i).Text = strTxt(0) & " - " & strTxt(1) & IIf(SpNz(strTxt(2), "0") <> "0", " - " & strTxt(2), "")
+                grd.cell(intRow, i).BackColor = IIf(Not bClosed, ColorWB, vbBlack)
+                grd.cell(intRow, i).ForeColor = IIf(Not bClosed, vbBlack, vbWhite)
+                
+            End If
+            i = rs("Fecha") - dtIni + 1
+            dtAnt = rs("Fecha")
+            k = 0
+        End If
+        If k = 0 Then
+            strTxt(0) = ""
+            If lngIdPlan = 0 Then
+                strTxt(0) = Nz(rs("price"), 0)
+            Else
+                strTxt(0) = Nz(rs("wbTabla_Precios.price"), 0)
+            End If
+            'If Nz(rs("price"), -1) <> -1 Then strTxt(0) = strTxt(0) & "/" & rs("price")
+            'pidAnt = Nz(rs("IdPricingPlan"), 0)
+            If lngIdRPlan = 0 Then
+                strTxt(1) = Nz(rs("min_stay"), "")
+                strTxt(2) = Nz(rs("max_stay"), "")
+            Else
+                strTxt(1) = Nz(rs("wbTabla_Restricciones.min_stay"), "")
+                strTxt(2) = Nz(rs("wbTabla_Restricciones.max_stay"), "")
+            End If
+            bClosed = rs("closed")
+            'If Nz(rs("min_stay"), -1) <> -1 Then strTxt(1) = strTxt(1) & "/" & rs("min_stay")
+            'rpidAnt = Nz(rs("IdRestrictionPlan"), 0)
+            k = 1
+        Else
+            If pidAnt <> Nz(rs("IdPricingPlan"), 0) And Nz(rs("IdPricingPlan"), 0) <> 0 Then
+                strTxt(0) = strTxt(0) & "/" & rs("price")
+                pidAnt = Nz(rs("IdPricingPlan"), 0)
+            End If
+            If rpidAnt <> Nz(rs("IdRestrictionPlan"), 0) And Nz(rs("IdRestrictionPlan"), 0) <> 0 Then
+                strTxt(1) = strTxt(1) & "/" & rs("min_stay")
+                rpidAnt = Nz(rs("IdRestrictionPlan"), 0)
+            End If
+        End If
+        rs.MoveNext
+    Wend
+    If dtAnt <> 0 Then
+        'PonXML strTag, "CondicionesWB", ""
+        grd.cell(intRow, i).Tag = strTag
+        grd.cell(intRow, i).Text = strTxt(0) & " - " & strTxt(1) & IIf(SpNz(strTxt(2), "0") <> "0", " - " & strTxt(2), "")
+        grd.cell(intRow, i).BackColor = ColorWB
+        grd.cell(intRow, i).BackColor = IIf(Not bClosed, ColorWB, vbBlack)
+        grd.cell(intRow, i).ForeColor = IIf(Not bClosed, vbBlack, vbWhite)
+    End If
+Salir_CargaRowTipoParcelaPrecios:
+    Exit Function
+Error_CargaRowTipoParcelaPrecios:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaRowTipoParcelaPrecios" & vbCrLf & Err.Description
+            Resume Salir_CargaRowTipoParcelaPrecios
+    End Select
+    
+End Function
+
+Public Function VaciaRowGrd(grd As Object, intRow As Integer, Optional intColDesde As Integer = -1, Optional intColHasta As Integer = -1, Optional intEsTipoParcela As Integer = False)
+    'Lee datos de auxPlanning que se supone debe estar actualizado!!!
+    On Error GoTo Error_VaciaFilaParcelaFichas
+    Dim intCol As Integer, intStyle As Integer
+    Dim intR As Integer, intC As Integer, i As Integer, j As Integer
+    If intColDesde = -1 Then intColDesde = 1
+    If intColHasta = -1 Then intColHasta = grd.Cols - 1
+    For intCol = intColDesde To intColHasta
+        grd.cell(intRow, intCol).Text = ""
+        If intEsTipoParcela = False Then
+            intStyle = 3
+        Else
+            intStyle = 11
+        End If
+        PonStyleCelda grd.cell(intRow, intCol), intStyle
+        grd.cell(intRow, intCol).Tag = ""
+        grd.cell(intRow, intCol).Text = ""
+    Next intCol
+    With grd.Range(intRow, intColDesde, intRow, intColHasta)
+        .MergeCells = False
+    End With
+    
+Salir_VaciaFilaParcelaFichas:
+    Exit Function
+Error_VaciaFilaParcelaFichas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en VaciaFilaParcelaFichas" & vbCrLf & Err.Description
+            Resume Salir_VaciaFilaParcelaFichas
+    End Select
+    
+End Function
+
+Sub Fichas_to_planing_all(Optional intFichasBorradas As Integer = False)
+    On Error GoTo HandleError
+    Dim rs As Recordset, y As Long, z As Long, cF As New cFichaCab, strSQL As String
+    If intFichasBorradas Then
+        strSQL = "SELECT tbPlaningF.IdFichaCab"
+        strSQL = strSQL & " FROM tbFichasCab RIGHT JOIN tbPlaningF ON tbFichasCab.IdFichaCab = tbPlaningF.IdFichaCab"
+        strSQL = strSQL & " WHERE (((tbFichasCab.IdFichaCab) Is Null));"
+    Else
+        strSQL = "select * from tbFichasCab WHERE FechaLlegada > " & CLng(Date - 15)
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    'Set rs = CurrentDb.OpenRecordset("select * from tbFichasCab", dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        DoEvents
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Fichas to Planing " & y & "/" & z
+        
+        If cF.FindFirst("IdFichaCab = " & rs("IdFichaCab")) Then
+            cF.Detalle_to_Planing
+        End If
+        rs.MoveNext
+    Wend
+    SysCmd acSysCmdSetStatus, "Fichas to Planing " & y & "/" & z
+    
+    
+    'SysCmd acSysCmdClearStatus
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Sub Ficha_to_Planing(lngIdFichaCab As Long)
+    On Error GoTo HandleError
+    Dim cF As New cFichaCab
+    If cF.FindFirst("IdFichaCab = " & lngIdFichaCab) = True Then
+        cF.Detalle_to_Planing
+    Else
+        cF.Detalle_to_Planing lngIdFichaCab ' Para Fichas eliminadas
+    End If
+        
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Sub popo()
+    Fichas_to_planing_all
+End Sub
+
+Public Function CeldaTipoParcela_to_Planing(lngIdTipoParcela As Long, dtDia As Date) As Integer
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, strTagXML As String, i As Integer, intAsigS As Integer, intAsigN As Integer, intEntS As Integer, intCantT As Integer, intPaxT As Integer, iCanc As Integer
+    Dim intComparteEspacio As Integer
+    intComparteEspacio = Nz(DLookup("CompartirHabitacionSN", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), False)
+    
+    
+    strSQL = "SELECT tbPlaningF.*, tbPlaning.Parcela"
+    strSQL = strSQL & " From tbPlaningF INNER JOIN tbPlaning ON tbPlaning.IdPl = tbPlaningF.IdPl"
+    strSQL = strSQL & " WHERE tbPlaning.IdTipoParcela=" & lngIdTipoParcela
+    strSQL = strSQL & " AND tbPlaning.Dia=" & CLng(dtDia)
+    strSQL = strSQL & " AND CheckSN=True"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If rs("EstadoFicha") = 9 Then
+            iCanc = iCanc + 1
+        Else
+            If rs("Parcela") = "-" Then
+                'PonXML strTagXML, "IdFichaCabN", rs("IdFichaCab")
+                intAsigN = intAsigN + IIf(intComparteEspacio, rs("Pax"), rs("Cantidad"))
+            Else
+                'PonXML strTagXML, "IdFichaCabS", rs("IdFichaCab")
+                intAsigS = intAsigS + IIf(intComparteEspacio, rs("Pax"), rs("Cantidad"))
+            End If
+            If rs("Entrada") = True Then
+                intEntS = intEntS + IIf(intComparteEspacio, rs("Pax"), rs("Cantidad"))
+                'PonXML strTagXML, "IdFichaCabE", rs("IdFichaCab")
+            End If
+            intCantT = intCantT + rs("Cantidad")
+            intPaxT = intPaxT + rs("Pax")
+            i = i + 1
+        End If
+        rs.MoveNext
+    Wend
+    'If intAsigN > 0 Then PonXML strTagXML, "NumFichasN", intAsigN
+    'If intAsigS > 0 Then PonXML strTagXML, "NumFichasS", intAsigS
+    'If intEntS > 0 Then PonXML strTagXML, "NumFichasE", intEntS
+    strSQL = "SELECT * FROM tbPlaning" & _
+             " WHERE IdTipoParcela = " & lngIdTipoParcela & _
+             " AND Dia = " & CLng(dtDia) & _
+             " AND Parcela = '-'"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        rs.AddNew
+        rs("IdTipoParcela") = lngIdTipoParcela
+        rs("Dia") = dtDia
+        rs("Parcela") = "-"
+    Else
+        rs.Edit
+    End If
+    rs("TagXML") = strTagXML
+    rs("AsigN") = intAsigN
+    rs("AsigS") = intAsigS
+    rs("EntS") = intEntS
+    rs("CantidadT") = intCantT
+    rs("PaxT") = intPaxT
+    rs("CancS") = iCanc
+    rs.Update
+    If g_SincroWB Then
+        Dim lngIdRoom As Long, strTypeCode As String, intMaximo As Integer, strCri As String
+        strTypeCode = Nz(DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), "")
+        lngIdRoom = Nz(DLookup("id", "wbRooms", "shortname = """ & strTypeCode & """"), 0)
+        strSQL = "SELECT IdTipoParcela FROM tbParcelasTipo WHERE TypeCode = '" & strTypeCode & "'"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rs.EOF
+            strCri = strCri & "IdTipoParcela = " & rs("IdTipoParcela") & " or "
+            rs.MoveNext
+        Wend
+        If Len(strCri) > 4 Then
+            strCri = RecDerTop(strCri, 4, 0)
+        End If
+        If lngIdRoom > 0 Then
+            strSQL = "SELECT * FROM wbTabla WHERE IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtDia)
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+            If rs.EOF Then
+                rs.AddNew
+                rs("IdRoom") = lngIdRoom
+                rs("Fecha") = CLng(dtDia)
+            Else
+                rs.Edit
+            End If
+            intMaximo = Nz(DCount("NombreParcela", "tbParcelas", strCri), 0)
+            rs("availH4") = intMaximo - intCantT
+            rs.Update
+        End If
+    End If
+        
+    
+    
+    'strSQL = "UPDATE tbPlaning SET IdFichaCabXML = " & ConComillas(strTagXML) & _
+             ", AsigN = " & intAsigN & _
+             ", AsigS = " & intAsigS & _
+             ", EntS = " & intEntS
+    'strSQL = strSQL & " WHERE IdPl = " & lngIdPl
+    'CurrentDb.Execute strSQL, dbFailOnError
+    
+    CeldaTipoParcela_to_Planing = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

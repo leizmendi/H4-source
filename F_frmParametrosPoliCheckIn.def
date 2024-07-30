@@ -1,0 +1,119 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnBorrar_Click()
+    Me.txtElPuertoDice = ""
+    Me.TipoDoc = ""
+    Me.NumDoc = ""
+    Me.FExpedicion = ""
+    Me.Nombre = ""
+    Me.Apellidos = ""
+    Me.Nacionalidad = ""
+    Me.Sexo = ""
+    Me.FNacimiento = ""
+
+End Sub
+
+Private Sub btnDELETE_Click()
+    Dim strResponse As String
+    strResponse = PoliCheckIn_Delete()
+    Me.txtElPuertoDice = strResponse
+    MsgBox strResponse, vbInformation
+End Sub
+
+Private Sub btnGET_ALL_Click()
+    Dim sMsg As String, iBorrar As Integer
+    iBorrar = MsgBox("¿Borrar después de descargar", vbYesNoCancel)
+    If iBorrar = vbCancel Then Exit Sub
+    Policheckin_GetAll sMsg, iBorrar = vbYes
+    MsgBox sMsg
+End Sub
+
+Private Sub btnGET_Click()
+    Call Get_PoliCheckIn
+End Sub
+
+Private Sub btnGetKeys_Click()
+    Dim customerId As String, apiKey As String, organizationId As String, intR As Integer
+    If PoliCheckIn_GetKeys(Me.PoliCheckIn_user, Me.PoliCheckIn_password, customerId, apiKey, organizationId) = True Then
+        If Nz(Me.PoliCheckIn_customerId, "") <> customerId Then
+            intR = MsgBox("¿Modificar CustomerId al nuevo: " & customerId & "?", vbYesNo)
+            If intR = vbYes Then Me.PoliCheckIn_customerId = customerId
+        End If
+        If Nz(Me.PoliCheckIn_ApiKey, "") <> apiKey Then
+            intR = MsgBox("¿Modificar ApiKey a la nueva: " & apiKey & "?", vbYesNo)
+            If intR = vbYes Then Me.PoliCheckIn_ApiKey = apiKey
+        End If
+        If Nz(Me.PoliCheckIn_organizationId, "") <> organizationId Then
+            intR = MsgBox("¿Modificar OrganizationId al nuevo: " & organizationId & "?", vbYesNo)
+            If intR = vbYes Then Me.PoliCheckIn_organizationId = organizationId
+        End If
+        
+    End If
+End Sub
+
+Private Sub btnRemote_Click()
+    On Error GoTo HandleError
+    Dim lngIdFichaCab As Long
+    lngIdFichaCab = Nz(MyInputBox("Nº de Ficha", "Nº de ficha", Nz(DMax("IdFichaCab", "tbFichasCab"), 0), "#######"), 0)
+    If lngIdFichaCab = 0 Then GoTo HandleExit
+    Dim intR As Integer, strBookerUrl As String, strURL As String
+    intR = DameCheckinURL(lngIdFichaCab, strBookerUrl, strURL)
+    If intR Then
+        Me.txtElPuertoDice = "BookerUrl: " & strBookerUrl & vbCrLf & _
+                           "Url: " & strURL & vbCrLf
+    Else
+        Me.txtElPuertoDice = "Error"
+    End If
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Sub Get_PoliCheckIn()
+    On Error GoTo HandleError
+    Dim strResponse As String, json As Object
+    Me.txtElPuertoDice = "Consultando Web..."
+    GrabarParam Me
+    strResponse = PoliCheckIn_GetLast()
+    Me.txtElPuertoDice = strResponse
+    Set json = JsonConverter.ParseJson(strResponse)
+    Me.TipoDoc = json("documentType")
+    Me.NumDoc = json("documentId")
+    Me.FExpedicion = CDate(Left(json("expeditionDate"), 10))
+    Me.Nombre = json("firstName")
+    Me.Apellidos = Trim(json("lastName1") & " " & json("lastName2"))
+    Me.Nacionalidad = json("nationality")
+    Me.Sexo = json("sex")
+    Me.FNacimiento = CDate(Left(json("birthDate"), 10))
+    'Debug.Print "documentType" & ": " & Json("documentType")
+    'Debug.Print "documentId" & ": " & Json("documentId")
+    'Debug.Print "expeditionDate" & ": " & Json("expeditionDate")
+    'Debug.Print "firstName" & ": " & Json("firstName")
+    'Debug.Print "lastName1" & ": " & Json("lastName1")
+    'Debug.Print "lastName2" & ": " & Json("lastName2")
+    'Debug.Print "nationality" & ": " & Json("nationality")
+    'Debug.Print "sex" & ": " & Json("sex")
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

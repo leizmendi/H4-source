@@ -1,0 +1,152 @@
+Option Compare Database
+Option Explicit
+
+Public Function DimeFacturaRecibidaTotalBase(lngIdFactura As Long) As Currency
+    Dim v As Variant, intIVAinc As Integer, curTotal As Currency
+    On Error GoTo Error_DimeFacturaRecibidaTotalBase
+    If lngIdFactura = 0 Then
+        DimeFacturaRecibidaTotalBase = 0
+        GoTo Salir_DimeFacturaRecibidaTotalBase
+    End If
+    curTotal = Nz(DSum("Base", "tbFacturasRecibidasDet", "IdFacturaRecibida = " & lngIdFactura), 0)
+    curTotal = Redondea(curTotal, 2)
+    DimeFacturaRecibidaTotalBase = curTotal
+Salir_DimeFacturaRecibidaTotalBase:
+    Exit Function
+Error_DimeFacturaRecibidaTotalBase:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFacturaRecibidaTotalBase" & vbCrLf & Err.Description
+            Resume Salir_DimeFacturaRecibidaTotalBase
+            Resume Next
+    End Select
+End Function
+
+Public Function DimeFacturaRecibidaTotalIVA(lngIdFactura As Long) As Currency
+    Dim v As Variant, intIVAinc As Integer, curTotal As Currency
+    On Error GoTo Error_DimeFacturaRecibidaTotalIVA
+    If lngIdFactura = 0 Then
+        DimeFacturaRecibidaTotalIVA = 0
+        GoTo Salir_DimeFacturaRecibidaTotalIVA
+    End If
+    curTotal = Nz(DSum("(Base) * (IVA)", "tbFacturasRecibidasDet", "IdFacturaRecibida = " & lngIdFactura), 0)
+    curTotal = Redondea(curTotal, 2)
+    DimeFacturaRecibidaTotalIVA = curTotal
+Salir_DimeFacturaRecibidaTotalIVA:
+    Exit Function
+Error_DimeFacturaRecibidaTotalIVA:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFacturaRecibidaTotalIVA" & vbCrLf & Err.Description
+            Resume Salir_DimeFacturaRecibidaTotalIVA
+            Resume Next
+    End Select
+End Function
+Public Function DimeFacturaRecibidaTotalRecEq(lngIdFactura As Long) As Currency
+    Dim v As Variant, intRecEqInc As Integer, curTotal As Currency
+    On Error GoTo Error_DimeFacturaRecibidaTotalRecEq
+    If lngIdFactura = 0 Then
+        DimeFacturaRecibidaTotalRecEq = 0
+        GoTo Salir_DimeFacturaRecibidaTotalRecEq
+    End If
+    curTotal = Nz(DSum("(Base) * (RecEq)", "tbFacturasRecibidasDet", "IdFacturaRecibida = " & lngIdFactura), 0)
+    curTotal = Redondea(curTotal, 2)
+    DimeFacturaRecibidaTotalRecEq = curTotal
+Salir_DimeFacturaRecibidaTotalRecEq:
+    Exit Function
+Error_DimeFacturaRecibidaTotalRecEq:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFacturaRecibidaTotalRecEq" & vbCrLf & Err.Description
+'            Resume Salir_DimeFacturaRecibidaTotalRecEq
+            Resume Next
+    End Select
+End Function
+
+
+Public Function DimeFacturaRecibidaIVA(lngIdFactura As Long) As Variant
+    Dim sngIVA As Single, i As Integer, strSQL As String, rs As Recordset
+    On Error GoTo Error_DimeFacturaRecibidaIVA
+    If lngIdFactura = 0 Then
+        DimeFacturaRecibidaIVA = 0
+        GoTo Salir_DimeFacturaRecibidaIVA
+    End If
+    strSQL = "SELECT tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.IVA"
+    strSQL = strSQL & " FROM tbFacturasRecibidasDet"
+    strSQL = strSQL & " WHERE IdFacturaRecibida = " & lngIdFactura
+    strSQL = strSQL & " GROUP BY tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.IVA"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        DimeFacturaRecibidaIVA = 0
+        GoTo Salir_DimeFacturaRecibidaIVA
+    End If
+    rs.MoveLast
+    If rs.RecordCount > 1 Then
+        DimeFacturaRecibidaIVA = Null
+    Else
+        DimeFacturaRecibidaIVA = rs("IVA")
+    End If
+Salir_DimeFacturaRecibidaIVA:
+    Exit Function
+Error_DimeFacturaRecibidaIVA:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFacturaRecibidaIVA" & vbCrLf & Err.Description
+            Resume Salir_DimeFacturaRecibidaIVA
+            Resume Next
+    End Select
+End Function
+
+Public Function DimeFacturaRecibidaRecEq(lngIdFactura As Long) As Variant
+    Dim sngRecEq As Single, i As Integer, strSQL As String, rs As Recordset
+    On Error GoTo Error_DimeFacturaRecibidaRecEq
+    If lngIdFactura = 0 Then
+        DimeFacturaRecibidaRecEq = 0
+        GoTo Salir_DimeFacturaRecibidaRecEq
+    End If
+    strSQL = "SELECT tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.RecEq"
+    strSQL = strSQL & " FROM tbFacturasRecibidasDet"
+    strSQL = strSQL & " WHERE IdFacturaRecibida = " & lngIdFactura
+    strSQL = strSQL & " GROUP BY tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.RecEq"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        DimeFacturaRecibidaRecEq = 0
+        GoTo Salir_DimeFacturaRecibidaRecEq
+    End If
+    rs.MoveLast
+    If rs.RecordCount > 1 Then
+        DimeFacturaRecibidaRecEq = Null
+    Else
+        DimeFacturaRecibidaRecEq = rs("RecEq")
+    End If
+Salir_DimeFacturaRecibidaRecEq:
+    Exit Function
+Error_DimeFacturaRecibidaRecEq:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFacturaRecibidaRecEq" & vbCrLf & Err.Description
+            Resume Salir_DimeFacturaRecibidaRecEq
+            Resume Next
+    End Select
+End Function
+
+Public Function DimeFacturaRecibidaTotalRetencion(lngIdFactura As Long) As Currency
+    Dim v As Variant, intIVAinc As Integer, curTotal As Currency
+    On Error GoTo Error_DimeFacturaRecibidaTotalRetencion
+    If lngIdFactura = 0 Then
+        DimeFacturaRecibidaTotalRetencion = 0
+        GoTo Salir_DimeFacturaRecibidaTotalRetencion
+    End If
+    curTotal = Nz(DSum("(Base) * (RetencionIRPF)", "tbFacturasRecibidasRet", "IdFacturaRecibida = " & lngIdFactura), 0)
+    curTotal = Redondea(curTotal, 2)
+    DimeFacturaRecibidaTotalRetencion = curTotal
+Salir_DimeFacturaRecibidaTotalRetencion:
+    Exit Function
+Error_DimeFacturaRecibidaTotalRetencion:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFacturaRecibidaTotalRetencion" & vbCrLf & Err.Description
+            Resume Salir_DimeFacturaRecibidaTotalRetencion
+            Resume Next
+    End Select
+End Function

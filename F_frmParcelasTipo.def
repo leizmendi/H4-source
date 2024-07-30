@@ -1,0 +1,63 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAsignarPreDet_Click()
+    Dim strXML As String
+    PonXML strXML, "IdTipoParcela", Me.IdTipoParcela
+    DoCmd.OpenForm "frmAsignarServiciosXDefecto", acDesign, , , , acDialog, strXML
+End Sub
+
+Private Sub btnColor_Click()
+    Me.Color = adhChooseColor(Me.Color)
+    Me.rcdColor.BackColor = Me.Color
+End Sub
+
+Private Sub Color_AfterUpdate()
+    Me.rcdColor.BackColor = Me.Color
+End Sub
+
+Private Sub EsActual_Click()
+    On Error GoTo HandleError
+    If Nz(Me.IdTipoParcela, 0) = 0 Then Exit Sub
+    PonValorParam "TipoParcelaId_" & Me.IdTipoParcela & "_EsActualSN", Me.EsActual, 1
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_AfterDelConfirm(status As Integer)
+    Me.lstIdTipoParcela.Requery
+End Sub
+
+Private Sub Form_AfterUpdate()
+    Me.lstIdTipoParcela.Requery
+End Sub
+
+Private Sub Form_Current()
+    Me.rcdColor.BackColor = Me.Color
+    If Nz(Me.IdTipoParcela, 0) <> Nz(Me.lstIdTipoParcela, 0) Then Me.lstIdTipoParcela = Me.IdTipoParcela
+    Me.EsActual = Nz(DameValorParam("TipoParcelaId_" & Me.IdTipoParcela & "_EsActualSN"), False)
+
+End Sub
+
+Private Sub Form_Load()
+    Me.lblTipoPH.Caption = "Tipos de " & g_strPH
+    Me.Caption = Me.lblTipoPH.Caption
+End Sub
+
+Private Sub lstIdTipoParcela_Click()
+    On Error Resume Next
+    If Me.lstIdTipoParcela.ListIndex = -1 Then Exit Sub
+    Dim rs As Recordset
+    Set rs = Me.RecordsetClone
+    rs.FindFirst "IdTipoParcela = " & Me.lstIdTipoParcela
+    If Not rs.NoMatch Then Me.Bookmark = rs.Bookmark
+End Sub

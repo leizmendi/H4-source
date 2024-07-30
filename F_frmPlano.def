@@ -1,0 +1,288 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim grsPar As Recordset
+    Dim gintVerLista As Integer
+    
+Private Sub btnListadoPlaning_Click()
+    DoCmd.OpenForm "frmListadoPlaning"
+End Sub
+
+Private Sub btn_1_Click()
+    DoCmd.OpenForm "frmPanel"
+End Sub
+
+Private Sub btnActualizar_Click()
+    Call Form_Activate
+End Sub
+
+Private Sub btnListadoReservas_Click()
+    DoCmd.OpenForm "frmListadoOcupacion", , , , , , 4 ' para que se selccione la opción reservas
+End Sub
+
+Private Sub btnMenu_Click()
+    DoCmd.OpenForm "frmMenu"
+End Sub
+
+Private Sub btnOtrosCampistas_Click()
+    DoCmd.OpenForm "frmOtrosCampistas"
+End Sub
+
+Private Sub btnPagoDirectoACaja_Click()
+'    DoCmd.OpenForm "frmIntroducirPago", , , , , acDialog
+End Sub
+
+Private Sub btnParcelasLibres_Click()
+    DoCmd.OpenForm "frmParcelasLibres", , , , , acDialog
+End Sub
+
+Private Sub btnPlaning_Click()
+    DoCmd.OpenForm Nz(DameValorParam("PlaningUltimoForm"), "frmPlaningH")
+End Sub
+
+Private Sub btnSituacionActual_Click()
+    DoCmd.OpenForm "frmSituacionActual"
+End Sub
+
+Private Sub Comando17_Click()
+    Call ReservasSinConfirmar
+End Sub
+
+Public Sub Form_Activate()
+    Call LleganHoy
+    Call SeMarchanHoy
+    Call PintaMisParcelas
+    Me.Recalc
+    Me(Nz(DameValorParam("PanelControlFocoXDefecto"), "txtTarjetaRFID")).SetFocus
+End Sub
+
+Private Sub Form_GotFocus()
+    If Nz(DameValorParam("AplicacionPlanoEmergenteSN"), False) = True Then Call Form_Activate
+End Sub
+
+Private Sub Form_Load()
+    On Error GoTo HandleError
+    Dim oNuevaFuente As New StdFont, zm As ZoneMap
+    
+    Dim lngX As Long, lngY As Long, lngW As Long, lngH As Long
+    If Nz(DameValorParam("AplicacionPlanoEmergenteSN"), False) = True Then
+        DoCmd.Restore
+        lngX = Nz(DameValorParam("frmPlano_Left"), 0)
+        lngY = Nz(DameValorParam("frmPlano_Top"), 0)
+        lngW = Nz(DameValorParam("frmPlano_Width"), Me.WindowWidth)
+        lngH = Nz(DameValorParam("frmPlano_Height"), Me.WindowHeight)
+        DoCmd.MoveSize IIf(lngX < 0, 0, lngX), IIf(lngY < 0, 0, lngY), lngW, lngH
+    Else
+        DoCmd.Maximize
+    End If
+    Set grsPar = CurrentDb.OpenRecordset("tbParcelas", dbOpenSnapshot)
+    'Me.zmPlanoGeneral.BackgroundImage = Nz(DameValorParam("PlanoCampingImagen"), DirectorioDe(CurrentDb.Name) & "Plano.bmp")
+    'Call LleganHoy
+    'Call SeMarchanHoy
+    'Call PintaMisParcelas
+    'CurrentDb.Execute "DELETE * FROM auxPintaParcelas", dbFailOnError
+    Carga_Btns Me
+    Me.zmPlanoGeneral.BackgroundImage = DameValorParam("AplicacionCarpetaDatos") & "plano.jpg"
+    Me.zmPlanoGeneral.ZonesFile = DameValorParam("AplicacionCarpetaDatos") & "coordenadas.txt"
+    If Dir(Me.zmPlanoGeneral.BackgroundImage) = "" Then MsgBox "Se debe situar el archivo de imagen del plano en " & Me.zmPlanoGeneral.BackgroundImage
+    If Dir(Me.zmPlanoGeneral.ZonesFile) = "" Then MsgBox "Se debe situar el archivo de coordenadas del plano en " & Me.zmPlanoGeneral.ZonesFile
+    Set oNuevaFuente = Me.zmPlanoGeneral.Font
+    With oNuevaFuente
+        .Size = 6
+        .Name = "Verdana"
+    End With
+    Set Me.zmPlanoGeneral.Font = oNuevaFuente
+    'CentrarTodoFRM Me, Me.cdrCentrar
+    Call PintaMisParcelas(, , True)
+    
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Resize()
+    CentrarTodoFRM Me, Me.cdrCentrar
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    On Error GoTo HandleError
+    
+    PonValorParam "frmPlano_Left", Me.WindowLeft, 4
+    PonValorParam "frmPlano_Top", Me.WindowTop, 4
+    PonValorParam "frmPlano_Width", Me.WindowWidth, 4
+    PonValorParam "frmPlano_Height", Me.WindowHeight, 4
+    
+    CompruebaCierrePrograma Me.Name
+    
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub lstPersonasAcampadas_Click()
+    If Me.lstPersonasAcampadas.ListIndex = -1 Then Exit Sub
+    Me.txtParcela = Me.lstPersonasAcampadas
+    Me.txtPersonasAcampadas = Me.lstPersonasAcampadas.Column(0)
+    
+End Sub
+
+Private Sub lstPersonasAcampadas_DblClick(Cancel As Integer)
+    Me.txtParcela.SetFocus
+    Call txtParcela_KeyDown(vbKeyReturn, 0)
+End Sub
+
+Private Sub lstPersonasAcampadas_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gintVerLista = True
+End Sub
+
+Private Sub txtParcela_KeyDown(KeyCode As Integer, Shift As Integer)
+    On Error GoTo Error_txtParcela_KeyDown
+    Dim strParcela As String
+    If KeyCode = vbKeyReturn Then
+        KeyCode = 0
+        strParcela = Nz(Me.txtParcela.text, "")
+        If strParcela = "" Then Exit Sub
+        If Nz(DLookup("NombreParcela", "tbParcelas", "NombreParcela = " & ConComillas(strParcela)), "") <> strParcela Then
+            MsgBox "La parcela " & strParcela & " no existe"
+            Exit Sub
+        End If
+        Call ParcelaClick(Me.zmPlanoGeneral.Object, strParcela, True)
+        Me.txtParcela.SelStart = 0
+        Me.txtParcela.SelLength = Len(Me.txtParcela.text)
+    End If
+Salir_txtParcela_KeyDown:
+    Exit Sub
+Error_txtParcela_KeyDown:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en txtParcela_KeyDown"
+            Resume Salir_txtParcela_KeyDown
+    End Select
+End Sub
+
+Private Sub txtPersonasAcampadas_Change()
+    Dim strSQL As String
+    strSQL = "SELECT [auxPersonasAcampadas].[Nombre_Persona], [auxPersonasAcampadas].[NombreParcela]"
+    strSQL = strSQL & " FROM [auxPersonasAcampadas]"
+    strSQL = strSQL & " WHERE True"
+    strSQL = strSQL & " AND Nombre_Persona Like '*" & ConAcentos(Me.txtPersonasAcampadas.text) & "*'"
+    strSQL = strSQL & " ORDER BY [Nombre_Persona], [NombreParcela];"
+    Me.lstPersonasAcampadas.RowSource = strSQL
+    Me.lstPersonasAcampadas.Visible = True
+End Sub
+
+Private Sub txtPersonasAcampadas_Enter()
+    Dim strSQL As String
+    Me.lstPersonasAcampadas.Visible = False
+    gintVerLista = False
+    CurrentDb.Execute "DELETE * FROM auxPersonasAcampadas", dbFailOnError
+    strSQL = "INSERT INTO auxPersonasAcampadas ( NombreParcela, Nombre_Persona )"
+    strSQL = strSQL & " SELECT tbParcelas.NombreParcela, IIf(Len('' & [Nombre] & [Apellido1] & [Apellido2])=0,Trim([NombreCliente] & ' ' & [ApellidosCliente]),Trim([Nombre] & ' ' & [Apellido1] & ' ' & [Apellido2])) AS Nombre_Persona"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN (tbFichasCab LEFT JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab) ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab;"
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+End Sub
+
+Private Sub txtPersonasAcampadas_Exit(Cancel As Integer)
+'    If Not gintVerLista Then Me.lstPersonasAcampadas.Visible = False
+End Sub
+
+Private Sub txtPersonasAcampadas_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyDown Then
+        gintVerLista = True
+        'DoCmd.GoToControl "lstPersonasAcampadas"
+        Me.lstPersonasAcampadas.SetFocus
+    End If
+End Sub
+
+Private Sub txtPersonasAcampadas_LostFocus()
+'    If Not gintVerLista Then Me.lstPersonasAcampadas.Visible = False
+End Sub
+
+Private Sub txtTarjetaRFID_AfterUpdate()
+    On Error GoTo Error_txtTarjetaRFID_AfterUpdate
+    Dim lngIdFichaCab As Long
+    lngIdFichaCab = Nz(DLookup("IdfichaCab", "tbTagsRFID", "SerialNumber = " & ConComillas(Me.txtTarjetaRFID)), 0)
+    If lngIdFichaCab <> 0 Then
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFichaCab
+    Else
+        If Nz(Me.txtTarjetaRFID, "") <> "" Then MsgBox "No se encontró Ficha asociada a la tarjeta: " & Me.txtTarjetaRFID, vbExclamation
+    End If
+    Me.txtTarjetaRFID = ""
+    On Error Resume Next
+Salir_txtTarjetaRFID_AfterUpdate:
+    Exit Sub
+Error_txtTarjetaRFID_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en txtTarjetaRFID_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_txtTarjetaRFID_AfterUpdate
+    End Select
+End Sub
+
+Private Sub zmPlanoGeneral_ZoneClick(ZoneID As String, Button As Integer, Shift As Integer)
+    ParcelaClick Me.zmPlanoGeneral.Object, ZoneID, , Shift
+End Sub
+
+Private Sub zmPlanoGeneral_ZoneEnter(ZoneID As String)
+    'Me.Caption = "Entramos en " & Me.zmPlanoGeneral.ZoneTooltip(ZoneID)
+End Sub
+
+Private Sub zmPlanoGeneral_ZoneLeave(ZoneID As String)
+    'Me.Caption = "Dejamos " & Me.zmPlanoGeneral.ZoneTooltip(ZoneID)
+End Sub
+
+Public Function PintaMisParcelas(Optional strParcela As String = "TODAS", Optional lngFicha As Long = 0, Optional intAPintarYes As Integer = False)
+    Call PintaParcelas(Me.zmPlanoGeneral.Object, strParcela, lngFicha, intAPintarYes)
+End Function
+
+
+Public Function QuitaListaPersonas()
+    If Me.ActiveControl.Name <> "lstPersonasAcampadas" Then
+        Me.lstPersonasAcampadas.Visible = False
+        gintVerLista = False
+    End If
+End Function
+Private Sub Comando18_Click()
+On Error GoTo Err_Comando18_Click
+
+    Dim stDocName As String
+    Dim stLinkCriteria As String
+
+    stDocName = "frmElectricidadIntrod"
+    DoCmd.OpenForm stDocName, , , stLinkCriteria
+
+Exit_Comando18_Click:
+    Exit Sub
+
+Err_Comando18_Click:
+    MsgBox Err.Description
+    Resume Exit_Comando18_Click
+    
+End Sub
+Private Sub Comando19_Click()
+On Error GoTo Err_Comando19_Click
+
+    Dim stDocName As String
+
+    stDocName = "rptLecturasElectricidad"
+    DoCmd.OpenReport stDocName, acPreview
+
+Exit_Comando19_Click:
+    Exit Sub
+
+Err_Comando19_Click:
+    MsgBox Err.Description
+    Resume Exit_Comando19_Click
+    
+End Sub

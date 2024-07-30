@@ -1,0 +1,61 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim FilasPorPágina As Byte
+
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    'If Me.NumParte = 0 Then
+    '    Me.NumParte.Visible = False
+    'Else
+    '    Me.NumParte.Visible = True
+    'End If
+End Sub
+
+Private Sub Report_Close()
+    If IsOpenForm("frmPartesPolicia") Then Forms("frmPartesPolicia").Visible = True
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros"
+    Cancel = True
+End Sub
+
+
+Private Sub Report_Open(Cancel As Integer)
+    If IsOpenForm("frmPartesPolicia") Then Forms("frmPartesPolicia").Visible = False
+    Dim sngAltoMax As Single
+    PonTituloRPT Me
+    Me.lblPH.Caption = " " & g_strPH
+    If DameValorParam("FichasLogoSN") = True Then
+        Me.LogoImagen.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+        Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+        'sngAltoMax = Nz(DameValorParam("FichasLogoMaxAlto"), 0) * TC_CmToPoints
+        sngAltoMax = Me.txtCabecera.Height
+        If sngAltoMax < Me.LogoImagen.Height Then
+            Me.LogoImagen.Width = Me.LogoImagen.Width * (sngAltoMax / Me.LogoImagen.Height)
+            Me.LogoImagen.Height = sngAltoMax
+        End If
+        'Me.LogoImagen.Left = Me.txtCabecera.Left + (Me.txtCabecera.Width - Me.LogoImagen.Width)
+        Me.LogoImagen.Left = Me.txtCabecera.Left
+        Me.txtCabecera.Width = Me.txtCabecera.Width - Me.LogoImagen.Width
+        Me.txtCabecera.Left = Me.LogoImagen.Left + Me.LogoImagen.Width
+        Me.LogoImagen.Top = Me.txtCabecera.Top
+        Me.LogoImagen.Visible = True
+    Else
+        Me.LogoImagen.Visible = False
+    End If
+    If DameValorParam("FichasCabeceraSN") = True Then
+        Me.txtCabecera.Visible = True
+        Me.CuadroCabecera.Visible = True
+    Else
+        Me.txtCabecera.Visible = False
+        Me.CuadroCabecera.Visible = False
+    End If
+    Me.DetalleFicha.Visible = Nz(DameValorParam("EntradaViajerosVerDetalle"), True)
+End Sub

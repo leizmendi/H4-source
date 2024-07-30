@@ -1,0 +1,178 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim gintDia As Integer
+
+Private Sub btnCalen_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtFecha, 1)
+    If IsDate(varFecha) Then
+        Me.txtFecha = varFecha
+        Call txtFecha_AfterUpdate
+    End If
+'    Dim strXML As String
+'    PonXML strXML, "Fecha", CDate(Me.txtFecha)
+'    DoCmd.OpenForm "frmCalen", , , , , acDialog, strXML
+'    If IsOpenForm("frmCalen") Then
+'        Me.txtFecha = Forms("frmCalen")("calCalen")
+'        DoCmd.Close acForm, "frmCalen"
+'        Call txtFecha_AfterUpdate
+'    End If
+End Sub
+
+Private Sub btnIrAFicha_Click()
+'    On Error Resume Next
+    Dim intResp As Integer
+    Dim ctl As Control, strFecha As String
+    Set ctl = Me.lstActi1
+    strFecha = Me.txtFecha
+'    If ctl.ListIndex = -1 Then GoTo NuevaActi 'Exit Sub
+    If (ctl.Column(0) = 0) Or ctl.ListIndex = -1 Then
+        intResp = vbOK 'MsgBox("¿Nueva reserva el día " & strFecha & "?", vbDefaultButton1 + vbOKCancel + vbQuestion)
+        If intResp = vbOK Then
+NuevaActi:
+            DoCmd.OpenForm "frmReservas", acNormal, , , acFormAdd
+            Forms!frmReservas.Fecha = strFecha
+            ctl.value = Forms!frmReservas.IdSalaReserva
+            Forms!frmReservas.Fecha = strFecha
+            If Me.lstSalas <> 0 Then
+                Forms!frmReservas.IdSala = Me.lstSalas
+                Forms!frmReservas.Hora.SetFocus
+            End If
+        End If
+    Else
+        ctl.SetFocus
+        DoCmd.OpenForm "frmReservas", , , "IdSalaReserva = " & ctl.Column(0)
+    End If
+End Sub
+
+
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnPrint_Click()
+    DoCmd.OpenReport "rptReservas", acViewNormal, , "Fecha = #" & Format(CDate(Me.txtFecha), "mm/dd/yyyy") & "#"
+End Sub
+
+Private Sub btnSemanal_Click()
+    DoCmd.OpenForm "frmLibroReservas"
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnVP_Click()
+    DoCmd.OpenReport "rptReservas", acViewPreview, , "Fecha = #" & Format(CDate(Me.txtFecha), "mm/dd/yyyy") & "#"
+End Sub
+
+Private Sub Form_Activate()
+    If IsDate(Me.txtFecha) Then Call CargaLista
+End Sub
+
+Private Sub Form_GotFocus()
+    If IsDate(Me.txtFecha) Then Call CargaLista
+End Sub
+
+Private Sub Form_Load()
+    CentrarTodoFRM Me, Me.cdrCentrar, , False
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.txtFecha = CDate(Nz(DimeXML(strXML, "Fecha"), Date))
+    'Me.txtFecha = Date
+    Call txtFecha_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    Me("lstActi1").RowSource = ""
+    If IsOpenForm("frmParteG") Then Forms("frmPArteG")("lstReservas").Requery
+    PonValorParam "LibroReservasForm", Me.Name, 10
+End Sub
+
+Private Sub lstEstados_AfterUpdate()
+    CargaLista
+End Sub
+
+Private Sub lstSalas_AfterUpdate()
+    CargaLista
+End Sub
+
+Private Sub txtFecha_AfterUpdate()
+    Me.lblFecha.Caption = Format(Me.txtFecha, "dddd")
+    CargaLista
+End Sub
+
+'Private Sub txtFecha_KeyDown(KeyCode As Integer, Shift As Integer)
+'    If KeyCode = vbKeyF4 Then
+'        Me.txtFecha = adhDoCalendar(Me.txtFecha)
+'        'ListaAFecha CDate(Me.txtFecha)
+'    End If
+'End Sub
+
+Private Sub txtFecha_Updated(Code As Integer)
+    CargaLista
+End Sub
+
+Public Sub CargaLista()
+    On Error GoTo Error_CargaLista
+    Dim strSQL As String, i As Integer, rs As Recordset, strLbl As String
+    'strSQL = "SELECT tbSalasReservas.IdSalaReserva, tbSalas.Sala AS Sesión, Format(tbSalasReservas.Hora,'HH:NN') as Hora, [Adultos]+[Niños] AS Pax, tbSalasReservas.NombreReserva as Nombre, Telefono as Teléfono, Email"
+    'strSQL = strSQL & " FROM tbSalas RIGHT JOIN tbSalasReservas ON tbSalas.IdSala = tbSalasReservas.IdSala"
+    strSQL = "SELECT tbSalasReservas.IdSalaReserva, tbSalas.Sala, Format(tbSalasReservas.Hora,'Short Time') AS Hora, [Adultos]+[Niños] AS Pax, tbSalasReservas.NombreReserva AS Nombre, tbSalasReservas.Telefono AS Teléfono, tbSalasReservas.Email"
+    strSQL = strSQL & " FROM tbSalas RIGHT JOIN tbSalasReservas ON tbSalas.IdSala = tbSalasReservas.IdSala "
+
+    strSQL = strSQL & " WHERE tbSalasReservas.Fecha = #" & Format(CDate(Me.txtFecha), "mm/dd/yyyy") & "#"
+    If Me.lstSalas <> 0 Then
+        strSQL = strSQL & " AND tbSalasReservas.IdSala = " & Me.lstSalas
+    End If
+    strSQL = strSQL & " UNION SELECT 0 as IdR, '*' as S, 0 as P, '-->Nueva' As N, '' as T, '' as E, '' as St"
+    strSQL = strSQL & " FROM 1tbl1"
+    strSQL = strSQL & " ORDER BY Hora;"
+    Me("lstActi1").RowSource = strSQL
+    strSQL = "SELECT tbSalas.Sala, ([Adultos]+[Niños]) AS Pax"
+    strSQL = strSQL & " FROM tbSalas Left JOIN tbSalasReservas ON tbSalas.IdSala = tbSalasReservas.IdSala"
+    strSQL = strSQL & " WHERE tbSalasReservas.Fecha = #" & Format(CDate(Me.txtFecha), "mm/dd/yyyy") & "#"
+    strSQL = strSQL & " Order By tbSalas.IdSala"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strLbl = "Totales:      "
+    While Not rs.EOF
+        If strLbl = "Totales:      " Then
+            strLbl = strLbl & rs("Sala") & ": " & rs("Pax") & " Pax" & vbCrLf
+        Else
+            strLbl = strLbl & rs("Sala") & ": " & rs("Pax") & " Pax" & vbCrLf
+        End If
+        rs.MoveNext
+    Wend
+    If strLbl = "Totales:      " Then
+        strLbl = ""
+    Else
+        strLbl = Left(strLbl, Len(strLbl) - 2)
+    End If
+    Me("lblPie1").Caption = strLbl
+Salir_CargaLista:
+    Exit Sub
+Error_CargaLista:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en CargaLista" & vbCrLf & Err.Description
+            Resume Salir_CargaLista
+    End Select
+End Sub
+
+Public Function PonLblReserva()
+    Dim ctl As Control, i As Integer, j As Integer, strLbl As String, strName As String, strNotas As String
+    Dim strFecha As String, intResp As Integer
+    If Me("lstActi1") = 0 Then
+        strFecha = Format(CDate(Me.txtFecha), "dd/mm/yyyy")
+        intResp = MsgBox("¿Nueva reserva el día " & strFecha & "?", vbDefaultButton1 + vbOKCancel + vbQuestion)
+        If intResp = vbOK Then Call btnIrAFicha_Click
+    Else
+    End If
+End Function
+
+Public Function IrAReserva()
+    Call btnIrAFicha_Click
+End Function

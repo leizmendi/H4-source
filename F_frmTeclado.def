@@ -1,0 +1,153 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gi As Integer, gj As Integer
+
+
+Private Function Tecla(strBtn As String)
+    Dim strTecla As String, strR As String
+    Select Case strBtn
+        Case "01"
+            strTecla = "1"
+        Case "02"
+            strTecla = "2"
+        Case "03"
+            strTecla = "3"
+        Case "04"
+            strTecla = "4"
+        Case "05"
+            strTecla = "5"
+        Case "06"
+            strTecla = "6"
+        Case "07"
+            strTecla = "7"
+        Case "08"
+            strTecla = "8"
+        Case "09"
+            strTecla = "9"
+        Case "10"
+            strTecla = "0"
+        Case "11"
+            strTecla = "q"
+        Case "12"
+            strTecla = "w"
+        Case "13"
+            strTecla = "e"
+        Case "14"
+            strTecla = "r"
+        Case "15"
+            strTecla = "t"
+        Case "16"
+            strTecla = "y"
+        Case "17"
+            strTecla = "u"
+        Case "18"
+            strTecla = "i"
+        Case "19"
+            strTecla = "o"
+        Case "20"
+            strTecla = "p"
+        Case "21"
+            strTecla = "a"
+        Case "22"
+            strTecla = "s"
+        Case "23"
+            strTecla = "d"
+        Case "24"
+            strTecla = "f"
+        Case "25"
+            strTecla = "g"
+        Case "26"
+            strTecla = "h"
+        Case "27"
+            strTecla = "j"
+        Case "28"
+            strTecla = "k"
+        Case "29"
+            strTecla = "l"
+        Case "30"
+            strTecla = "ñ"
+        Case "31"
+            strTecla = "z"
+        Case "32"
+            strTecla = "x"
+        Case "33"
+            strTecla = "c"
+        Case "34"
+            strTecla = "v"
+        Case "35"
+            strTecla = "b"
+        Case "36"
+            strTecla = "n"
+        Case "37"
+            strTecla = "m"
+        Case "38"
+            strTecla = ","
+        Case "39"
+            strTecla = "."
+        Case "40"
+            strTecla = "-"
+        Case "41"
+            strTecla = " "
+        Case "42"
+            If Len(Me.txtDisplay) > 0 Then
+                Me.txtDisplay = Left(Me.txtDisplay, Len(Me.txtDisplay) - 1)
+                Me.txtDisplay.SetFocus
+                Me.txtDisplay.SelStart = gi - 1
+                Exit Function
+            End If
+        Case "43"
+            strTecla = vbCrLf
+    End Select
+    If Me.altMayus = True Then
+        strTecla = UCase(strTecla)
+    End If
+    If gi = 0 And gj = 0 Then
+        Me.txtDisplay = Me.txtDisplay & strTecla
+        Exit Function
+    End If
+    If gi > 0 Then
+        strR = Left(Me.txtDisplay, gi)
+    Else
+        strR = ""
+    End If
+    strR = strR & strTecla
+    If Len(Me.txtDisplay) > gi + gj Then
+        strR = strR & Right(Me.txtDisplay, Len(Me.txtDisplay) - (gi + gj))
+    End If
+    Me.txtDisplay = strR
+    Me.txtDisplay.SetFocus
+    If strBtn = "43" Then
+        Me.txtDisplay.SelStart = gi + 2
+    ElseIf strBtn = "42" Then
+        Me.txtDisplay.SelStart = gi - 1
+    Else
+        Me.txtDisplay.SelStart = gi + 1
+    End If
+    Me.txtDisplay.SelLength = 0
+           
+End Function
+
+Private Sub btnCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnOK_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = DimeXML(strXML, "Titulo")
+    Me.txtDisplay = DimeXML(strXML, "Display")
+End Sub
+
+Private Sub txtDisplay_LostFocus()
+    gi = Me.txtDisplay.SelStart
+    gj = Me.txtDisplay.SelLength
+End Sub

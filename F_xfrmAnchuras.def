@@ -1,0 +1,81 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+Option Compare Database
+Option Explicit
+
+
+Private Sub btnAñadir_Click()
+    On Error GoTo Error_btnAñadir_Click
+    Dim varFrm As Variant
+    varFrm = DimeFRM
+    If IsNull(varFrm) Then Exit Sub
+    Dim frm As Form, fld As DAO.Field, ctl As Control
+    Dim frmBusca As Form
+    If IsOpenForm(CStr(varFrm)) Then
+        Set frm = Application.Forms(CStr(varFrm))
+        GoTo PonerAnchuras
+    Else
+        For Each frmBusca In Application.Forms
+            For Each ctl In frmBusca.Controls
+                If ctl.ControlType = acSubform Then
+                    If ctl.SourceObject = CStr(varFrm) Then
+                        Set frm = frmBusca(ctl.Name).Form
+                        GoTo PonerAnchuras
+                    End If
+                End If
+            Next ctl
+        Next frmBusca
+    End If
+    MsgBox "No se encontró"
+PonerAnchuras:
+    Dim rs As Recordset
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM sysAnchuras WHERE Formulario = '" & CStr(varFrm) & "'")
+    While Not rs.EOF
+        rs.Delete
+        rs.MoveNext
+    Wend
+    For Each ctl In frm.Section(0).Controls
+        rs.AddNew
+        rs("Formulario") = CStr(varFrm)
+        rs("Campo") = ctl.Name
+        rs("VisibleColumna") = Not ctl.ColumnHidden
+        rs("OrdenColumna") = ctl.ColumnOrder
+        rs("AnchuraColumna") = ctl.ColumnWidth
+        rs.Update
+Seguir:
+    Next ctl
+    Me.lstForms.Requery
+    Me.lstFields.Requery
+Salir_btnAñadir_Click:
+        Exit Sub
+Error_btnAñadir_Click:
+    Select Case Err
+        Case 438
+            Resume Seguir
+        Case Else
+            MsgBox "Error nº " & Err & " en btnAñadir_Click" & vbCrLf & Err.Description
+            Resume Salir_btnAñadir_Click
+            Resume Next
+    End Select
+        
+End Sub
+
+Private Function DimeFRM()
+    DoCmd.OpenForm "x2frmAnchuras", , , , , acDialog
+    If IsOpenForm("x2frmAnchuras") Then
+        DimeFRM = Forms![x2frmAnchuras]![lblResult].Caption
+        DoCmd.Close acForm, "x2frmAnchuras"
+    Else
+        DimeFRM = Null
+    End If
+End Function
+
+Private Sub lstForms_AfterUpdate()
+    Me.lstFields.Requery
+End Sub

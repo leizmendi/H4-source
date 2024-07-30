@@ -1,0 +1,1387 @@
+Option Compare Database
+Option Explicit
+
+Public Function Importa_wbReservation(reservation_code As Long, Optional intAuto As Integer = False) As Long
+    On Error GoTo Error_Importa_wbReservation
+    Dim rs As Recordset, strSQL As String, cFC As cFichaCab, cFD As cFichaDet
+    Dim intR As Integer, intNew As Integer
+    strSQL = "SELECT * FROM wbReservations WHERE reservation_code  = " & reservation_code
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        MsgBox "No se encontró reservation_code = " & reservation_code, vbExclamation
+        GoTo Salir_Importa_wbReservation
+    End If
+    Set cFC = New cFichaCab
+    If cFC.FindFirst("WuBookID = " & reservation_code) Then
+        If intAuto Then
+            intR = vbOK
+        Else
+            intR = MsgBox("Se encontró Ficha con WuBookID = " & reservation_code & vbCrLf & "¿Actualizar información de la ficha?", vbExclamation + vbOKCancel)
+        End If
+        If intR <> vbOK Then GoTo Salir_Importa_wbReservation
+    Else
+        cFC.AddNew
+        cFC.WuBookID = reservation_code
+        intNew = True
+    End If
+    If Not IsNull(rs("id_channel")) Then cFC.IdProcedencia = Nz(DLookup("IdProcedencia", "tbProcedencias", "id_channel = " & rs("id_channel")), 0)
+    cFC.FechaReserva = rs("date_received")
+    cFC.FechaLlegada = rs("date_arrival")
+    cFC.FechaSalida = rs("date_departure")
+    If IsDate(rs("arrival_hour")) Then cFC.HoraLlegada = rs("arrival_hour")
+    cFC.NombreCliente = Nz(rs("customer_name"), "")
+    cFC.ApellidosCliente = Nz(rs("customer_surname"), "")
+    cFC.EMail = Nz(rs("customer_mail"), "")
+    cFC.Notas = Trim(Replace(Nz(rs("customer_notes"), ""), vbLf, ""))
+    If Not IsNull(rs("channel_reservation_code")) Then cFC.Notas = cFC.Notas & IIf(cFC.Notas = "", "", vbCrLf) & "channel_reservation_code: " & rs("channel_reservation_code")
+    Dim strGuest As String
+    strGuest = Nz(DimeCampoLista(Nz(rs("ancillary"), ""), "guest"), "")
+    If strGuest <> "" Then cFC.Notas = "VIAJERO/A: " & strGuest & vbCrLf & cFC.Notas
+    cFC.DireccionCliente = Nz(rs("customer_address"), "")
+    cFC.TelefonoCliente = Nz(rs("customer_phone"), "")
+    cFC.LocalidadCliente = Nz(rs("customer_city"), "")
+    cFC.CPCliente = Nz(rs("customer_zip"), "")
+    cFC.PaisCliente = DimeCountry(rs("customer_country"))
+    If cFC.PaisCliente = "España" Or cFC.PaisCliente = "" Then cFC.ProvinciaCliente = DimeProvincia(cFC.CPCliente)
+    Select Case rs("status")
+        Case 1, 4
+            cFC.EstadoFicha = 1
+             cFC.ConfirmadaReserva = IIf(Nz(DameValorParam("WuBookAlImportarReservaSiemprePendienteDeConfirmar"), False) = True, False, True)
+        Case 2
+            cFC.EstadoFicha = 1
+            cFC.ConfirmadaReserva = False
+        Case 3, 5, 6
+            cFC.EstadoFicha = 9
+    End Select
+    cFC.IVAIncluido = Nz(DameValorParam("IVAIncluidoEnFacturasYFichas"), True)
+    cFC.Adultos = Nz(rs("men"), 0)
+    cFC.Niños = Nz(rs("children"), 0)
+    cFC.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "language_iso_639_1 = '" & rs("customer_language_iso") & "'"), 1)
+    If Nz(rs("cc_data"), "") <> "" Then
+        cFC.NumeroTarjeta = DimeCampoLista(rs("cc_data"), "cc_number")
+        cFC.TarjetaCodigoSeguridad = DimeCampoLista(rs("cc_data"), "cc_cvv")
+        cFC.TitularTarjeta = DimeCampoLista(rs("cc_data"), "cc_owner")
+        cFC.CaducaTarjeta = DimeCampoLista(rs("cc_data"), "cc_expiring")
+    End If
+    If intNew Then cFC.IdFichaCab = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    cFC.Update
+    If Not intNew Then
+        If intAuto Then
+            intR = vbYes
+        Else
+            intR = MsgBox("Se van a añadir líneas de detalle según la reserva importada, ¿Borrar líneas existentes?", vbYesNoCancel + vbDefaultButton2)
+            If intR = vbCancel Then GoTo Salir_Importa_wbReservation
+        End If
+        If intR = vbYes Then CurrentDb.Execute "DELETE * FROM tbFichasDet WHERE IdFichaCab = " & cFC.IdFichaCab, dbFailOnError
+        If intR = vbNo Then
+            MsgBox "No se modifican las líneas de detalle de la ficha existente", vbInformation
+            GoTo Pagos
+        End If
+    End If
+    Set cFD = New cFichaDet
+    Dim strRooms As String, lngIdRoom As Long, strDayPrices As String, i As Integer, k As Integer, l As Integer, j As Integer
+    Dim vIdRooms As Variant, strPrices As String
+    Dim strParcela As String, lngIdTipoParcela As Long, lngIdSD As Long
+    Dim dtFecha() As Date, vPrecio As Variant, intDias As Integer, curPrecio As Currency, d As Integer, d0 As Integer
+    Dim intMasIVA As Integer
+    Dim strBoards As String, iB As Integer, strBoa As String, curPrecioBoa As Currency, curTaxes As Currency, bExpediaCollect As Boolean
+    If rs("id_channel") = 1 Then 'Si es de expedia ver si es (Expedia Collect) para sumer IVA al precio
+'        intMasIVA = InStr(Nz(rs("ancillary"), ""), "(Expedia Collect)") > 0
+'        intMasIVA = intMasIVA Or InStr(Nz(rs("ancillary"), ""), "Expedia Virtual Card: Yes") > 0
+        bExpediaCollect = InStr(Nz(rs("ancillary"), ""), "(Expedia Collect)") > 0
+        i = InStr(rs("ancillary"), "Taxes amount:")
+        If i > 0 Then
+            i = i + Len("Taxes amount:")
+            j = InStr(i, rs("ancillary"), ">")
+            If j > 0 Then curTaxes = CCur(Replace(Mid(rs("ancillary"), i, j - i), ".", ","))
+        End If
+    End If
+            
+    strRooms = rs("rooms")
+    strDayPrices = rs("dayprices")
+    vIdRooms = Split(strRooms, ",", -1, vbDatabaseCompare)
+    strBoards = Nz(rs("boards"), "")
+'    Set jsBoards = JsonConverter.ParseJson(strBoards)
+    intDias = cFC.FechaSalida - cFC.FechaLlegada
+    ReDim dtFecha(0 To intDias - 1)
+    For d = 0 To intDias - 1
+        dtFecha(d) = cFC.FechaLlegada + d
+    Next d
+    For i = LBound(vIdRooms) To UBound(vIdRooms)
+        strParcela = DimeParcelaLibre(CLng(vIdRooms(i)), cFC.FechaLlegada, cFC.FechaSalida, lngIdTipoParcela, lngIdSD)
+        '{<280784: [45,0;45,0;45,0;45,0;45,0]><279287: [35,0;35,0;35,0;35,0;35,0]>}
+        k = InStr(rs("dayprices"), "<" & vIdRooms(i) & ": ")
+        If k > 0 Then
+            strDayPrices = ExtraeTexto(rs("dayprices"), , , k)
+            'strDayPrices = Replace(strDayPrices, ",", ".")
+            vPrecio = Split(strDayPrices, ";")
+        End If
+        'Ver si hay board y caso que sí, calcular el sobreprecio
+        
+        iB = InStr(strBoards, "<" & vIdRooms(i) & ": ")
+        
+        d0 = 0
+Bucle_Cambia_Precio:
+        If iB > 0 Then
+            strBoa = Mid(strBoards, iB + Len("<" & vIdRooms(i) & ": "), 2)
+            'If strBoa = "nb" Then strBoa = ""
+            curPrecioBoa = DimePrecioConBoard(CLng(vIdRooms(i)), strBoa, CCur(vPrecio(d0)))
+        Else
+            curPrecioBoa = CCur(vPrecio(d0))
+        End If
+        
+CodigoSD_ConBoard:
+        If Len(strBoa) = 2 Then
+            Dim strCodSD As String, lngIdSD2 As Long
+            strCodSD = Nz(DLookup("CodSD_L3", "wbRooms", "id = " & vIdRooms(i)), "")
+            If strCodSD = "" Then
+                strCodSD = Nz(DLookup("CodSD", "tbServiciosDiarios", "IdSD = " & lngIdSD), "")
+                If Len(strCodSD) = 5 Then
+                    strCodSD = Left(strCodSD, 3)
+                Else
+                    GoTo Segi
+                End If
+            End If
+            lngIdSD2 = Nz(DLookup("IdSD", "tbServiciosDiarios", "CodSD = '" & Left(strCodSD, 3) & strBoa & "'"), 0)
+            If lngIdSD2 <> 0 Then lngIdSD = lngIdSD2
+        End If
+Segi:
+        cFD.AddNew
+        cFD.IdFichaCab = cFC.IdFichaCab
+        cFD.IdSD = lngIdSD
+        cFD.IdTipoParcela = lngIdTipoParcela
+        cFD.Cantidad = 1
+        cFD.Concepto = recdertop("(" & strParcela & IIf(strBoa <> "", " " & strBoa, "") & ") " & DimeConceptoIdioma(lngIdSD, cFC.IdIdioma), 0, 50)
+        '[{<id: 280784><occupancy: 1>};{<id: 279287><occupancy: 1>};{<id: 279287><occupancy: 1>}]
+        k = InStr(rs("rooms_occupancies"), "<id: " & vIdRooms(i))
+        If k > 0 Then k = InStr(k + 1, rs("rooms_occupancies"), "<occupancy: ")
+        If k > 0 Then
+            k = k + Len("<occupancy: ")
+            l = InStr(k, rs("rooms_occupancies"), ">")
+            If l > 0 Then cFD.PlazasOcupadas = CLng(Mid(rs("rooms_occupancies"), k, l - k))
+        End If
+        cFD.IVA = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & DLookup("TipoIVA", "tbServiciosDiarios", "IdSD = " & lngIdSD))
+        
+        cFD.Parcela = strParcela
+        curPrecio = curPrecioBoa 'CCur(vPrecio(d0))
+        If intMasIVA Then curPrecio = curPrecio * (1 + cFD.IVA)
+        cFD.PrecioUnitario = curPrecio
+        cFD.FechaInicio = dtFecha(d0)
+        cFD.FechaFin = 0
+        If intDias > 1 Then
+            For d = d0 + 1 To intDias - 1
+                If CCur(vPrecio(d0)) <> CCur(vPrecio(d)) Then
+                    cFD.FechaFin = dtFecha(d)
+                    cFD.Update
+                    d0 = d
+                    GoTo Bucle_Cambia_Precio
+                End If
+            Next d
+        End If
+        
+'        For d = d0 To intDias - 1
+'            If curPrecio <> CCur(vPrecio(d)) Then
+'                cFD.FechaFin = dtFecha(d)
+'                cFD.Update
+'                d0 = d
+'                GoTo Bucle_Cambia_Precio
+'            End If
+'        Next d
+        
+        'cFD.FechaFin = dtFecha(intDias - 1)
+        cFD.Update
+    Next i
+Tasas: '(Expedia)
+    If curTaxes <> 0 Then
+        cFD.AddNew
+        cFD.IdFichaCab = cFC.IdFichaCab
+        lngIdSD = Nz(DameValorParam("WiredIdSD_Tasas"), 0)
+        If lngIdSD = 0 Then
+            MsgBox "Se debe indicar El Servicio corrrespondiente a Tasas en Parámetros-Wubook-Extras", vbExclamation
+            lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios", "EsSd([IdSD])=False"), 0)
+            If lngIdSD = 0 Then lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios"), 0)
+        End If
+        
+        cFD.IdSD = lngIdSD
+        cFD.Parcela = ""
+        cFD.IdTipoParcela = 0
+        cFD.Cantidad = 1
+        cFD.Concepto = "Tasas Expedia"
+        cFD.IVA = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & DLookup("TipoIVA", "tbServiciosDiarios", "IdSD = " & lngIdSD))
+        curPrecio = curTaxes 'CCur(vPrecio(d0))
+        cFD.PrecioUnitario = curPrecio
+        cFD.FechaInicio = 0
+        cFD.FechaFin = cFC.FechaLlegada
+        cFD.Update
+    End If
+        
+    
+    
+Extras:
+    Dim vAddons As Variant, strAddons As String
+    Dim lngIdaddon As Long, intEsSD As Integer
+    Dim curPrice As Currency, curNumber As Currency, lngId As Long, strName As String
+    strAddons = Nz(rs("addons_list"), "[]")
+    If strAddons = "[]" Then GoTo Ofertas
+    vAddons = Split(strAddons, ";", -1, vbDatabaseCompare)
+    '[{<price: 38,0><number: 1><id: 19170><name: Media pensiÃ³n>};{<price: 14,0><number: 1><id: 19005><name: Desayuno>}]
+    For i = LBound(vAddons) To UBound(vAddons)
+        curPrice = CCur(Nz(DimeCampoLista(CStr(vAddons(i)), "price"), 0))
+        curNumber = CCur(Nz(DimeCampoLista(CStr(vAddons(i)), "number"), 0))
+        If curNumber = 0 Then curNumber = CCur(Nz(DimeCampoLista(CStr(vAddons(i)), "req"), 1))
+        strName = Nz(DimeCampoLista(CStr(vAddons(i)), "name"), "")
+        lngId = CLng(Nz(DimeCampoLista(CStr(vAddons(i)), "id"), 0))
+        lngIdSD = Nz(DLookup("IdSD", "wbOpportunities", "oid = " & lngId), 0)
+        If lngIdSD = 0 Then lngIdSD = Nz(DameValorParam("IdExtraPorDefectoReservaWuBook"), 0)
+        If lngIdSD = 0 Then lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios"), 0)
+        intEsSD = EsSD(lngIdSD)
+                
+        cFD.AddNew
+        cFD.IdFichaCab = cFC.IdFichaCab
+        cFD.IdSD = lngIdSD
+        If intEsSD Then
+            cFD.FechaInicio = cFC.FechaLlegada
+            cFD.FechaFin = 0
+            cFD.Cantidad = curNumber
+            If (curNumber * intDias) <> 0 Then cFD.PrecioUnitario = curPrice / (curNumber * intDias)
+        Else
+            cFD.FechaInicio = 0
+            cFD.FechaFin = cFC.FechaLlegada
+            cFD.Cantidad = curNumber
+            If curNumber <> 0 Then cFD.PrecioUnitario = curPrice / curNumber
+        End If
+        cFD.Concepto = strName
+        cFD.Parcela = ""
+        cFD.IdTipoParcela = 0
+        cFD.PlazasOcupadas = 0
+        cFD.Update
+    Next i
+Ofertas:
+    Dim curDiscount As Currency
+    If Nz(rs("special_offer"), "") = "" Then GoTo Paquetes
+    curDiscount = CCur(Nz(DimeCampoLista(CStr(rs("special_offer")), "discount"), 0))
+    strName = "Oferta: " & Nz(DimeCampoLista(CStr(rs("special_offer")), "name"), "")
+    lngId = CLng(Nz(DimeCampoLista(CStr(rs("special_offer")), "id"), 0))
+    lngIdSD = Nz(DLookup("IdSD", "wbSpecialOffers", "sid = " & lngId), 0)
+    If lngIdSD = 0 Then lngIdSD = Nz(DameValorParam("IdOfertaPorDefectoReservaWuBook"), 0)
+    If lngIdSD = 0 Then lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios"), 0)
+    'intEsSD = EsSD(lngIdSD)
+    cFD.AddNew
+    cFD.IdFichaCab = cFC.IdFichaCab
+    cFD.IdSD = lngIdSD
+    If False Then 'intEsSD Then
+        'cFD.FechaInicio = cFC.FechaLlegada
+        'cFD.FechaFin = 0
+        'cFD.Cantidad = curNumber
+        'cFD.PrecioUnitario = curPrice / (curNumber * intDias)
+    Else
+        cFD.FechaInicio = 0
+        cFD.FechaFin = cFC.FechaSalida
+        cFD.Cantidad = 1 'curNumber
+        cFD.PrecioUnitario = -1 * curDiscount 'curPrice / curNumber
+    End If
+    cFD.Concepto = strName
+    cFD.Parcela = ""
+    cFD.IdTipoParcela = 0
+    cFD.PlazasOcupadas = 0
+    cFD.Update
+Paquetes:
+    Dim intType As Integer, curValue As Currency
+    If Nz(rs("discount"), "") = "" Then GoTo Pagos
+    If rs("discount") = "{}" Then GoTo Pagos
+    'If Nz(DimeCampoLista(CStr(rs("discount")), "type"), 0) <> 8 Then
+    '    MsgBox "Atención, Tipo de descuento no implementado en importación de reservas. Notificar a Programación", vbExclamation
+    '    GoTo Pagos
+    'End If
+    intType = Nz(DimeCampoLista(CStr(rs("discount")), "type"), 0)
+    Select Case intType
+        Case 8 '{<code: Package discount><name: Package Plan romántico><value: 263,0><pricing_plan: -1><type: 8><id: >}
+            curValue = CCur(Nz(DimeCampoLista(CStr(rs("discount")), "value"), 0))
+            strName = "Pack: " & Replace(Nz(DimeCampoLista(CStr(rs("discount")), "name"), ""), "Package", "")
+            lngIdSD = Nz(DameValorParam("IdOfertaPorDefectoReservaWuBook"), 0)
+            If lngIdSD = 0 Then lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios"), 0)
+            
+            If curValue > 0 Then ' se aplica sólo el precio del paquete, el resto a 0
+                strSQL = "UPDATE tbFichasDet SET PrecioUnitario=0 WHERE IdFichaCab = " & cFC.IdFichaCab
+                CurrentDb.Execute strSQL, dbFailOnError
+                cFD.AddNew
+                cFD.IdFichaCab = cFC.IdFichaCab
+                cFD.IdSD = lngIdSD
+                If False Then 'intEsSD Then
+                    'cFD.FechaInicio = cFC.FechaLlegada
+                    'cFD.FechaFin = 0
+                    'cFD.Cantidad = curNumber
+                    'cFD.PrecioUnitario = curPrice / (curNumber * intDias)
+                Else
+                    cFD.FechaInicio = 0
+                    cFD.FechaFin = cFC.FechaSalida
+                    cFD.Cantidad = 1 'curNumber
+                    cFD.PrecioUnitario = curValue  'curPrice / curNumber
+                End If
+                cFD.Concepto = strName
+                cFD.Parcela = ""
+                cFD.IdTipoParcela = 0
+                cFD.PlazasOcupadas = 0
+                cFD.Update
+            End If
+        Case 7 ' {<code: YB: Custom Discount><name: YB: Custom Discount><value: 25,0><pricing_plan: -1><type: 7><id: >}
+            curValue = CCur(Nz(DimeCampoLista(CStr(rs("discount")), "value"), 0)) / 100
+            strName = "Descuento Youbook"
+            lngIdSD = Nz(DameValorParam("IdOfertaPorDefectoReservaWuBook"), 0)
+            If lngIdSD = 0 Then lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios"), 0)
+            AplicarDtoFicha cFC.IdFichaCab, curValue
+        Case Else
+            MsgBox "Atención, Tipo de descuento no implementado en importación de reservas. Notificar a Programación", vbExclamation
+    End Select
+
+Pagos:
+    G_RecalculaTotales cFC.IdFichaCab, True, True
+    Dim curTotalFicha As Currency
+    curTotalFicha = TotalFicha(cFC.IdFichaCab, 3)
+    If curTotalFicha <> rs("amount") Then
+        MsgBox "Atención, no coinciden importes totales en H4 y Wubook:" & vbCrLf & _
+                "Ficha nº " & cFC.IdFichaCab & ": " & Format(curTotalFicha, "currency") & vbCrLf & _
+                "WubookID: " & rs("reservation_code") & ": " & Format(rs("amount"), "currency"), vbExclamation
+    End If
+    If Nz(rs("payment_gateway_fee"), 0) <> 0 Then
+        If Not intNew Then
+            If Not IsNull(DLookup("IdCajaDet", "tbCajaDet", "Origen = 'E' AND " & _
+                                               "IdFrom = " & cFC.IdFichaCab & " AND " & _
+                                               "Cantidad = " & ComaPunto(rs("payment_gateway_fee") & " AND " & _
+                                               "Fecha = " & CLng(rs("date_received"))))) Then GoTo Totales
+            If intAuto Then
+                intR = vbYes
+            Else
+                intR = MsgBox("Se van a añadir pagos según la reserva importada, ¿Borrar pagos existentes?", vbYesNoCancel + vbDefaultButton2)
+                If intR = vbCancel Then GoTo Salir_Importa_wbReservation
+            End If
+            If intR = vbYes Then CurrentDb.Execute "DELETE * FROM tbCajaDet WHERE Origen = 'E' AND IdFrom = " & cFC.IdFichaCab, dbFailOnError
+        End If
+        fNuevoPago "W", cFC.IdFichaCab, , , , CCur(rs("payment_gateway_fee")), , , , rs("date_received")
+    End If
+    If rs("id_channel") = 2 Then 'En el caso de Booking, ver si está pagada en Booking y si eso grabar como pago a Crédito de Booking
+        Dim curCre As Currency
+        i = InStr(rs("channel_data"), "<vcc_balance: ")
+        If i > 0 Then
+            If cFC.IdAgencia = 0 Then
+                cFC.IdAgencia = Nz(DLookup("IdAgencia", "tbProcedencias", "id_channel = 2"), 0)
+                cFC.Update
+            End If
+            i = i + Len("<vcc_balance: ")
+            j = InStr(i, rs("channel_data"), ">")
+            If j > 0 Then
+                curCre = CCur(Mid(rs("channel_data"), i, j - i))
+                If InStr(rs("channel_data"), "<vcc_currency_code: EUR>") = 0 Then
+                    MsgBox "Atención comprobar divisa del pago, no se encontró moneda Euro", vbExclamation
+                End If
+            End If
+        End If
+        If curCre <> 0 Then fNuevoPago "K", cFC.IdFichaCab, , , , curCre, , , , rs("date_received")
+    End If
+Totales:
+    G_RecalculaTotales cFC.IdFichaCab
+    Importa_wbReservation = cFC.IdFichaCab
+Salir_Importa_wbReservation:
+    Set cFC = Nothing
+    Set cFD = Nothing
+    Exit Function
+Error_Importa_wbReservation:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Importa_wbReservation" & vbCrLf & Err.Description
+            Resume Salir_Importa_wbReservation
+    End Select
+
+End Function
+
+Public Function DimeParcelaLibre(lngIdRoom As Long, dtDesde As Date, dtHasta As Date, lngIdTipoParcela As Long, lngIdSD As Long) As String
+On Error GoTo HandleError
+    Dim lngIdSub As Long, strShortName As String, lngIdTipoParcelaSub As Long
+    lngIdSub = Nz(DLookup("subroom", "wbRooms", "id = " & lngIdRoom), 0)
+    If lngIdSub = 0 Then lngIdSub = lngIdRoom
+    strShortName = Nz(DLookup("shortname", "wbRooms", "id = " & lngIdSub), "")
+    If strShortName = "" Then
+        MsgBox "No se encontró SHORTNAME de IdRoom = " & lngIdSub & vbCrLf & "Debe seleccionar un tipo de " & g_strPH, vbExclamation
+        lngIdTipoParcela = Nz(BuscaAyuda("TP0", Nz(DameValorParam("WuBookTipoParcelaXDefecto"), 0)), 0)
+        If lngIdTipoParcela = 0 Then
+            GoTo HandleExit
+        Else
+            PonValorParam "WuBookTipoParcelaXDefecto", lngIdTipoParcela, 4
+            GoTo VerSD
+        End If
+    End If
+    lngIdTipoParcela = Nz(DLookup("IdTipoPArcela", "tbParcelasTipo", "TypeCode = " & ConComillas(strShortName)), 0)
+    If lngIdTipoParcela = 0 Then
+        MsgBox "No se encontró Tipo de Parcela con TypeCode = " & strShortName, vbExclamation
+        GoTo HandleExit
+    End If
+VerSD:
+    lngIdSD = Nz(DLookup("IdSD", "tbParcelasYServiciosXDefecto", "IdTipoParcela = " & lngIdTipoParcela & " AND Principal"), 0)
+    If lngIdSD = 0 Then
+        MsgBox "No se ha definido servicio predeterminado para Tipo de Parcela Id = " & lngIdTipoParcela, vbExclamation
+        GoTo HandleExit
+    End If
+    lngIdTipoParcelaSub = Nz(DLookup("IdTipoParcela", "tbServiciosDiarios", "IdSD = " & lngIdSD), 0)
+    If lngIdTipoParcelaSub <> 0 Then lngIdTipoParcela = lngIdTipoParcelaSub
+    Dim strSQL As String, strR As String
+    strSQL = "SELECT tbFichasDet.Parcela, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Hasta, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio)<" & CLng(dtHasta) & ") AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>" & CLng(dtDesde) & " Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null))"
+    strSQL = strSQL & " AND IdTipoParcela = " & lngIdTipoParcela
+    strSQL = strSQL & " AND EstadoFicha <> 9"
+    CurrentDb.QueryDefs("qry_fDimeParcelaLibre_A").SQL = strSQL
+    strSQL = "SELECT * FROM tbParcelas"
+    strSQL = strSQL & " WHERE IdTipoParcela = " & lngIdTipoParcela
+    strSQL = strSQL & " AND ControlReservas = True"
+    CurrentDb.QueryDefs("qry_fDimeParcelaLibre_B").SQL = strSQL
+    strR = Nz(DLookup("NombreParcela", "qry_fDimeParcelaLibre"), "")
+    If strR = "" Then
+        strSQL = "SELECT * FROM tbParcelas"
+        strSQL = strSQL & " WHERE IdTipoParcela = " & lngIdTipoParcela
+        CurrentDb.QueryDefs("qry_fDimeParcelaLibre_B").SQL = strSQL
+        strR = Nz(DLookup("NombreParcela", "qry_fDimeParcelaLibre"), "")
+        If strR <> "" Then strR = Nz(BuscaAyuda("PARLI", strR), "")
+    End If
+    DimeParcelaLibre = strR
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err.Number
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeParcelaLibre" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+
+End Function
+
+Public Function DimeParcelaLibreAH(lngIdTipoParcela As Long, dtDesde As Date, dtHasta As Date) As String
+    On Error GoTo Error_DimeParcelaLibreAH
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT tbFichasDet.Parcela, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Hasta, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio)<" & CLng(dtHasta) & ") AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>" & CLng(dtDesde) & " Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null));"
+    strSQL = strSQL & " AND IdTipoParcela = " & lngIdTipoParcela
+    CurrentDb.QueryDefs("qry_fDimeParcelaLibreAH_A").SQL = strSQL
+    strSQL = "SELECT * FROM tbParcelas"
+    strSQL = strSQL & " WHERE IdTipoParcela = " & lngIdTipoParcela
+    CurrentDb.QueryDefs("qry_fDimeParcelaLibreAH_B").SQL = strSQL
+    DimeParcelaLibreAH = Nz(DLookup("NombreParcela", "qry_fDimeParcelaLibreAH"), "")
+    
+Salir_DimeParcelaLibreAH:
+    Exit Function
+Error_DimeParcelaLibreAH:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DimeParcelaLibreAH" & vbCrLf & Err.Description
+            Resume Salir_DimeParcelaLibreAH
+    End Select
+        
+
+End Function
+
+Function ExtraeTexto(strTexto As String, Optional strA As String = "[", Optional strZ As String = "]", Optional intInicio As Integer = 1, Optional intFin As Integer = 0) As String
+    On Error GoTo HandleError
+    Dim i As Integer, k As Integer
+    i = InStr(intInicio, strTexto, strA)
+    If i > 0 Then
+        i = i + 1
+        k = InStr(i, strTexto, strZ)
+        If k > 0 Then
+            intFin = k
+            ExtraeTexto = Mid(strTexto, i, k - i)
+        End If
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+                        
+
+Public Function DimeCountry(country_code As String) As String
+    On Error GoTo HandleError
+    Dim strR As String
+    strR = Nz(DLookup("Country", "valCountries", "[ISO CODES] Like '" & country_code & " / *' OR [ISO CODES] Like '* / " & country_code & "'"), "")
+    If strR = "" Then strR = country_code
+    DimeCountry = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+
+End Function
+
+Public Function DimeProvincia(zip_code As String) As String
+    On Error GoTo HandleError
+    Dim strR As String
+    If Len(zip_code) < 2 Then GoTo HandleExit
+    
+    strR = Nz(DLookup("NombreProvincia", "valProvincias", "[CodPostal] = '" & Left(zip_code, 2) & "'"), "")
+    DimeProvincia = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+
+End Function
+
+Public Function RecogeReservasWubook(Optional intBusyBox As Integer = True, _
+                                     Optional strMSG As String, _
+                                     Optional dtFMin As Date, Optional dtFMax As Date)
+    On Error GoTo HandleError
+    Dim cWi As CWired, intNumReservasAU(3) As Integer, vNumRAU As Variant
+    Dim strTitle As String
+    Set cWi = New CWired
+    If dtFMin = 0 Then dtFMin = Date + 1000
+    strTitle = "Recoge nuevas reservas Wubook"
+    If cWi.CargaCredenciales = False Then
+        strMSG = "No se cargaron credenciales de conexión con Wubook"
+        If intBusyBox Then
+            MensajeBusyBox strMSG, strTitle, True, True
+        Else
+            strMSG = strTitle & " -> " & strMSG
+            SysCmd acSysCmdSetStatus, strMSG
+        End If
+        Exit Function
+    End If
+    If cWi.GetToken() = False Then
+        strMSG = "No se consiguió Token de conexión con Wubook"
+        If intBusyBox Then
+            MensajeBusyBox strMSG, strTitle, True, True
+        Else
+            strMSG = strTitle & " -> " & strMSG
+            SysCmd acSysCmdSetStatus, strMSG
+        End If
+        Exit Function
+    End If
+    If cWi.FetchNewBookings(False, strMSG, vNumRAU, dtFMin, dtFMax) = False Then
+        If intBusyBox Then
+            MensajeBusyBox strMSG, strTitle, True
+        Else
+            strMSG = strTitle & " -> " & strMSG
+            SysCmd acSysCmdSetStatus, strMSG
+        End If
+        GoTo Exit_RecogeReservasWubook
+    Else
+        intNumReservasAU(1) = vNumRAU(1)
+        intNumReservasAU(2) = vNumRAU(2)
+        intNumReservasAU(3) = vNumRAU(3)
+        If intNumReservasAU(1) + intNumReservasAU(2) > 0 Then
+            strMSG = "Se recibieron " & intNumReservasAU(1) + intNumReservasAU(2) & " reservas, "
+        End If
+        If intNumReservasAU(1) > 0 Then strMSG = strMSG & intNumReservasAU(1) & " nueva/s, "
+        If intNumReservasAU(2) > 0 Then strMSG = strMSG & intNumReservasAU(2) & " ya registradas, "
+        If Len(strMSG) > 2 Then strMSG = recdertop(strMSG, 2, 0) & vbCrLf
+        If intNumReservasAU(3) > 0 Then strMSG = strMSG & "ATENCIÓN  se cancelaron " & intNumReservasAU(3) & " reservas"
+        If intBusyBox Then
+            If strMSG = "" Then strMSG = "No se encontraron nuevas reservas ni cancelaciones en Wubook"
+            MensajeBusyBox strMSG, strTitle, True
+        Else
+            strMSG = strTitle & " -> " & strMSG
+            SysCmd acSysCmdSetStatus, strMSG
+        End If
+    End If
+    
+Exit_RecogeReservasWubook:
+    If cWi.OkToken Then cWi.ReleaseToken
+    Exit Function
+HandleError:
+    Select Case Err.Number
+        Case Else
+            Err.Raise Err.Number, IIf(Err.source = Application.VBE.ActiveVBProject.Name, "basWuBook.RecogeReservasWubook" & " " & Erl, Err.source), Err.Description
+    
+    End Select
+
+End Function
+
+Public Function ImportaReservasWubook(Optional intBusyBox As Integer = True, Optional strMSG As String)
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, lngIdFichaCab As Long, intOK As Integer, intWrong As Integer, strTitle As String
+    strSQL = "SELECT reservation_code FROM wbReservations WHERE MarkSN=False"
+    If Nz(DameValorParam("WuBookNoImportarReservasRechazadas"), False) = True Then strSQL = strSQL & " AND status <> 3"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    While Not rs.EOF
+        lngIdFichaCab = Importa_wbReservation(rs("reservation_code"), True)
+        If lngIdFichaCab > 0 Then
+            intOK = intOK + 1
+            CurrentDb.Execute "UPDATE wbReservations SET MarkSN = True WHERE reservation_code = " & rs("reservation_code"), dbFailOnError
+        Else
+            intWrong = intWrong + 1
+        End If
+        rs.MoveNext
+        If intOK <> 0 Or intWrong <> 0 Then
+            If intBusyBox Then MensajeBusyBox "Ok: " & intOK & vbCrLf & "Error: " & intWrong, "Importando Reservas Wubook (" & rs.RecordCount & ")"
+        End If
+    Wend
+    strTitle = "Se importaron Reservas Wubook (" & rs.RecordCount & ")"
+    If intOK <> 0 Or intWrong <> 0 Then strMSG = "Ok: " & intOK & vbCrLf & "Error: " & intWrong
+    If intBusyBox Then
+        MensajeBusyBox strMSG, strTitle, True, True
+    Else
+        strMSG = strTitle & " -> " & strMSG
+        SysCmd acSysCmdSetStatus, strMSG
+    End If
+
+    MarcarReservasRecibidasWubook intBusyBox
+Exit_ImportaReservasWubook:
+    Exit Function
+HandleError:
+    Select Case Err.Number
+        Case Else
+            Err.Raise Err.Number, IIf(Err.source = Application.VBE.ActiveVBProject.Name, "basWuBook.ImportaReservasWubook" & " " & Erl, Err.source), Err.Description
+    End Select
+
+End Function
+
+
+Public Function MarcarReservasRecibidasWubook(Optional intBusyBox As Integer = True, Optional strMSG As String, Optional intTodas As Integer = False)
+    On Error GoTo HandleError
+    Dim cWi As CWired, strTitle As String, vMarks() As Variant, i As Integer
+    Set cWi = New CWired
+    If cWi.CargaCredenciales = False Then
+        If intBusyBox Then MensajeBusyBox "No se cargaron credenciales de conexión con Wubook", "Marcar reservas recibidas Wubook", True, True
+        Exit Function
+    End If
+    If cWi.GetToken() = False Then
+        If intBusyBox Then MensajeBusyBox "No se consiguió Token de conexión con Wubook", "Marcar reservas recibidas Wubook", True, True
+        Exit Function
+    End If
+    Dim strSQL As String, rs As Recordset, strMarks As String, strTipos As String, strRespuesta As String
+    If intTodas = False Then
+        strSQL = "SELECT reservation_code FROM wbReservations WHERE MarkSN AND not MarkOK"
+    Else
+        strSQL = "SELECT reservation_code FROM wbReservations WHERE True AND not MarkOK"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        ReDim vMarks(rs.RecordCount - 1)
+    End If
+    While Not rs.EOF
+        'strMarks = strMarks & "int," & rs(0) & ","
+        vMarks(i) = Array("int", CStr(rs(0)))
+        i = i + 1
+        rs.MoveNext
+    Wend
+    If i > 0 Then
+        'strMarks = Left(strMarks, Len(strMarks) - 1)
+        'Dim vMarks As Variant
+        If cWi.MarkBooks(vMarks, False, strRespuesta) = True Then
+            If intTodas = False Then
+                CurrentDb.Execute "UPDATE wbReservations SET MarkOK = True WHERE MarkSN = True And Not Nz(MarkOK,False)", dbFailOnError
+            Else
+                CurrentDb.Execute "UPDATE wbReservations SET MarkOK = True WHERE True And Not Nz(MarkOK,False)", dbFailOnError
+            End If
+            strMSG = "Se marcaron " & rs.RecordCount & " reservas de Wubook como recibidas"
+            strTitle = "Marcar reservas recibidas Wubook"
+        Else
+            strMSG = "Error al marcar " & rs.RecordCount & " reservas de Wubook como recibidas "
+            strTitle = "Error al Marcar reservas recibidas Wubook"
+        End If
+    End If
+    If intBusyBox Then
+        MensajeBusyBox strMSG, strTitle, True, True
+    Else
+        'SysCmd acSysCmdSetStatus, strMSG
+    End If
+HandleExit:
+    On Error Resume Next
+    If cWi.OkToken Then cWi.ReleaseToken
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+
+End Function
+
+Public Sub SincroWuBook(intBusyBox As Integer, strMSG As String)
+    On Error GoTo HandleError
+    Dim dtFMin As Date, dtFMax As Date
+    strMSG = ""
+    RecogeReservasWubook intBusyBox, strMSG, dtFMin, dtFMax
+    strMSG = ""
+    ImportaReservasWubook intBusyBox, strMSG
+    PonValorParam "WubookUltimaSincronizacionDDMMYY", Format(Now, "dd/mm/yy")
+    PonValorParam "WubookUltimaSincronizacionHHNN", Format(Now, "hh:nn")
+    If IsOpenForm("frmPlaningG") Then
+        Dim dtIniPlan As Date, dtFinPlan As Date
+        dtIniPlan = CDate(Forms("frmPlaningG").txtFechaIni)
+        dtFinPlan = dtIniPlan + Nz(DameValorParam("PlanningGNumCols"), 14)
+        If dtFMin <= dtFinPlan And dtFMax >= dtIniPlan Then
+            Call Forms("frmPlaningG").txtFechaIni_AfterUpdate
+        End If
+        Forms("frmPlaningG").lblUltimaSincronizacion.Caption = Nz(DameValorParam("WubookUltimaSincronizacionHHNN"), "?")
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+
+Public Function SubeNewReservation_Ops(lngIdFichaCab As Long, ByRef intIgnoreRestr As Integer, ByRef intIgnoreAvail As Integer, Optional ByRef intSubeTodas As Integer = False, Optional intListCount As Integer) As Integer
+    On Error GoTo HandleError
+    Dim strXML As String
+    PonXML strXML, "Titulo", "Nueva reserva en Wubook"
+    PonXML strXML, "Prompt", "desde ficha " & lngIdFichaCab
+    PonXML strXML, "SubeMasSN", IIf(intSubeTodas, "S", "N")
+    PonXML strXML, "ListCount", intListCount
+    DoCmd.OpenForm "frmInputOK_Ops", , , , , acDialog, strXML
+    If Not IsOpenForm("frmInputOK_Ops") Then
+        SubeNewReservation_Ops = False
+    Else
+        intIgnoreRestr = Nz(Forms("frmInputOK_Ops").casIgnoreRestrs, False)
+        intIgnoreAvail = Nz(Forms("frmInputOK_Ops").casIgnoreAvail, False)
+        If intSubeTodas = True Then
+            intListCount = Nz(Forms("frmInputOK_Ops").txtNumReservas, 1)
+        Else
+            intListCount = 1
+        End If
+        DoCmd.Close acForm, "frmInputOK_Ops"
+        SubeNewReservation_Ops = True
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Private Function PostCheckTLS() As String
+    On Error GoTo Error_PostCheckTLS
+    Dim oHTTP As Object 'WinHttp.WinHttpRequest
+    Dim strResponse  As String
+    Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("POST", "https://tlscheck.wubook.net/", False)  ', gwiUserName, gwiPassword)
+    '"https://howsmyssl.com/a/check"
+    'oHTTP.Option(9) = 2048
+    DoCmd.Hourglass True
+    
+    SysCmd acSysCmdSetStatus, "Comunicando https://tlscheck.wubook.net/"
+    Call oHTTP.Send("")
+    strResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PostCheckTLS = strResponse
+    MsgBox strResponse, vbInformation, "H4 - Abauntz software"
+Salir_PostCheckTLS:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_PostCheckTLS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PostCheckTLS" & vbCrLf & Err.Description
+            Resume Salir_PostCheckTLS
+    End Select
+End Function
+'-----------------------------------------------------------
+
+Public Function DimeCampoLista(strElemList As String, strCampo As String) As Variant
+    Dim j As Integer, k As Integer, vCampo As Variant
+    On Error GoTo HandleError
+    j = InStr(strElemList, strCampo & ": ")
+    If j > 0 Then
+        j = j + Len(strCampo) + 2
+        k = InStr(j, strElemList, ">")
+        If k > 0 Then
+            vCampo = Mid(strElemList, j, k - j)
+        End If
+    End If
+    DimeCampoLista = vCampo
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function CambiaAcentosWbTablaRegistro(strTabla As String, strCampoClave As String, lngId As Long, Optional intPreguntar As Integer = True) As Integer
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, fld As Field, strC As String, intR As Integer, i As Integer
+    strSQL = "SELECT * FROM " & strTabla & " WHERE " & strCampoClave & " = " & lngId
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        MsgBox "No se encontró registro con " & strCampoClave & " = " & lngId, vbExclamation
+        Exit Function
+    End If
+    For Each fld In rs.Fields
+        If fld.Type = dbText Then
+            strC = CambiaAcentosWb(rs(fld.Name))
+            If strC <> Nz(rs(fld.Name), "") Then
+                If intPreguntar Then
+                    intR = MsgBox("¿Cambiar " & UCase(fld.Name) & ": " & rs(fld.Name) & " por: " & strC & "?", vbYesNo + vbQuestion)
+                Else
+                    intR = vbYes
+                End If
+                If intR = vbYes Then
+                    i = i + 1
+                    rs.Edit
+                    rs(fld.Name) = strC
+                    rs.Update
+                End If
+            End If
+        End If
+    Next fld
+    If i > 0 And intPreguntar Then MsgBox "Se modificaron " & i & " campos", vbInformation
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Sub ComprobarReservasWB_EntreFechas(dtD As Date, dtH As Date, intMsg As Integer, dtFMin As Date, dtFMax As Date)
+    Dim cW As CWired, vRC As Variant, i As Integer, strRC_ As String, intR As Integer
+    On Error GoTo HandleError
+    dtFMin = Date + 1000: dtFMax = 0
+    Set cW = New CWired
+    cW.CargaCredenciales
+    cW.GetToken
+    If cW.FetchBookingsCodes(dtD, dtH, vRC) = False Then
+        If intMsg Then MsgBox "No se recibieron reservas", vbInformation, "H4"
+    Else
+        If Not IsEmpty(vRC) Then
+            For i = 0 To UBound(vRC)
+                If Nz(DLookup("reservation_code", "wbReservations", "reservation_code = " & vRC(i)), 0) = 0 Then
+                    strRC_ = strRC_ & vRC(i) & ";"
+                End If
+            Next i
+            If strRC_ <> "" Then
+                strRC_ = recdertop(strRC_, 1, 0)
+                vRC = Split(strRC_, ";")
+                intR = MsgBox(IIf(UBound(vRC) = 0, "Se encontró 1 reserva", "Se encontraron " & UBound(vRC) + 1 & " reservas") & " no recibidas, ¿Importarla/s ahora?", vbOKCancel + vbQuestion)
+                If intR = vbCancel Then Exit Sub
+                For i = 0 To UBound(vRC)
+                    MensajeBusyBox "Importando: " & vRC(i), vbInformation, , True
+                    cW.FetchBooking CLng(vRC(i)), , , , dtFMin, dtFMax
+                Next i
+                MensajeBusyBox IIf(UBound(vRC) = 0, "Se importó", "Se importaron") & " " & UBound(vRC) + 1 & " reserva/s", "Reservs de WuBook", True
+            Else
+                If intMsg Then MsgBox "Se comprobó la presencia en H4 de " & UBound(vRC) + 1 & " reservas importadas desde WuBook" & vbCrLf & "No se encontró ninguna reserva sin importar", vbInformation, "Del " & Format(dtD, "dd/mm/yy") & " al " & Format(dtH, "dd/mm/yy")
+            End If
+        Else
+            If intMsg Then MsgBox "No se encontraron en H4 reservas importadas desde WuBook del " & Format(dtD, "dd/mm/yy") & " al " & Format(dtH, "dd/mm/yy"), vbInformation, "H4 + Wubook"
+        End If
+    End If
+    
+HandleExit:
+    On Error Resume Next
+    cW.ReleaseToken
+    Exit Sub
+HandleError:
+     MsgBox Err.Description
+    Resume HandleExit
+    'If strMSG <> "" Then MsgBox strMSG, vbInformation
+End Sub
+
+Public Sub Pon_qry_wbRoomsValues_Campo(dtD As Date, dtH As Date, Optional strCampo As String = "booked")
+    On Error GoTo HandleError
+    Dim strSQL As String, dt As Date, strIn As String, intDias As Integer
+    
+    intDias = dtH - dtD
+    
+    strSQL = "TRANSFORM First(wbTabla.Disponibles) AS PrimeroDeDisponibles"
+'SELECT wbRooms.id, wbRooms.shortname AS [Tipo (avail)]
+'FROM wbRooms LEFT JOIN wbTabla ON wbRooms.id = wbTabla.IdRoom
+'WHERE (((wbTabla.[Fecha]) Between 43665 And 43680 Or (wbTabla.[Fecha]) Is Null))
+'GROUP BY wbRooms.id, wbRooms.shortname
+'ORDER BY wbRooms.id, wbRooms.shortname
+'PIVOT Format([wbTabla].[Fecha],'dd/mm/yy') In ('19/07/19','20/07/19','21/07/19','22/07/19','23/07/19','24/07/19','25/07/19','26/07/19','27/07/19','28/07/19','29/07/19','30/07/19','31/07/19','01/08/19','02/08/19','03/08/19');
+
+    
+    strSQL = "TRANSFORM First(wbRoomsValues." & strCampo & ") AS PrimeroDeCampo"
+    strSQL = strSQL & " SELECT wbRooms.id, wbRooms.shortname  AS [Tipo (" & strCampo & ")]"
+    strSQL = strSQL & " FROM wbRooms LEFT JOIN wbRoomsValues ON wbRooms.id = wbRoomsValues.IdRoom"
+    strSQL = strSQL & " WHERE Fecha Between " & CLng(dtD) & " AND " & CLng(dtH) & " Or Fecha Is Null"
+    strSQL = strSQL & " GROUP BY wbRooms.id, wbRooms.shortname "
+    strSQL = strSQL & " ORDER BY wbRooms.shortname "
+    strSQL = strSQL & " PIVOT Format(wbRoomsValues.Fecha,'dd/mm/yy')" ' In ('24/03/18','25/03/18','26/03/18','27/03/18','28/03/18');"
+    strIn = " In ("
+    DoEvents
+    For dt = dtD To dtH
+        strIn = strIn & "'" & Format(dt, "dd/mm/yy") & "',"
+    Next dt
+    strIn = Left(strIn, Len(strIn) - 1) & ")"
+    strSQL = strSQL & strIn
+    CurrentDb.QueryDefs("qry_wbRoomsValues").SQL = strSQL
+HandleExit:
+Exit Sub
+HandleError:
+MsgBox Err.Description
+Resume HandleExit
+End Sub
+    
+Public Sub Pon_qry_wbRoomsValues_AvailH4(dtD As Date, dtH As Date)
+    On Error GoTo HandleError
+    Dim strSQL As String, dt As Date, strIn As String, intDias As Integer
+    intDias = dtH - dtD
+    'Actualizar_auxPlanning dtD, dtH, , , False
+    'strSQL = "TRANSFORM Sum(auxPlanning2.Cantidad) AS SumaDeCantidad"
+    'strSQL = strSQL & " SELECT wbRooms.id, wbRooms.shortname AS Tipo"
+    'strSQL = strSQL & " FROM (auxPlanning2 RIGHT JOIN tbParcelasTipo ON auxPlanning2.IdTipoParcela = tbParcelasTipo.IdTipoParcela) INNER JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname"
+    'strSQL = strSQL & " GROUP BY wbRooms.id, wbRooms.shortname"
+    'strSQL = strSQL & " PIVOT Format(auxPlanning2.Dia,'dd/mm/yy')"
+    
+    strSQL = "TRANSFORM Sum([AsigS]+[AsigN]) AS Cantidad"
+    strSQL = strSQL & " SELECT wbRooms.id, wbRooms.shortname AS Tipo"
+    strSQL = strSQL & " FROM (tbParcelasTipo INNER JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname) LEFT JOIN tbPlaning ON tbParcelasTipo.IdTipoParcela = tbPlaning.IdTipoParcela"
+    strSQL = strSQL & " WHERE tbPlaning.Dia Between " & CLng(dtD) & " And " & CLng(dtH)
+    strSQL = strSQL & " GROUP BY wbRooms.id, wbRooms.shortname"
+    strSQL = strSQL & " PIVOT Format(tbPlaning.Dia,'dd/mm/yy')"
+    strIn = " In ("
+    DoEvents
+    For dt = dtD To dtH
+        strIn = strIn & "'" & Format(dt, "dd/mm/yy") & "',"
+    Next dt
+    strIn = Left(strIn, Len(strIn) - 1) & ")"
+    strSQL = strSQL & strIn
+    CurrentDb.QueryDefs("qry_wbRoomsValues_bookedH4").SQL = strSQL
+    
+    strSQL = "SELECT wbRooms.id, [Tipo] as [Tipo (Avail)]"
+    For dt = dtD To dtH
+        strSQL = strSQL & ", ([availability]-Nz([" & Format(dt, "dd/mm/yy") & "],0)) AS [" & Format(dt, "d mmm") & "]"
+        'avail_dia" & dt - dtD + 1
+    Next dt
+    strSQL = strSQL & " FROM qry_wbRoomsValues_bookedH4 INNER JOIN wbRooms ON qry_wbRoomsValues_bookedH4.id = wbRooms.id"
+    strSQL = strSQL & " ORDER BY wbRooms.id"
+    CurrentDb.QueryDefs("qry_wbRoomsValues_availH4").SQL = strSQL
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+
+Public Sub Pon_qry_wbRoomsValues_PreciosT(lngIdPricingPlan As Long)
+    On Error GoTo HandleError
+    Dim strSQL As String, it As Integer, strTemp As String
+    strSQL = "SELECT  id, shortname"
+    it = 0
+    While it < 8
+        it = it + 1
+        strTemp = Nz(DameValorParam("TempNombreT" & it), "-")
+        If strTemp <> "-" Then strSQL = strSQL & ", priceT" & it & " As " & NombreCampoValido(strTemp, True, True)
+    Wend
+    strSQL = strSQL & " FROM wbRooms INNER JOIN wbRooms_Prices ON wbRooms.id = wbRooms_Prices.IdRoom"
+    strSQL = strSQL & " WHERE wbRooms_Prices.IdPricingPlan = " & lngIdPricingPlan
+    CurrentDb.QueryDefs("qry_wbRooms_Prices").SQL = strSQL
+HandleExit:
+Exit Sub
+HandleError:
+MsgBox Err.Description
+Resume HandleExit
+End Sub
+
+
+Public Sub Pon_PreciosH4(lngIdPricingPlan As Long)
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, rsTemp As Recordset, curPre As Currency, it As Integer, intPri As Integer, strTemp As String, rsRP As Recordset
+    'Ver los precios de los diferentes tipos de parcela-habitación en las diferentes temporadas
+    strSQL = "SELECT wbRooms.id, tbParcelasYServiciosXDefecto.IdSD"
+    strSQL = strSQL & " FROM (tbParcelasTipo INNER JOIN tbParcelasYServiciosXDefecto ON tbParcelasTipo.IdTipoParcela = tbParcelasYServiciosXDefecto.IdTipoParcela) INNER JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsTemp = CurrentDb.OpenRecordset("SELECT * FROM tbTemporadasNombre WHERE Nz(NombreTemporada,'')<>''", dbOpenSnapshot)
+    Set rsRP = CurrentDb.OpenRecordset("wbRooms_Prices", dbOpenDynaset)
+    While Not rs.EOF
+        rsRP.FindFirst "IdRoom = " & rs("id") & " AND IdPricingPlan = " & lngIdPricingPlan
+        If rsRP.NoMatch Then
+            rsRP.AddNew
+            rsRP("IdRoom") = rs("id")
+            rsRP("IdPricingPlan") = lngIdPricingPlan
+        Else
+            rsRP.Edit
+        End If
+        rsTemp.MoveFirst
+        it = 0
+        While Not rsTemp.EOF
+            curPre = DamePrecioSD(rs("IdSD"), 0, True, , , rsTemp("IdTemporadaNombre"))
+            it = it + 1
+            If it > 8 Then
+                MsgBox "No se pueden mostrar más de 8 temporadas diferentes", vbExclamation
+                GoTo SiguienteRoom
+            End If
+            rsRP("priceT" & it) = curPre
+            'strSQL = "UPDATE wbRooms SET priceT" & iT & " = " & ComaPunto(curPre)
+            'strSQL = strSQL & " WHERE id = " & rs("id")
+            'CurrentDb.Execute strSQL, dbFailOnError
+            If Not intPri Then PonValorParam "TempNombreT" & it, rsTemp("NombreTemporada"), 10
+                    
+            rsTemp.MoveNext
+        Wend
+SiguienteRoom:
+        If Not intPri Then
+            While it < 8
+                it = it + 1
+                PonValorParam "TempNombreT" & it, "-", 10
+            Wend
+            intPri = True
+        End If
+        rsRP.Update
+        rs.MoveNext
+    Wend
+    
+HandleExit:
+Exit Sub
+HandleError:
+MsgBox Err.Description
+Resume HandleExit
+End Sub
+
+
+Public Sub WB_UpdateAvail(dtD As Date, dtH As Date, Optional intMsg As Integer = True)
+    On Error GoTo HandleError
+    Dim cWi As CWired
+    Dim intR As Integer
+    If intMsg Then
+        intR = MsgBox("¿Actualizar Ocupación en Wubook según planing de H4?", vbOKCancel + vbQuestion)
+    Else
+        intR = vbOK
+    End If
+    If intR = vbCancel Then Exit Sub
+    Dim vRoomsDays() As Variant, vDays() As Variant, rs As Recordset, intAvail As Integer, i As Integer, j As Integer
+    Dim vdayA(1) As Variant, vday(1) As Variant, vrday(1) As Variant, vRoom(1) As Variant, vrd(1) As Variant, vdayV(1) As Variant
+    Dim vValue As Variant, vMember As Variant, vStruct As Variant, vMembers() As Variant
+    
+    ReDim vDays(dtH - dtD)
+    Pon_qry_wbRoomsValues_AvailH4 dtD, dtH
+    Set rs = CurrentDb.OpenRecordset("qry_wbRoomsValues_availH4", dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        ReDim vRoomsDays(rs.RecordCount - 1)
+    End If
+    vdayA(0) = "avail"
+    'vdayB(0) = "no_ota"
+    vday(0) = "struct"
+    vdayV(0) = "int"
+    ReDim vMembers(0)
+    While Not rs.EOF
+        For i = 2 To rs.Fields.Count - 1
+            'vValue(0) = "int"
+            'vValue(1) = Nz(rs(i), 0)
+            intAvail = Nz(rs(i), 0)
+            If intAvail < 0 Then intAvail = 0
+            vValue = Array("int", intAvail)
+            'vMember(1) = vValue
+            'vMember(0) = "avail"
+            vMember = Array("avail", vValue)
+            vMembers(0) = vMember
+            'vStruct = Array("array", vMembers)
+            vDays(i - 2) = Array("struct", vMembers)
+            'vday(0) = "struct"
+            'vday(1) = Array("array", vMember)
+            'vDays(i - 2) = vday
+            
+            'vdayV(1) = Nz(rs(i), 0)
+            'vdayA(1) = vdayV
+            'vday(1) = vdayA
+            'vDays(i - 2) = vday
+        Next i
+        vdayV(1) = rs("id")
+        vrday(0) = Array("id", vdayV)
+        vRoom(0) = "days"
+        vRoom(1) = Array("array", vDays)
+        vrday(1) = vRoom
+        vrd(0) = "struct"
+        vrd(1) = vrday
+        vRoomsDays(j) = vrd
+        rs.MoveNext
+        j = j + 1
+    Wend
+    Dim strResp As String
+    Set cWi = New CWired
+    If cWi.CargaCredenciales Then
+        If Not cWi.GetToken Then
+            MsgBox "No se consiguió Token", vbExclamation, , "Wubook Wired"
+            Exit Sub
+        End If
+    Else
+        MsgBox "No se cargaron credenciales", vbExclamation, "Wubook Wired"
+        Exit Sub
+    End If
+    If cWi.UpdateAvail(dtD, vRoomsDays, True, strResp) = True Then
+        If intMsg Then MsgBox "Se actualizó disponibilidad en Wubook según disponibilidad de H4", vbInformation, "Wubook Wired"
+'        intR = MsgBox("¿Ver disponibilidad en WuBook?", vbYesNo + vbQuestion)
+'        If intR = vbYes Then Call btnFetchRoomsValues_Click
+    End If
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Function DimePrecioIdRoom_PlanPrice(lngIdRoom As Long, lngIdPricingPlan As Long, dtFecha As Date, ByRef dtHasta As Date, Optional intDiarioTemporadas As Integer = 1) As Currency
+    'Devuelve el precio en la fecha del tipo de parcela-habitación de Wubook
+    'dtHasta devuelve la última fecha de esa misma temporda para poder evitar contínuas llamadas a la funcion
+    On Error GoTo HandleError
+    Dim lngIdTem As Long, strTem As String, i As Integer, intOK As Integer, curPre As Currency
+    If intDiarioTemporadas = 2 Then
+        lngIdTem = QueTemporadaEs(dtFecha)
+        strTem = Nz(DLookup("NombreTemporada", "tbTemporadasNombre", "IdTemporadaNombre = " & lngIdTem), "Sin nombre")
+        For i = 1 To 8
+            If Nz(DameValorParam("TempNombreT" & i), "-") = strTem Then
+                intOK = True
+                Exit For
+            End If
+        Next i
+        curPre = Nz(DLookup("PriceT" & i, "wbRooms_Prices", "IdRoom = " & lngIdRoom & " AND IdPricingPlan = " & lngIdPricingPlan), 0)
+        dtHasta = Nz(DMax("Dia", "tbTempoDias", "Dia >= " & CLng(dtFecha) & " AND IdTempo = " & lngIdTem), dtFecha)
+    Else
+        If lngIdPricingPlan = 0 Then
+            curPre = Nz(DLookup("price", "wbTabla", "IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtFecha)), 0)
+            dtHasta = Nz(DFirst("Fecha", "wbTabla", "IdRoom = " & lngIdRoom & " AND Fecha > " & CLng(dtFecha) & " AND Precio <> " & ComaPunto(curPre)), dtFecha)
+        Else
+            Dim lngwbTablaID As Long
+            lngwbTablaID = Nz(DLookup("wbTablaID", "wbTabla", "IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtFecha)), 0)
+            curPre = Nz(DLookup("Precio", "wbTabla_Precios", "wbTablaID = " & lngwbTablaID & " AND IdPricingPlan = " & lngIdPricingPlan), 0)
+            dtHasta = Nz(DFirst("Fecha", "qrywbTabla_Precios", "IdRoom = " & lngIdRoom & " AND IdPricingPlan = " & lngIdPricingPlan & " AND Fecha > " & CLng(dtFecha) & " AND Precio <> " & ComaPunto(curPre)), dtFecha)
+        End If
+    End If
+            
+    DimePrecioIdRoom_PlanPrice = curPre
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function DimePrecioConBoard(lngIdRoom As Long, strBoard As String, curPrecio As Currency) As Currency
+    On Error GoTo HandleError
+    Dim curR As Currency
+    If strBoard = "" Or strBoard = "nb" Then
+        curR = curPrecio
+        GoTo result
+    End If
+    Dim strBoardsRoom As String, i As Integer, j As Integer, k As Integer
+    Dim intDtype As Integer, curValue As Currency
+    'Dim jsonBoards As Object
+    strBoardsRoom = Nz(DLookup("boards", "wbRooms", "id = " & lngIdRoom), "")
+    'Set jsonBoards = JsonConverter.ParseJson(strBoardsRoom)
+    'intDtype = jsonBoards(strBoard)("dtype")
+    'curValue = jsonBoards(strBoard)("value")
+    intDtype = Nz(DimeCampoLista(strBoardsRoom, "dtype"), 0)
+    curValue = Nz(DimeCampoLista(strBoardsRoom, "value"), 0)
+    
+    Select Case intDtype
+        Case 1, -1: curR = curPrecio * (1 + (curValue / 100) * intDtype)
+        Case 2, -2: curR = curPrecio + curValue * IIf(intDtype > 0, 1, -1)
+    End Select
+result:
+    DimePrecioConBoard = curR
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err
+        Case 13, 10001
+            curR = curPrecio
+            Resume result
+        Case Else
+            MsgBox "Error nº " & Err & " DimePrecioConBoard" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+Public Sub Pon_qry_wbRoomsPrecios(dtD As Date, dtH As Date, lngIdPlan As Long)
+    On Error GoTo HandleError
+    Dim strSQL As String, dt As Date, strIn As String, intDias As Integer
+    intDias = dtH - dtD
+    If lngIdPlan = 0 Then
+        strSQL = "TRANSFORM First(Format(wbTabla.price,'#,##0')) AS PrimeroDePrecio"
+        strSQL = strSQL & " SELECT wbTabla.IdRoom, qryRooms_ParcelasTipo.shortname"
+        strSQL = strSQL & " FROM wbTabla INNER JOIN qryRooms_ParcelasTipo ON wbTabla.IdRoom = qryRooms_ParcelasTipo.id"
+    Else
+        strSQL = "TRANSFORM First(Format(wbTabla_Precios.price,'#,##0')) AS PrimeroDePrecio"
+        strSQL = strSQL & " SELECT wbTabla.IdRoom, qryRooms_ParcelasTipo.shortname"
+        strSQL = strSQL & " FROM (wbTabla INNER JOIN qryRooms_ParcelasTipo ON wbTabla.IdRoom = qryRooms_ParcelasTipo.id) LEFT JOIN wbTabla_Precios ON wbTabla.wbTablaID = wbTabla_Precios.wbTablaID"
+        strSQL = strSQL & " WHERE wbTabla_Precios.IdPricingPlan = " & lngIdPlan
+    End If
+    strSQL = strSQL & " GROUP BY wbTabla.IdRoom, qryRooms_ParcelasTipo.shortname"
+    strSQL = strSQL & " ORDER BY qryRooms_ParcelasTipo.shortname"
+    strSQL = strSQL & " PIVOT Format(wbTabla.Fecha,'dd/mm/yy')"
+    strIn = " In ("
+    DoEvents
+    For dt = dtD To dtH
+        strIn = strIn & "'" & Format(dt, "dd/mm/yy") & "',"
+    Next dt
+    strIn = Left(strIn, Len(strIn) - 1) & ")"
+    strSQL = strSQL & strIn
+    CurrentDb.QueryDefs("qry_wbRoomsPrecios").SQL = strSQL
+HandleExit:
+Exit Sub
+HandleError:
+MsgBox Err.Description
+Resume HandleExit
+End Sub
+    
+Public Sub Pon_qry_wbRoomsRestricciones_Campo(dtD As Date, dtH As Date, lngIdRPlan As Long, strCampo As String)
+    On Error GoTo HandleError
+    Dim strSQL As String, dt As Date, strIn As String, intDias As Integer
+    intDias = dtH - dtD
+    If lngIdRPlan = 0 Then
+        strSQL = "TRANSFORM First(wbTabla." & strCampo & ") AS PrimeroDeCampo"
+        strSQL = strSQL & " SELECT wbTabla.IdRoom, qryRooms_ParcelasTipo.shortname"
+        strSQL = strSQL & " FROM wbTabla INNER JOIN qryRooms_ParcelasTipo ON wbTabla.IdRoom = qryRooms_ParcelasTipo.id"
+    Else
+        strSQL = "TRANSFORM First(wbTabla_Restricciones." & strCampo & ") AS PrimeroDeCampo"
+        strSQL = strSQL & " SELECT wbTabla.IdRoom, qryRooms_ParcelasTipo.shortname"
+        strSQL = strSQL & " FROM (wbTabla INNER JOIN qryRooms_ParcelasTipo ON wbTabla.IdRoom = qryRooms_ParcelasTipo.id) LEFT JOIN wbTabla_Restricciones ON wbTabla.wbTablaID = wbTabla_Restricciones.wbTablaID"
+        strSQL = strSQL & " WHERE wbTabla_Restricciones.IdRestrictionPlan = " & lngIdRPlan
+    End If
+    strSQL = strSQL & " GROUP BY wbTabla.IdRoom, qryRooms_ParcelasTipo.shortname"
+    strSQL = strSQL & " ORDER BY qryRooms_ParcelasTipo.shortname"
+    strSQL = strSQL & " PIVOT Format(wbTabla.Fecha,'dd/mm/yy')"
+    strIn = " In ("
+    DoEvents
+    For dt = dtD To dtH
+        strIn = strIn & "'" & Format(dt, "dd/mm/yy") & "',"
+    Next dt
+    strIn = Left(strIn, Len(strIn) - 1) & ")"
+    strSQL = strSQL & strIn
+    CurrentDb.QueryDefs("qry_wbRoomsRestricciones").SQL = strSQL
+HandleExit:
+Exit Sub
+HandleError:
+MsgBox Err.Description
+Resume HandleExit
+End Sub
+    
+Public Sub WbReservation_VistaSN(reservation_code As Long)
+    On Error GoTo HandleError
+    Dim bolV As Integer, strSQL As String
+    bolV = Not Nz(DLookup("VistaSN", "wbReservations_VistaSN", "reservation_code = " & reservation_code), False)
+    If bolV = False Then
+        strSQL = "DELETE * FROM wbReservations_VistaSN WHERE reservation_code = " & reservation_code
+    Else
+        strSQL = "INSERT INTO wbReservations_VistaSN (reservation_code, VistaSN) Values(" & reservation_code & ", True)"
+    End If
+    On Error Resume Next
+    CurrentDb.Execute strSQL, dbFailOnError
+    If Err <> 0 Then
+        If bolV = True Then
+            strSQL = "UPDATE wbReservations_VistaSN SET VistaSN = True WHERE reservation_code = " & reservation_code
+            CurrentDb.Execute strSQL, dbFailOnError
+            If Err <> 0 Then GoTo HandleError
+        Else
+            GoTo HandleError
+        End If
+    End If
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Public Function DimeIdRoom(lngIdTipoParcela As Long) As Long
+    On Error GoTo HandleError
+    Dim strTypeCode As String
+    strTypeCode = Nz(DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), "")
+    DimeIdRoom = Nz(DLookup("id", "wbRooms", "shortname = """ & strTypeCode & """"), 0)
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Sub SincroWB_AperturaHabitacionesAnidadas(dtIni As Date, dtFin As Date, lIdRoomClose As Long, lIdRoomOpen As Long, Optional Planing_rpid As Long = 0)
+    'Para el caso de que se haya movido una ficha entre parcelas-habitaciones Madres y Vistuales y haya conexion en Wubook, realizar las correspondientes aperturas y cierres de fechas en Wubook
+    On Error GoTo HandleError
+    Dim sIdRoomsClose As String, sIdRoomsOpen As String
+    Dim vIdRoomsClose As Variant, vIdRoomsOpen As Variant
+    Dim sSQL As String, rs As Recordset
+    
+    'Suponemos que la habitación Madre es la que se va a cerrar y por tanto se deben cerrar las anidadas virtuales y abrir las anidades separadas...
+    sSQL = "SELECT id, shortname FROM wbRooms WHERE subroom = " & lIdRoomClose
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    sIdRoomsClose = "," & CStr(lIdRoomClose)
+    Dim lidRoom As Long, sShortName As String
+    While Not rs.EOF
+        sIdRoomsClose = sIdRoomsClose & "," & CStr(rs("id"))
+        sShortName = rs("shortname")
+        lidRoom = Nz(DLookup("id", "wbRooms", "shortname = '" & recdertop(sShortName, 1, 0) & "'"), 0) 'Se espera que el ShortName de las virtuales se el de las virtuals + V, por ej. DI-->DIV  TI-->TIV
+        If lidRoom <> 0 Then sIdRoomsOpen = sIdRoomsOpen & "," & CStr(lidRoom)
+        rs.MoveNext
+    Wend
+    
+    'Suponemos que la habitación Madre es la que se va a abrir y por tanto se deben abrir las anidadas virtuales y cerrar las anidades separadas...
+    sSQL = "SELECT id, shortname FROM wbRooms WHERE subroom = " & lIdRoomOpen
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    sIdRoomsOpen = sIdRoomsOpen & "," & CStr(lIdRoomOpen)
+    While Not rs.EOF
+        sIdRoomsOpen = sIdRoomsOpen & "," & CStr(rs("id"))
+        sShortName = rs("shortname")
+        lidRoom = Nz(DLookup("id", "wbRooms", "shortname = '" & recdertop(sShortName, 1, 0) & "'"), 0) 'Se espera que el ShortName de las virtuales se el de las virtuals + V, por ej. DI-->DIV  TI-->TIV
+        If lidRoom <> 0 Then sIdRoomsClose = sIdRoomsClose & "," & CStr(lidRoom)
+        rs.MoveNext
+    Wend
+    
+    sIdRoomsClose = Mid(sIdRoomsClose, 2)
+    vIdRoomsClose = Split(sIdRoomsClose, ",")
+    sIdRoomsOpen = Mid(sIdRoomsOpen, 2)
+    vIdRoomsOpen = Split(sIdRoomsOpen, ",")
+    
+    
+    
+    Dim cWi As New CWired
+    cWi.GetToken
+    cWi.UpdateRestrictionsWb vIdRoomsClose, Planing_rpid, dtIni, dtFin, "closed", 1, False
+    cWi.UpdateRestrictionsWb vIdRoomsOpen, Planing_rpid, dtIni, dtFin, "closed", 0, False
+    If Planing_rpid = 0 Then
+        cWi.FetchRoomsValues dtIni, dtFin
+    Else
+        Dim vRPid As Variant, vRpids As Variant
+        vRPid = Array("int", Planing_rpid)
+        vRpids = Array(vRPid)
+        cWi.FetchRPlanValues vRpids, dtIni, dtFin
+    End If
+    cWi.ReleaseToken
+    If IsOpenForm("frmPlaningG") Then
+        Dim frm As Form
+        Set frm = Forms("frmPlaningG")
+        'frm.lblRecargaParcelas.Caption = "{{IdRooms}}"
+        If Nz(DameValorParam("CeldaTipoParcela_to_PlaningSN"), False) = True Then
+            Dim dt As Date, y As Long, z As Long
+            Set rs = CurrentDb.OpenRecordset("Select IdTipoParcela FROM tbParcelasTipo WHERE ControlReservas", dbOpenSnapshot)
+            If Not rs.EOF Then
+                rs.MoveLast
+                rs.MoveFirst
+            End If
+            z = rs.RecordCount * (dtIni - dtFin + 1)
+            DoCmd.Hourglass True
+            While Not rs.EOF
+                For dt = dtIni To dtFin
+                    y = y + 1
+                    SysCmd acSysCmdSetStatus, "CeldaTipoParcela_to_Planing " & y & "/" & z
+                    CeldaTipoParcela_to_Planing rs("IdTipoParcela"), dt
+                Next dt
+                rs.MoveNext
+            Wend
+            DoCmd.Hourglass False
+            SysCmd acSysCmdClearStatus
+        End If
+        'frm.CargaPlaningFechas CDate(frm.txtFechaIni), True
+        frm.lblRecargaParcelas.Caption = "*"
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

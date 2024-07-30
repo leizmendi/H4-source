@@ -1,0 +1,23 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnEditar_Click()
+    Dim strXML As String
+    If Me.lstCR.ListIndex <> -1 Then PonXML strXML, "IdCentralR", Me.lstCR
+    DoCmd.OpenForm "frmCentralesR", , , , , acDialog, strXML
+    'CargaLista
+    Me.lstCR.Requery
+End Sub
+
+Private Sub CargaLista()
+    Dim strSQL As String
+    strSQL = "SELECT tbCentralesR.IdCentralR, tbCentralesR.CodCentralR AS Cód, tbCentralesR.Sistema AS [Central Reservas], tbCentralesR.DiasCupo AS [Días Cupo]"
+    strSQL = strSQL & " FROM tbCentralesR"
+    strSQL = strSQL & " ORDER BY tbCentralesR.CodCentralR;"
+    Me.lstCR.RowSource = strSQL
+End Sub

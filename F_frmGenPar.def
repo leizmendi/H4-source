@@ -1,0 +1,106 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim intDesde As Integer, intHasta As Integer, i As Integer
+    Dim strFormat As String
+    Dim db As DAO.Database
+    Dim rs As Recordset
+    Dim varReturn As Variant, lngX As Long
+    Dim strMSG As String
+    
+On Error GoTo Error_btnAceptar_Click
+    If Not IsNumeric(Me.txtDesde) Then
+        MsgBox "Desde debe ser un nº"
+        Me.txtDesde.SetFocus
+        Exit Sub
+    End If
+    If Not IsNumeric(Me.txtHasta) Then
+        MsgBox "Desde debe ser un nº"
+        Me.txtHasta.SetFocus
+        Exit Sub
+    End If
+    If Not IsNumeric(Me.txtOrden) Then
+        MsgBox "Desde debe ser un nº"
+        Me.txtOrden.SetFocus
+        Exit Sub
+    End If
+    intDesde = CInt(Me.txtDesde)
+    intHasta = CInt(Me.txtHasta)
+    If intHasta <= intDesde Then
+        MsgBox "Hasta debe ser mayor que Desde"
+        Me.txtHasta.SetFocus
+        Exit Sub
+    End If
+    If intHasta > 9 Then
+        strFormat = "00"
+    End If
+    If intHasta > 99 Then
+        strFormat = "000"
+    End If
+    If intHasta > 999 Then
+        MsgBox "Hasta debe ser menor de 1000"
+        Exit Sub
+    End If
+    Dim lngOrd As Long
+    lngOrd = CLng(Me.txtOrden)
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("tbParcelas")
+    strMSG = "Generando Parcelas"
+    varReturn = SysCmd(acSysCmdInitMeter, strMSG, intHasta - intDesde)
+    For i = intDesde To intHasta
+        rs.AddNew
+        rs("NombreParcela") = Me.txtPrefijo & Format(i, strFormat) & Me.txtSufijo
+        rs("IdTipoParcela") = Me.cmbTipoParcela
+        rs("ControlPanel") = Me.casPanel
+        rs("ControlReservas") = Me.casReservas
+        If i = intDesde Then
+            rs("SaltoEnPanel") = True
+        Else
+            rs("SaltoEnPanel") = False
+        End If
+        rs("Orden") = lngOrd
+        lngOrd = lngOrd + 1
+        rs.Update
+        lngX = lngX + 1
+        varReturn = SysCmd(acSysCmdUpdateMeter, lngX)
+    Next i
+    MsgBox "Se han generado " & lngX & " parcelas "
+    If IsOpenForm("frmParcelasG") Then
+        Forms("frmParcelasG")("subfrmParcelas").Requery
+    End If
+Exit_btnAceptar_click:
+    varReturn = SysCmd(acSysCmdRemoveMeter)
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 3022
+            MsgBox "Se ha intentado asignar un nombre de parcela ya existente"
+        Case 3314
+            MsgBox "Se debe indicar el tipo de parcela"
+            Me.cmbTipoParcela.SetFocus
+        Case Else
+            MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En btnAceptar_Click de frmGenerarParcelas"
+    End Select
+    Resume Exit_btnAceptar_click
+
+
+End Sub
+
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub cmbTipoParcela_AfterUpdate()
+    Me.casReservas = Me.cmbTipoParcela.Column(2)
+    Dim lngO As Long
+    lngO = Nz(DMax("Orden", "tbParcelas"), 0) + 1
+    lngO = Int(lngO \ 10) * 10 + 11
+    Me.txtOrden = lngO
+End Sub

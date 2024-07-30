@@ -1,0 +1,85 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gintCajonAbierto As Integer
+    Dim gcurImporte As Currency
+    Dim gintDobleClick As Integer
+    Dim g_lbl As Control
+
+Private Sub btnBorrar_Click()
+    Dim i As Integer
+    For i = 1 To 15
+        Me("lbl" & i).Caption = "-"
+        Me("lbl" & i).BackColor = vbWhite
+    Next i
+    PonImporte
+End Sub
+
+Private Sub btnCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnOK_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, i As Integer
+    strXML = Nz(Me.OpenArgs, "")
+    For i = 1 To 15
+        Me("lbl" & i).Caption = Nz(DimeXML(strXML, "m" & i), "-")
+    Next i
+    PonImporte
+End Sub
+
+Public Sub PonImporte()
+    Dim i As Integer, curMonedas As Currency, curBilletes As Currency
+    For i = 1 To 8
+        If IsNumeric(Me("lbl" & i).Caption) Then curMonedas = curMonedas + CCur(Me("lbl" & i).Caption) * CCur(Me("btn" & i).Tag)
+    Next i
+    For i = 9 To 15
+        If IsNumeric(Me("lbl" & i).Caption) Then curBilletes = curBilletes + CCur(Me("lbl" & i).Caption) * CCur(Me("btn" & i).Tag)
+    Next i
+    Me.txtTotalMonedas = curMonedas
+    Me.txtTotalBilletes = curBilletes
+    Me.txtTotal = curMonedas + curBilletes
+End Sub
+
+Private Function Moneda_Click()
+    On Error GoTo Error_Moneda_Click
+    If gintDobleClick = True Then
+        gintDobleClick = False
+        Exit Function
+    End If
+    On Error Resume Next
+    g_lbl.BackColor = vbWhite
+    On Error GoTo Error_Moneda_Click
+    Dim ctl As Control, strMoneda As String
+    Set ctl = Screen.ActiveControl
+    Set g_lbl = Me("lbl" & Mid(ctl.Name, 4))
+    g_lbl.Caption = IIf(IsNumeric(g_lbl.Caption), g_lbl.Caption, 0) + 1
+    g_lbl.BackColor = vbGreen
+    PonImporte
+    gintDobleClick = False
+Salir_Moneda_Click:
+    Exit Function
+Error_Moneda_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Moneda_Click" & vbCrLf & Err.Description
+            Resume Salir_Moneda_Click
+    End Select
+End Function
+
+Private Function Moneda_DobleClick()
+    Dim ctl As Control, lbl As Control, strMoneda As String
+    Set ctl = Screen.ActiveControl
+    Set lbl = Me("lbl" & Mid(ctl.Name, 4))
+    lbl.Caption = Nz(DimeTeclado(2, "Teclee cantidad de " & strMoneda, IIf(IsNumeric(lbl.Caption), lbl.Caption, 0)), lbl.Caption)
+    PonImporte
+    gintDobleClick = True
+End Function

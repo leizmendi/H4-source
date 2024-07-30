@@ -1,0 +1,103 @@
+Option Compare Database
+Option Explicit
+
+'************** Code Start ***************
+' CERRAR OTRA APLICACIÓN (HAY QUE SABER LA CLASE DE LA VENTANA)
+' This code was originally written by Dev Ashish.
+' It is not to be altered or distributed,
+' except as part of an application.
+' You are free to use it in any application,
+' provided the copyright notice is left unchanged.
+'
+' Code Courtesy of
+' Dev Ashish
+'
+Private Const WM_CLOSE = &H10
+Private Const INFINITE = &HFFFFFFFF
+
+Private Declare Function apiPostMessage _
+    Lib "user32" Alias "PostMessageA" _
+    (ByVal Hwnd As Long, _
+    ByVal wMsg As Long, _
+    ByVal wParam As Long, _
+    lParam As Any) _
+    As Long
+
+Private Declare Function apiFindWindow _
+    Lib "user32" Alias "FindWindowA" _
+    (ByVal lpClassName As String, _
+    ByVal lpWindowName As String) _
+    As Long
+    
+Private Declare Function apiWaitForSingleObject _
+    Lib "kernel32" Alias "WaitForSingleObject" _
+    (ByVal hHandle As Long, _
+    ByVal dwMilliseconds As Long) _
+    As Long
+    
+Private Declare Function apiIsWindow _
+    Lib "user32" Alias "IsWindow" _
+    (ByVal Hwnd As Long) _
+    As Long
+        
+Private Declare Function apiGetWindowThreadProcessId _
+    Lib "user32" Alias "GetWindowThreadProcessId" _
+    (ByVal Hwnd As Long, _
+    lpdwProcessID As Long) _
+    As Long
+        
+Function fCloseApp(lpClassName As String) As Boolean
+'Usage Examples:
+'   To close Calculator:
+'       ?fCloseApp("SciCalc")
+'
+Dim lngRet As Long, Hwnd As Long, pid As Long
+
+    Hwnd = apiFindWindow(lpClassName, vbNullString)
+    If (Hwnd) Then
+        lngRet = apiPostMessage(Hwnd, WM_CLOSE, 0, ByVal 0&)
+        Call apiGetWindowThreadProcessId(Hwnd, pid)
+        Call apiWaitForSingleObject(pid, INFINITE)
+        fCloseApp = Not (apiIsWindow(Hwnd) = 0)
+    End If
+End Function
+'************* Code End ***************
+
+
+Public Function Cerrar_Otra(strOtra As String)
+    On Error GoTo Error_Cerrar_Otra
+    Dim strTitulo As String, strComando As String, strClase As String
+    strTitulo = Nz(DameValorParam("AplicacionTitulo" & strOtra), "")
+    strClase = DimeClassName(strTitulo)
+    If strClase <> "" Then
+        fCloseApp strClase
+    End If
+Salir_Cerrar_Otra:
+    Exit Function
+Error_Cerrar_Otra:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Cerrar_Otra" & vbCrLf & Err.Description
+            Resume Salir_Cerrar_Otra
+    End Select
+End Function
+
+Public Function Abrir_Otra(strOtra As String)
+    On Error GoTo Error_Abrir_Otra
+    Dim strComando As String, strTitulo As String
+    strTitulo = Nz(DameValorParam("AplicacionTitulo" & strOtra), "")
+    AppActivate strTitulo
+Salir_Abrir_Otra:
+    Exit Function
+Error_Abrir_Otra:
+    Select Case Err
+        Case 5 ' argumento a la llamada no válida (supongo que no está abierta la aplicación R4
+            strComando = Nz(DameValorParam("AplicacionComando" & strOtra), "")
+            Shell strComando, vbMaximizedFocus
+            Resume Salir_Abrir_Otra
+        Case Else
+            MsgBox "Error nº " & Err & " en Error_Abrir_Otra" & vbCrLf & Err.Description
+            Resume Salir_Abrir_Otra
+    End Select
+
+End Function

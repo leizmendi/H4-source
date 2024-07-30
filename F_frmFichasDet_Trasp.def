@@ -1,0 +1,125 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gstrDelParcelas As String
+    Dim gdatParentSalida As Date, gintIvaInc As Integer
+    Dim gdatParentLlegada As Date
+
+Private Sub btnAceptar_Click()
+    If Not IsNumeric(Me.txtIdFicha) Then
+        MsgBox "Se debe introducir el nº de Ficha destino"
+        Me.txtIdFicha.SetFocus
+        Exit Sub
+    End If
+    If IsNull(DLookup("IdFichaCab", "tbFichasCab", "IdFichaCab = " & CLng(Me.txtIdFicha))) Then
+        MsgBox "No se encontró Ficha de destino nº " & CLng(Me.txtIdFicha)
+        Exit Sub
+    End If
+    If Not IsNull(Me.Parcela) Then
+        If DLookup("IdFicha", "tbParcelas", "NombreParcela = " & ConComillas(Me.Parcela)) = Me.IdFichaCab Then
+            CurrentDb.Execute "UPDATE tbParcelas SET IdFicha = " & Me.txtIdFicha & " WHERE NombreParcela = " & ConComillas(Me.Parcela), dbFailOnError
+        End If
+    End If
+    Me.IdFichaCab = CLng(Me.txtIdFicha)
+    DoCmd.RunCommand acCmdSaveRecord
+    G_RecalculaTotales Me.IdFichaCab
+    Me.Visible = False
+End Sub
+
+Private Sub btnAdd_Click()
+    Dim intR As Integer
+    intR = MsgBox("¿Generar nueva Ficha?", vbQuestion + vbOKCancel)
+    If intR = vbCancel Then Exit Sub
+    Dim rs As Recordset, lngIdF_Old As Long, lngIdF_New As Long
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab")
+    rs.AddNew
+    rs("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    rs("FechaLlegada") = DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & Me.IdFichaCab)
+    rs("FechaSalida") = DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & Me.IdFichaCab)
+    rs("IvaIncluido") = DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & Me.IdFichaCab)
+    lngIdF_New = rs("IdFichaCab")
+    rs.Update
+    MsgBox "Se generó ficha nº: " & lngIdF_New
+    Me.txtIdFicha = lngIdF_New
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub Concepto_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim strCriteria As String
+    If KeyCode = vbKeyF4 Then
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub FechaFin_AfterUpdate()
+    On Error GoTo Error_FechaFin_AfterUpdate
+    Dim curPU As Currency
+    If Me.IdSD.ListIndex = -1 Then
+        Exit Sub
+    End If
+    curPU = DamePrecioSD(Me.IdSD.Column(0), CDate(Nz(Me.FechaInicio, Date)), gintIvaInc, Me.IVA, Nz(Me.FechaFin, gdatParentSalida))
+    'If DameValorParam("IVAIncluidoEnPreciosSD") <> gintIvaInc Then
+    '    If gintIvaInc = False Then
+    '        curPU = curPU / (1 + Me.IVA)
+    '    Else
+    '        curPU = curPU * (1 + Me.IVA)
+    '    End If
+    'End If
+    curPU = Redondea(curPU, 2)
+    If curPU <> Me.PrecioUnitario And curPU <> 0 Then
+        Me.PrecioUnitario = curPU
+    End If
+    
+Salir_FechaFin_AfterUpdate:
+    Exit Sub
+Error_FechaFin_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en FechaFin_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_FechaFin_AfterUpdate
+            Resume Next
+    End Select
+End Sub
+
+Private Sub FechaFin_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.FechaFin)
+        If IsDate(varFecha) Then
+            Me.FechaFin = varFecha
+        End If
+    End If
+End Sub
+
+Private Sub FechaInicio_AfterUpdate()
+    'Call ServicioDiario_AfterUpdate
+End Sub
+
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    If IsNull(Me.IdSD) Then
+        MsgBox "Se debe introducir un Código de Servicio"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+    If Len(Me.Parcela) > 0 Then
+        Dim strSQL As String
+        strSQL = "UPDATE tbParcelas SET IdFicha = 0 WHERE NombreParcela = " & ConComillas(Me.Parcela)
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+End Sub
+
+Private Sub Form_Load()
+    Dim lngIdFichaDet As Long, i As Integer, lngIdFichaCab As Long
+    lngIdFichaDet = CLng(Nz(Me.OpenArgs, 0))
+End Sub

@@ -1,0 +1,23 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Dim varO As Variant
+    varO = DMax("Orden", "tbServiciosDiarios")
+    If IsNumeric(varO) Then
+        Me.Orden = CLng(varO) + 1
+    Else
+        Me.Orden = 1
+    End If
+
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+End Sub

@@ -1,0 +1,622 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Public glngIdFichaCab As Long, gintAño As Integer
+
+Function CargaLista()
+    On Error GoTo Error_CargaLista
+    Dim strSQL As String
+    strSQL = "SELECT tbFichasPagosPrevistos.*"
+    strSQL = strSQL & " FROM tbFichasPagosPrevistos"
+    strSQL = strSQL & " WHERE True"
+    If glngIdFichaCab <> 0 Then strSQL = strSQL & " AND tbFichasPagosPrevistos.IdFichaCab = " & glngIdFichaCab
+    If gintAño <> 0 Then strSQL = strSQL & " AND Año = " & gintAño
+    CurrentDb.QueryDefs("qryFichaPagosPrevistos").SQL = strSQL
+    Dim strPredet As String
+    strPredet = Nz(DameValorParam("MesesPagos_" & Me.cmbCli.Column(1)), "")
+    strSQL = "UPDATE valMeses SET PagoPredetSN = Instr('" & strPredet & "','#' & NumMes & '·')>0"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT IdFichaPagoP, valMeses.NumMes, valMeses.Mes, Format(tbFichasPagosPrevistos.Cantidad, 'Currency') as Importe, tbFichasPagosPrevistos.Concepto, Format(tbFichasPagosPrevistos.NumRecibo,'#,##0;-#,##0;-') AS [Nº Recibo], Iif(PagoPredetSN,'X','-') as Predet"
+    strSQL = strSQL & " FROM valMeses LEFT JOIN qryFichaPagosPrevistos ON valMeses.NumMes = qryFichaPagosPrevistos.Mes"
+    strSQL = strSQL & " WHERE True"
+    If glngIdFichaCab <> 0 Then
+        strSQL = strSQL & " AND (qryFichaPagosPrevistos.IdFichaCab = " & glngIdFichaCab & " OR tbFichasPagosPrevistos.IdFichaCab Is Null)"
+    End If
+    If gintAño <> 0 Then
+        strSQL = strSQL & " And (qryFichaPagosPrevistos.Año = " & gintAño & " OR tbFichasPagosPrevistos.Año IS Null)"
+    End If
+    strSQL = strSQL & " ORDER BY valMeses.NumMes;"
+    Me.lstPagosP.RowSource = strSQL
+Salir_CargaLista:
+    Exit Function
+Error_CargaLista:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaLista" & vbCrLf & Err.Description
+            Resume Salir_CargaLista
+    End Select
+End Function
+
+Private Sub CargaListaPP()
+    Dim strSQL As String
+    strSQL = "SELECT tbFichasPagosPrevistos.IdFichaPagoP, tbParcelas.NombreParcela, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, Format([Cantidad],'currency') AS Importe, tbFichasPagosPrevistos.NumRecibo AS [Nº Rec], tbFacturasCab.NumeroDeFactura AS [Nº Fac]"
+    strSQL = strSQL & " FROM ((tbFichasCab INNER JOIN tbFichasPagosPrevistos ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab) LEFT JOIN tbParcelas ON tbFichasCab.IdFichaCab = tbParcelas.IdFicha) LEFT JOIN tbFacturasCab ON tbFichasPagosPrevistos.IdFactura = tbFacturasCab.IdFactura"
+    strSQL = strSQL & " WHERE True"
+    If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND tbFichasPagosPrevistos.Año = " & Me.txtAño2
+    If Me.lstMeses.ListIndex <> -1 Then strSQL = strSQL & "  And tbFichasPagosPrevistos.Mes = " & Me.lstMeses
+    strSQL = strSQL & " ORDER BY [NombreCliente] ,[ApellidosCliente];"
+    Me.lstPP.RowSource = strSQL
+    Carga_lstRemesas
+End Sub
+Private Sub btn2P_Click()
+    Dim i As Integer
+    For i = 1 To Me.lstPagosP.ListCount - 1
+        Me.lstPagosP.Selected(i) = (Me.lstPagosP.Column(1, i) = 6 Or Me.lstPagosP.Column(1, i) = 12)
+    Next i
+End Sub
+
+Private Sub btn3P_Click()
+    Dim i As Integer
+    For i = 1 To Me.lstPagosP.ListCount - 1
+        Me.lstPagosP.Selected(i) = (Me.lstPagosP.Column(1, i) = 4 Or Me.lstPagosP.Column(1, i) = 8 Or Me.lstPagosP.Column(1, i) = 12)
+    Next i
+End Sub
+
+Private Sub btn4P_Click()
+    Dim i As Integer
+    For i = 1 To Me.lstPagosP.ListCount - 1
+        Me.lstPagosP.Selected(i) = (Me.lstPagosP.Column(1, i) = 3 Or Me.lstPagosP.Column(1, i) = 6 Or Me.lstPagosP.Column(1, i) = 9 Or Me.lstPagosP.Column(1, i) = 12)
+    Next i
+End Sub
+
+Private Sub btnAñadirPM_Click()
+    Dim curPte As Currency, intR As Integer, intNumPagos As Integer, vIt As Variant, i As Integer
+    Dim intNP As Integer, strConcepto As String, curT As Currency, curP As Currency, strSQL As String
+    Dim v As Variant, lngIdFichaDet As Long
+    If Nz(Me.lstFichas, "") = "" Or Nz(Me.txtAño, "") = "" Then
+        MsgBox "Se debe indicar Ficha y Año"
+        Exit Sub
+    End If
+    intNumPagos = Me.lstPagosP.ItemsSelected.Count
+    If intNumPagos < 1 Then
+        MsgBox "Se debe indicar al menos un mes para el pago manual"
+        Exit Sub
+    End If
+    If intNumPagos > 1 Then
+        intR = MsgBox("¿Introducir " & intNumPagos & " pagos manuales?" & vbCrLf & "El importe se repartirá entre los nuevos pagos", vbOKCancel + vbQuestion)
+    Else
+        intR = MsgBox("¿Introducir pago manual?", vbOKCancel + vbQuestion)
+    End If
+    If intR <> vbOK Then Exit Sub
+    curPte = TotalFicha(glngIdFichaCab, 3) - DSum("Cantidad", "tbFichasPagosPrevistos", "IdFichaCab = " & glngIdFichaCab & " AND Año = " & gintAño)
+    v = InputBox("Introduzca importe", "Importe del pago", curPte)
+    If v = "" Then Exit Sub
+    If Not IsNumeric(v) Then Exit Sub
+    curPte = CCur(v)
+    lngIdFichaDet = Nz(DMax("IdFichaDet", "tbFichasDet", "IdFichaCab = " & glngIdFichaCab), 0)
+    strConcepto = Nz(DLookup("Concepto", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet), "Pago ...")
+    v = InputBox("Introduzca Concepto", "Concepto del pago", strConcepto)
+    If v = "" Then Exit Sub
+    For Each vIt In Me.lstPagosP.ItemsSelected
+        i = i + 1
+        'strPar = Nz(DLookup("NombreParcela", "tbParcelas", "IdFicha = " & glngIdFichaCab), "")
+        'strConcepto = IIf(strPar = "", "Ficha Nº " & glngIdFichaCab, "Parc. " & strPar) & ", Año " & gintAño & ", pago nº " & intNP
+        If i < intNumPagos Then
+            curP = Round(curPte / intNumPagos, 2)
+            curT = curT + curP
+        Else
+            curP = curPte - curT
+            curT = curT + curP
+        End If
+        strSQL = "INSERT INTO tbFichasPagosPrevistos (IdFichaCab, Año, Mes, Cantidad, Concepto)"
+        strSQL = strSQL & " SELECT " & glngIdFichaCab & " AS IdFichaCab, " & gintAño & " AS Año, " & Me.lstPagosP.Column(1, vIt) & " AS Mes, " _
+        & ComaPunto(curP) & " AS Cantidad, '" & RecDerTop(strConcepto, 0, 50) & "' AS Concepto"
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next vIt
+    Me.lstPagosP.Requery
+End Sub
+
+Private Sub btnAñadirPP_Click()
+    If Nz(Me.lstFichas, "") = "" Or Nz(Me.txtAño, "") = "" Then
+        MsgBox "Se debe indicar Ficha y Año"
+        Exit Sub
+    End If
+    Dim curPte As Currency, intR As Integer, intNumPagos As Integer, vIt As Variant, i As Integer
+    Dim intNP As Integer, strConcepto As String, curT As Currency, curP As Currency, strSQL As String
+    Dim strPar As String
+    curPte = Me.txtPte
+    
+    intNumPagos = Me.lstPagosP.ItemsSelected.Count
+    If intNumPagos = 0 Then Exit Sub
+    If curPte <= 0 Then Exit Sub
+    intR = MsgBox("¿Repartir el importe pendiente (" & Me.txtPte & ") en " & intNumPagos & " pago" & IIf(intNumPagos > 1, "s", "") & " previsto" & IIf(intNumPagos > 1, "s", ""), vbOKCancel + vbQuestion)
+    If intR <> vbOK Then Exit Sub
+    intNP = DCount("IdCajaDet", "tbCajaDet", "Origen = 'E' AND IdFrom = " & glngIdFichaCab & " AND Year(Fecha)= " & gintAño)
+    For Each vIt In Me.lstPagosP.ItemsSelected
+        intNP = intNP + 1: i = i + 1
+        strPar = Nz(DLookup("NombreParcela", "tbParcelas", "IdFicha = " & glngIdFichaCab), "")
+        strConcepto = IIf(strPar = "", "Ficha Nº " & glngIdFichaCab, "Parc. " & strPar) & ", Año " & gintAño & ", pago nº " & intNP
+        If i < intNumPagos Then
+            curP = Round(curPte / intNumPagos, 2)
+            curT = curT + curP
+        Else
+            curP = curPte - curT
+            curT = curT + curP
+        End If
+        strSQL = "INSERT INTO tbFichasPagosPrevistos (IdFichaCab, Año, Mes, Cantidad, Concepto)"
+        strSQL = strSQL & " SELECT " & glngIdFichaCab & " AS IdFichaCab, " & gintAño & " AS Año, " & Me.lstPagosP.Column(1, vIt) & " AS Mes, " _
+        & ComaPunto(curP) & " AS Cantidad, '" & RecDerTop(strConcepto, 0, 50) & "' AS Concepto"
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next vIt
+    Me.lstPagosP.Requery
+    
+End Sub
+
+Private Sub btnCli_Click()
+On Error GoTo Err_btnCli_Click
+    Dim intR As Integer, iCont As Integer, vIt As Variant
+    iCont = Me.lstPP.ItemsSelected.Count
+    If iCont = 0 Then
+        MsgBox "Se debe seleccionar al menos un cliente de la lista de pagos"
+        Exit Sub
+    End If
+    Dim lngIdFPP As Long, strNIF As String, lngIdFichaCab As Long, strW As String
+    
+    For Each vIt In Me.lstPP.ItemsSelected
+        lngIdFPP = Me.lstPP.Column(0, vIt)
+        lngIdFichaCab = Nz(DLookup("IdFichaCab", "tbFichasPagosPrevistos", "IdFichaPagoP = " & lngIdFPP), 0)
+        strNIF = Nz(DLookup("DNICliente", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "")
+        strW = strW & "NIF = " & ConComillas(strNIF) & " OR "
+    Next vIt
+    If Len(strW) > 4 Then strW = RecDerTop(strW, 4, 0)
+    DoCmd.OpenForm "frmClientes", , , strW, , acDialog, "<FiltradoSN>S</FiltradoSN><AñadirSN>N</AñadirSN>"
+
+Exit_btnCli_Click:
+    Exit Sub
+
+Err_btnCli_Click:
+    MsgBox Err.Description
+    Resume Exit_btnCli_Click
+    
+End Sub
+
+Private Sub btnConcepto_Click()
+    If Me.lstPagosP.ItemsSelected.Count <> 1 Then
+        MsgBox "Se debe seleccionar un sólo concepto de la lista para modificar"
+        Exit Sub
+    End If
+    Dim vIt As Variant, strC As String, lngIdFPP As Long
+    For Each vIt In Me.lstPagosP.ItemsSelected
+        If Not IsNumeric(Me.lstPagosP.Column(0, vIt)) Then
+            MsgBox "No se encontró pago seleccionado a modificar"
+            Exit Sub
+        End If
+        strC = Me.lstPagosP.Column(4, vIt)
+        strC = InputBox("Introduzca concepto", "Concepto", strC)
+        If strC = "" Then Exit Sub
+        CurrentDb.Execute "UPDATE tbFichasPagosPrevistos SET Concepto = '" & strC & "' WHERE IdFichaPagoP = " & Me.lstPagosP.Column(0, vIt), dbFailOnError
+        Me.lstPagosP.Requery
+    Next vIt
+        
+End Sub
+
+Private Sub btnEmail_Click()
+    If Me.lstRecibos.ListIndex = -1 Then Exit Sub
+    Dim strNumFac As String, lngIdFac As Long
+    strNumFac = Me.lstRecibos.Column(5)
+    If strNumFac = "" Then
+        MsgBox "Al recibo no le corresponde factura (todavía)"
+        Exit Sub
+    End If
+    lngIdFac = Nz(DLookup("IdFactura", "tbFacturasCab", "NumeroDeFactura = '" & strNumFac & "'"), 0)
+    If lngIdFac = 0 Then
+        MsgBox "No se encuentra IdFactura de Factura: " & strNumFac
+        Exit Sub
+    End If
+    EnviarFacturaXEmail lngIdFac
+    Me.lstRecibos.Requery
+End Sub
+
+Private Sub btnEmisionRecibos_Click()
+    'If Nz(Me.txtIdReciboEmision, "") <> "" Then
+    If Me.lstRemesas.ListIndex <> -1 Then
+        DoCmd.Minimize
+        DoCmd.OpenForm "frmRecibosEmisiones", , , "IdReciboEmision = " & Me.lstRemesas
+        
+    Else
+        Dim intR As Integer, strForm As String, dtC As Date
+        If Nz(Me.txtAño2, "") = "" Or Me.lstMeses.ListIndex = -1 Then
+            MsgBox "Se debe indicar mes y año", vbInformation
+            Exit Sub
+        End If
+        intR = MsgBox("¿Nueva emisión de Recibos para Pagos Previstos de " & Me.lstMeses.Column(1) & " - " & Me.txtAño2 & "?", vbOKCancel + vbQuestion)
+        If intR = vbCancel Then Exit Sub
+        Dim rs As Recordset
+        Set rs = CurrentDb.OpenRecordset("tbRecibosEmisiones", dbOpenDynaset, dbAppendOnly)
+        rs.AddNew
+        If Me.lstMeses = 12 Then
+            dtC = CDate(Me.txtAño2 & "/12/31")
+        Else
+            dtC = CDate(Me.txtAño2 & "/" & Me.lstMeses + 1 & "/01") - 1
+        End If
+        rs("FechaEmision") = dtC
+        rs("FechaCargo") = dtC
+        rs("TipoEmision") = 4
+        Me.lstRemesas = rs("IdReciboEmision")
+        rs.Update
+        Me.lstRemesas.Requery
+        'strForm = "frmRecibosEmisiones"
+        'DoCmd.OpenForm strForm
+        'DoCmd.GoToRecord acDataForm, strForm, acNewRec
+        'Call Forms(strForm).TipoEmision_AfterUpdate
+        'Me.txtIdReciboEmision = Forms(strForm)("IdReciboEmision")
+        'PonValorParam "IdReciboEmisionAño_" & Me.txtAño2 & "_Mes_" & Me.lstMeses, Me.txtIdReciboEmision, 4
+    End If
+        
+End Sub
+
+Private Sub btnEnviarEmailTodos_Click()
+    Dim intR As Integer, i As Integer, iC As Integer, strMSG As String
+    On Error GoTo Error_btnEnviarEmailTodos_Click
+    intR = MsgBox("¿Enviar Email con factura adjunta a todos/as?" & vbCrLf & "Sólo se intentará enviar a clientes de recibos con factura generada y no se hay enviado aún el email y que tengan la dirección de email en su ficha de cliente.", vbOKCancel + vbInformation)
+    If intR <> vbOK Then Exit Sub
+    DoCmd.Hourglass True
+    For i = 1 To Me.lstRecibos.ListCount - 1
+        If EnviarFacturaXEmail_Recibo(Me.lstRecibos.Column(0, i), False, strMSG) = True Then iC = iC + 1
+        MensajeBusyBox strMSG, "Enviando emails", , True
+        Me.lstRecibos.Requery
+        SysCmd acSysCmdSetStatus, "Enviando facturas por email " & i & "/" & Me.lstRecibos.ListCount - 1 & " --> " & iC & " enviado/s"
+    Next i
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+        
+    MensajeBusyBox "Se enviaron " & iC & " emails", "Envío finalizado", True, True
+Salir_btnEnviarEmailTodos_Click:
+    Exit Sub
+Error_btnEnviarEmailTodos_Click:
+    DoCmd.Hourglass False
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en btnEnviarEmailTodos_Click" & vbCrLf & Err.Description
+            Resume Salir_btnEnviarEmailTodos_Click
+    End Select
+End Sub
+
+
+Private Sub btnFichaCliente_Click()
+    DoCmd.OpenForm "frmClientes", , , "NIF = " & ConComillas(Me.cmbCli.Column(1)), , acDialog
+End Sub
+
+Private Sub btnParamSmtp_Click()
+    DoCmd.OpenForm "frmParametrosSMTP", , , , , acDialog
+End Sub
+
+Private Sub btnPDF_Click()
+    If Me.lstRecibos.ListIndex = -1 Then Exit Sub
+    Dim strNumFac As String, lngIdFac As Long
+    strNumFac = Me.lstRecibos.Column(5)
+    If strNumFac = "" Then
+        MsgBox "Al recibo no le corresponde factura (todavía)"
+        Exit Sub
+    End If
+    lngIdFac = Nz(DLookup("IdFactura", "tbFacturasCab", "NumeroDeFactura = '" & strNumFac & "'"), 0)
+    If lngIdFac = 0 Then
+        MsgBox "No se encuentra IdFactura de Factura: " & strNumFac
+        Exit Sub
+    End If
+    ImprimirFactura lngIdFac, 3
+End Sub
+
+Private Sub btnPredeterminadosPagosSel_Click()
+    Dim strSel As String, i As Integer
+    If Me.cmbCli.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un cliente"
+        Exit Sub
+    End If
+    strSel = Nz(DameValorParam("MesesPagos_" & Me.cmbCli.Column(1)), "")
+    For i = 1 To Me.lstPagosP.ListCount - 1
+        Me.lstPagosP.Selected(i) = InStr(strSel, "#" & Me.lstPagosP.Column(1, i) & "·") > 0
+    Next i
+End Sub
+
+Private Sub btnPredeterminarPagos_Click()
+    Dim strNIF As String, intR As Integer, i As Integer, strSQL As String, vIt As Variant, strVP As String
+    If Me.cmbCli.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un cliente"
+        Exit Sub
+    End If
+    
+    i = Me.lstPagosP.ItemsSelected.Count
+    intR = MsgBox("¿Predeterminar los " & i & " pago previstos en los meses seleccionados para el cliente: " & Me.cmbCli.Column(2) & "?", vbOKCancel + vbQuestion)
+    If intR <> vbOK Then Exit Sub
+    'strSQL = "DELETE * FROM cfgParam WHERE NP Like 'MesesPagos_" & Me.cmbCli.Column(1) & "_*'"
+    'CurrentDb.Execute strSQL, dbFailOnError
+    For Each vIt In Me.lstPagosP.ItemsSelected
+       strVP = strVP & "#" & Me.lstPagosP.Column(1, vIt) & "·"
+    Next vIt
+    PonValorParam "MesesPagos_" & Me.cmbCli.Column(1), strVP
+    CargaLista
+End Sub
+
+Private Sub btnPredeterminarTodos_Click()
+    Dim strSQL As String, strMDB As String, db As DAO.Database, rs As Recordset, intR As Integer, strVP As String, i As Integer, y As Integer
+    strSQL = "TRANSFORM Count(tbFichasPagosPrevistos.Año) AS CuentaDeAño"
+    strSQL = strSQL & " SELECT tbFichasCab.DNICliente"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasPagosPrevistos ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab"
+    strSQL = strSQL & " GROUP BY tbFichasCab.DNICliente"
+    strSQL = strSQL & " PIVOT tbFichasPagosPrevistos.Mes In (1,2,3,4,5,6,7,8,9,10,11,12)"
+    strMDB = AbrirDialogo(, "*.mdb", , "*dat*.mdb", "Seleccionar Fichero de datos", "Fichero de datos", DirectorioDe(CurrentDb.Name), , , , , False)
+    If strMDB = "" Then Exit Sub
+    intR = MsgBox("¿Predeterminar meses de pagos según pagos previstos en el fichero " & strMDB & "?", vbOKCancel + vbQuestion)
+    If intR <> vbOK Then Exit Sub
+    Set db = OpenDatabase(strMDB)
+    Set rs = db.OpenRecordset(strSQL)
+    While Not rs.EOF
+        strVP = ""
+        For i = 1 To 12
+            If Nz(rs("" & i & ""), 0) > 0 Then strVP = strVP & "#" & i & "·"
+        Next i
+        PonValorParam "MesesPagos_" & rs("DNICliente"), strVP
+        rs.MoveNext
+        y = y + 1
+    Wend
+    MsgBox "Se predeterminaron pagos de " & y & " clientes", vbInformation
+    
+End Sub
+
+Private Sub btnQuitarPago_Click()
+    Dim vIt As Variant, intR As Integer, i As Integer
+    If Me.lstPagosP.ItemsSelected.Count = 0 Then Exit Sub
+    For Each vIt In Me.lstPagosP.ItemsSelected
+        If IsNumeric(Me.lstPagosP.Column(0, vIt)) Then
+            i = i + 1
+        End If
+    Next vIt
+    If i = 0 Then
+        MsgBox "No se encontraron Pagos seleccionados"
+        Exit Sub
+    End If
+    intR = MsgBox("¿Borrar " & IIf(i = 1, "el pago previsto seleccionado?", "los " & i & " pagos previstos seleccionados?"), vbOKCancel + vbQuestion)
+    If intR = vbCancel Then Exit Sub
+    For Each vIt In Me.lstPagosP.ItemsSelected
+        If IsNumeric(Me.lstPagosP.Column(0, vIt)) Then
+            CurrentDb.Execute "DELETE * FROM tbFichasPagosPrevistos WHERE IdFichaPagoP = " & Me.lstPagosP.Column(0, vIt)
+        End If
+    Next vIt
+    Me.lstPagosP.Requery
+    
+    
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnTodosPagosPrevistos_Click()
+    Dim intR As Integer, y As Long, z As Long
+    intR = MsgBox("¿Añadir todos los pagos previstos de fijos del año " & Me.txtAño2 & "?" & vbCrLf & "Sólo se añadiran pagos en fichas dónde, además de estar predeterminados pagos previstos, no se haya asignado aún ningun pago", vbOKCancel + vbQuestion)
+    If intR <> vbOK Then Exit Sub
+    Dim strSQL As String, rs As Recordset, lngNumPagos As Long, lngNP As Long, curTotal As Currency, curT As Currency
+    strSQL = "SELECT tbFichasCab.IdFichaCab FROM tbFichasCab LEFT JOIN ("
+    strSQL = strSQL & " SELECT tbFichasPagosPrevistos.IdFichaCab, tbFichasPagosPrevistos.Año"
+    strSQL = strSQL & " FROM tbFichasPagosPrevistos"
+    strSQL = strSQL & " WHERE tbFichasPagosPrevistos.Año=" & Me.txtAño2 & ") AS qryPagosAño ON tbFichasCab.IdFichaCab = qryPagosAño.IdFichaCab"
+    strSQL = strSQL & " WHERE EstadoFicha = 10 AND qryPagosAño.IdFichaCab Is Null ORDER BY tbFichasCab.IdFichaCab"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        curT = 0
+        lngNP = AñadirPagosPrevistos(rs("IdFichaCab"), Me.txtAño2, curT)
+        lngNumPagos = lngNumPagos + lngNP
+        curTotal = curTotal + curT
+        rs.MoveNext
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Generando Pagos Previstos..." & y & "/" & z
+    Wend
+    SysCmd acSysCmdClearStatus
+    MsgBox "Se generaron " & lngNumPagos & " pagos en " & z & " fichas de clientes fijos, con un importe total de " & Format(curTotal, "currency"), vbInformation
+End Sub
+
+Private Sub cmbCli_AfterUpdate()
+    Me.lstFichas = Me.cmbCli
+    Call lstFichas_AfterUpdate
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    CargaListaPP
+    On Error Resume Next
+    Dim strT As String
+    strT = Parent.Caption
+    If Err = 0 Then Me.btnSalir.Visible = False
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, lngIdFichaCab As Long
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdFichaCab = Nz(DimeXML(strXML, "IdFichaCab"), 0)
+    If lngIdFichaCab <> 0 Then
+        Me.lstFichas = lngIdFichaCab
+        'Me.lstFichas.Locked = True
+        Call lstFichas_AfterUpdate
+        Call lstFichas_Click
+        Me.pge1.SetFocus
+    End If
+    gintAño = Nz(DimeXML(strXML, "Año"), 0)
+    If gintAño = 0 Then gintAño = Year(Date)
+    If gintAño <> 0 Then
+        Me.txtAño = gintAño
+        Me.txtAño2 = gintAño
+    End If
+    'Me.Caption = Nz(DimeXML(strXML, "Titulo"), "Pagos Previstos")
+    
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False
+End Sub
+
+Private Sub lstFichas_AfterUpdate()
+    glngIdFichaCab = Spz(Me.lstFichas, 0)
+    Me.txtPte = TotalFicha(glngIdFichaCab, 3) - TotalFichaPagos(glngIdFichaCab)
+End Sub
+
+Private Sub lstFichas_Click()
+    Me.cmbCli = Me.lstFichas
+    CargaLista
+    PonTituloForm
+End Sub
+
+Private Sub lstMeses_AfterUpdate()
+    CargaListaPP
+    PonTituloForm
+End Sub
+
+Private Sub lstPP_DblClick(Cancel As Integer)
+    Call btnCli_Click
+End Sub
+
+Private Sub lstRemesas_Click()
+    Carga_lstRecibos
+End Sub
+
+Private Sub mrcFecha_EC_AfterUpdate()
+    Carga_lstRemesas
+End Sub
+
+Private Sub tab_Change()
+    PonTituloForm
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    gintAño = Nz(Me.txtAño, 0)
+    CargaLista
+End Sub
+
+Private Sub txtAño_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.txtAño) Then
+        MsgBox "Debe ser numérico"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtAño2_AfterUpdate()
+    CargaListaPP
+    PonTituloForm
+End Sub
+
+Private Sub txtPte_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.txtPte) Then
+        MsgBox "Debe ser numérico", vbExclamation
+        Cancel = True
+    End If
+        
+End Sub
+
+Public Sub PonTituloForm()
+    Select Case Me.tab.value
+        Case 0
+            Me.Caption = "Pagos previstos de fijos, Mes: " & Me.lstMeses.Column(1) & " - " & Me.txtAño2
+        Case 1
+            Me.Caption = "Asignar pagos previstas de fijos,  Parcela: " & Me.lstFichas.Column(1) & ", Ficha Nº: " & Me.lstFichas & "-->" & Me.cmbCli.Column(2)
+    End Select
+End Sub
+
+Public Sub Carga_lstRemesas()
+    Dim strSQL As String
+    'strSQL = "SELECT tbRecibosEmisiones.IdReciboEmision AS Nº, tbRecibosEmisiones.FechaCargo AS Fecha, LlenaIzq(Format([TotalImporte],'currency'),11) AS Total"
+    strSQL = "SELECT tbRecibosEmisiones.IdReciboEmision AS Nº, Format([FechaEmision],'dd/mm/yy') AS [Fecha E], Format([FechaCargo],'dd/mm/yy') AS [Fecha C], LlenaIzq(Format([TotalImporte],'Currency'),11) AS Total"
+    strSQL = strSQL & " FROM tbRecibosEmisiones WHERE tbRecibosEmisiones.TipoEmision=4"
+    If Me.lstMeses <> 0 Then
+        If Me.mrcFecha_EC = 1 Then
+            strSQL = strSQL & " AND Month(FechaEmision)= " & Me.lstMeses
+            If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND Year(FechaEmision)= " & Me.txtAño2
+        Else
+            strSQL = strSQL & " AND Month(FechaCargo)= " & Me.lstMeses
+            If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND Year(FechaCargo)= " & Me.txtAño2
+        End If
+    End If
+    Me.lstRemesas.RowSource = strSQL
+    Carga_lstRecibos
+End Sub
+
+Public Sub Carga_lstRemesas_old()
+    Dim strSQL As String
+    strSQL = "SELECT tbRecibosEmisiones.IdReciboEmision AS Nº, tbRecibosEmisiones.FechaEmision AS [Fecha Emisión], LlenaIzq(Format([TotalImporte],'currency'),11) AS Total"
+    strSQL = strSQL & " FROM tbRecibosEmisiones WHERE tbRecibosEmisiones.TipoEmision=4"
+    If Me.lstMeses <> 0 Then strSQL = strSQL & " AND Month(FechaEmision)= " & Me.lstMeses
+    If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND Year(FechaEmision)= " & Me.txtAño2
+    Me.lstRemesas.RowSource = strSQL
+    Carga_lstRecibos
+End Sub
+
+Public Sub Carga_lstRecibos()
+    Dim strSQL As String
+    strSQL = "SELECT tbRecibos.NUMRECIBO, tbParcelas.NombreParcela, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, Format([Cantidad],'currency') AS Importe, tbFichasPagosPrevistos.NumRecibo as [Nº Recibo], tbFacturasCab.NumeroDeFactura, IIf(IsNull(Dlookup('IdEnvioEmail','tbEnviosEmail','IdFactura = ' & Nz(tbFichasPagosPrevistos.IdFactura,0))),'-','X') AS Email "
+    strSQL = strSQL & " FROM ((tbFichasCab LEFT JOIN tbParcelas ON tbFichasCab.IdFichaCab = tbParcelas.IdFicha) RIGHT JOIN ((tbFichasPagosPrevistos LEFT JOIN tbFacturasCab ON tbFichasPagosPrevistos.IdFactura = tbFacturasCab.IdFactura) RIGHT JOIN tbRecibos ON tbFichasPagosPrevistos.NumRecibo = tbRecibos.NUMRECIBO) ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab) INNER JOIN tbRecibosEmisiones ON tbRecibos.IdReciboEmision = tbRecibosEmisiones.IdReciboEmision"
+    strSQL = strSQL & " WHERE tbRecibosEmisiones.TipoEmision=4"
+    If Me.lstRemesas.ListIndex <> -1 Then
+        strSQL = strSQL & " AND tbRecibos.IdReciboEmision = " & Me.lstRemesas
+    Else
+        If Me.lstMeses <> 0 Then
+            If Me.mrcFecha_EC = 1 Then
+                strSQL = strSQL & " AND Month(FechaEmision)= " & Me.lstMeses
+                If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND Year(FechaEmision)= " & Me.txtAño2
+            Else
+                strSQL = strSQL & " AND Month(FechaCargo)= " & Me.lstMeses
+                If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND Year(FechaCargo)= " & Me.txtAño2
+            End If
+        End If
+    End If
+    
+    strSQL = strSQL & " ORDER BY [NombreCliente] & ' ' & [ApellidosCliente];"
+    Me.lstRecibos.RowSource = strSQL
+End Sub
+
+Public Sub Carga_lstRecibos_old()
+    Dim strSQL As String
+    strSQL = "SELECT tbRecibos.NUMRECIBO, tbParcelas.NombreParcela, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, Format([Cantidad],'currency') AS Importe, tbFichasPagosPrevistos.NumRecibo as [Nº Recibo], tbFacturasCab.NumeroDeFactura"
+    strSQL = strSQL & " FROM tbRecibosEmisiones RIGHT JOIN (((tbFichasCab LEFT JOIN tbParcelas ON tbFichasCab.IdFichaCab = tbParcelas.IdFicha) RIGHT JOIN (tbFichasPagosPrevistos LEFT JOIN tbFacturasCab ON tbFichasPagosPrevistos.IdFactura = tbFacturasCab.IdFactura) ON tbFichasCab.IdFichaCab = tbFichasPagosPrevistos.IdFichaCab) RIGHT JOIN tbRecibos ON tbFichasPagosPrevistos.NumRecibo = tbRecibos.NUMRECIBO) ON tbRecibosEmisiones.IdReciboEmision = tbRecibos.IdReciboEmision"
+    strSQL = strSQL & " WHERE tbRecibosEmisiones.TipoEmision=4"
+    If Me.lstMeses <> 0 Then strSQL = strSQL & " AND Month(FechaCargo)= " & Me.lstMeses
+    If Nz(Me.txtAño2, "") <> "" Then strSQL = strSQL & " AND Year(FechaCargo)= " & Me.txtAño2
+    If Me.lstRemesas.ListIndex <> -1 Then strSQL = strSQL & " AND tbRecibos.IdReciboEmision = " & Me.lstRemesas
+    strSQL = strSQL & " ORDER BY [NombreCliente] & ' ' & [ApellidosCliente];"
+    Me.lstRecibos.RowSource = strSQL
+End Sub
+Private Sub btnReciboAdd_Click()
+On Error GoTo Err_btnReciboAdd_Click
+    Dim intR As Integer, iCont As Integer, vIt As Variant
+    iCont = Me.lstPP.ItemsSelected.Count
+    If iCont = 0 Then
+        MsgBox "No se han seleccionado pagos a añadir"
+        Exit Sub
+    End If
+    If Me.lstRemesas.ListIndex = -1 Then
+        MsgBox "No se ha seleccionado Remesa donde añadir recibos"
+        Exit Sub
+    End If
+    intR = MsgBox("¿Añadir " & IIf(iCont = 1, "el recibo seleccionado", "los " & iCont & " recibos seleccionados") & " a la Remesa " & Me.lstRemesas & "?", vbOKCancel + vbQuestion)
+    If intR = vbCancel Then Exit Sub
+    
+    For Each vIt In Me.lstPP.ItemsSelected
+        AñadirReciboDePagoP Me.lstPP.Column(0, vIt), Me.lstRemesas
+    Next vIt
+    Me.lstRecibos.Requery
+
+Exit_btnReciboAdd_Click:
+    Exit Sub
+
+Err_btnReciboAdd_Click:
+    MsgBox Err.Description
+    Resume Exit_btnReciboAdd_Click
+    
+End Sub

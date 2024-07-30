@@ -1,0 +1,1190 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Public glngAnchoGrid As Long
+    Dim gShift As Integer
+    Dim glngIdFichaCabMove As Long, gstrParcelaD As String, gdtFechaD As Date
+    
+Private Sub btnF1_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnF1_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnF2_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnF2_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnF3_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnF3_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnF4_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnF4_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnFromXML_Click()
+    DoCmd.Hourglass True
+    Me.Grid0.LoadFromXML DirectorioDe(CurrentDb.Name) & "GRID.xml"
+    'GridLoadFromPlani Me.Grid0, CDate(Me.txtFechaIni)
+    DoCmd.Hourglass False
+    'Me.Grid0.Refresh
+End Sub
+
+Private Sub btnHOY_Click()
+    Me.txtFechaIni = Date - 1
+    Call txtFechaIni_AfterUpdate
+End Sub
+
+Private Sub btnOpciones_Click()
+    PonValorParam "PlanningPreferido", Me.Name
+    DoCmd.OpenForm "frmParametrosPlaning", , , , , acDialog
+    Call txtFechaIni_AfterUpdate
+End Sub
+
+Private Sub btnPlanning_Click()
+    DoCmd.OpenForm "frmPlaning"
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnPlanoCamping_Click()
+    DoCmd.OpenForm "frmPlano"
+End Sub
+
+Private Sub btnPrint_Click()
+    Dim lngIdGrupoPL As Long
+    lngIdGrupoPL = Nz(BuscaAyuda("GPL", DameValorParam("ImprimirPlaningIdGrupoPl"), 0), 0)
+    If lngIdGrupoPL = 0 Then Exit Sub
+    PonValorParam "ImprimirPlaningIdGrupoPl", lngIdGrupoPL, 4
+    DoCmd.OpenReport "rptPlanningH", acViewPreview
+End Sub
+
+Private Sub btnResize_Click()
+    Dim lngW As Long, lngH As Long, lngWW As Long, lngHH As Long, lngW1 As Long, intCols As Integer
+    lngW1 = Nz(DameValorParam("PlanningGAnchoCol1"), 100) * 15
+    'lngW = Nz(DameValorParam("PlanningGAnchoCols"), 55) * 15
+    lngH = Nz(DameValorParam("PlanningGAltoRows"), 18) * 15
+    intCols = Nz(DameValorParam("PlanningGNumCols"), 15)
+    lngWW = Me.Grid0.Width: lngHH = Me.Grid0.Height
+    lngW = ((lngWW - lngW1) \ intCols) \ 15
+    PonValorParam "PlanningGAnchoCols", lngW, 4
+    If gShift And acCtrlMask Then
+        lngH = (lngHH \ Me.Grid0.Rows) \ 15
+        PonValorParam "PlanningGAltoRows", lngH, 4
+    End If
+    Call txtFechaIni_AfterUpdate
+End Sub
+
+Private Sub btnResize_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnResize_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnSelFecha_Click()
+    Me.txtFechaIni = Nz(adhDoCalendar(Me.txtFechaIni), Me.txtFechaIni)
+    Call txtFechaIni_AfterUpdate
+End Sub
+
+Private Sub btnSemanaMas_Click()
+    On Error GoTo HandleError
+    Me.txtFechaIni = CDate(Me.txtFechaIni) + Nz(Me.txtSaltoDias, 7)
+    Call txtFechaIni_AfterUpdate
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnSemanaMenos_Click()
+    On Error GoTo HandleError
+    Me.txtFechaIni = CDate(Me.txtFechaIni) - Nz(Me.txtSaltoDias, 7)
+    Call txtFechaIni_AfterUpdate
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnToXML_Click()
+    Me.Grid0.ExportToXML DirectorioDe(CurrentDb.Name) & "GRID.xml"
+End Sub
+
+Private Sub cmbTipo_AfterUpdate()
+    'CargarPlanningH Nz(Me.txtFechaIni, Date), Me.subfrmPlanning.Form, Me.cmbTipo
+End Sub
+
+Private Sub btnUpdatePR_Click()
+    On Error GoTo HandleError
+    Dim cW As New CWired, dtD As Date, dtH As Date, intCols As Integer, iYa As Integer
+    dtD = CDate(Me.txtFechaIni)
+    If dtD < Date Then dtD = Date
+    intCols = Nz(DameValorParam("PlanningGNumCols"), 15)
+    dtH = dtD + intCols - 1
+    cW.GetToken
+    If Me.Planing_pid = 0 Then
+        cW.FetchRoomsValues dtD, dtD + intCols - 1
+        iYa = True
+    Else
+        cW.FetchPlanPrices Me.Planing_pid, dtD, dtH
+    End If
+    If Me.Planing_rpid = 0 Then
+        If Not iYa Then cW.FetchRoomsValues dtD, dtD + intCols - 1
+    Else
+        Dim vRPid As Variant, vRpids As Variant
+        vRPid = Array("int", Me.Planing_rpid)
+        vRpids = Array(vRPid)
+        cW.FetchRPlanValues vRpids, dtD, dtH
+    End If
+    cW.ReleaseToken
+    Me.lblRecargaParcelas.Caption = "{{IdRooms}}"
+    If Nz(DameValorParam("CeldaTipoParcela_to_PlaningSN"), False) = True Then
+        Dim dt As Date, rs As Recordset, y As Long, z As Long
+        Set rs = CurrentDb.OpenRecordset("Select IdTipoParcela FROM tbParcelasTipo WHERE ControlReservas", dbOpenSnapshot)
+        If Not rs.EOF Then
+            rs.MoveLast
+            rs.MoveFirst
+        End If
+        z = rs.RecordCount * (dtH - dtD + 1)
+        DoCmd.Hourglass True
+        While Not rs.EOF
+            For dt = dtD To dtH
+                y = y + 1
+                SysCmd acSysCmdSetStatus, "CeldaTipoParcela_to_Planing " & y & "/" & z
+                CeldaTipoParcela_to_Planing rs("IdTipoParcela"), dt
+            Next dt
+            rs.MoveNext
+            
+        Wend
+        DoCmd.Hourglass False
+        SysCmd acSysCmdClearStatus
+    End If
+    CargaPlaningFechas CDate(Me.txtFechaIni), True
+HandleExit:
+    DoCmd.Hourglass False
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnWubook_Click()
+    DoCmd.OpenForm "frmWuBookReservations", , , , , acDialog
+End Sub
+
+Private Sub Form_Activate()
+    Dim intFCol As Integer, intFRow As Integer
+    Dim intLCol As Integer, intLRow As Integer
+    intFRow = Me.Grid0.Selection.FirstRow
+    intFCol = Me.Grid0.Selection.FirstCol
+    intLRow = Me.Grid0.Selection.LastRow
+    intLCol = Me.Grid0.Selection.LastCol
+    CargaPlaningFechas CDate(Me.txtFechaIni), True
+    SeleccionaCeldasIdFichaCab Me.Grid0, CLng(Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), 0))
+    Grid0.Range(intFRow, intFCol, intLRow, intLCol).Selected
+    'Me.lblHoyEs.Caption = "Hoy es " & Format(Date, "dd/mm/yyyy")
+End Sub
+
+Public Sub Form_Load()
+    On Error GoTo HandleError
+    LiberarCeldasBloqueadasPlaning
+    Me.lblRecargaParcelas.Caption = "*"
+    Carga_Btns Me
+    CargarParam Me, Me.Name
+    Me.Planing_pid = Nz(DameValorParam("Planing_pid"), 0)
+    Me.Planing_rpid = Nz(DameValorParam("Planing_rpid"), 0)
+    Me.Planing_VerPreciosYRestricciones = Nz(DameValorParam("Planing_VerPreciosYRestricciones"), False)
+    Me.btnSemanaMas.ControlTipText = Me.txtSaltoDias & " días adelante"
+    Me.btnSemanaMenos.ControlTipText = Me.txtSaltoDias & " días atrás"
+    Me.txtFechaIni = Nz(DameValorParam("PlaningH_FechaIni"), Date)
+    CargaPlaningFechas CDate(Me.txtFechaIni), True
+    'If g_SincroAH And Nz(DameValorParam("SincroAH_SincroSN"), False) = True Then
+    '    Me.TimerInterval = Nz(DameValorParam("SincroAH_Intervalo"), 60000)
+    '    Call Form_Timer
+    'Else
+    '    Me.TimerInterval = 0
+    'End If
+    'Me.btnWubook.Visible = g_SincroWB
+    Call Planing_VerPreciosYRestricciones_Click
+    
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    On Error GoTo HandleError
+    Dim strXML As String, strFechaIni As String
+    strXML = Nz(Me.OpenArgs, "")
+    strFechaIni = Nz(DimeXML(strXML, "FechaInicio"), "")
+    If strFechaIni = "" Then
+        Me.txtFechaIni = Date - 1
+    Else
+        Me.txtFechaIni = strFechaIni
+    End If
+    DoCmd.Maximize
+    Me.Width = Me.WindowWidth - 250
+    Me.Grid0.Width = Me.Width - Me.Grid0.Left
+    Me.Detalle.Height = Me.WindowHeight - 500
+    Me.Grid0.Height = Me.Detalle.Height - Me.Grid0.Top
+    Me.btnSalir.Left = Me.Grid0.Left + Me.Grid0.Width - Me.btnSalir.Width
+    Me.btnOpciones.Left = Me.btnSalir.Left - Me.btnOpciones.Width
+    Me.btnResize.Left = Me.btnOpciones.Left - Me.btnResize.Width
+    Me.btnPrint.Left = Me.btnResize.Left - Me.btnPrint.Width
+    Me.btnPlanning.Left = Me.btnPrint.Left - Me.btnPlanning.Width
+    Me.btnIrAFicha.Left = Me.btnPlanning.Left - Me.btnIrAFicha.Width
+    Dim dt As Date, i As Integer
+    For i = 1 To 4
+        dt = Nz(DameValorParam("BotonF" & i), 0)
+        If dt > 0 Then
+            Me("btnF" & i).Caption = Format(dt, "dd mmm yy")
+        End If
+    Next i
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Timer()
+    'Call Form_Timer_FRM(Me)
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    PonValorParam "PlanningPreferido", Me.Name
+    ComprobarParam Me, Cancel, False, Me.Name
+End Sub
+
+Private Sub Grid0_ButtonClick(ByVal Row As Long, ByVal col As Long)
+    MsgBox "Row: " & Row & vbCrLf & "Col: " & col
+End Sub
+
+Private Sub Grid0_KeyDown(KeyCode As Integer, ByVal Shift As Integer)
+    If (Shift And acCtrlMask) Or (Shift And acShiftMask) Or (Shift And acAltMask) Then Exit Sub
+    If KeyCode = vbKeyReturn Then Call Grid0_Click
+End Sub
+
+Private Sub lbl_Click()
+    If (Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), "0") = "0") Then Exit Sub
+    If (Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), "0") = "-1") Then
+        Dim strXML As String
+        PonXML strXML, "SoloNuevasReservas", "SI"
+        DoCmd.OpenForm "frmSincroAH", , , , , acDialog, strXML
+        Call Form_Activate
+        Exit Sub
+    End If
+    'If CLng(Me.lbl.Tag) <= 0 Then Exit Sub
+    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & DimeXML(Me.lbl.Tag, "IdFichaCab"), , , "Mod"
+    '''CargarPlanning Me.cmbMes, Me.txtAño, Me.subfrmPlanning.Form, Me.cmbGrupo, True
+End Sub
+
+Private Sub lbl_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Me.lbl.SpecialEffect = 2
+End Sub
+
+Private Sub lbl_MouseUp(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Me.lbl.SpecialEffect = 1
+End Sub
+
+Private Sub Planing_pid_AfterUpdate()
+    PonValorParamAC
+    Me.lblRecargaParcelas.Caption = "{{IdRooms}}"
+    CargaPlaningFechas Nz(Me.txtFechaIni, Date), True
+End Sub
+
+Private Sub Planing_rpid_AfterUpdate()
+    PonValorParamAC
+    Me.lblRecargaParcelas.Caption = "{{IdRooms}}"
+    CargaPlaningFechas Nz(Me.txtFechaIni, Date), True
+End Sub
+
+Private Sub Planing_VerPreciosYRestricciones_AfterUpdate()
+    PonValorParamAC
+    Me.lblRecargaParcelas.Caption = "*"
+    CargaPlaningFechas Nz(Me.txtFechaIni, Date), True
+End Sub
+
+Private Sub Planing_VerPreciosYRestricciones_Click()
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "_WB") > 0 Then
+            If InStr(ctl.Tag, "_WB+Precios") > 0 Then
+                ctl.Visible = g_SincroWB And Me.Planing_VerPreciosYRestricciones
+            Else
+                ctl.Visible = g_SincroWB
+            End If
+        End If
+    Next ctl
+End Sub
+
+Public Sub txtFechaIni_AfterUpdate()
+    'Fichas_to_planing_all True  ' no tiene que ver con la fecha, es para cerciorarns que se eliminan celdas ocupadas por fichas ya borradas....
+    CurrentDb.Execute "DELETE * FROM auxPlanning_lbl", dbFailOnError
+    Me.lblRecargaParcelas.Caption = "*"
+    CargaPlaningFechas Nz(Me.txtFechaIni, Date), True
+    PonValorParam "PlaningH_FechaIni", CDate(Me.txtFechaIni), 8
+    SeleccionaCeldasIdFichaCab Me.Grid0, CLng(Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), 0))
+End Sub
+
+
+Public Sub CargaPlaningFechas(dt As Date, Optional intCargaParcelas As Integer = False)
+    On Error GoTo HandleError
+    Dim grd As Object, intCols As Integer, intSinTipos As Integer, intSoloControlReservas As Integer
+    intCols = Nz(DameValorParam("PlanningGNumCols"), 15)
+    intSinTipos = Nz(DameValorParam("PlanningGSinTipos"), False)
+    intSoloControlReservas = Nz(DameValorParam("PlaningGSoloParcelasControlReservas"), False)
+    Set grd = Me.Grid0
+    Me.txtFechaIni.SetFocus
+    grd.Visible = False
+    DoCmd.Hourglass True
+    If False Then ' es muy lento actualizar esto cada vez que se activa el planing o se cambian fechas
+        Dim cWi As New CWired, lngpid As Long, lngrpid As Long
+        If cWi.GetToken Then
+            cWi.FetchRoomsValues dt, dt + intCols - 1
+            lngpid = Nz(DameValorParam("Planing_pid"), 0)
+            If lngpid <> 0 Then cWi.FetchPlanPrices lngpid, dt, dt + intCols - 1
+            lngrpid = Nz(DameValorParam("Planing_rpid"), 0)
+            If lngrpid <> 0 Then
+                Dim vRPid As Variant, vRpids As Variant
+                vRPid = Array("int", lngrpid)
+                vRpids = Array(vRPid)
+                cWi.FetchRPlanValues vRpids, dt, dt + intCols - 1, True
+            End If
+            cWi.ReleaseToken
+        End If
+    End If
+    If Me.lblRecargaParcelas.Caption = "*" Then
+        Debug.Print "CargaGridVacio Ini: "; Format(Now(), "hh:nn:ss")
+        Call CargaGridVacio(grd, dt, intCols)
+        Debug.Print "CargaGridFichas Ini: "; Format(Now(), "hh:nn:ss")
+        CargaGridFichas Me.Grid0, dt, intCols
+        Debug.Print "CargaGridFichas Fin: "; Format(Now(), "hh:nn:ss")
+    Else
+        Debug.Print "RecargaGridFichas Ini: "; Format(Now(), "hh:nn:ss")
+        RecargaGridFichas Me.Grid0, dt, Me.lblRecargaParcelas.Caption, intCols
+        Debug.Print "RecargaGridFichas Fin: "; Format(Now(), "hh:nn:ss")
+    End If
+    Me.lblRecargaParcelas.Caption = ""
+    Me.Grid0.FrozenCols = 1
+    Me.Grid0.FrozenRows = 0
+    DoCmd.Hourglass False
+    grd.Visible = True
+Exit Sub
+    
+    
+    Dim strGridXML As String
+    SysCmd acSysCmdSetStatus, "Generando GridXML"
+    strGridXML = GeneraGridXML(dt)
+    SysCmd acSysCmdSetStatus, "Cargando GridXML"
+    Me.Grid0.LoadFromXMLString (strGridXML)
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+    'Call RangeSample
+    'Call ChartSample
+    'Exit Sub
+    If intCargaParcelas Then Call CargaPlaningParcelas
+    Dim i As Integer, j As Integer
+    Dim strSQL As String, rs As Recordset, strAntTipo As String
+    With Me.Grid0
+        .Cols = 1
+        .Cols = 16
+        '.Rows = 1
+
+        .AllowUserResizing = False
+        .AllowUserSort = False
+        .DisplayFocusRect = True
+        .DisplayRowIndex = False
+        '.SelectionMode = cellSelectionNone
+        
+        .Column(0).Width = 100
+        For i = 1 To 15
+            .Column(i).Width = 55
+            If Weekday(dt + i - 1) = vbSunday Then
+                .cell(0, i).ForeColor = vbRed
+                '.Col(i).BorderColor = vbRed
+            ElseIf Weekday(dt + i - 1) = vbSaturday Then
+                .cell(0, i).ForeColor = vbBlue
+            End If
+            .cell(0, i).text = Format(dt + i - 1, "dd/mm/yy")
+        Next i
+    End With
+    'Actualizar_auxPlanning dt, dt + 15
+    CargaPlaningFichas dt
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Sub CargaPlaningParcelas()
+    Dim i As Integer, j As Integer
+    Dim strSQL As String, rs As Recordset, strAntTipo As String, rs2 As Recordset
+    With Me.Grid0
+        '.Cols = 16
+        .Rows = 1
+    End With
+    strSQL = "SELECT tbParcelasTipo.TipoParcela, tbParcelas.NombreParcela"
+    strSQL = strSQL & " FROM tbParcelasTipo LEFT JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+    strSQL = strSQL & " ORDER BY BungalowSN, tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela, tbParcelas.Orden;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    CurrentDb.Execute "DELETE * FROM auxPlanningParcelasFilas", dbFailOnError
+    Set rs2 = CurrentDb.OpenRecordset("auxPlanningParcelasFilas", dbOpenDynaset)
+    i = 0
+    While Not rs.EOF
+        
+        If strAntTipo <> rs("TipoParcela") Then
+            i = i + 1
+            'Me.Grid0.InsertRow i, 1
+            'Me.Grid0.Refresh
+            Me.Grid0.AddItem "" 'rs("TipoParcela")
+            Me.Grid0.cell(i, 0).text = rs("TipoParcela")
+            strAntTipo = rs("TipoParcela")
+            rs2.AddNew
+            rs2("Parcela") = rs("TipoParcela")
+            rs2("Fila") = i
+            rs2.Update
+            
+        End If
+        'Me.Grid0.InsertRow i, 1
+        'Me.Grid0.Refresh
+        If Not IsNull(rs("NombreParcela")) Then
+            i = i + 1
+            Me.Grid0.AddItem "" 'rs("NombreParcela")
+            Me.Grid0.cell(i, 0).text = rs("NombreParcela")
+            rs2.AddNew
+            rs2("Parcela") = rs("NombreParcela")
+            rs2("Fila") = i
+            rs2.Update
+        End If
+        
+        rs.MoveNext
+    Wend
+
+End Sub
+
+Public Sub CargaPlaningFichas(dtIni As Date)
+    On Error GoTo Error_CargaPlaningFichas
+    Dim i As Integer, j As Integer, obCell As Object, obRange As Object
+    Dim strSQL As String, rs As Recordset, rs2 As Recordset, strAntTipo As String
+    Dim strXML As String
+    Dim strAntParcela As String, lngAntIdFichaCab As Long, dtAntDia As Date, lngBColor As Long
+    Dim intAntFila As Integer, y As Long, z As Long
+    Dim intNumFichas As Integer
+    DoCmd.Hourglass True
+    
+    
+    With Me.Grid0
+'        Set obRange = .Range(1, 1, .Rows, .Cols)
+'        obRange.MergeCells = False
+        For i = 1 To .Rows - 1
+            For j = 1 To .Cols - 1
+                .cell(i, j).text = ""
+                .cell(i, j).Tag = ""
+                .cell(i, j).BackColor = vbWhite
+                SysCmd acSysCmdSetStatus, "Borrando Celda " & i & ", " & j
+            Next j
+        Next i
+        SysCmd acSysCmdClearStatus
+        '.Cols = 16
+        '.Rows = 1
+    End With
+    strSQL = "SELECT * FROM auxPlanning2 ORDER BY Parcela, IdFichaCab, Dia"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rs2 = CurrentDb.OpenRecordset("auxPlanningParcelasFilas", dbOpenSnapshot)
+    i = 0
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        If strAntParcela = rs("Parcela") And lngAntIdFichaCab = rs("IdFichaCab") And dtAntDia + 1 = rs("Dia") Then
+            Me.Grid0.Range(intAntFila, rs("Dia") - dtIni, intAntFila, rs("Dia") - dtIni + 1).MergeCells = True
+            GoTo Segi
+        End If
+        rs2.FindFirst "Parcela = '" & rs("Parcela") & "'"
+        If Not rs2.NoMatch Then
+            Set obCell = Me.Grid0.cell(rs2("Fila"), rs("Dia") - dtIni + 1)
+            obCell.text = DimeFichayColor(rs("IdFichaCab"), lngBColor)
+            strXML = ""
+            PonXML strXML, "IdFichaCab", rs("IdFichaCab")
+            obCell.Tag = strXML
+            obCell.BackColor = lngBColor
+        Else
+            If Left(rs("Parcela"), 1) = "*" Then
+                rs2.FindFirst "Parcela = '" & Trim(Mid(rs("Parcela"), 2)) & "'"
+                If Not rs2.NoMatch Then
+                    Set obCell = Me.Grid0.cell(rs2("Fila"), rs("Dia") - dtIni + 1)
+                    If Not IsNumeric(obCell.text) Then
+                        obCell.text = rs("Cantidad")
+                    Else
+                        obCell.text = CCur(obCell.text) + rs("Cantidad")
+                    End If
+                    'obCell.Text = obCell.Text & " + " & rs("Cantidad")
+                    strXML = obCell.Tag
+                    PonXML strXML, "IdFichaCab", rs("IdFichaCab")
+                    intNumFichas = Nz(DimeXML(strXML, "NumFichas"), 0) + 1
+                    PonXML strXML, "NumFichas", intNumFichas, True
+                    obCell.Tag = strXML
+                Else
+                    MsgBox "Que pasa"
+                End If
+            ElseIf Left(rs("Parcela"), 1) = "#" Then
+                MsgBox "Parcela " & Mid(rs("Parcela"), 3) & " asignada y ocupada el día " & rs("Dia") & vbCrLf & "Ficha: " & rs("IdFichaCab")
+            End If
+        End If
+Segi:
+        strAntParcela = rs("Parcela")
+        If Left(rs("Parcela"), 1) = "*" Then strAntParcela = ""
+        lngAntIdFichaCab = rs("IdFichaCab")
+        dtAntDia = rs("Dia")
+        intAntFila = rs2("Fila")
+        rs.MoveNext
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "CargaPlaningFichas " & y & "/" & z
+    Wend
+    Me.Grid0.Refresh
+Salir_CargaPlaningFichas:
+    DoCmd.Hourglass False
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+Error_CargaPlaningFichas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaPlaningFichas" & vbCrLf & Err.Description
+            Resume Salir_CargaPlaningFichas
+    End Select
+End Sub
+
+Private Function RangeSample()
+Dim grid1 As Object
+    Set grid1 = Me.Grid0
+    grid1.NewFile
+    grid1.Rows = 31
+    grid1.Cols = 6
+
+    With grid1.cell(0, 1)
+        .text = "Range Object Example"
+        .Alignment = cellCenterCenter
+    End With
+    
+    With grid1.Range(0, 1, 30, 5)
+        .Borders(cellEdgeLeft) = cellThick
+        .Borders(cellEdgeRight) = cellThick
+        .Borders(cellEdgeTop) = cellThick
+        .Borders(cellEdgeBottom) = cellThick
+        .Borders(cellInsideHorizontal) = cellThin
+        .Borders(cellInsideVertical) = cellThin
+        .BackColor = vbYellow
+    End With
+    
+    With grid1.Range(0, 1, 0, 5)
+        .MergeCells = True 'Or call Merge Method directly
+        .Borders(cellEdgeBottom) = cellThick
+        .Borders(cellEdgeRight) = cellThick
+        .BackColor = &HE0E0E0
+        .Locked = True
+    End With
+End Function
+
+
+Private Sub ChartSample()
+    Dim i As Long
+    Dim grid1 As Object
+    Set grid1 = Me.Grid0
+    
+    With grid1
+        'Set number of rows and columns
+        .Rows = 7
+        .Cols = 8
+        
+        'Set row height and column width
+        .RowHeight(1) = 30
+        .RowHeight(6) = 180
+        
+        For i = 1 To 7
+            .Column(i).Width = 70
+        Next i
+        
+        'Set cell text
+        .cell(1, 1).text = "Telephone  Expenditure Statistics for the First Half of 2003"
+        .cell(2, 1).text = "Month"
+        
+        .cell(3, 1).text = "Call Fee"
+        .cell(4, 1).text = "Internet Charge"
+        
+        .cell(2, 2).text = "Jan"
+        .cell(2, 3).text = "Feb"
+        .cell(2, 4).text = "Mar"
+        .cell(2, 5).text = "Apr"
+        .cell(2, 6).text = "May"
+        .cell(2, 7).text = "Jun"
+        
+        .cell(3, 2).text = "198"
+        .cell(3, 3).text = "1280"
+        .cell(3, 4).text = "156"
+        .cell(3, 5).text = "156"
+        .cell(3, 6).text = "98"
+        .cell(3, 7).text = "100"
+        
+        .cell(4, 2).text = "50"
+        .cell(4, 3).text = "86"
+        .cell(4, 4).text = "160"
+        .cell(4, 5).text = "136"
+        .cell(4, 6).text = "190"
+        .cell(4, 7).text = "196"
+        
+        'Add a 3D Line Chart and set thin line border
+        With .Range(6, 1, 6, 7)
+            .Merge
+            .Borders(cellEdgeLeft) = cellThin
+            .Borders(cellEdgeRight) = cellThin
+            .Borders(cellEdgeTop) = cellThin
+            .Borders(cellEdgeBottom) = cellThin
+        End With
+        
+        .AddChart 6, 1
+        
+        With .Chart(6, 1)
+            .PlotBy = cellRows
+            .SetDataSource 2, 1, 4, 7
+            .ChartType = cell3DLine
+        End With
+                
+        .Range(1, 1, 1, 7).Merge
+        .Refresh
+    End With
+End Sub
+
+Public Function DimeFichayColor(lngIdFichaCab As Long, ByRef lngBColor As Long) As String
+    Dim rs As Recordset, strSQL As String, strR As String
+    strSQL = "SELECT ConfirmadaReserva, EstadoFicha, IdFichaCab, NombreCliente, ApellidosCliente, LocalidadCliente, Notas"
+    strSQL = strSQL & " FROM tbFichasCab"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        'strR = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "-->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & "-->" & rs("Notas"), 0, 250)
+        strR = IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "-->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & "-->" & rs("Notas")
+    End If
+    Select Case rs("EstadoFicha")
+        Case 10
+            lngBColor = G_lngColorFijos
+        Case 1
+            lngBColor = G_lngColorReservas
+        Case 2
+            lngBColor = G_lngColorActuales
+        Case 3
+            lngBColor = G_lngColorFacturaPreparada
+        Case 4
+            lngBColor = G_lngColorPagadoConCliente
+        Case 5
+            lngBColor = G_lngColorAntigua
+        Case 6
+            lngBColor = G_lngColorLimpieza
+        Case 9
+            lngBColor = G_lngColorCancelada
+    End Select
+    DimeFichayColor = strR
+End Function
+
+Private Sub Grid0_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+   'MensajeBusyBox "DOWN" & vbCrLf & _
+                   "Button:." & Button & vbCrLf & _
+                   "Shift:.." & Shift & vbCrLf & _
+                   "X:......" & x & vbCrLf & _
+                   "Y:......" & y, , True
+End Sub
+
+Private Sub Grid0_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    'MensajeBusyBox "MOVE" & vbCrLf & _
+                   "Button:." & Button & vbCrLf & _
+                   "Shift:.." & Shift & vbCrLf & _
+                   "X:......" & x & vbCrLf & _
+                   "Y:......" & y, , True
+End Sub
+
+Private Sub Grid0_MouseUp(Button As Integer, Shift As Integer, X As Single, y As Single)
+    'MensajeBusyBox "UP" & vbCrLf & _
+                   "Button:." & Button & vbCrLf & _
+                   "Shift:.." & Shift & vbCrLf & _
+                   "X:......" & x & vbCrLf & _
+                   "Y:......" & y, , True
+End Sub
+
+Public Sub Grid0_Click()
+    On Error GoTo HandleError
+    Dim strXML As String, intNumFichasN As Integer, intNumFichasS As Integer, intNumFichas As Integer, i As Integer
+    Dim strSQL As String, lngIdFicha As Long, intR As Integer, lngIdTipoParcela As Long
+    Dim obCell As Object, obCellH As Object
+    Dim intNumFichasOB As Integer
+    Dim dtD As Date, dtH As Date, strParcela As String
+    Dim lngIdFichaCab As Long
+    Dim strMSG As String, dtSalida As Date, dtEntrada As Date
+    Dim lngIdPl As Long, intTipoParcelaSN As Integer
+    If Screen.MousePointer <> 1 Then Screen.MousePointer = 1
+    'strXML = Nz(Me.Grid0.ActiveCell.Tag, "")
+    strParcela = Me.Grid0.cell(Me.Grid0.Selection.FirstRow, 0).text
+    i = InStr(strParcela, " (")
+    If i > 1 Then strParcela = Left(strParcela, i - 1)
+    With Me.Grid0
+        Set obCell = .cell(.Selection.FirstRow, .Selection.FirstCol)
+        Set obCellH = .cell(.Selection.LastRow, .Selection.LastCol)
+    End With
+    dtD = gdtFechaDesdeFlexCell + obCell.col - 1
+    dtH = gdtFechaDesdeFlexCell + obCellH.col - 1
+    
+     '1. En caso de tratarse de una celda de Tipo de parcela con varias fichas presentes se selecciona una
+    'strXML = Nz(obCell.Tag, "")
+    'intNumFichasN = Nz(DimeXML(strXML, "NumFichasN"), 0)
+    'intNumFichasS = Nz(DimeXML(strXML, "NumFichasS"), 0)
+    'intNumFichasOB = Nz(DimeXML(strXML, "NumFichasOB"), 0)
+    'intNumFichas = intNumFichasN + intNumFichasS + intNumFichasOB
+    lngIdPl = Nz(DimeXML(Nz(obCell.Tag, ""), "IdPl"), 0)
+    'If intNumFichas > 0 Then
+    If lngIdPl > 0 Then
+        intTipoParcelaSN = Nz(DimeXML(Nz(obCell.Tag, ""), "TipoParcelaSN"), "S") = "S"
+        If intTipoParcelaSN = True Then
+            strSQL = "SELECT tbPlaningF.IdFichaCab, tbFichasCab.IdFichaCab as Ficha, [ApellidosCliente] & ' ' &  [NombreCliente] AS Cliente, FechaLlegada as Entrada, IIf([tbPlaning].[Parcela]='-','X','->...') AS Asig"
+            strSQL = strSQL & ", Iif(FechaLlegada = " & CLng(dtD) & ",'E','-') as Entra, Iif(tbFichasCab.EstadoFicha = 1 AND tbFichasCab.ConfirmadaReserva=False, '?', Iif(tbFichasCab.EstadoFicha = 1,'X','-')) as Confir, Iif(tbFichasCab.EstadoFicha = 9, 'X', '-') as Canc"
+            strSQL = strSQL & " FROM (tbPlaning AS tbPlaning_1 INNER JOIN (tbPlaning INNER JOIN tbPlaningF ON tbPlaning.IdPl = tbPlaningF.IdPl) ON (tbPlaning_1.Dia = tbPlaning.Dia) AND (tbPlaning_1.IdTipoParcela = tbPlaning.IdTipoParcela)) INNER JOIN tbFichasCab ON tbPlaningF.IdFichaCab = tbFichasCab.IdFichaCab"
+            strSQL = strSQL & " WHERE tbPlaning_1.IdPl = " & lngIdPl
+            strSQL = strSQL & " UNION SELECT TOP 1 -1 as id, '' as fi, '--> Nueva reserva' AS Cl, 'Nueva' as en, '' as Asig"
+            strSQL = strSQL & ", '-' as Entra, '-' as Confir, '' as Canc"
+            strSQL = strSQL & " FROM tbFichasCab"
+            strSQL = strSQL & " ORDER BY  Entrada DESC, tbPlaningF.IdFichaCab"
+        Else
+            strSQL = "SELECT tbPlaningF.IdFichaCab, tbFichasCab.IdFichaCab as Ficha, [ApellidosCliente] & ' ' &  [NombreCliente] AS Cliente, FechaLlegada as Entrada, IIf([tbPlaning].[Parcela]='-','X','->...') AS Asig"
+            strSQL = strSQL & ", Iif(FechaLlegada = " & CLng(dtD) & ",'E','-') as Entra, Iif(tbFichasCab.EstadoFicha = 1 AND tbFichasCab.ConfirmadaReserva=False, '?', 'X') as Confir, Iif(tbFichasCab.EstadoFicha = 9, 'X', '-') as Canc"
+            strSQL = strSQL & " FROM (tbPlaning INNER JOIN tbPlaningF ON tbPlaning.IdPl = tbPlaningF.IdPl) INNER JOIN tbFichasCab ON tbPlaningF.IdFichaCab = tbFichasCab.IdFichaCab"
+            strSQL = strSQL & " WHERE tbPlaning.IdPl = " & lngIdPl
+        End If
+        CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = " & ConComillas(strSQL) & " WHERE CodBusqueda = 'FIPLA'", dbFailOnError
+        lngIdFicha = Nz(BuscaAyuda("FIPLA", , 1), 0)
+        If lngIdFicha = -1 Then
+            lngIdFicha = NuevaFicha(Me.Grid0.Selection)
+        End If
+        If lngIdFicha <> 0 Then
+            If gShift And acCtrlMask Then
+                Set obCell = Me.Grid0.cell(Me.Grid0.Selection.FirstRow, 0)
+                strMSG = obCell.text
+                Set obCell = Me.Grid0.cell(0, Me.Grid0.Selection.FirstCol)
+                intR = MsgBox("¿Cambiar la reserva de habitación  " & strMSG & "-" & obCell.text & "?", vbOKCancel)
+                If intR = vbOK Then
+                    glngIdFichaCabMove = lngIdFicha
+                    gstrParcelaD = strParcela
+                    gdtFechaD = dtD
+                    'MsgBox "Hacer click en una celda libre indicando la habitación y día de entrada", vbInformation
+                    Screen.MousePointer = 7
+                    Me.Grid0.cell(Me.Grid0.Selection.FirstRow, Me.Grid0.Selection.FirstCol).ForeColor = vbRed
+                End If
+                Exit Sub
+            Else
+                AbrirFichaNum lngIdFicha
+            End If
+        End If
+        Me.lbl = ""
+        Me.lbl.Tag = ""
+        Me.lbl.BackColor = vbWhite
+        Exit Sub
+    End If
+    'fin 1.
+    
+    'Ver si hay overbooking
+    
+    'Ver si es celda de precios y restricciones de Wubook
+    Dim lngIdRoom As Long, strTag As String, strIdRooms As String, strRooms As String, iOp As Integer, vIdRooms As Variant, lngwbTablaID As Long, cWi As New CWired
+    strTag = Me.Grid0.cell(Me.Grid0.Selection.FirstRow, 0).Tag
+    lngIdRoom = Nz(DimeXML(strTag, "IdRoom"), 0)
+    If lngIdRoom <> 0 Then
+        For i = Me.Grid0.Selection.FirstRow To Me.Grid0.Selection.LastRow
+            strTag = Me.Grid0.cell(i, 0).Tag
+            lngIdRoom = Nz(DimeXML(strTag, "IdRoom"), 0)
+            If lngIdRoom <> 0 Then
+                strIdRooms = strIdRooms & lngIdRoom & ","
+                strRooms = strRooms & Me.Grid0.cell(i, 0).text & ", "
+            Else
+                Exit For
+            End If
+        Next i
+        If Len(strIdRooms) > 1 Then
+            strIdRooms = RecDerTop(strIdRooms, 1, 0)
+            strRooms = RecDerTop(strRooms, 2, 0)
+        End If
+        vIdRooms = Split(strIdRooms, ",")
+        intR = MsgBox("¿Modificar Precios o Restricciones en Wubook de las " & g_strPHs & ": " & strRooms & "?", vbOKCancel)
+        If intR = vbCancel Then GoTo HandleExit
+        Dim curPre As Currency, intMinStay As Integer, intMaxStay As Integer
+        Dim intDispon As Integer
+        If Me.Planing_pid = 0 Then
+            curPre = Nz(DLookup("price", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+            intMinStay = Nz(DLookup("min_stay", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+            intMaxStay = Nz(DLookup("max_stay", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+        Else
+            lngwbTablaID = Nz(DLookup("wbTablaID", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+            curPre = Nz(DLookup("Precio", "wbTabla_Precios", "wbTablaID = " & lngwbTablaID & " AND IdPricingPlan = " & Me.Planing_pid), 0)
+            intMaxStay = Nz(DLookup("max_stay", "wbTabla_Restricciones", "wbTablaID = " & lngwbTablaID & " AND IdRestrictionPlan = " & Me.Planing_rpid), 0)
+        End If
+        intDispon = Nz(DLookup("availH4", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+        PonXML strXML, "Precio", curPre
+        PonXML strXML, "MinStay", intMinStay
+        PonXML strXML, "MaxStay", intMaxStay
+        PonXML strXML, "Disponibilidad", intDispon
+        DoCmd.OpenForm "frmInputWbValues", , , , , acDialog, strXML
+        If IsOpenForm("frmInputWbValues") Then
+            Dim curPre2 As Currency, intMin2 As Integer, intMax2 As Integer, intDis2 As Integer
+            curPre2 = CCur(Forms("frmInputWbValues").txtPrecio)
+            intMin2 = CInt(Forms("frmInputWbValues").txtMinStay)
+            intMax2 = CInt(Forms("frmInputWbValues").txtMaxStay)
+            intDis2 = CInt(Forms("frmInputWbValues").txtDisponibilidad)
+            DoCmd.Close acForm, "frmInputWbValues"
+            cWi.GetToken
+            'If curPre2 <> curPre Then
+            cWi.UpdatePricesWb vIdRooms, Me.Planing_pid, dtD, dtH, curPre2, False
+            'If intMin2 <> intMinStay Then
+            cWi.UpdateRestrictionsWb vIdRooms, Me.Planing_rpid, dtD, dtH, "min_stay", intMin2, False
+            'If intMax2 <> intMaxStay Then
+            cWi.UpdateRestrictionsWb vIdRooms, Me.Planing_rpid, dtD, dtH, "max_stay", intMax2, False
+            'If intDis2 <> intDispon Then
+            cWi.ActualizaDisponibilidadWB vIdRooms, dtD, dtH, intDis2, False
+            PonValorParam "CeldaTipoParcela_to_PlaningSN", False, 1
+            Call btnUpdatePR_Click
+            PonValorParam "CeldaTipoParcela_to_PlaningSN", True, 1
+        End If
+        GoTo HandleExit
+                
+'
+'
+'        iOp = Nz(SeleccionDe("PR", "Seleccione opción", "Modificar valores en Wubook"), 0)
+'        If iOp = 0 Then GoTo HandleExit
+'        If iOp = 1 Then
+'            If Me.Planing_pid = 0 Then
+'                curPre = Nz(DLookup("price", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+'            Else
+'                lngwbTablaID = Nz(DLookup("wbTablaID", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+'                curPre = Nz(DLookup("Precio", "wbTabla_Precios", "wbTablaID = " & lngwbTablaID & " AND IdPricingPlan = " & Me.Planing_pid), 0)
+'            End If
+'            curPre = CCur(Nz(MyInputBox("Introduzca nuevo precio", "Nuevo Precio", CStr(curPre)), -1))
+'            If curPre = -1 Then GoTo HandleExit
+'            cWi.GetToken
+'            cWi.UpdatePricesWb vIdRooms, Me.Planing_pid, dtD, dtH, curPre, False
+'        ElseIf iOp <= 3 Then
+'            strCampo = IIf(iOp = 2, "min_stay", "max_stay")
+'            strEst = IIf(iOp = 2, "Mínima", "Máxima")
+'            If Me.Planing_rpid = 0 Then
+'                intNewValue = Nz(DLookup(strCampo, "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+'            Else
+'                lngwbTablaID = Nz(DLookup("wbTablaID", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+'                intNewValue = Nz(DLookup(strCampo, "wbTabla_Restricciones", "wbTablaID = " & lngwbTablaID & " AND IdRestrictionPlan = " & Me.Planing_rpid), 0)
+'            End If
+'            intNewValue = Nz(MyInputBox("Introduzca nueva estancia " & strEst, "Nueva Estancia " & strEst, CStr(intNewValue)), -1)
+'            If intNewValue = -1 Then GoTo HandleExit
+'            cWi.GetToken
+'            cWi.UpdateRestrictionsWb vIdRooms, Me.Planing_rpid, dtD, dtH, strCampo, intNewValue, False
+'        Else
+'            intNewValue = Nz(DLookup("availH4", "wbTabla", "Fecha = " & CLng(dtD) & " AND IdRoom = " & vIdRooms(0)), 0)
+'            intNewValue = Nz(MyInputBox("Introduzca nueva disponibilidad", "Nueva Disponibilidad ", CStr(intNewValue)), -1)
+'            If intNewValue = -1 Then GoTo HandleExit
+'            cWi.GetToken
+'            cWi.ActualizaDisponibilidadWB vIdRooms, dtD, dtH, intNewValue, False
+'        End If
+'        'Me.lblRecargaParcelas.Caption
+    
+    
+    End If
+    'Ver si es la celda de la parcela
+    Dim strNombreParcela As String
+    
+    strNombreParcela = Nz(DimeXML(obCell.Tag, "NombreParcela"), "")
+    If strNombreParcela <> "" Then
+        lngIdFichaCab = Nz(DimeXML(obCell.Tag, "IdFichaCab"), 0)
+        If lngIdFichaCab > 0 Then
+            If Me.lbl.Tag = obCell.Tag And (gShift And acCtrlMask) = 0 Then
+                Call lbl_Click
+                Exit Sub
+            End If
+            Dim cFC As New cFichaCab, intPrimeroPax As Integer
+            intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+            If cFC.FindFirst("IdFichaCab = " & lngIdFichaCab) Then
+                'obCell.Text = cFC.ResumenFicha(intPrimeroPax)
+                Me.lbl = cFC.ResumenFicha(intPrimeroPax)
+            End If
+            Me.lbl.Tag = obCell.Tag
+            Me.lbl.BackColor = obCell.BackColor
+            Me.lbl.ForeColor = obCell.ForeColor
+            Me.lbl.fontsize = obCell.fontsize
+            Exit Sub
+        End If
+    End If
+    'Si estamos cambiando una reserva de habitación...
+    If glngIdFichaCabMove > 0 Then
+        Dim strParcelaA As String
+        'strMsg = "¿Cambiar la reserva de la habitación: " & gstrParcelaD & " y fecha: " & gdtFechaD & "?"
+        'intR = MsgBox(strMsg, vbOKCancel + vbQuestion)
+        intR = vbOK
+        If intR = vbOK Then
+            strParcelaA = Me.Grid0.cell(Me.Grid0.Selection.FirstRow, 0).text
+            i = InStr(strParcelaA, "(")
+            If i > 0 Then strParcelaA = Trim(Left(strParcelaA, i - 1))
+            MoverEstancia glngIdFichaCabMove, gstrParcelaD, strParcelaA, gdtFechaD, dtD, , True
+            Call Form_Activate
+            'txtFechaIni_AfterUpdate
+        End If
+        glngIdFichaCabMove = 0
+        Exit Sub
+    End If
+    'Si está libre nueva reserva
+    If obCell.text = "" Then
+        dtEntrada = CDate(Me.txtFechaIni) + Me.Grid0.Selection.FirstCol - 1
+        dtSalida = CDate(Me.txtFechaIni) + Me.Grid0.ActiveCell.col + Me.Grid0.Selection.LastCol - Me.Grid0.Selection.FirstCol
+        'strMSG = "¿Nueva Reserva del " & Me.Grid0.cell(0, Me.Grid0.Selection.FirstCol).Text & " al " & Format(dtSalida, "dd/mm/yy") & "? en parcela/s: "
+        If Month(dtEntrada) = Month(dtSalida) Then
+            strMSG = "¿Nueva Reserva del " & Format(dtEntrada, "d") & " al " & Format(dtSalida, "d \d\e mmmm") & " en " & g_strPHs & ": "
+        Else
+            strMSG = "¿Nueva Reserva del " & Format(dtEntrada, "d \d\e mmmm") & " al " & Format(dtSalida, "d \d\e mmmm") & " en " & g_strPHs & ": "
+        End If
+        For i = Me.Grid0.Selection.FirstRow To Me.Grid0.Selection.LastRow
+            strMSG = strMSG & Me.Grid0.cell(i, 0).text & ", "
+        Next i
+        strMSG = RecDerTop(strMSG, 2, 0) & "?"
+        intR = MsgBox(strMSG, vbOKCancel + vbQuestion)
+        If intR = vbOK Then
+            lngIdFicha = NuevaFicha(Me.Grid0.Selection)
+        End If
+        If lngIdFicha <> 0 Then AbrirFichaNum lngIdFicha
+        Me.lbl = ""
+        Me.lbl.Tag = ""
+        Me.lbl.BackColor = vbWhite
+        Exit Sub
+    End If
+    'Si es una celda de Tipo de Parcela expandir o contraer las parcelas correspondientes
+    If obCell.Tag <> "" Then
+        lngIdTipoParcela = Nz(DimeXML(obCell.Tag, "IdTipoParcela"), 0)
+        If lngIdTipoParcela <> 0 Then
+            PonValorParam "FlexCell_VerIdTipoParcela_" & lngIdTipoParcela & "SN", Not Nz(DameValorParam("FlexCell_VerIdTipoParcela_" & lngIdTipoParcela & "SN"), True), 1
+            Me.lblRecargaParcelas.Caption = "*"
+            Call Form_Activate
+            Exit Sub
+        End If
+        
+    End If
+    'Si se hace click sobre una celda ya seleccionada (y no se pulsa control)
+    If Me.lbl.Tag = obCell.Tag And (gShift And acCtrlMask) = 0 Then
+        Call lbl_Click
+        Exit Sub
+    End If
+    Me.lbl = obCell.text
+    Me.lbl.Tag = obCell.Tag
+    Me.lbl.BackColor = obCell.BackColor
+    Me.lbl.ForeColor = obCell.ForeColor
+    Me.lbl.fontsize = obCell.fontsize
+    lngIdFichaCab = CLng(Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), 0))
+    If (gShift And acCtrlMask) > 0 Then
+        Set obCell = Me.Grid0.cell(Me.Grid0.Selection.FirstRow, 0)
+        strMSG = obCell.text
+        Set obCell = Me.Grid0.cell(0, Me.Grid0.Selection.FirstCol)
+        intR = MsgBox("¿Cambiar la reserva de habitación  " & strMSG & "-" & obCell.text & "?", vbOKCancel)
+        If intR = vbOK Then
+            glngIdFichaCabMove = lngIdFichaCab
+            gstrParcelaD = strParcela
+            gdtFechaD = dtD
+            'MsgBox "Hacer click en una celda libre indicando la habitación y día de entrada", vbInformation
+            Screen.MousePointer = 7
+            Me.Grid0.cell(Me.Grid0.Selection.FirstRow, Me.Grid0.Selection.FirstCol).ForeColor = vbRed
+        End If
+    Else
+        SeleccionaCeldasIdFichaCab Me.Grid0, lngIdFichaCab
+    End If
+'    MsgBox Me.lbl.Tag
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Sub Grid0_DblClick()
+    On Error GoTo HandleError
+    If Me.lbl.Tag = Me.Grid0.ActiveCell.Tag Then
+        Call lbl_Click
+        Exit Sub
+    End If
+    Me.lbl = Me.Grid0.ActiveCell.text
+    Me.lbl.Tag = Me.Grid0.ActiveCell.Tag
+    Me.lbl.BackColor = Me.Grid0.ActiveCell.BackColor
+    SeleccionaCeldasIdFichaCab Me.Grid0, CLng(Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), 0))
+    Call lbl_Click
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Sub SeleccionaCeldasIdFichaCab(grd As Object, lngIdFichaCab As Long)
+    On Error GoTo HandleError
+    Dim i As Integer, j As Integer, strIdF As String, intEsIdF As Integer, obCell As Object
+    SysCmd acSysCmdSetStatus, "Selecciona Celdas IdFichaCab"
+    For i = 1 To grd.Rows - 1
+        For j = 1 To grd.Cols - 1
+            intEsIdF = False
+            'If Nz(grd.Cell(i, j).Tag, "") <> "" Then
+            Set obCell = grd.cell(i, j)
+            With obCell
+                If Nz(.Tag, "") <> "" Then
+                    strIdF = Nz(DimeXML(.Tag, "IdFichaCab"), "")
+                Else
+                    strIdF = ""
+                End If
+                If strIdF <> "" Then
+                    If CLng(strIdF) = lngIdFichaCab Then
+                        intEsIdF = True
+                    End If
+                End If
+            End With
+            
+            With obCell
+                If intEsIdF Then
+                    .Border(cellEdgeLeft) = cellDot
+                    .Border(cellEdgeRight) = cellDot
+                    .Border(cellEdgeTop) = cellDot
+                    .Border(cellEdgeBottom) = cellDot
+                    .FontBold = True
+                Else
+                    .Border(cellEdgeLeft) = cellNone
+                    .Border(cellEdgeRight) = cellNone
+                    .Border(cellEdgeTop) = cellNone
+                    .Border(cellEdgeBottom) = cellNone
+                    .FontBold = False
+                End If
+            End With
+        Next j
+    Next i
+'    Dim dtDesde As Date, intFinde As Integer
+'    dtDesde = CDate(Me.txtFechaIni)
+'    For i = 1 To grd.Cols - 1
+'        intFinde = False
+'        If EsFestivo(dtDesde + i - 1, True, intFinde) Then
+'            grd.Range(0, i, 0, i).BackColor = IIf(intFinde, RGB(255, 192, 192), RGB(255, 128, 128))
+'            grd.Range(1, i, grd.Rows - 1, i).Borders(0) = cellDot
+'            grd.Range(1, i, grd.Rows - 1, i).Borders(1) = cellDot
+'        End If
+'    Next i
+    SysCmd acSysCmdClearStatus
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Function NuevaFicha(obSelection As Object) As Long
+    On Error GoTo HandleError
+    Dim rs2 As Recordset, lngIdFicha As Long, i As Integer
+    Set rs2 = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset, dbAppendOnly)
+    rs2.AddNew
+    rs2("EstadoFicha") = 1
+    rs2("FechaReserva") = Date
+    rs2("FechaLlegada") = CDate(Me.txtFechaIni) + Me.Grid0.ActiveCell.col - 1
+    'rs2("FechaLlegada") = CDate(Me.Grid0.cell(0, obSelection.FirstCol).Text)  '  CDate(Me.txtFechaIni) + Me.Grid0.ActiveCell.Col - 1
+    rs2("FechaSalida") = rs2("FechaLlegada") + obSelection.LastCol - obSelection.FirstCol + 1
+    rs2("IVAIncluido") = DameValorParam("IVAIncluidoEnFacturasYFichas")
+    rs2("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    'rs2("IdFichaCab") = Nz(DameValorParam("UltimoNumReserva"), 1000000) + 1
+    'If rs2("IdFichaCab") <= Nz(DMax("IdFichaCab", "tbFichasCab"), 0) Then rs2("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    lngIdFicha = rs2("IdFichaCab")
+    rs2.Update
+    PonValorParam "UltimoNumReserva", lngIdFicha, 4
+    For i = obSelection.FirstRow To obSelection.LastRow
+        AñadirLineasDetallePredeterminadas lngIdFicha, Me.Grid0.cell(i, 0).text
+    Next i
+    rs2.Close
+'''    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha, , acDialog, "Mod"
+'''    CargarPlanning Parent("cmbMes"), Parent("txtAño"), Me, Parent("cmbGrupo"), True
+    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha, , , "Es Nueva"
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Sub txtSaltoDias_AfterUpdate()
+    On Error Resume Next
+    Me.btnSemanaMas.ControlTipText = Me.txtSaltoDias & " días adelante"
+    Me.btnSemanaMenos.ControlTipText = Me.txtSaltoDias & " días atrás"
+
+End Sub
+
+Function BotonF(iNumBoton As Integer)
+    On Error GoTo HandleError
+    Dim dtFecha As Date, vdt As Variant
+    If (gShift And acCtrlMask) > 0 Then
+        GrabaFechaBotonF iNumBoton
+        Exit Function
+    End If
+Bucle:
+    dtFecha = Nz(DameValorParam("BotonF" & iNumBoton), 0)
+    If dtFecha = 0 Then
+        If GrabaFechaBotonF(iNumBoton) Then GoTo Bucle
+        Exit Function
+    End If
+    Me.txtFechaIni = dtFecha
+    Call txtFechaIni_AfterUpdate
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Function GrabaFechaBotonF(iNumBoton As Integer) As Integer
+    On Error GoTo HandleError
+    Dim dtFecha As Date
+    dtFecha = Nz(DameValorParam("BotonF" & iNumBoton), Date)
+    dtFecha = Nz(adhDoCalendar(Me.txtFechaIni, 1, "Seleccione Fecha de inicio"), 0)
+    If dtFecha = 0 Then Exit Function
+    PonValorParam "BotonF" & iNumBoton, dtFecha, 8
+    Me("btnF" & iNumBoton).Caption = Format(dtFecha, "dd/mm/yy")
+    GrabaFechaBotonF = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

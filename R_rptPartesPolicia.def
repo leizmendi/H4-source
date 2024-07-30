@@ -1,0 +1,49 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Close()
+    If IsOpenForm("frmListadoPolicia") Then Forms("frmListadoPolicia").Visible = True
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox ("No existen entradas entre las fechas indicadas")
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim strXML As String, strSQL As String, strTit As String, strDesde As String, strHasta As String, lngIdPPF As Long
+    strXML = Nz(Me.OpenArgs, "")
+    If strXML = "" Then
+        Me.lblTitulo.Caption = "Todos los partes"
+        Exit Sub
+    End If
+    lngIdPPF = Nz(DimeXML(strXML, "IdPPF"), 0)
+    If lngIdPPF > 0 Then
+        strSQL = "SELECT tbPartesPolicia.NumParte, tbPartesPolicia.DocIdEspaña, tbPartesPolicia.DocIdExtranjeros, tbPartesPolicia.TipoDocId, tbPartesPolicia.FechaExpedicion, tbPartesPolicia.Apellido1, tbPartesPolicia.Apellido2, tbPartesPolicia.Nombre, tbPartesPolicia.Sexo, [FechaNacimientoDD] & '/' & [FechaNacimientoMM] & '/' & [FechaNacimientoAAAA] AS FechaNacimiento, tbPartesPolicia.Pais, tbPartesPolicia.FechaLlegada, tbPartesPoliciaFicheros.*"
+        strSQL = strSQL & " FROM tbPartesPoliciaFicheros INNER JOIN tbPartesPolicia ON tbPartesPoliciaFicheros.IdPartePoliciaFichero = tbPartesPolicia.IdPartePoliciaFichero"
+        strSQL = strSQL & " WHERE tbPartesPoliciaFicheros.IdPartePoliciaFichero = " & lngIdPPF
+        Me.RecordSource = strSQL
+                          strTit = "Establecimiento...: " & DameValorParam("PartesPoliciaNombreEstablecimiento")
+        strTit = strTit & vbCrLf & "Fichero:........... " & DameValorParam("PartesPoliciaCodigoEntidadEmisora") & "." & Right(DLookup("NumFichero", "tbPartesPoliciaFicheros", "IdPartePoliciaFichero = " & lngIdPPF), 3)
+        strTit = strTit & vbCrLf & "Fecha de Emisión:.. " & DLookup("FechaHoraFichero", "tbPartesPoliciaFicheros", "IdPartePoliciaFichero = " & lngIdPPF)
+        strTit = strTit & vbCrLf & "Nº de Partes:...... " & DLookup("NumRegistros", "tbPartesPoliciaFicheros", "IdPartePoliciaFichero = " & lngIdPPF)
+        Me.lblTitulo.Caption = strTit
+        Exit Sub
+    End If
+    strDesde = DimeXML(strXML, "FechaDesde")
+    strHasta = DimeXML(strXML, "FechaHasta")
+    strSQL = "SELECT tbPartesPolicia.NumParte, tbPartesPolicia.DocIdEspaña, tbPartesPolicia.DocIdExtranjeros, tbPartesPolicia.TipoDocId, tbPartesPolicia.FechaExpedicion, tbPartesPolicia.Apellido1, tbPartesPolicia.Apellido2, tbPartesPolicia.Nombre, tbPartesPolicia.Sexo, [FechaNacimientoDD] & '/' & [FechaNacimientoMM] & '/' & [FechaNacimientoAAAA] AS FechaNacimiento, tbPartesPolicia.Pais, tbPartesPolicia.FechaLlegada, tbPartesPoliciaFicheros.*"
+    strSQL = strSQL & " FROM tbPartesPoliciaFicheros INNER JOIN tbPartesPolicia ON tbPartesPoliciaFicheros.IdPartePoliciaFichero = tbPartesPolicia.IdPartePoliciaFichero"
+    strSQL = strSQL & " WHERE tbPartesPolicia.FechaLlegada Between " & strDesde & " AND " & strHasta
+    Me.RecordSource = strSQL
+    strTit = "Establecimiento: " & DameValorParam("PartesPoliciaNombreEstablecimiento")
+    strTit = strTit & vbCrLf & "Fecha Llegada entre el " & Mid(strDesde, 5, 3) & Mid(strDesde, 2, 3) & Mid(strDesde, 8, 4) & " y el " & Mid(strHasta, 5, 3) & Mid(strHasta, 2, 3) & Mid(strHasta, 8, 4)
+    Me.lblTitulo.Caption = strTit
+    
+End Sub

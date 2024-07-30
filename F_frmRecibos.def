@@ -1,0 +1,200 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim gFrsCli As Recordset
+Dim intgModificado As Integer
+Dim intgCancelar As Integer
+Private Sub btnAceptar_Click()
+    On Error GoTo Error_btnAceptar_Click
+    DoCmd.Close
+Salir_btnAceptar_Click:
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnAceptar_Click" & Err.Description
+            Resume Salir_btnAceptar_Click
+    End Select
+    
+End Sub
+
+
+Private Sub btnBorrar_Click()
+On Error GoTo Err_btnBorrar_Click
+    Me.subfrmRecibosDet.SetFocus
+    DoCmd.RunCommand acCmdDeleteRecord
+Exit_btnBorrar_Click:
+    Exit Sub
+
+Err_btnBorrar_Click:
+    MsgBox Err.Description
+    Resume Exit_btnBorrar_Click
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error GoTo Error_btnCancelar_Click
+    Dim ctl As Control
+'    If intgModificado = True Then
+'        For Each ctl In Me.Controls
+'            If ctl.Tag = "Restablecer" Then
+'                ctl.Value = ctl.OldValue
+'            End If
+'        Next ctl
+'    End If
+    'SendKeys "{ESC}", 1500
+    'SendKeys "{ESC}", 1500
+    intgCancelar = True
+    DoCmd.Close
+Salir_btnCancelar_Click:
+    Exit Sub
+Error_btnCancelar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnCancelar_Click" & Err.Description
+            Resume Salir_btnCancelar_Click
+    End Select
+    
+End Sub
+
+
+Private Sub btnFactura_Click()
+    Dim lngIdFac As Long, lngIdCliente As Long
+    lngIdFac = Nz(BuscaAyuda("FAC", , 1), 0)
+    If lngIdFac = 0 Then Exit Sub
+    lngIdCliente = Nz(DLookup("IdCliente", "tbFacturasCab", "IdFacturaCab = " & lngIdFac), 0)
+    Me.NumeroCarnet = Nz(DLookup("NumeroCarnet", "Asociados", "IdCliente = " & lngIdCliente), 0)
+    Call CIF_Cliente_AfterUpdate
+    Me.Concepto = "Factura Nº " & Nz(DLookup("NumeroFactura", "tbFacturasCab", "IdFacturaCab = " & lngIdFac), "?")
+    Me.IMPORTE = Nz(DLookup("[TotalBase]+[TotalIVA]+[TotalRecEq]", "tbFacturasCab", "IdFacturaCab = " & lngIdFac), 0)
+    
+End Sub
+
+Private Sub cmbEstablecimiento_AfterUpdate()
+    Call CIF_Cliente_AfterUpdate
+End Sub
+
+Private Sub cmbNFac_AfterUpdate()
+    Call CIF_Cliente_AfterUpdate
+End Sub
+
+Private Sub cmbCliente_AfterUpdate()
+    Call CIF_Cliente_AfterUpdate
+End Sub
+
+Private Sub CmdIBAN_Click()
+    Me.CuentaIBAN = HallarIBAN(Me.ENTIDAD & Me.OFICINA & Me.DIGCONT & Me.NumCuenta, True)
+End Sub
+
+Private Sub Form_Activate()
+    If Me.OpenArgs = "Añadir" Then
+        Me.AllowAdditions = True
+    Else
+        Me.AllowAdditions = False
+    End If
+End Sub
+
+Private Sub Form_AfterUpdate()
+    intgModificado = True
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    On Error GoTo Error_Form_BeforeInsert
+    
+    Me.NumRecibo = Nz(DMax("NUMRECIBO", "tbRecibos"), 0) + 1
+    Me.NIF_O = DLookup("NIF_ORDENANTE", "Ordenante")
+    Me.SUFIJO_O = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    
+Salir_Form_BeforeInsert:
+    Exit Sub
+Error_Form_BeforeInsert:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_BeforeInsert" & Err.Description
+            Resume Salir_Form_BeforeInsert
+    End Select
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    If intgCancelar Then Cancel = True
+End Sub
+
+Private Sub Form_Load()
+    Set gFrsCli = CurrentDb.OpenRecordset("tbClientes")
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    On Error GoTo Error_Form_Open
+    Dim ctl As Control
+    Dim lngColorFondo  As Long
+    If Me.OpenArgs = "Añadir" Then
+        Me.AllowAdditions = True
+        lngColorFondo = 16777215
+    Else
+        Me.AllowAdditions = False
+        lngColorFondo = 12632256
+    End If
+    For Each ctl In Me.Controls
+        If ctl.Tag = "Añadir" Then
+            ctl.Enabled = Me.AllowAdditions
+            ctl.Locked = Not Me.AllowAdditions
+            ctl.BackColor = lngColorFondo
+        End If
+    Next ctl
+    If Me.OpenArgs = "Añadir" Then
+        DoCmd.GoToControl "CIF_Cliente"
+    End If
+Salir_Form_Open:
+    Exit Sub
+Error_Form_Open:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Form_Open" & vbCrLf & Err.Description
+            Resume Salir_Form_Open
+    End Select
+End Sub
+
+Private Sub NOMBRE_AfterUpdate()
+    Call CIF_Cliente_AfterUpdate
+End Sub
+
+Private Sub CIF_Cliente_AfterUpdate()
+    On Error GoTo Error_CIF_Cliente_AfterUpdate
+    Me.CODREF = Me.NumeroCarnet
+    gFrsCli.FindFirst "CIF = " & ConComillas(Me.CIF_Cliente)
+    If gFrsCli.NoMatch Then
+        MsgBox "No se encontró asociado nº de carnet: " & Me.NumeroCarnet
+        Exit Sub
+    End If
+    Me.ENTIDAD = gFrsCli("CodigoEntidad")
+    Me.OFICINA = gFrsCli("CodigoSucursal")
+    Me.NIF_O = DLookup("NIF_ORDENANTE", "Ordenante")
+    Me.SUFIJO_O = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    Me.Nombre = gFrsCli("Nombre")
+    Me.DIGCONT = gFrsCli("DigitoControl")
+    Me.NumCuenta = gFrsCli("NumeroCuenta")
+    
+    
+    
+Salir_CIF_Cliente_AfterUpdate:
+    Exit Sub
+Error_CIF_Cliente_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CIF_Cliente_AfterUpdate" & Err.Description
+            Resume Salir_CIF_Cliente_AfterUpdate
+    End Select
+End Sub
+
+Private Sub ReciboDevuelto_AfterUpdate()
+    Dim intRes As Integer
+    If Me.ReciboDevuelto = False And Me.NuevoRecibo <> 0 Then
+        intRes = MsgBox("¿Eliminar valor del campo Nuevo Recibo?", vbYesNo, "AEHN")
+        If intRes = vbYes Then
+            Me.NuevoRecibo = 0
+        End If
+    End If
+End Sub

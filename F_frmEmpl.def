@@ -1,0 +1,12 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    On Error Resume Next
+    Me.CodEmpl = Format(CLng(Nz(DMax("CodEmpl", "tbEmpl"), 0)) + 1, "000")
+End Sub

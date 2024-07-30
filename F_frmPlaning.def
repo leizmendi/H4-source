@@ -1,0 +1,160 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gShift As Integer
+
+Private Sub altAH_Click()
+    Me.altAH.Caption = IIf(Me.altAH, "Histórico", "Actual")
+    Me.txtReservasHasta.Visible = Me.altAH = True
+    Me.btnSelFecha.Visible = Me.altAH = True
+    Call cmbMes_AfterUpdate
+End Sub
+
+Private Sub btnOpciones_Click()
+    PonValorParam "PlanningPreferido", Me.Name
+    DoCmd.OpenForm "frmParametrosPlaning", , , , , acDialog
+    Call cmbMes_AfterUpdate
+End Sub
+
+Private Sub btnPlaningH_Click()
+    DoCmd.OpenForm "frmPlaningH"
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnPrint_Click()
+    DoCmd.OpenReport "rptPlanning", acViewPreview
+End Sub
+
+Private Sub btnResize_Click()
+    Dim intCols As Integer, lngAncho As Long, lngAlto As Long
+    intCols = Nz(DCount("Id", "tbGruposPlaning_Parcelas", "IdGrupoPlaning = " & Nz(Me.cmbGrupo, 0)), 0) + 2
+    lngAncho = (Me.subfrmPlanning.Width - (1 * TC_CmToPoints)) \ intCols
+    PonValorParam "PlanningAnchoCeldas", lngAncho / TC_CmToPoints, 5
+    If gShift And acCtrlMask Then
+        lngAlto = Me.subfrmPlanning.Height \ (DDM(Me.cmbMes, Me.txtAño) + 2)
+        PonValorParam "PlanningAltoCeldas", lngAlto / TC_CmToPoints, 5
+    End If
+    Call cmbMes_AfterUpdate
+End Sub
+
+Private Sub btnResize_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnResize_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnSelFecha_Click()
+    Me.txtReservasHasta = Nz(adhDoCalendar(Me.txtReservasHasta, 2, "Reservas Hasta"), Me.txtReservasHasta)
+    Call txtReservasHasta_AfterUpdate
+End Sub
+
+Private Sub btnWubook_Click()
+    DoCmd.OpenForm "frmWuBookReservations", , , , , acDialog
+End Sub
+
+Private Sub cmbGrupo_AfterUpdate()
+    PonValorParam "PlanningGrupo", CInt(Me.cmbGrupo), 4
+    Call cmbMes_AfterUpdate
+End Sub
+
+Private Sub cmbMes_AfterUpdate()
+    PonValorParam "PlanningMes", CInt(Me.cmbMes), 4
+    If IsNull(Me.txtAño) Then
+        MsgBox "Se debe indicar año"
+        Me.txtAño.SetFocus
+        Exit Sub
+    End If
+    If IsNull(Me.cmbMes) Then
+        MsgBox "Se debe indicar mes"
+        Me.cmbMes.SetFocus
+        Exit Sub
+    End If
+    If IsNull(Me.cmbGrupo) Then
+        MsgBox "Se debe indicar grupo"
+        Me.cmbGrupo.SetFocus
+        Exit Sub
+    End If
+    Dim dtReservasHasta As Date
+    If Me.txtReservasHasta.Visible And IsDate(Me.txtReservasHasta) Then dtReservasHasta = CDate(Me.txtReservasHasta)
+    CargarPlanning Me.cmbMes, Me.txtAño, Me.subfrmPlanning.Form, Me.cmbGrupo, , dtReservasHasta
+    Me.subfrmPlanning.Visible = True
+End Sub
+
+Public Sub Form_Load()
+    Me.txtAño = Nz(DameValorParam("PlanningAño"), Year(Date))
+    Me.cmbMes = Nz(DameValorParam("PlanningMes"), Month(Date))
+    Me.cmbGrupo = Nz(DameValorParam("PlanningGrupo"), 0)
+    If Me.cmbGrupo <> 0 Then
+        CargarPlanning Me.cmbMes, Me.txtAño, Me.subfrmPlanning.Form, Me.cmbGrupo
+        Me.subfrmPlanning.Visible = True
+    End If
+    'If g_SincroAH Then 'Nz(DameValorParam("SincroAH_SincroSN"), False) = True Then
+    '    Me.TimerInterval = Nz(DameValorParam("SincroAH_Intervalo"), 60000)
+    '    Call Form_Timer
+    'Else
+        Me.TimerInterval = 0
+    'End If
+    Me.btnWubook.Visible = g_SincroWB
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    DoCmd.Maximize
+    Me.subfrmPlanning.Width = 100
+    Me.subfrmPlanning.Height = 100
+    Me.Width = Me.WindowWidth - 250
+    Me.subfrmPlanning.Width = Me.Width - Me.subfrmPlanning.Left
+    Me.Detalle.Height = Me.WindowHeight - 500
+    Me.subfrmPlanning.Height = Me.Detalle.Height - Me.subfrmPlanning.Top
+    Me.btnSalir.Left = Me.subfrmPlanning.Left + Me.subfrmPlanning.Width - Me.btnSalir.Width
+    Me.btnOpciones.Left = Me.btnSalir.Left - Me.btnOpciones.Width
+    Me.btnResize.Left = Me.btnOpciones.Left
+    Me.btnPrint.Left = Me.btnOpciones.Left - Me.btnPrint.Width
+    Me.btnPlaningH.Left = Me.btnOpciones.Left - Me.btnPlaningH.Width
+
+End Sub
+
+Private Sub Form_Timer()
+    'Call Form_Timer_FRM(Me)
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    PonValorParam "PlanningPreferido", Me.Name
+End Sub
+
+Private Sub lbl_Click()
+    If IsNumeric(Me.lbl.Tag) Then
+        If CLng(Me.lbl.Tag) = 0 Then Exit Sub
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me.lbl.Tag, , , "Mod"
+    End If
+    If (Nz(DimeXML(Me.lbl.Tag, "IdFichaCab"), "0") = "-1") Then
+        Dim strXML As String
+        PonXML strXML, "SoloNuevasReservas", "SI"
+        DoCmd.OpenForm "frmSincroAH", , , , , acDialog, strXML
+        Call cmbMes_AfterUpdate
+        Exit Sub
+    End If
+    '''CargarPlanning Me.cmbMes, Me.txtAño, Me.subfrmPlanning.Form, Me.cmbGrupo, True
+End Sub
+
+Private Sub lbl_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Me.lbl.SpecialEffect = 2
+End Sub
+
+Private Sub lbl_MouseUp(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Me.lbl.SpecialEffect = 1
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    PonValorParam "PlanningAño", CInt(Me.txtAño), 4
+    Call cmbMes_AfterUpdate
+End Sub
+
+Private Sub txtReservasHasta_AfterUpdate()
+    Call cmbMes_AfterUpdate
+End Sub

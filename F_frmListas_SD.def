@@ -1,0 +1,157 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAdd_Click()
+    Dim strLista As String
+    strLista = Nz(MyInputBox("Nombre de la nueva lista"), "")
+    If strLista = "" Then Exit Sub
+    Dim rs As Recordset
+    Set rs = CurrentDb.OpenRecordset("cfgParam", dbOpenDynaset)
+    rs.FindFirst "NP = 'ListaServicios_" & strLista & "'"
+    If Not rs.NoMatch Then
+        MsgBox "Ya existe una lista de servicios llamada " & UCase(strLista), vbExclamation
+        Exit Sub
+    End If
+    rs.AddNew
+    rs("NP") = "ListaServicios_" & UCase(strLista)
+    rs("TipoDato") = dbMemo
+    rs.Update
+    Me.lstListasSD.Requery
+    Me.lstListasSD = "ListaServicios_" & UCase(strLista)
+    Carga_lstServicios
+End Sub
+
+Private Sub btnAddPlus_Click()
+    Dim strPlus As String, curPlus As Currency, lngIdSD As Long
+    strPlus = Nz(MyInputBox("Nombre del suplemento", "Nombre del suplemento"), "")
+    If strPlus = "" Then Exit Sub
+    curPlus = Nz(DimeTeclado(2, "% del suplemento + o -"), 0)
+    If curPlus = 0 Then Exit Sub
+    curPlus = curPlus / 100
+    lngIdSD = Nz(BuscaAyuda("SD3"), 0)
+    If lngIdSD = 0 Then Exit Sub
+    PonValorParam "ListaServicios+" & strPlus, curPlus, dbCurrency
+    CurrentDb.Execute "UPDATE qrycfgParam SET VPlng = " & lngIdSD & " WHERE NP = " & ConComillas("ListaServicios+" & strPlus), dbFailOnError
+    Me.lstPluses.Requery
+End Sub
+
+Private Sub btnAddSD_Click()
+    Dim lngIdSD As Long, strSQL As String, intC As Integer, strT As String
+Bucle:
+    lngIdSD = Nz(BuscaAyuda("SD2", , 0), 0)
+    If lngIdSD = 0 Then Exit Sub
+    intC = Nz(DMax("Ord", "auxID_SN"), 0) + 1
+    strT = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD), "¿?")
+    strSQL = "INSERT INTO auxID_SN(Id, Texto, Ord) " & _
+             "SELECT " & lngIdSD & " as ID, " & ConComillas(strT) & " as Texto, " & intC & " as ORD"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.lstServicios.Requery
+    Graba_lstServicios
+    GoTo Bucle
+End Sub
+
+Private Sub btnDel_Click()
+    Dim intR As Integer
+    If Me.lstListasSD.ListIndex = -1 Then Exit Sub
+    intR = MsgBox("¿Eliminar la lista de servicios " & Me.lstListasSD.Column(1) & "?", vbOKCancel + vbExclamation)
+    If intR = vbOK Then
+        CurrentDb.Execute "DELETE * FROM cfgParam WHERE NP = " & ConComillas(Me.lstListasSD)
+        Me.lstListasSD.Requery
+    End If
+End Sub
+
+Public Sub Carga_lstServicios()
+    On Error GoTo Error_Carga_lstServicios
+    CurrentDb.Execute "DELETE * FROM auxID_SN", dbFailOnError
+    Dim strLista As String, i As Integer, j As Integer, lngIdSD As Long, strC As String, intC As Integer, strSQL As String
+    If Me.lstListasSD.ListIndex = -1 Then
+    Else
+        strLista = Nz(DameValorParam(Me.lstListasSD), "")
+        While j < Len(strLista)
+            j = i + 1
+            If j <= Len(strLista) Then
+                i = InStr(j, strLista, ";")
+                If i > 0 Then
+                    lngIdSD = CLng(Mid(strLista, j, i - j))
+                    strC = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD), "")
+                    intC = intC + 1
+                    strSQL = "INSERT INTO auxID_SN(Id, Texto, Ord) " & _
+                             "SELECT " & lngIdSD & " as ID, " & ConComillas(strC) & " as Texto, " & intC & " as ORD"
+                    CurrentDb.Execute strSQL, dbFailOnError
+                Else
+                    GoTo Salir_Carga_lstServicios
+                End If
+            End If
+        Wend
+    End If
+    Me.lstServicios.Requery
+Salir_Carga_lstServicios:
+    Exit Sub
+Error_Carga_lstServicios:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_lstServicios" & vbCrLf & Err.Description
+            Resume Salir_Carga_lstServicios
+    End Select
+End Sub
+
+Public Sub Graba_lstServicios()
+    On Error GoTo Error_Graba_lstServicios
+    Dim strLista As String, i As Integer, j As Integer, lngIdSD As Long, strC As String, intC As Integer, strSQL As String
+    For i = 0 To Me.lstServicios.ListCount - 1
+        strLista = strLista & Me.lstServicios.ItemData(i) & ";"
+    Next i
+    PonValorParam Me.lstListasSD, strLista, 12
+Salir_Graba_lstServicios:
+    Exit Sub
+Error_Graba_lstServicios:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Graba_lstServicios" & vbCrLf & Err.Description
+            Resume Salir_Graba_lstServicios
+    End Select
+End Sub
+
+
+Private Sub Ordenar_Servicios(intUpDown As Integer)
+    If Me.lstServicios.ListIndex = -1 Then Exit Sub
+    CurrentDb.Execute "UPDATE qryauxID_SN SET Ord = Ord " & IIf(intUpDown = 1, "-", "+") & "1.5 WHERE Id = " & Me.lstServicios, dbFailOnError
+    Reordenar "auxId_SN", "Ord"
+    Me.lstServicios.Requery
+    Graba_lstServicios
+End Sub
+
+Private Sub btnDelPlus_Click()
+    If Me.lstPluses.ListIndex = -1 Then Exit Sub
+    CurrentDb.Execute "DELETE * FROM cfgParam WHERE NP = " & ConComillas(Me.lstPluses), dbFailOnError
+    Me.lstPluses.Requery
+End Sub
+
+Private Sub btnDelSD_Click()
+    If Me.lstServicios.ListIndex = -1 Then Exit Sub
+    CurrentDb.Execute "DELETE * FROM auxID_SN WHERE ID = " & Me.lstServicios, dbFailOnError
+    Me.lstServicios.Requery
+    Graba_lstServicios
+End Sub
+
+Private Sub btnOrd1_Click()
+    Ordenar_Servicios 1
+End Sub
+
+Private Sub btnOrd2_Click()
+    Ordenar_Servicios 2
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    CurrentDb.Execute "DELETE * FROM auxID_SN"
+    CargarParam Me
+End Sub
+
+Private Sub lstListasSD_Click()
+    Carga_lstServicios
+End Sub

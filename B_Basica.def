@@ -1,0 +1,635 @@
+﻿<?xml version="1.0" standalone="yes"?>
+<CommandBar name="Basica">
+  <Context value=""/>
+  <Description value="Barra de herramientas Basica"/>
+  <Enabled value="true"/>
+  <Position value="1"/>
+  <Protection value="36"/>
+  <RowIndex value="4"/>
+  <Type value="0"/>
+  <Visible value="true"/>
+  <Controls>
+    <Control id="502">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Vist&amp;a Formulario"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="502"/>
+      <Index value="1"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Vist&amp;a Formulario"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="502"/>
+    </Control>
+    <Control id="498">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Vista &amp;Hoja de datos"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="498"/>
+      <Index value="2"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Vista &amp;Hoja de datos"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="498"/>
+    </Control>
+    <Control id="109">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="&amp;Vista preliminar"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="109"/>
+      <Index value="3"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="&amp;Vista preliminar"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="109"/>
+    </Control>
+    <Control id="154">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="&amp;Primero"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="154"/>
+      <Index value="4"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Primer registro"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="154"/>
+    </Control>
+    <Control id="155">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="&amp;Anterior"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="155"/>
+      <Index value="5"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Registro anterior"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="155"/>
+    </Control>
+    <Control id="156">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="&amp;Siguiente"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="156"/>
+      <Index value="6"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Registro siguiente"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="156"/>
+    </Control>
+    <Control id="157">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Últi&amp;mo"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="157"/>
+      <Index value="7"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Último registro"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="157"/>
+    </Control>
+    <Control id="539">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="A&amp;ñadir registro"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="539"/>
+      <Index value="8"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="A&amp;ñadir registro"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="539"/>
+    </Control>
+    <Control id="644">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="B&amp;orrar registro"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="644"/>
+      <Index value="9"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="B&amp;orrar registro"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="644"/>
+    </Control>
+    <Control id="210">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Orden a&amp;scendente"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="210"/>
+      <Index value="10"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Orden a&amp;scendente"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="210"/>
+    </Control>
+    <Control id="211">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Orden &amp;descendente"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="211"/>
+      <Index value="11"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Orden &amp;descendente"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="211"/>
+    </Control>
+    <Control id="640">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Filtro por &amp;selección"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="640"/>
+      <Index value="12"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Filtro por &amp;selección"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="640"/>
+    </Control>
+    <Control id="628">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="Filtro por &amp;formulario"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="628"/>
+      <Index value="13"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Filtro por &amp;formulario"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="628"/>
+    </Control>
+    <Control id="601">
+      <BeginGroup value="false"/>
+      <BuiltIn value="true"/>
+      <Caption value="&amp;Alternar filtro"/>
+      <DescriptionText value=""/>
+      <Enabled value="false"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="601"/>
+      <Index value="14"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value=""/>
+      <TooltipText value="Alternar filtro"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value=""/>
+      <FaceId value="601"/>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="(&amp;B)uscar"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="15"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{9BCDA686-5589-4037-9D5C-729C31E7E7FE}"/>
+      <TooltipText value="Buscar Alt+B, Ctrl+B"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=BuscarGeneral()"/>
+      <FaceId value="2174"/>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="&amp;Utiles"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="16"/>
+      <Parameter value=""/>
+      <Priority value="1"/>
+      <Tag value=""/>
+      <TooltipText value=""/>
+      <Type value="10"/>
+      <Visible value="true"/>
+      <Control id="1">
+        <BeginGroup value="false"/>
+        <BuiltIn value="false"/>
+        <Caption value="Calculadora &amp;K"/>
+        <DescriptionText value=""/>
+        <Enabled value="true"/>
+        <HelpContextId value="0"/>
+        <HelpFile value=""/>
+        <Id value="1"/>
+        <Index value="1"/>
+        <Parameter value=""/>
+        <Priority value="3"/>
+        <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{311578FC-0835-45EB-8597-35D6A18A4EFA}"/>
+        <TooltipText value="Calculadora &amp;K"/>
+        <Type value="1"/>
+        <Visible value="true"/>
+        <BuiltInFace value="true"/>
+        <Style value="3"/>
+        <ShortcutText value=""/>
+        <HyperlinkType value="0"/>
+        <OnAction value="adhDoCalc"/>
+        <FaceId value="283"/>
+      </Control>
+      <Control id="30106">
+        <BeginGroup value="false"/>
+        <BuiltIn value="true"/>
+        <Caption value="Vínculos con O&amp;ffice"/>
+        <DescriptionText value=""/>
+        <Enabled value="true"/>
+        <HelpContextId value="0"/>
+        <HelpFile value=""/>
+        <Id value="30106"/>
+        <Index value="2"/>
+        <Parameter value=""/>
+        <Priority value="1"/>
+        <Tag value=""/>
+        <TooltipText value=""/>
+        <Type value="10"/>
+        <Visible value="true"/>
+        <Control id="626">
+          <BeginGroup value="false"/>
+          <BuiltIn value="true"/>
+          <Caption value="Combinar con &amp;Word"/>
+          <DescriptionText value=""/>
+          <Enabled value="false"/>
+          <HelpContextId value="0"/>
+          <HelpFile value=""/>
+          <Id value="626"/>
+          <Index value="1"/>
+          <Parameter value=""/>
+          <Priority value="3"/>
+          <Tag value=""/>
+          <TooltipText value="Vínculos con Office"/>
+          <Type value="1"/>
+          <Visible value="true"/>
+          <BuiltInFace value="true"/>
+          <Style value="0"/>
+          <ShortcutText value=""/>
+          <HyperlinkType value="0"/>
+          <OnAction value=""/>
+          <FaceId value="626"/>
+        </Control>
+        <Control id="567">
+          <BeginGroup value="false"/>
+          <BuiltIn value="true"/>
+          <Caption value="Publ&amp;icar con Microsoft Word"/>
+          <DescriptionText value=""/>
+          <Enabled value="true"/>
+          <HelpContextId value="0"/>
+          <HelpFile value=""/>
+          <Id value="567"/>
+          <Index value="2"/>
+          <Parameter value=""/>
+          <Priority value="3"/>
+          <Tag value=""/>
+          <TooltipText value="Vínculos con Office"/>
+          <Type value="1"/>
+          <Visible value="true"/>
+          <BuiltInFace value="true"/>
+          <Style value="0"/>
+          <ShortcutText value=""/>
+          <HyperlinkType value="0"/>
+          <OnAction value=""/>
+          <FaceId value="567"/>
+        </Control>
+        <Control id="566">
+          <BeginGroup value="false"/>
+          <BuiltIn value="true"/>
+          <Caption value="Anali&amp;zar con Microsoft Excel"/>
+          <DescriptionText value=""/>
+          <Enabled value="true"/>
+          <HelpContextId value="0"/>
+          <HelpFile value=""/>
+          <Id value="566"/>
+          <Index value="3"/>
+          <Parameter value=""/>
+          <Priority value="3"/>
+          <Tag value=""/>
+          <TooltipText value="Vínculos con Office"/>
+          <Type value="1"/>
+          <Visible value="true"/>
+          <BuiltInFace value="true"/>
+          <Style value="0"/>
+          <ShortcutText value=""/>
+          <HyperlinkType value="0"/>
+          <OnAction value=""/>
+          <FaceId value="566"/>
+        </Control>
+      </Control>
+      <Control id="1">
+        <BeginGroup value="false"/>
+        <BuiltIn value="false"/>
+        <Caption value="Copia de Seguridad"/>
+        <DescriptionText value=""/>
+        <Enabled value="true"/>
+        <HelpContextId value="0"/>
+        <HelpFile value=""/>
+        <Id value="1"/>
+        <Index value="3"/>
+        <Parameter value=""/>
+        <Priority value="3"/>
+        <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{9134FE7B-AF9E-442B-A96F-C18617BCBE24}"/>
+        <TooltipText value="Copia de Seguridad"/>
+        <Type value="1"/>
+        <Visible value="true"/>
+        <BuiltInFace value="true"/>
+        <Style value="3"/>
+        <ShortcutText value=""/>
+        <HyperlinkType value="0"/>
+        <OnAction value="=CopiaSeguridad()"/>
+        <FaceId value="271"/>
+      </Control>
+      <Control id="2071">
+        <BeginGroup value="true"/>
+        <BuiltIn value="true"/>
+        <Caption value="C&amp;ompactar y reparar base de datos"/>
+        <DescriptionText value=""/>
+        <Enabled value="true"/>
+        <HelpContextId value="0"/>
+        <HelpFile value=""/>
+        <Id value="2071"/>
+        <Index value="4"/>
+        <Parameter value=""/>
+        <Priority value="3"/>
+        <Tag value=""/>
+        <TooltipText value="C&amp;ompactar y reparar base de datos"/>
+        <Type value="1"/>
+        <Visible value="true"/>
+        <BuiltInFace value="true"/>
+        <Style value="1"/>
+        <ShortcutText value=""/>
+        <HyperlinkType value="0"/>
+        <OnAction value=""/>
+        <FaceId value="2144"/>
+      </Control>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Ir a N&amp;º Ficha"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="17"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{66EC84C6-FC1A-4805-BB4E-7B68A2AFCCFA}"/>
+      <TooltipText value="Ir a N&amp;º Ficha"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=AbrirFichaNum()"/>
+      <FaceId value="39"/>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="(Des)Bloqueo"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="18"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{DC2C1D0D-17B0-43B6-84B9-ADCE39B16E94}"/>
+      <TooltipText value="(Des)Bloqueo"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="0"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=BloqueoFormulario2()"/>
+      <ImageData>Qk02BAAAAAAAADYAAAAoAAAAEAAAABAAAAABACAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw
+8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAA
+AACAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAA
+AIAAAACAAAAAgAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAIAAAACAAAAAgAAAAIAAAACAAAAA
+8PDwAIAAAACAAAAAgAAAAIAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ACAAAAAgAAAAIAAAACA
+AAAAgAAAAPDw8ACAAAAAgAAAAIAAAACAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAAgAAAAIAA
+AACAAAAAgAAAAIAAAADw8PAAgAAAAIAAAACAAAAAgAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+AIAAAACAAAAAgAAAAIAAAADw8PAA8PDwAIAAAACAAAAAgAAAAIAAAADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAA8PDwAPDw8ADw
+8PAA8PDwAPDw8ADw8PAA8PDwAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAA8PDwAPDw
+8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAAgAAAAIAAAADw8PAA8PDwAIAAAACAAAAA8PDw
+APDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAIAAAACAAAAA8PDwAPDw8ACAAAAA
+gAAAAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ACAAAAAgAAAAPDw8ADw
+8PAAgAAAAIAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAIAA
+AACAAAAAgAAAAIAAAADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDw
+APDw8ACAAAAAgAAAAIAAAACAAAAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA
+8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAPDw8ADw8PAA8PDwAA==</ImageData>
+    </Control>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="&amp;Salir"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="19"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{B3786D41-79B6-43E8-A4F9-0358F43F34D3}"/>
+      <TooltipText value="&amp;Salir"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="false"/>
+      <Style value="3"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=Cerrar()"/>
+      <ImageData>Qk02BAAAAAAAADYAAAAoAAAAEAAAABAAAAABACAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAD/
+AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8A
+AAD/AAAA/wD///8A////AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wD/
+//8A////AAAA/wAAAP8A////AAAA/wAAAP8A////AP///wD///8A////AP///wD///8A////AP//
+/wAAAP8AAAD/AP///wAAAP8AAAD/AP///wAAAP8AAAD/AAAA/wD///8A////AP///wD///8A////
+AP///wAAAP8AAAD/AAAA/wD///8AAAD/AAAA/wD///8A////AAAA/wAAAP8AAAD/AP///wD///8A
+////AP///wAAAP8AAAD/AAAA/wD///8A////AAAA/wAAAP8A////AP///wD///8AAAD/AAAA/wAA
+AP8A////AP///wAAAP8AAAD/AAAA/wD///8A////AP///wAAAP8AAAD/AP///wD///8A////AP//
+/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wD///8A////AP///wD///8AAAD/AAAA/wD///8A////
+AP///wD///8A////AAAA/wAAAP8AAAD/AAAA/wD///8A////AP///wD///8A////AAAA/wAAAP8A
+////AP///wD///8A////AP///wAAAP8AAAD/AAAA/wAAAP8A////AP///wD///8A////AP///wAA
+AP8AAAD/AP///wD///8A////AP///wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wD///8A////AP//
+/wD///8AAAD/AAAA/wD///8A////AP///wAAAP8AAAD/AAAA/wD///8A////AAAA/wAAAP8AAAD/
+AP///wD///8A////AAAA/wAAAP8A////AP///wAAAP8AAAD/AAAA/wD///8A////AP///wD///8A
+AAD/AAAA/wAAAP8A////AP///wAAAP8AAAD/AP///wAAAP8AAAD/AAAA/wD///8A////AP///wD/
+//8A////AP///wAAAP8AAAD/AAAA/wD///8AAAD/AAAA/wD///8AAAD/AAAA/wD///8A////AP//
+/wD///8A////AP///wD///8A////AAAA/wAAAP8A////AAAA/wAAAP8A////AP///wD///8A////
+AP///wD///8A////AP///wD///8A////AP///wD///8A////AP///wAAAP8AAAD/AAAA/wAAAP8A
+AAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AA==</ImageData>
+    </Control>
+  </Controls>
+</CommandBar>

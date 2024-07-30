@@ -1,0 +1,144 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+Option Compare Database
+Option Explicit
+Dim gintActualizarFRAux As Integer
+
+Private Sub btnAceptar_Click()
+    Dim strTitulo As String, strSQL As String, rs As Recordset, rsAux As Recordset, lngOrd As Long
+    On Error GoTo Error_btnAceptar_Click
+    'Clientes
+    CurrentDb.Execute "DELETE * FROM auxOrdClientes", dbFailOnError
+    strSQL = "SELECT tbClientes.IdCliente, Sum([TotalBase]+[TotalIVA]) AS Total"
+    strSQL = strSQL & " FROM tbFacturasCab LEFT JOIN tbClientes ON tbFacturasCab.NIF = tbClientes.NIF"
+    strSQL = strSQL & " WHERE tbFacturasCab.FechaFactura Between " & CLng(CDate(Me.txtDesde)) & " And " & CLng(CDate(Me.txtHasta))
+    strSQL = strSQL & " GROUP BY tbClientes.IdCliente"
+    strSQL = strSQL & " HAVING Sum([TotalBase]+[TotalIVA]) >= " & ComaPunto(Me.txtBottom)
+    strSQL = strSQL & " ORDER BY Sum([TotalBase]+[TotalIVA]) DESC;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAux = CurrentDb.OpenRecordset("auxOrdClientes", dbOpenDynaset)
+    While Not rs.EOF
+        rsAux.AddNew
+        lngOrd = lngOrd + 1
+        rsAux("Ord") = lngOrd
+        rsAux("IdCliente") = rs("Idcliente")
+        rsAux.Update
+        rs.MoveNext
+    Wend
+    
+    strSQL = "SELECT auxOrdClientes.Ord, [NombreCli] & ' ' & [ApellidosCli] AS Cliente, tbClientes.NIF, tbClientes.Direccion, tbClientes.CodPostal, tbClientes.Ciudad, Format(tbFacturasCab.FechaFactura,'yyyy/q') AS Trimestre, Sum([TotalBase]+[TotalIVA]) AS Total"
+    strSQL = strSQL & " FROM (tbFacturasCab LEFT JOIN tbClientes ON tbFacturasCab.NIF = tbClientes.NIF) LEFT JOIN auxOrdClientes ON tbClientes.IdCliente = auxOrdClientes.IdCliente"
+    strSQL = strSQL & " WHERE tbFacturasCab.FechaFactura Between " & CLng(CDate(Me.txtDesde)) & " And " & CLng(CDate(Me.txtHasta))
+    strSQL = strSQL & " AND auxOrdClientes.Ord > 0"
+    strSQL = strSQL & " GROUP BY auxOrdClientes.Ord, [NombreCli] & ' ' & [ApellidosCli], tbClientes.NIF, tbClientes.Direccion, tbClientes.CodPostal, tbClientes.Ciudad, Format(tbFacturasCab.FechaFactura,'yyyy/q')"
+    strSQL = strSQL & " ORDER BY auxOrdClientes.Ord"
+    CurrentDb.QueryDefs("qryDeclaracionAnualClientes").SQL = strSQL
+    
+    strSQL = "SELECT auxOrdClientes.Ord, [NombreCli] & ' ' & [ApellidosCli] AS Cliente, tbClientes.NIF, tbClientes.Direccion, tbClientes.CodPostal, tbClientes.Ciudad, Sum([TotalBase]+[TotalIVA]) AS Total"
+    strSQL = strSQL & " FROM (tbFacturasCab LEFT JOIN tbClientes ON tbFacturasCab.NIF = tbClientes.NIF) LEFT JOIN auxOrdClientes ON tbClientes.IdCliente = auxOrdClientes.IdCliente"
+    strSQL = strSQL & " WHERE tbFacturasCab.FechaFactura Between " & CLng(CDate(Me.txtDesde)) & " And " & CLng(CDate(Me.txtHasta))
+    strSQL = strSQL & " AND auxOrdClientes.Ord > 0"
+    strSQL = strSQL & " GROUP BY auxOrdClientes.Ord, [NombreCli] & ' ' & [ApellidosCli], tbClientes.NIF, tbClientes.Direccion, tbClientes.CodPostal, tbClientes.Ciudad"
+    strSQL = strSQL & " ORDER BY auxOrdClientes.Ord"
+    CurrentDb.QueryDefs("qryDeclaracionAnualClientesAnual").SQL = strSQL
+    
+    'Proveedores
+    CurrentDb.Execute "DELETE * FROM auxOrdProveedores", dbFailOnError
+    strSQL = "SELECT tbProveedores.IdProveedor, Sum([TotalBase]+[TotalIVA]+[TotalRecEq]) AS Total"
+    strSQL = strSQL & " FROM tbProveedores RIGHT JOIN tbFacturasRecibidas ON tbProveedores.NIF = tbFacturasRecibidas.NIF"
+    strSQL = strSQL & " WHERE Left([Trimestre], 4) = " & Me.txtAño
+    strSQL = strSQL & " GROUP BY tbProveedores.IdProveedor"
+    strSQL = strSQL & " HAVING Sum([TotalBase] + [TotalIVA] + [TotalRecEq]) >= " & ComaPunto(Me.txtBottom)
+    strSQL = strSQL & " ORDER BY Sum([TotalBase]+[TotalIVA]+[TotalRecEq]) DESC;"
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAux = CurrentDb.OpenRecordset("auxOrdProveedores", dbOpenDynaset)
+    lngOrd = 0
+    While Not rs.EOF
+        rsAux.AddNew
+        lngOrd = lngOrd + 1
+        rsAux("Ord") = lngOrd
+        rsAux("IdProveedor") = rs("IdProveedor")
+        rsAux.Update
+        rs.MoveNext
+    Wend
+    
+    strSQL = "SELECT auxOrdProveedores.Ord, tbFacturasRecibidas.Proveedor, tbFacturasRecibidas.NIF, tbProveedores.Direccion, tbProveedores.CodPostal, tbProveedores.Ciudad, Trimestre, Sum([TotalBase]+[TotalIVA]+[TotalRecEq]) AS Total"
+    strSQL = strSQL & " FROM (tbProveedores RIGHT JOIN tbFacturasRecibidas ON tbProveedores.NIF = tbFacturasRecibidas.NIF) LEFT JOIN auxOrdProveedores ON tbProveedores.IdProveedor = auxOrdProveedores.IdProveedor"
+    strSQL = strSQL & " WHERE Left([Trimestre], 4) = " & Me.txtAño
+    strSQL = strSQL & " AND auxOrdProveedores.Ord > 0"
+    strSQL = strSQL & " GROUP BY auxOrdProveedores.Ord, tbFacturasRecibidas.Proveedor, tbFacturasRecibidas.NIF, tbProveedores.Direccion, tbProveedores.CodPostal, tbProveedores.Ciudad, Trimestre"
+    strSQL = strSQL & " ORDER BY auxOrdProveedores.Ord"
+
+    CurrentDb.QueryDefs("qryDeclaracionAnualProveedores").SQL = strSQL
+    
+    strSQL = "SELECT auxOrdProveedores.Ord, tbFacturasRecibidas.Proveedor, tbFacturasRecibidas.NIF, tbProveedores.Direccion, tbProveedores.CodPostal, tbProveedores.Ciudad, Sum([TotalBase]+[TotalIVA]+[TotalRecEq]) AS Total"
+    strSQL = strSQL & " FROM (tbProveedores RIGHT JOIN tbFacturasRecibidas ON tbProveedores.NIF = tbFacturasRecibidas.NIF) LEFT JOIN auxOrdProveedores ON tbProveedores.IdProveedor = auxOrdProveedores.IdProveedor"
+    strSQL = strSQL & " WHERE Left([Trimestre], 4) = " & Me.txtAño
+    strSQL = strSQL & " AND auxOrdProveedores.Ord > 0"
+    strSQL = strSQL & " GROUP BY auxOrdProveedores.Ord, tbFacturasRecibidas.Proveedor, tbFacturasRecibidas.NIF, tbProveedores.Direccion, tbProveedores.CodPostal, tbProveedores.Ciudad"
+    strSQL = strSQL & " ORDER BY auxOrdProveedores.Ord"
+
+    CurrentDb.QueryDefs("qryDeclaracionAnualProveedoresAnual").SQL = strSQL
+    
+    DoCmd.Hourglass True
+    If Me.mrcPantImp = 1 Then
+        DoCmd.OpenQuery "qryDeclaracionAnualClientes", , acReadOnly
+        DoCmd.OpenQuery "qryDeclaracionAnualProveedores", , acReadOnly
+    Else
+        DoCmd.OpenReport "rptDeclaracionAnual", acViewPreview
+'        strTitulo = "COMPRAS: Adquisiciones de bienes y servicios superiores a " & Me.txtBottom & ". Año: " & Me.txtAño
+'        ImprimirSQL_DOS1 "qryProveedores>500000", strTitulo, "111111,301530051512,111113,111114,000001", False
+'        strTitulo = "VENTAS: Entregas de bienes y prestaciones de servicios superiores a " & Me.txtBottom & ". Año: " & Me.txtAño
+'        ImprimirSQL_DOS1 "qryClientes>500000", strTitulo, "111111,301530051512,111113,111114,000001", True
+    End If
+    DoCmd.Hourglass False
+Exit_btnAceptar_click:
+    Close
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    'Traducir Me
+    Call txtBottom_AfterUpdate
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    Call txtBottom_AfterUpdate
+End Sub
+
+Private Sub txtBottom_AfterUpdate()
+    Me.lblTit.Caption = "Año: " & Me.txtAño & vbCrLf & "Movimientos superiores a: " & Format(Me.txtBottom, "Currency")
+End Sub
+
+Private Sub txtBottom_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.txtBottom) Then
+        MsgBox "Debe ser una cantidad numérica..."
+        Cancel = True
+    End If
+End Sub

@@ -1,0 +1,40 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub AbrirFrmCuadroOcupadas(datIni As Date, Optional intOcupadasEntradasSalidas As Integer = 1)
+    ' se le pasa la fecha inicial del periodo (7 días) del que se abrirá el formulario
+    ' del cuadro de reservas
+    Dim strSQL As String, i As Integer, dtD As Date
+    On Error GoTo Error_AbrirFrmCuadroOcupadas
+    Select Case intOcupadasEntradasSalidas
+        Case 1
+            GenerarTbAuxOcupadas datIni, , True
+        Case 2
+            GenerarSoloEntradasTbAuxOcupadas datIni
+        Case 3
+            GenerarSoloSalidasTbAuxOcupadas datIni
+    End Select
+    If Not IsOpenForm("frmCuadroOcupacion") Then
+        'DEBE ESTAR ABIERTO
+    Else
+        Forms![frmCuadroOcupacion]!subfrmCuadroOcupadas.Form.RecordSource = Forms![frmCuadroOcupacion]!subfrmCuadroOcupadas.Form.RecordSource
+        For i = 1 To 7
+    '        Forms![frmCuadroOcupacion]!subfrmCuadroOcupadas.Form.[lblDia1].Caption
+            dtD = datIni + i - 1
+            Forms![frmCuadroOcupacion]!subfrmCuadroOcupadas.Form.Controls("lblD" & i).Caption = dtD & " - " & DiaD(dtD)
+            'Forms![frmCuadroOcupacion]!subfrmCuadroOcupadas.Form.Controls("txtDia" & i).ControlSource = "Dia" & i
+        Next i
+        'Forms![frmCuadroOcupacion]!subfrmCuadroOcupadas.Form.Controls("Habit").ControlSource = "Habit"
+    End If
+Salir_AbrirFrmCuadroOcupadas:
+    Exit Sub
+Error_AbrirFrmCuadroOcupadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AbrirFrmCuadroOcupadas" & vbCrLf & Err.Description
+'¡            Resume Salir_AbrirFrmCuadroOcupadas
+            Resume Next
+    End Select
+
+End Sub

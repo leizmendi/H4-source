@@ -1,0 +1,418 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim gintActualizarIngresosXActividadAux As Integer
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+
+Private Sub btnINE_Click()
+    Dim strSQL As String, qdf As QueryDef, strIn As String, dt As Date, fld As DAO.Field
+    Dim strTitulo As String, strTitulo1 As String
+    Dim varReturn As Variant, intIncluirReservas As Integer
+    On Error GoTo Error_btnINE_Click
+    DoCmd.Hourglass True
+    intIncluirReservas = False
+    If Rellenar_auxINEParcelasOcupadas(CDate(Me.txtDesde), CDate(Me.txtHasta), intIncluirReservas, Me.ListadoAcampadosIncluirFijos) = False Then
+        DoCmd.Hourglass False
+        Exit Sub
+    End If
+    strSQL = "TRANSFORM Sum(auxINEParcelasOcupadas.Ocupadas) AS SumaDeOcupadas"
+    strSQL = strSQL & " SELECT auxINEParcelasOcupadas.Fecha, Sum(auxINEParcelasOcupadas.Ocupadas) AS [Total Día]"
+    strSQL = strSQL & " FROM auxINEParcelasOcupadas"
+    strSQL = strSQL & " WHERE auxINEParcelasOcupadas.Fecha Between #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "# AND #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#"
+    strSQL = strSQL & " GROUP BY auxINEParcelasOcupadas.Fecha"
+    strSQL = strSQL & " PIVOT auxINEParcelasOcupadas.TipoParcela;"
+ '   strSQL = strSQL & strIN
+    Set qdf = CurrentDb.QueryDefs("qryListadoOcupacion")
+    qdf.SQL = strSQL
+    qdf.Close
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    If Me.mrcPantImp = 1 Then
+        DoCmd.OpenQuery "qryListadoOcupacion", acViewNormal, acReadOnly
+    Else
+        strTitulo1 = "Listado de Ocupación "
+        strTitulo = strTitulo1 & vbCrLf & "Habitaciones ocupadas entre el " & Me.txtDesde & " y el " & Me.txtHasta
+        DoCmd.Hourglass True
+        ImprimirSQL_DOS1 CurrentDb.QueryDefs("qryListadoOcupacion").SQL, strTitulo, "11,0818,31,41,01", True
+        DoCmd.Hourglass False
+    End If
+    DoCmd.Hourglass False
+
+Salir_btnINE_Click:
+    DoCmd.Hourglass False
+    varReturn = SysCmd(acSysCmdClearStatus)
+    Exit Sub
+Error_btnINE_Click:
+    Select Case Err
+        Case 3190
+            MsgBox "Para listados del INE, se deben señalar entre fechas, comprendiendo normalmente 7 días" & _
+            vbCrLf & vbCrLf & "Error nº " & Err & " en btnINE_Click " & vbCrLf & Err.Description
+        Case Else
+            MsgBox "Error nº " & Err & " en btnINE_Click " & vbCrLf & Err.Description
+            Resume Salir_btnINE_Click
+            Resume Next
+    End Select
+            
+End Sub
+
+Private Sub btnAceptar_Click()
+    Dim strSQL As String, strSQL2 As String, strRPT As String
+    Dim rs As Recordset, rsAux As Recordset, rsFDet As Recordset, intHoy As Integer, i As Integer
+    'strSQL = "SELECT tbFichasCab.IdFichaCab, FechaLlegada AS Entrada, FechaSalida AS Salida, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, Adultos + Niños AS Pax, PaisCliente, [TotalBase]+[TotalIVA]+[TotalRecEq] AS TotalFicha, TotalFichaPagos([tbFichasCab]![IdFichaCab]) AS TotalPagado, [TotalFicha]-[TotalPagado] AS TotalPendientePago"
+    'strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab"
+    strSQL = "SELECT tbFichasCab.IdFichaCab as [Nº Ficha],tbFichasCab.IdFichaCab , tbFichasDet.Parcela, tbFichasDet.FechaInicio AS Entrada, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Salida, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, tbFichasDet.PlazasOcupadas, Adultos+Niños AS Pax, tbFichasCab.PaisCliente, tbFichasCab.Notas, tbFichasCab.Regimen, ProvinciaCliente, TelefonoCliente"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasDet.Parcela Is Not Null"
+
+    Select Case Me.mrcOES
+        Case 2
+            strSQL = strSQL & " AND EstadoFicha >= 1"
+            strSQL = strSQL & " AND tbFichasDet.FechaInicio = #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            strRPT = "rptListadoES"
+        Case 3
+            strSQL = strSQL & " AND EstadoFicha >= 1"
+            strSQL = strSQL & " AND IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) = #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            strRPT = "rptListadoES"
+        Case 4
+            strSQL = strSQL & " AND EstadoFicha = 1"
+            strSQL = strSQL & " AND tbFichasDet.FechaInicio = #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            strRPT = "rptListadoES"
+        Case 5
+            'strSQL = strSQL & " WHERE EstadoFicha >= 1"
+            'strSQL2 = strSQL & " AND tbFichasCab.FechaSalida = #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            'strSQL = strSQL & " AND tbFichasCab.FechaLlegada = #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            'strRpt = "rptListadoES0"
+        Case 6 'Rack
+            strSQL = strSQL & " And tbFichasDet.FechaInicio <= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "# And IIf(IsNull([FechaFin]), [FechaSalida], [FechaFin]) > #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            strRPT = "rptListadoRack"
+            CurrentDb.Execute "DELETE * FROM auxRack", dbFailOnError
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            Set rsAux = CurrentDb.OpenRecordset("auxRack", dbOpenDynaset)
+            While Not rs.EOF
+                rsAux.AddNew
+                For i = 0 To rsAux.Fields.Count - 2 'EstadoHab no existe en origen
+                    rsAux(i) = rs(rsAux(i).Name)
+                Next i
+                rsAux.Update
+                rs.MoveNext
+            Wend
+            Set rs = CurrentDb.OpenRecordset("tbParcelas", dbOpenSnapshot)
+            intHoy = CDate(Me.txtDesde) = Date
+            If Not intHoy Then
+                While Not rs.EOF
+                    rsAux.FindFirst "Parcela = " & ConComillas(rs("NombreParcela"))
+                    If rsAux.NoMatch Then
+                        rsAux.AddNew
+                        rsAux("Parcela") = rs("NombreParcela")
+                        rsAux("EstadoHab") = ""
+                        rsAux.Update
+                    End If
+                    rs.MoveNext
+                Wend
+            Else
+                While Not rs.EOF
+                    rsAux.FindFirst "Parcela = " & ConComillas(rs("NombreParcela"))
+                    If rsAux.NoMatch Then
+                        If rs("IdFicha") > 0 Then
+                            strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasDet.Parcela, tbFichasDet.FechaInicio AS Entrada, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Salida, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, tbFichasDet.PlazasOcupadas, Adultos+Niños AS Pax, tbFichasCab.PaisCliente, tbFichasCab.Notas, tbFichasCab.Regimen, tbFichasCab.EstadoFicha"
+                            strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+                            strSQL = strSQL & " WHERE tbFichasDet.Parcela = " & ConComillas(rs("NombreParcela"))
+                            strSQL = strSQL & " And tbFichasDet.FechaInicio <= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "# And IIf(IsNull([FechaFin]), [FechaSalida], [FechaFin]) >= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+                            Set rsFDet = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                            If rsFDet.EOF Then
+                                rsAux.AddNew
+                                rsAux("IdFichaCab") = rs("IdFicha")
+                                rsAux("Parcela") = rs("NombreParcela")
+                                rsAux("Entrada") = DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & rs("IdFicha"))
+                                rsAux("Salida") = DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & rs("IdFicha"))
+                                rsAux("EstadoHab") = "?"
+                                rsAux.Update
+                            End If
+                            While Not rsFDet.EOF
+                                rsAux.AddNew
+                                For i = 0 To rsAux.Fields.Count - 2 'EstadoHab no existe en origen
+                                    rsAux(i) = rsFDet(rsAux(i).Name)
+                                Next i
+                                If rsFDet("EstadoFicha") > 4 Then
+                                    rsAux("EstadoHab") = "B"
+                                Else
+                                    rsAux("EstadoHab") = "O"
+                                End If
+                                rsAux.Update
+                                rsFDet.MoveNext
+                            Wend
+                        Else
+                            rsAux.AddNew
+                            rsAux("Parcela") = rs("NombreParcela")
+                            rsAux("EstadoHab") = "L"
+                            rsAux.Update
+                        End If
+                    Else
+                        If rs("IdFicha") = rsAux("IdFichaCab") Or rs("IdFicha") = 0 Then
+                            rsAux.Edit
+                            If Nz(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & rs("IdFicha")), 0) > 1 Then
+                                rsAux("EstadoHab") = "O"
+                            Else
+                                rsAux("EstadoHab") = "L"
+                            End If
+                            rsAux.Update
+                        Else
+                            'Se hace la seleccion en los datos de la parcela conectada al panel actual
+                            strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasDet.Parcela, tbFichasDet.FechaInicio AS Entrada, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Salida, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, tbFichasDet.PlazasOcupadas, Adultos+Niños AS Pax, tbFichasCab.PaisCliente, tbFichasCab.Notas, tbFichasCab.Regimen, tbFichasCab.EstadoFicha"
+                            strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+                            strSQL = strSQL & " WHERE tbFichasDet.Parcela = " & ConComillas(rs("NombreParcela"))
+                            strSQL = strSQL & " AND tbFichasCab.IdFichaCab = " & rs("IdFicha")
+                            strSQL = strSQL & " And tbFichasDet.FechaInicio <= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "# And IIf(IsNull([FechaFin]), [FechaSalida], [FechaFin]) >= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+                            Set rsFDet = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                            rsAux.Edit
+                            If Not rsFDet.EOF Then
+                                If rsFDet("EstadoFicha") > 4 Then
+                                    rsAux("EstadoHab") = "B"
+                                Else
+                                    rsAux("EstadoHab") = "O" 'Si todavía ocupa la habitación se cambian los datos del rack
+                                    For i = 0 To rsAux.Fields.Count - 2
+                                        rsAux(i) = rsFDet(rsAux(i).Name)
+                                    Next i
+                                End If
+                                rsAux.Update
+                            Else
+                                rsAux("IdFichaCab") = rs("IdFicha")
+                                For i = 2 To rsAux.Fields.Count - 2
+                                    rsAux(i) = Null
+                                Next i
+                                rsAux("Cliente") = "????????????"
+                                rsAux("EstadoHab") = "?"
+                                rsAux.Update
+                            End If
+                        End If
+                    End If
+                    rs.MoveNext
+                Wend
+            End If
+            strSQL = "SELECT auxRack.*, tbParcelas.Orden"
+            strSQL = strSQL & " FROM auxRack INNER JOIN tbParcelas ON auxRack.Parcela = tbParcelas.NombreParcela"
+            strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+
+            Me.lblSQL.Caption = strSQL
+            GoTo Imprimir
+            
+    End Select
+    strSQL = strSQL & " ORDER BY tbFichasDet.Parcela"
+    Me.lblSQL.Caption = strSQL
+    If Me.mrcOES = 5 Then
+        Me.lblSQL1.Caption = strSQL
+        Me.lblSQL2.Caption = strSQL2
+    End If
+Imprimir:
+    On Error Resume Next
+    If Me.mrcPantImp = 1 Then
+        DoCmd.OpenReport strRPT, acViewPreview
+    Else
+        DoCmd.OpenReport strRPT
+    End If
+End Sub
+
+Private Sub btnF4_2_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtHasta)
+    If IsDate(varFecha) Then
+        Me.txtHasta = varFecha
+    End If
+End Sub
+
+Private Sub btnF4_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtDesde)
+    If IsDate(varFecha) Then
+        Me.txtDesde = varFecha
+    End If
+End Sub
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+
+Private Sub Form_Load()
+    ''Traducir me
+    CargarParam Me
+    MascaraFechasForm Me
+    Me.mrcOES = CInt(Nz(DameValorParam(Me.Name & "_mrcOES"), 2))
+    Call mrcOES_AfterUpdate
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    If IsNumeric(Me.OpenArgs) Then
+        Me.mrcOES = CInt(Me.OpenArgs)
+        Call mrcOES_AfterUpdate
+    End If
+End Sub
+
+Private Sub ListadoAcampadosIncluirFijos_AfterUpdate()
+    PonValorParam "ListadoAcampadosIncluirFijos", Me.ListadoAcampadosIncluirFijos, dbBoolean
+End Sub
+
+Private Sub mrcOES_AfterUpdate()
+    Select Case Me.mrcOES
+        Case 1
+            Me.txtHasta.Visible = True
+            'Me.ListadoAcampadosIncluirFijos.Visible = True
+            Me.btnF4.Visible = True
+            Me.btnF4_2.Visible = True
+            Me.lblDesde.Caption = "&Desde: "
+            Me.lblTitulo.Caption = "Listado de Ocupación"
+            Me.txtDesde.Visible = True
+        Case 2
+            Me.txtHasta.Visible = False
+            Me.ListadoAcampadosIncluirFijos.Visible = False
+            Me.btnF4.Visible = True
+            Me.btnF4_2.Visible = False
+            Me.lblDesde.Caption = "&Fecha: "
+            Me.lblTitulo.Caption = "Listado de Entradas"
+            'Me.txtDesde = Date
+            Me.txtDesde.Visible = True
+        Case 3
+            Me.txtHasta.Visible = False
+            Me.ListadoAcampadosIncluirFijos.Visible = False
+            Me.btnF4.Visible = True
+            Me.btnF4_2.Visible = False
+            Me.lblDesde.Caption = "&Fecha: "
+            Me.lblTitulo.Caption = "Listado de Salidas"
+            'Me.txtDesde = Date
+            Me.txtDesde.Visible = True
+        Case 4
+            Me.txtHasta.Visible = False
+            Me.ListadoAcampadosIncluirFijos.Visible = False
+            Me.btnF4.Visible = True
+            Me.btnF4_2.Visible = False
+            Me.lblDesde.Caption = "&Fecha: "
+            Me.lblTitulo.Caption = "Listado de Reservas"
+            Me.txtDesde.Visible = True
+        Case 5
+            Me.txtHasta.Visible = False
+            Me.ListadoAcampadosIncluirFijos.Visible = False
+            Me.btnF4.Visible = True
+            Me.btnF4_2.Visible = False
+            Me.lblDesde.Caption = "&Fecha: "
+            Me.lblTitulo.Caption = "Listado de Entradas y Salidas"
+            Me.txtDesde.Visible = True
+        Case 6
+            Me.txtHasta.Visible = False
+            Me.ListadoAcampadosIncluirFijos.Visible = False
+            Me.btnF4.Visible = True
+            Me.btnF4_2.Visible = False
+            Me.lblDesde.Caption = "&Fecha: "
+            Me.lblTitulo.Caption = "Listado de Rack"
+            'Me.txtDesde = Date
+            Me.txtDesde.Visible = True
+    End Select
+    PonValorParam Me.Name & "_mrcOES", Me.mrcOES
+End Sub
+
+Private Sub txtDesde_BeforeUpdate(Cancel As Integer)
+    If Not IsDate(Me.txtDesde) Then
+        MsgBox "Debe introducir una fecha"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtDesde)
+        If IsDate(varFecha) Then
+            Me.txtDesde = varFecha
+        End If
+    End If
+End Sub
+
+
+Private Sub txtHasta_BeforeUpdate(Cancel As Integer)
+    If Not IsDate(Me.txtHasta) Then
+        MsgBox "Debe introducir una fecha"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.txtHasta)
+        If IsDate(varFecha) Then
+            Me.txtHasta = varFecha
+        End If
+    End If
+    
+End Sub
+
+
+Public Sub EstadisticaIgueldo(datDesde As Date, datHasta As Date)
+    Dim strSQL As String, rs As Recordset, rsFCab As Recordset
+    On Error GoTo Error_EstadisticaIgueldo
+    Set rsFCab = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset)
+    strSQL = "SELECT Sum(tbFichasDet.Cantidad) AS SumaDeCantidad, tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasCab.FechaSalida)<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaLlegada)>=#" & Format(datDesde, "mm/dd/yyyy") & "#));"
+    strSQL = strSQL & " AND tbFichasDet.Parcela Is Not Null"
+    strSQL = strSQL & " GROUP BY tbFichasCab.IdFichaCab;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        rsFCab.FindFirst "IdFichaCab = " & rs("IdFichaCab")
+        If Not rsFCab.NoMatch Then
+            rsFCab.Edit
+            rsFCab("ParcelasCamping") = rs("SumaDeCantidad")
+            rsFCab.Update
+        End If
+        rs.Edit
+        rs.MoveNext
+    Wend
+    strSQL = "SELECT Sum(tbFichasDet.Cantidad) AS SumaDeCantidad, tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasCab.FechaSalida)<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaLlegada)>=#" & Format(datDesde, "mm/dd/yyyy") & "#));"
+    strSQL = strSQL & " AND tbFichasDet.Parcela Is Null AND tbFichasDet.IdTipoParcela Is Not Null"
+    strSQL = strSQL & " GROUP BY tbFichasCab.IdFichaCab;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        rsFCab.FindFirst "IdFichaCab = " & rs("IdFichaCab")
+        If Not rsFCab.NoMatch Then
+            rsFCab.Edit
+            rsFCab("Bungaloes") = rs("SumaDeCantidad")
+            rsFCab.Update
+        End If
+        rs.Edit
+        rs.MoveNext
+    Wend
+    
+Error_EstadisticaIgueldo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EstadisticaIgueldo" & vbCrLf & Err.Description
+            Resume Salir_EstadisticaIgueldo
+    End Select
+Salir_EstadisticaIgueldo:
+    Exit Sub
+    
+End Sub
+Public Sub OcupacionActual()
+    Dim strSQL As String, rs As Recordset, rsFCab As Recordset
+    On Error GoTo Error_OcupacionActual
+Error_OcupacionActual:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en OcupacionActual" & vbCrLf & Err.Description
+            Resume Salir_OcupacionActual
+    End Select
+Salir_OcupacionActual:
+    Exit Sub
+    
+End Sub

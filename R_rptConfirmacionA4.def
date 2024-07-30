@@ -1,0 +1,24 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+'Hay que llamar a esta función antes de abrir el informe. Mejor sacarlo fuera del informe para poder cancelar el envío a impresora
+'---->>>>>>>>>    If PonParrafoConfirmacionReserva = False Then Cancel = True
+    Dim sngAltoMax As Single
+    'Me.lblNombreDoc.Caption = Nz(DameValorParam("Fichas_NombreDocumento"), Me.lblNombreDoc.Caption)
+    PonLogoRpt Me, Me.LogoImagen, Nz(DameValorParam("FichasLogoSN"), False), Me.CuadroCabecera.Top, Me.CuadroCabecera.Width, 1, 3
+    
+    If DameValorParam("FichasCabeceraSN") = True Then
+        Me.txtCabecera.Visible = True
+        Me.CuadroCabecera.Visible = True
+    Else
+        Me.txtCabecera.Visible = False
+        Me.CuadroCabecera.Visible = False
+    End If
+End Sub

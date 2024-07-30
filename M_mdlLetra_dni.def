@@ -1,0 +1,18 @@
+Option Compare Database
+Option Explicit
+
+Function letra_dni(DNI)
+' calcula la letra del dni
+    Const DNILET = "TRWAGMYFPDXBNJZSQVHLCKE"
+    On Error GoTo Error_letra_dni
+    letra_dni = Mid(DNILET, 1 + (DNI Mod 23), 1)
+Exit_letra_dni:
+    Exit Function
+Error_letra_dni:
+    Select Case Err.Number
+        Case Else
+            MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En letra_dni"
+            letra_dni = ""
+    End Select
+    Resume Exit_letra_dni
+End Function

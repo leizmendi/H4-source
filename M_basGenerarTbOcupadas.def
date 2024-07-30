@@ -1,0 +1,317 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub GenerarTbAuxOcupadas(datIni As Date, Optional intSinSalto As Integer = False, Optional intSoloParcelasReservas As Integer = False)
+    On Error GoTo Error_GenerarTbAuxOcupadas
+    Dim strSQL As String, rs As Recordset, rsOcu As Recordset
+    Dim dt(1 To 7) As Date, i As Integer, dtIniBucle As Date, dtFinBucle As Date
+    Dim idt As Date, iIni As Integer
+    
+    strSQL = "DELETE * FROM tbAuxOcupadas"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT tbFichasCab.IdFichaCab, NombreCliente & ' ' & ApellidosCliente As Cliente, tbFichasCab.Notas, tbFichasCab.EstadoFicha, tbFichasCab.ConfirmadaReserva, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS Entrada, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Salida, tbFichasDet.Parcela"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasCab.IdFichaCab)>0) AND ((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<#" & Format(datIni + 7, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+    strSQL = strSQL & " OR    (((tbFichasCab.IdFichaCab)>0) AND ((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<#" & Format(datIni + 7, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.IdFichaDet) Is Null))"
+    'strSQL = strSQL & " OR    (((tbFichasCab.IdFichaCab)>0) AND ((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<#" & Format(datIni + 7, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Null) AND ((tbFichasDet.IdFichaDet) Is Not Null));"
+    strSQL = strSQL & " UNION ALL SELECT tbFichasCab.IdFichaCab, NombreCliente & ' ' & ApellidosCliente AS Cliente, tbFichasCab.Notas, tbFichasCab.EstadoFicha, tbFichasCab.ConfirmadaReserva, tbFichasCab.FechaLlegada AS Entrada, tbFichasCab.FechaSalida AS Salida, '-' As Parcela"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN qryFichasSinParcelaConDetalle ON tbFichasCab.IdFichaCab = qryFichasSinParcelaConDetalle.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasCab.IdFichaCab)>0) AND ((tbFichasCab.FechaLlegada)<#" & Format(datIni + 7, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaSalida)>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (tbFichasCab.FechaSalida) Is Null));"
+
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    Set rsOcu = CurrentDb.OpenRecordset("tbAuxOcupadas")
+    For i = 0 To 6
+        dt(i + 1) = datIni + i
+    Next i
+    While Not rs.EOF
+        If IsNull(rs("Entrada")) Then
+            dtIniBucle = dt(1)
+        Else
+            If rs("Entrada") > dt(1) Then
+                dtIniBucle = rs("Entrada")
+            Else
+                dtIniBucle = dt(1)
+            End If
+        End If
+        If IsNull(rs("Salida")) Then
+            dtFinBucle = dt(7)
+        Else
+            If (rs("Salida") - 1) < dt(7) Then
+                dtFinBucle = rs("Salida") - 1
+            Else
+                dtFinBucle = dt(7)
+            End If
+        End If
+        i = dtIniBucle - datIni + 1
+        rsOcu.FindFirst "Parcela = " & ConComillas(Nz(rs("Parcela"), ""))
+        If rsOcu.NoMatch Then
+            rsOcu.AddNew
+            rsOcu("Parcela") = rs("Parcela")
+            rsOcu("Orden") = Nz(DLookup("Orden", "tbParcelas", "NombreParcela = '" & rs("Parcela") & "'"), 0)
+        Else
+            rsOcu.Edit
+        End If
+        For idt = dtIniBucle To dtFinBucle
+            If rsOcu("Dia" & i) <> 0 Then ' caso de encontrarse ese día esa parcela ya ocupada, genera un nuevo registro en tbAuxOcupadas!!!!!
+                rsOcu.AddNew
+                rsOcu("Parcela") = rs("Parcela")
+                rsOcu("Orden") = Nz(DLookup("Orden", "tbParcelas", "NombreParcela = '" & rs("Parcela") & "'"), 0)
+            End If
+            rsOcu("Dia" & i) = rs("IdFichaCab")
+            If rs("EstadoFicha") = 1 And rs("ConfirmadaReserva") = False Then
+                rsOcu("Dia" & i & "_txt") = "?-" & rs("Cliente")
+            Else
+                rsOcu("Dia" & i & "_txt") = rs("Cliente")
+            End If
+            rsOcu("Dia" & i & "_txt") = RecDerTop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
+            i = i + 1
+        Next idt
+        rsOcu.Update
+Siguiente:
+        rs.MoveNext
+    Wend
+    If Nz(DameValorParam("CuadroOcupacionVerTodasParcelas"), False) = False Then GoTo Borrar_No_Reservas
+'    If intVerTodasParcelas = False Then GoTo Salir_GenerarTbAuxOcupadas
+    strSQL = "SELECT tbParcelas.NombreParcela, tbParcelas.Orden, tbAuxOcupadas.Parcela"
+    strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbAuxOcupadas ON tbParcelas.NombreParcela = tbAuxOcupadas.Parcela"
+    strSQL = strSQL & " WHERE (((tbAuxOcupadas.Parcela) Is Null));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        rsOcu.AddNew
+        rsOcu("Parcela") = rs("NombreParcela")
+        rsOcu("Orden") = rs("Orden")
+        rsOcu.Update
+        rs.MoveNext
+    Wend
+Borrar_No_Reservas:
+    If intSoloParcelasReservas Then
+        strSQL = "DELETE tbAuxOcupadas.*"
+        strSQL = strSQL & " FROM tbAuxOcupadas INNER JOIN tbParcelas ON tbAuxOcupadas.Parcela = tbParcelas.NombreParcela"
+        strSQL = strSQL & " WHERE (((tbParcelas.ControlReservas)=False));"
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+
+Salir_GenerarTbAuxOcupadas:
+    Exit Sub
+Error_GenerarTbAuxOcupadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarTbAuxOcupadas" & vbCrLf & Err.Description
+            Resume Salir_GenerarTbAuxOcupadas
+            Resume Next
+    End Select
+End Sub
+
+Public Sub GenerarSoloEntradasTbAuxOcupadas(datIni As Date, Optional intSinSalto As Integer = False)
+    On Error GoTo Error_GenerarSoloEntradasTbAuxOcupadas
+    Dim strSQL As String, rs As Recordset, rsOcu As Recordset
+    Dim dt(1 To 7) As Date, i As Integer, dtIniBucle As Date, dtFinBucle As Date
+    Dim idt As Date, iIni As Integer
+    
+    strSQL = "DELETE * FROM tbAuxOcupadas"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, NombreCliente & ' ' & ApellidosCliente As Cliente, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab "
+    strSQL = strSQL & " WHERE IdFichaCab > 0 AND [FechaLlegada] Between #" & Format(datIni, "mm/dd/yyyy") & "# AND #" & Format(datIni + 6, "mm/dd/yyyy") & "#"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsOcu = CurrentDb.OpenRecordset("tbAuxOcupadas")
+    For i = 0 To 6
+        dt(i + 1) = datIni + i
+    Next i
+    While Not rs.EOF
+        rsOcu.AddNew
+'        rsOcu("Parcela") = rs("Parcela")
+'        rsOcu("Orden") = Nz(DLookup("Orden", "tbParcelas", "NombreParcela = '" & rs("Parcela") & "'"), 0)
+        i = rs("FechaLlegada") - datIni + 1
+        rsOcu("Dia" & i) = rs("IdFichaCab")
+        If rs("EstadoFicha") = 1 And rs("ConfirmadaReserva") = False Then
+            rsOcu("Dia" & i & "_txt") = "?-" & rs("Cliente")
+        Else
+            rsOcu("Dia" & i & "_txt") = rs("Cliente")
+        End If
+        rsOcu("Dia" & i & "_txt") = RecDerTop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
+        rsOcu.Update
+Siguiente:
+        rs.MoveNext
+    Wend
+Salir_GenerarSoloEntradasTbAuxOcupadas:
+    Exit Sub
+Error_GenerarSoloEntradasTbAuxOcupadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarSoloEntradasTbAuxOcupadas" & vbCrLf & Err.Description
+            Resume Salir_GenerarSoloEntradasTbAuxOcupadas
+            Resume Next
+    End Select
+End Sub
+Public Sub GenerarSoloSalidasTbAuxOcupadas(datIni As Date, Optional intSinSalto As Integer = False)
+    On Error GoTo Error_GenerarSoloSalidasTbAuxOcupadas
+    Dim strSQL As String, rs As Recordset, rsOcu As Recordset
+    Dim dt(1 To 7) As Date, i As Integer, dtIniBucle As Date, dtFinBucle As Date
+    Dim idt As Date, iIni As Integer
+    
+    strSQL = "DELETE * FROM tbAuxOcupadas"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaSalida, NombreCliente & ' ' & ApellidosCliente As Cliente, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab "
+    strSQL = strSQL & " WHERE IdFichaCab > 0 AND [FechaSalida] Between #" & Format(datIni, "mm/dd/yyyy") & "# AND #" & Format(datIni + 6, "mm/dd/yyyy") & "#"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsOcu = CurrentDb.OpenRecordset("tbAuxOcupadas")
+    For i = 0 To 6
+        dt(i + 1) = datIni + i
+    Next i
+    While Not rs.EOF
+        rsOcu.AddNew
+'        rsOcu("Parcela") = rs("Parcela")
+'        rsOcu("Orden") = Nz(DLookup("Orden", "tbParcelas", "NombreParcela = '" & rs("Parcela") & "'"), 0)
+        i = rs("FechaSalida") - datIni + 1
+        rsOcu("Dia" & i) = rs("IdFichaCab")
+        If rs("EstadoFicha") = 1 And rs("ConfirmadaReserva") = False Then
+            rsOcu("Dia" & i & "_txt") = "?-" & rs("Cliente")
+        Else
+            rsOcu("Dia" & i & "_txt") = rs("Cliente")
+        End If
+        rsOcu("Dia" & i & "_txt") = RecDerTop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
+        rsOcu.Update
+Siguiente:
+        rs.MoveNext
+    Wend
+Salir_GenerarSoloSalidasTbAuxOcupadas:
+    Exit Sub
+Error_GenerarSoloSalidasTbAuxOcupadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarSoloSalidasTbAuxOcupadas" & vbCrLf & Err.Description
+            Resume Salir_GenerarSoloSalidasTbAuxOcupadas
+            Resume Next
+    End Select
+End Sub
+
+
+Public Function Generar_auxPlaning(datIni As Date, iNumDias As Integer, _
+                              Optional bSinSalto As Boolean = False, _
+                              Optional bSoloControlReservas As Boolean = False, _
+                              Optional bFichasSinParcela As Boolean = True, _
+                              Optional bVerCanceladas As Boolean = False) As Long
+    On Error GoTo HandleError
+    Dim sSQL As String, rs As Recordset, rsAuxP As Recordset
+    Dim dt(1 To 31) As Date, i As Integer, dtIniBucle As Date, dtFinBucle As Date
+    Dim idt As Date, iIni As Integer
+    Dim iPasoSinParcela As Integer
+    
+    sSQL = "DELETE * FROM auxPlaning_Parcelas"
+    CurrentDb.Execute sSQL, dbFailOnError
+    
+    sSQL = "INSERT INTO auxPlaning_Parcelas (IdTipoParcela, Orden, Parcela)" & _
+           "SELECT tbParcelas.IdTipoParcela, tbParcelas.Orden, tbParcelas.NombreParcela" & _
+           " FROM tbParcelasTipo INNER JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela" & _
+           " WHERE True"
+    If bSoloControlReservas Then sSQL = sSQL & " AND tbParcelasTipo.ControlReservas = True And tbParcelas.ControlReservas = True"
+    sSQL = sSQL & " ORDER BY tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela, tbParcelas.Orden;"
+    CurrentDb.Execute sSQL, dbFailOnError
+    
+    sSQL = "INSERT INTO auxPlaning_ParcelasTipo (IdTipoParcela, Orden, Parcela)" & _
+           "SELECT IdTipoParcela, CatINE, TipoParcela" & _
+           " FROM tbParcelasTipo" & _
+           " WHERE True"
+    If bSoloControlReservas Then sSQL = sSQL & " AND tbParcelasTipo.ControlReservas = True"
+    sSQL = sSQL & " ORDER BY tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela"
+    CurrentDb.Execute sSQL, dbFailOnError
+    
+    
+    
+    
+    
+    
+    
+    
+PasoSinParcela:
+    If iPasoSinParcela = 0 Then
+        sSQL = "SELECT tbFichasCab.IdFichaCab, NombreCliente & ' ' & ApellidosCliente As Cliente, tbFichasCab.Notas, tbFichasCab.EstadoFicha, tbFichasCab.ConfirmadaReserva, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS Entrada, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS Salida, tbFichasDet.Parcela"
+        sSQL = sSQL & " FROM auxPlaning_Parcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON auxPlaning_Parcelas.Parcela = tbFichasDet.Parcela"
+        sSQL = sSQL & " WHERE ((((tbFichasCab.IdFichaCab)>0) AND ((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<#" & Format(datIni + iNumDias, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+        sSQL = sSQL & " OR    (((tbFichasCab.IdFichaCab)>0) AND ((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<#" & Format(datIni + iNumDias, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.IdFichaDet) Is Null)))"
+        If Not bVerCanceladas Then sSQL = sSQL & " AND EstadoFicha <> 9"
+        Set rsAuxP = CurrentDb.OpenRecordset("auxPlaning_Parcelas")
+        For i = 0 To iNumDias - 1
+            dt(i + 1) = datIni + i
+        Next i
+    Else
+        sSQL = "SELECT tbFichasCab.IdFichaCab, NombreCliente & ' ' & ApellidosCliente AS Cliente, tbFichasCab.Notas, tbFichasCab.EstadoFicha, tbFichasCab.ConfirmadaReserva, tbFichasCab.FechaLlegada AS Entrada, tbFichasCab.FechaSalida AS Salida, '-' As Parcela"
+        sSQL = sSQL & " FROM tbFichasCab INNER JOIN qryFichasSinParcelaConDetalle ON tbFichasCab.IdFichaCab = qryFichasSinParcelaConDetalle.IdFichaCab"
+        sSQL = sSQL & " WHERE (((tbFichasCab.IdFichaCab)>0) AND ((tbFichasCab.FechaLlegada)<#" & Format(datIni + iNumDias, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaSalida)>=#" & Format(datIni, "mm/dd/yyyy") & "# Or (tbFichasCab.FechaSalida) Is Null));"
+    End If
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenDynaset)
+    While Not rs.EOF
+        If IsNull(rs("Entrada")) Then
+            dtIniBucle = dt(1)
+        Else
+            If rs("Entrada") > dt(1) Then
+                dtIniBucle = rs("Entrada")
+            Else
+                dtIniBucle = dt(1)
+            End If
+        End If
+        If IsNull(rs("Salida")) Then
+            dtFinBucle = dt(iNumDias)
+        Else
+            If (rs("Salida") - 1) < dt(iNumDias) Then
+                dtFinBucle = rs("Salida") - 1
+            Else
+                dtFinBucle = dt(iNumDias)
+            End If
+        End If
+        i = dtIniBucle - datIni + 1
+        If iPasoSinParcela = 0 Then
+            rsAuxP.FindFirst "Parcela = " & ConComillas(Nz(rs("Parcela"), ""))
+            If rsAuxP.NoMatch Then
+                'rsAuxP.AddNew
+                'rsAuxP("Parcela") = rs("Parcela")
+                'rsAuxP("Orden") = Nz(DLookup("Orden", "tbParcelas", "NombreParcela = '" & rs("Parcela") & "'"), 0)
+                MsgBox "No se encontró Parcela: " & rs("Parcela"), vbExclamation
+                GoTo Siguiente
+            Else
+                rsAuxP.Edit
+            End If
+        Else
+            rsAuxP.AddNew
+        End If
+        For idt = dtIniBucle To dtFinBucle
+            If Nz(rsAuxP("Dia" & i), "") <> "" Then ' caso de encontrarse ese día esa parcela ya ocupada, genera un nuevo registro en auxPlaning_Parcelas!!!!!
+                rsAuxP("Dia" & i) = rsAuxP("Dia" & i) & "," & rs("IdFichaCab")
+                rsAuxP("Dia" & i & "_txt") = "¡++!"
+                'rsAuxP.AddNew
+                'rsAuxP("Parcela") = rs("Parcela")
+                'rsAuxP("Orden") = Nz(DLookup("Orden", "tbParcelas", "NombreParcela = '" & rs("Parcela") & "'"), 0)
+            Else
+                rsAuxP("Dia" & i) = rs("IdFichaCab")
+                If rs("EstadoFicha") = 1 And rs("ConfirmadaReserva") = False Then
+                    rsAuxP("Dia" & i & "_txt") = "?-" & rs("Cliente")
+                Else
+                    rsAuxP("Dia" & i & "_txt") = rs("Cliente")
+                End If
+                rsAuxP("Dia" & i & "_txt") = Left(rsAuxP("Dia" & i & "_txt") & IIf(bSinSalto, " // ", vbCrLf) & rs("Notas"), 125)
+            End If
+                
+            i = i + 1
+        Next idt
+        rsAuxP.Update
+Siguiente:
+        rs.MoveNext
+    Wend
+    If iPasoSinParcela = 0 And bFichasSinParcela = True Then
+        iPasoSinParcela = 1
+        GoTo PasoSinParcela
+    End If
+    Generar_auxPlaning = DCount("Parcela", "auxPlaning_Parcelas")
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Generar_auxPlaning" & vbCrLf & Err.Description
+            
+            Resume HandleExit
+    End Select
+End Function

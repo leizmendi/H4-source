@@ -1,0 +1,319 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gShift As Integer
+    
+Private Sub btnGrabarCambios_Click()
+    GrabarParam Me
+End Sub
+
+Private Sub AplicacionColorMenu_AfterUpdate()
+    Me.lblMenu.BackColor = Nz(Me.AplicacionColorMenu, 0)
+End Sub
+
+Private Sub AplicacionColorMenu_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.AplicacionColorMenu) Then
+        MsgBox "Debe ser un número"
+        Cancel = True
+    End If
+End Sub
+
+
+Private Sub AplicacionColorMenu_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+        Call btnColor_Click
+    End If
+End Sub
+Private Sub AplicacionColorPanel_AfterUpdate()
+    Me.lblPANEL.BackColor = Nz(Me.AplicacionColorPanel, 0)
+    Me.lblPANEL.ForeColor = Nz(Me.AplicacionColorTextoEstablecimiento, 0)
+    Me.lblMenu.ForeColor = Nz(Me.AplicacionColorTextoEstablecimiento, 0)
+End Sub
+
+Private Sub AplicacionColorPanel_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.AplicacionColorPanel) Then
+        MsgBox "Debe ser un número"
+        Cancel = True
+    End If
+End Sub
+
+
+Private Sub AplicacionColorPanel_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+        Call btnColorPanel_Click
+    End If
+End Sub
+
+Private Sub AplicacionIcono_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+        Call btnFichero_Click
+    End If
+End Sub
+
+Private Sub AplicacionPlanoEmergenteSN_AfterUpdate()
+    On Error GoTo HandleError
+    DoCmd.OpenForm "frmPlano", acDesign, , , , acHidden
+    Forms("frmPlano").PopUp = Nz(Me.AplicacionPlanoEmergenteSN, False)
+    DoCmd.Close acForm, "frmPlano", acSaveYes
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnActualizarAutonumericos_Click()
+    On Error GoTo HandleError
+    If Me.lstDatos.ListIndex = -1 Then Exit Sub
+    Dim db As DAO.Database
+    Set db = OpenDatabase(Me.lstDatos.Column(1) & Me.lstDatos.Column(2))
+    ActualizarAutonumericos db
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnColor_Click()
+    Me.AplicacionColorMenu = adhChooseColor(Nz(Me.AplicacionColorMenu, 0))
+    AplicacionColorMenu_AfterUpdate
+End Sub
+Private Sub btnColorPanel_Click()
+    Me.AplicacionColorPanel = adhChooseColor(Nz(Me.AplicacionColorPanel, 0))
+    AplicacionColorPanel_AfterUpdate
+End Sub
+
+Private Sub btnColorTexto_Click()
+    Me.AplicacionColorTextoEstablecimiento = adhChooseColor(Nz(Me.AplicacionColorTextoEstablecimiento, 0))
+    AplicacionColorPanel_AfterUpdate
+End Sub
+
+Private Sub btnComprobarResolucion_Click()
+    Call ComprobarResolucion(True)
+    CargarSettingsForm Me
+End Sub
+
+Private Sub btnFichero_Click()
+    Dim strX As String
+    strX = SaveFileNameDlg("Indicar Fichero de icono", "*.ico", Nz(Me.AplicacionIcono, ""))
+    If strX <> "" Then
+        Me.AplicacionIcono = strX
+    End If
+End Sub
+
+
+Private Function DimeCarpeta(intDatImg As Integer)
+    Dim strDirImg As String, strCarDatos As String, strSQL As String
+    Select Case intDatImg
+        Case 1
+            strCarDatos = Nz(Me.AplicacionCarpetaDatos, "")
+            If Dir(strCarDatos, vbDirectory) = "" Then strCarDatos = ""
+            strCarDatos = AbrirDialogo(, , , , "Indicar Carpeta de Datos", "Carpeta Datos", strCarDatos, , , , , True, True)
+            If strCarDatos <> "" Then
+                If Right(strCarDatos, 1) <> "\" Then strCarDatos = strCarDatos & "\"
+                    Me.AplicacionCarpetaDatos = strCarDatos
+                    ConectaFicherosDatos strCarDatos
+                End If
+        Case 2
+            strCarDatos = Nz(Me.AplicacionCarpetaDatos, "")
+            strDirImg = strCarDatos & Me.AplicacionCarpetaImagenes
+            If Dir(strDirImg, vbDirectory) = "" Then strDirImg = strCarDatos
+            strDirImg = AbrirDialogo(, , , , "Indicar Carpeta de Imágenes", "Carpeta Imágenes", strDirImg, , , , , True, True)
+            If strDirImg <> "" Then
+                If InStr(strDirImg, Me.AplicacionCarpetaDatos) <> 1 Then
+                    MsgBox "Se debe seleccionar una Carpeta dentro de la Carpeta de datos"
+                    Exit Function
+                Else
+                    strDirImg = Right(strDirImg, Len(strDirImg) - Len(strCarDatos))
+                End If
+                If Right(strDirImg, 1) <> "\" Then strDirImg = strDirImg & "\"
+                Me.AplicacionCarpetaImagenes = strDirImg
+            End If
+        Case 3
+            strCarDatos = Nz(Me.AplicacionCarpetaParametros, "")
+            If Dir(strCarDatos, vbDirectory) = "" Then strCarDatos = ""
+            strCarDatos = AbrirDialogo(, , , , "Indicar Carpeta de Parámetros", "Carpeta Parámetros", strCarDatos, , , , , True, True)
+            If strCarDatos <> "" Then
+                If Right(strCarDatos, 1) <> "\" Then strCarDatos = strCarDatos & "\"
+                Me.AplicacionCarpetaParametros = strCarDatos
+                strSQL = "UPDATE 1myConexionTablas SET DirectorioDeConexion = " & ConComillas(strCarDatos)
+                strSQL = strSQL & ", DirectorioActual=False"
+                strSQL = strSQL & " WHERE FicheroDeconexion = 'H4cfg.mdb'"
+                CurrentDb.Execute strSQL, dbFailOnError
+            End If
+        Case 4
+            strCarDatos = Nz(Me.AplicacionCarpetaListados, "")
+            If Dir(strCarDatos, vbDirectory) = "" Then strCarDatos = ""
+            strCarDatos = AbrirDialogo(, , , , "Indicar Carpeta de Listados", "Carpeta Listados", strCarDatos, , , , , True, True)
+            If strCarDatos <> "" Then
+                If Right(strCarDatos, 1) <> "\" Then strCarDatos = strCarDatos & "\"
+                Me.AplicacionCarpetaListados = strCarDatos
+            End If
+    End Select
+    
+End Function
+
+Private Sub btnGenerarPanel_Click()
+    GenerarfrmPanel
+End Sub
+
+Private Sub btnReconectarDatos_Click()
+    If gShift And acCtrlMask <> 0 Then
+        DoCmd.OpenForm "frmParametrosModulos"
+        Exit Sub
+    End If
+    ReconectarTablasYaVinculadas Me.AplicacionCarpetaDatos, Me.AplicacionCarpetaParametros
+    DoCmd.Close acForm, Forms(0).Name
+    DoCmd.RunMacro "Autoexec"
+End Sub
+
+Private Sub btnReconectarDatos_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnReconectarDatos_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    CargarSettingsForm Me
+    AplicacionColorMenu_AfterUpdate
+    AplicacionColorPanel_AfterUpdate
+    Carga_Btns
+    Me.lblLicencia.Caption = LicenciaNota
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+    GrabarSettingsForm Me
+    If IsOpenForm("frmMenu") Then
+        Forms("frmMenu").Section(0).BackColor = Nz(DameValorParam("AplicacionColorMenu"), 0)
+    End If
+End Sub
+
+Public Sub Select_btn_x(iBtn As Integer)
+    Dim intR As Integer, lngIdComando As Long, strImg As String
+    lngIdComando = Nz(DameValorParam("AplicacionMenuBtn_" & iBtn & "_comando"), 0)
+    lngIdComando = Nz(BuscaAyuda("COMM", lngIdComando, 1, , , False), lngIdComando)
+    PonValorParam "AplicacionMenuBtn_" & iBtn & "_comando", lngIdComando, 4
+    PonValorParam "AplicacionMenuBtn_" & iBtn & "_ControlTipText_", Nz(DLookup("Leyenda", "sysMenus2", "IdComando = " & lngIdComando), ""), 10
+    Me("btn_" & iBtn).ControlTipText = Nz(DLookup("Leyenda", "sysMenus2", "IdComando = " & lngIdComando), "")
+    Dim strX As String
+    strX = Nz(DameValorParam("AplicacionMenuBtn_" & iBtn & "_Imagen"), "")
+    strX = SaveFileNameDlg("Indicar Imagen de botón", "*.bmp", strX)
+    If strX <> "" Then
+        PonValorParam "AplicacionMenuBtn_" & iBtn & "_Imagen", strX, 10
+    End If
+    Me("btn_" & iBtn).Picture = strX
+End Sub
+
+Public Sub Carga_Btns()
+    Dim i As Integer, lngIdComando As Long, strPic As String, strCTT As String
+    On Error Resume Next
+    For i = 2 To 7
+        strPic = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_imagen"), "")
+        If Dir(strPic) <> "" Then Me("btn_" & i).Picture = strPic
+        Me("btn_" & i).Enabled = Nz(DameValorParam("AplicacionMenuVer_Btn_" & i), False)
+        If Me("btn_" & i).Enabled Then
+            lngIdComando = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_comando"), 0)
+            Me("btn_" & i).OnClick = "=AccionMenu(" & lngIdComando & ",2)"
+            strCTT = Nz(DLookup("Leyenda", "sysMenus2", "IdComando = " & lngIdComando), "")
+            Me("btn_" & i).ControlTipText = strCTT
+        End If
+    Next i
+End Sub
+
+Private Function Ver_btn_x()
+    Dim i As Integer, ctl As Control
+    PonValorParamAC
+    Set ctl = Screen.ActiveControl
+    If ctl.value = True Then
+        i = Right(ctl.Name, 1)
+        Select_btn_x i
+    End If
+    Carga_Btns
+End Function
+
+
+Private Sub PanelCasillaAltoCm_AfterUpdate()
+    PonValorParamAC
+    PonValorParam "PanelCasillaAlto", Nz(DameValorParam("PanelCasillaAltoCm"), 1) * TC_CmToPoints, 4
+End Sub
+
+Private Sub PanelCasillaAnchoCm_AfterUpdate()
+    PonValorParamAC
+    PonValorParam "PanelCasillaAncho", Nz(DameValorParam("PanelCasillaAnchoCm"), 2) * TC_CmToPoints, 4
+End Sub
+
+Public Function ConectaFicherosDatos(strCarpeta As String) As Integer
+    On Error GoTo Error_ConectaFicherosDatos
+    Dim strFdat As String, strFrec As String, strSQL As String, strF As String, strPWD1 As String, strPWD2 As String
+    Dim db As DAO.Database
+    
+    strFdat = DimeFichero(strCarpeta & "*dat*.mdb", "Seleccione Fichero de Datos", "*DAT*.mdb")
+    If strFdat = "" Then GoTo Salir_ConectaFicherosDatos
+    If DirectorioDe(strFdat) <> strCarpeta Then
+        MsgBox "Se modificó carpeta de datos", vbExclamation
+        Exit Function
+    End If
+    strPWD1 = InputBox("Introduzca contraseña de base de datos: " & strFdat, "Contraseña")
+    On Error Resume Next
+    Set db = OpenDatabase(strFdat, False, False, "MS Access; PWD=" & strPWD1)
+    If Err <> 0 Then
+        MsgBox "La contraseña no es correcta", vbExclamation
+        Exit Function
+    End If
+    On Error GoTo Error_ConectaFicherosDatos
+    strFrec = DimeFichero(strCarpeta & "*rec*.mdb", "Seleccione Fichero de Recibos", "*REC*.mdb")
+    If strFrec = "" Then GoTo Salir_ConectaFicherosDatos
+    If DirectorioDe(strFrec) <> strCarpeta Then
+        MsgBox "Se modificó carpeta de datos", vbExclamation
+        Exit Function
+    End If
+    strPWD2 = InputBox("Introduzca contraseña de base de datos: " & strFrec, "Contraseña")
+    On Error Resume Next
+    Set db = OpenDatabase(strFrec, False, False, "MS Access; PWD=" & strPWD2)
+    If Err <> 0 Then
+        MsgBox "La contraseña no es correcta", vbExclamation
+        Exit Function
+    End If
+    On Error GoTo Error_ConectaFicherosDatos
+    strF = Dir(strFdat)
+    If strF = "" Then
+        MsgBox "No se encontró fichero de datos " & strFdat, vbExclamation
+        Exit Function
+    End If
+    strSQL = "UPDATE 1myConexionTablas SET DirectorioActual = False, DirectorioDeConexion = " & ConComillas(strCarpeta) & ", FicheroDeConexion = " & ConComillas(strF)
+    strSQL = strSQL & ", PrefijoConexion =" & ConComillas("MS Access;PWD=" & strPWD1 & ";DATABASE=")
+    strSQL = strSQL & " WHERE FicheroDeConexion Like '*DAT*.mdb'"
+    strF = Dir(strFrec)
+    If strF = "" Then
+        MsgBox "No se encontró fichero de datos " & strFrec, vbExclamation
+        Exit Function
+    End If
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE 1myConexionTablas SET DirectorioActual = False, DirectorioDeConexion = " & ConComillas(strCarpeta) & ", FicheroDeConexion = " & ConComillas(strF)
+    strSQL = strSQL & ", PrefijoConexion =" & ConComillas("MS Access;PWD=" & strPWD2 & ";DATABASE=")
+    strSQL = strSQL & " WHERE FicheroDeConexion Like '*REC*.mdb'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    ConectaFicherosDatos = ReconectarTablasYaVinculadas()
+    Me.lstDatos.Requery
+Salir_ConectaFicherosDatos:
+    Exit Function
+Error_ConectaFicherosDatos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ConectaFicherosDatos" & vbCrLf & Err.Description
+            Resume Salir_ConectaFicherosDatos
+    End Select
+
+End Function

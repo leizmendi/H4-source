@@ -1,0 +1,388 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+' From Access 97 Developer's Handbook
+' by Litwin, Getz, and Gilbert (Sybex)
+' Copyright 1997.  All rights reserved.
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Dim LastInput As Integer
+Dim DecimalFlag As Integer
+Dim NumOps As Integer
+Dim op1 As Double
+Dim Op2 As Double
+Dim OpFlag As String
+
+Const adhcStateNone = 0
+Const adhcStateNums = 1
+Const adhcStateOps = 2
+Const adhcStateClear = 3
+
+' These constants just aren't there for us...
+Const vbKeyEqual = &HBB
+Const vbKeyMinus = &HBD
+Const vbKeyPeriod = &HBE
+Const vbKeySlash = &HBF
+
+Private Sub cmd0_Click()
+    HandleNumberClick "0"
+End Sub
+
+Private Sub cmd0_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd1_Click()
+    HandleNumberClick "1"
+End Sub
+
+Private Sub cmd1_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd2_Click()
+    HandleNumberClick "2"
+End Sub
+
+Private Sub cmd2_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd3_Click()
+    HandleNumberClick "3"
+End Sub
+
+Private Sub cmd3_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd4_Click()
+    HandleNumberClick "4"
+End Sub
+
+Private Sub cmd4_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd5_Click()
+    HandleNumberClick "5"
+End Sub
+
+Private Sub cmd5_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd6_Click()
+    HandleNumberClick "6"
+End Sub
+
+Private Sub cmd6_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd7_Click()
+    HandleNumberClick "7"
+End Sub
+
+Private Sub cmd7_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd8_Click()
+    HandleNumberClick "8"
+End Sub
+
+Private Sub cmd8_keydown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmd9_Click()
+    HandleNumberClick "9"
+End Sub
+
+Private Sub cmd9_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdAdd_Click()
+    HandleOperatorClick "+"
+End Sub
+
+Private Sub cmdAdd_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdBack_Click()
+    HandleBackspace
+End Sub
+
+Private Sub cmdBack_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdCancel_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub cmdCancel_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdClear_Click()
+    HandleClearClick
+End Sub
+
+Private Sub cmdClear_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdClearEntry_Click()
+    HandleClearEntry
+End Sub
+
+Private Sub cmdClearEntry_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdDecimal_Click()
+    HandleDecimalClick
+End Sub
+
+Private Sub cmdDecimal_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdDivide_Click()
+    HandleOperatorClick "/"
+End Sub
+
+Private Sub cmdDivide_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdEquals_Click()
+    HandleOperatorClick "="
+End Sub
+
+Private Sub cmdEquals_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdMultiply_Click()
+    HandleOperatorClick "*"
+End Sub
+
+Private Sub cmdMultiply_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdOK_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub cmdOK_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub cmdSubtract_Click()
+    HandleOperatorClick "-"
+End Sub
+
+Private Sub cmdSubtract_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleNumberPress KeyCode, Shift
+End Sub
+
+Private Sub Form_Activate()
+    InitCalc
+End Sub
+
+Private Sub Form_Load()
+    InitCalc
+End Sub
+
+Private Sub HandleBackspace()
+    Dim varCaption As Variant
+
+    varCaption = lblReadOut.Caption
+    If Not IsNull(varCaption) Then
+        lblReadOut.Caption = Left$(varCaption, Len(varCaption) - 1)
+    End If
+    DoCmd.RepaintObject
+    If IsNull(lblReadOut.Caption) Then
+        LastInput = adhcStateNone
+        DecimalFlag = False
+    Else
+        LastInput = adhcStateNums
+        DecimalFlag = (InStr(lblReadOut.Caption, ".") > 0)
+    End If
+End Sub
+
+Private Sub HandleClearClick()
+    lblReadOut.Caption = ""
+    InitCalc
+End Sub
+
+Private Sub HandleClearEntry()
+    lblReadOut.Caption = ""
+    DecimalFlag = False
+    LastInput = adhcStateClear
+End Sub
+
+Private Sub HandleDecimalClick()
+    If LastInput <> adhcStateNums Then
+        lblReadOut.Caption = "0."
+    ElseIf Not DecimalFlag Then
+        lblReadOut.Caption = lblReadOut.Caption & "."
+    End If
+    DecimalFlag = True
+    LastInput = adhcStateNums
+End Sub
+
+Private Sub HandleNumberClick(strNum As String)
+    Dim varCaption As Variant
+    Dim varLen As Variant
+
+    If LastInput <> adhcStateNums Then
+        lblReadOut.Caption = ""
+        DecimalFlag = False
+    End If
+
+    varCaption = lblReadOut.Caption
+    varLen = Len(varCaption)
+    lblReadOut.Caption = lblReadOut.Caption & strNum
+    If varLen > 0 And Left(varCaption, 1) = "0" _
+     And InStr(varCaption, ".") = 0 Then
+        lblReadOut.Caption = Mid(lblReadOut.Caption, 2)
+    End If
+    LastInput = adhcStateNums
+End Sub
+
+Private Sub HandleNumberPress(KeyCode As Integer, Shift As Integer)
+    Dim strChar As String
+    Dim intShiftDown As Integer
+    
+    intShiftDown = (Shift And acShiftMask)
+    Select Case KeyCode
+        ' 0 - 9
+        Case 48 To 57
+            If intShiftDown Then
+                Select Case KeyCode
+                    ' Handle Shift-8 ("*")
+                    Case 48 + 8
+                        Me!cmdMultiply.SetFocus
+                        HandleOperatorClick "*"
+                End Select
+            Else
+                strChar = Chr$(KeyCode)
+                Me("cmd" & strChar).SetFocus
+                HandleNumberClick strChar
+            End If
+
+        ' Backspace
+        Case vbKeyBack
+            Me!cmdBack.SetFocus
+            HandleBackspace
+        
+        Case vbKeyDelete
+            Me!cmdClearEntry.SetFocus
+            HandleClearEntry
+
+        ' Numpad 0 - Numpad 9
+        Case vbKeyNumpad0 To vbKeyNumpad9
+            strChar = Chr$(KeyCode - vbKeyNumpad0 + Asc("0"))
+            Me("cmd" & strChar).SetFocus
+            HandleNumberClick strChar
+
+        ' Period and Decimal
+        Case vbKeyDecimal, vbKeyPeriod
+            Me!cmdDecimal.SetFocus
+            HandleDecimalClick
+
+        Case vbKeySubtract, vbKeyMinus
+            Me!cmdSubtract.SetFocus
+            HandleOperatorClick "-"
+
+        Case vbKeyMultiply
+            Me!cmdMultiply.SetFocus
+            HandleOperatorClick "*"
+
+        Case vbKeyAdd
+            Me!cmdAdd.SetFocus
+            HandleOperatorClick "+"
+
+        Case vbKeyDivide, vbKeySlash
+            Me!cmdDivide.SetFocus
+            HandleOperatorClick "/"
+
+        Case vbKeyEqual, vbKeyReturn
+            If intShiftDown Then
+                Me!cmdAdd.SetFocus
+                HandleOperatorClick "+"
+            Else
+                Me!cmdEquals.SetFocus
+                HandleOperatorClick "="
+            End If
+
+        Case vbKeyC
+            Me!cmdClear.SetFocus
+            HandleClearClick
+
+        End Select
+End Sub
+
+Private Sub HandleOperatorClick(strOp As String)
+    If LastInput = adhcStateNums Then
+        NumOps = NumOps + 1
+    End If
+    If NumOps = 1 Then
+        op1 = Val(lblReadOut.Caption)
+    ElseIf NumOps = 2 Then
+        Op2 = Val(lblReadOut.Caption)
+        Select Case OpFlag
+            Case "+"
+                op1 = op1 + Op2
+            Case "-"
+                op1 = CCur(op1) - CCur(Op2)
+                ' If Currency's precision isn't good enough,
+                ' use the next line instead of the previous line.
+                ' Op1 = Op1 - Op2
+            Case "*"
+                op1 = op1 * Op2
+            Case "/"
+                If Op2 = 0 Then
+                    MsgBox "Can't Divide by Zero", _
+                     vbExclamation, "Calculator"
+                Else
+                    op1 = op1 / Op2
+                End If
+            Case "="
+                op1 = Op2
+        End Select
+        lblReadOut.Caption = Format$(op1)
+        NumOps = 1
+    End If
+    LastInput = adhcStateOps
+    OpFlag = strOp
+End Sub
+
+Private Sub InitCalc()
+    lblReadOut.Caption = ""
+    LastInput = adhcStateNone
+    DecimalFlag = False
+    NumOps = 0
+End Sub
+
+Property Get value() As Variant
+    value = Me!lblReadOut.Caption
+End Property

@@ -1,0 +1,162 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnFichaCliente_Click()
+    Dim lngIdFicha As Long, strXML As String
+'    v = Me.IdFichaCab
+'    If Not IsNumeric(v) Or v = 0 Then
+'        strXML = "Añadir" & strXML
+'        DoCmd.OpenForm "frmClientes", , , , acFormAdd, acDialog, strXML
+'        Exit Sub
+'    End If
+'    DoCmd.OpenForm "frmClientes", , , "IdFichaCab = " & Me.IdFichaCab, , acDialog
+    lngIdFicha = Nz(Me.IdFichaCab, 0)
+    If lngIdFicha <> 0 Then AbrirFichaNum lngIdFicha
+End Sub
+
+Private Sub btnSelCliente_Click()
+    If Me.IdFichaCab.Locked Then Exit Sub
+    Me.IdFichaCab = Nz(BuscaAyuda("FI1", Me.IdFichaCab, 2), Me.IdFichaCab)
+    Call IdFichaCab_AfterUpdate
+End Sub
+
+Private Sub btnTeclado_Click()
+    Dim ctl As Control
+    Set ctl = Screen.PreviousControl
+    Select Case ctl.Name
+        Case "Fecha"
+            Me.Fecha = Nz(adhDoCalendar(Me.Fecha), Me.Fecha)
+        Case "NombreReserva"
+            Me.NombreReserva = Nz(DimeTeclado(1, "Teclee Nombre de Cliente", Me.NombreReserva), Me.NombreReserva)
+        Case "Telefono", "Fax"
+            ctl.value = Nz(DimeTeclado(2, "Teclee nº de " & ctl.Name, ctl.value), ctl.value)
+        Case "Email", "Notas"
+            ctl.value = Nz(DimeTeclado(1, "Teclee " & ctl.Name, ctl.value), ctl.value)
+    End Select
+    ctl.SetFocus
+    Select Case ctl.Name
+        Case "NombreReserva"
+            Call AMayus
+        Case "Descuento"
+            Call X100
+    End Select
+        
+        
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.NumReserva = Nz(DMax("NumReserva", "tbSalasReservas"), 0) + 1
+End Sub
+
+Private Sub Form_Current()
+    BloqueoFormulario Me, Not Me.NewRecord
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    If Nz(DimeXML(strXML, "Añadir"), "EZ") = "BAI" Then
+        DoCmd.GoToRecord acDataForm, Me.Name, acNewRec
+        Me.Fecha = CDate(CLng(Nz(DimeXML(strXML, "lngFecha"))))
+        Me.IdFichaCab = DimeXML(strXML, "IdFichaCab")
+        Call IdFichaCab_AfterUpdate
+        Me.IdSala = DLookup("IdSala", "tbSalas", "IdSD = " & Nz(DimeXML(strXML, "IdSD"), 0))
+        Me.Adultos = Nz(DimeXML(strXML, "Adultos"), 0)
+        Me.Niños = Nz(DimeXML(strXML, "Niños"), 0)
+    End If
+        
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    If IsOpenForm("frmParteG") Then Forms("frmPArteG")("lstReservas").Requery
+End Sub
+
+Private Sub Hora_BeforeUpdate(Cancel As Integer)
+    If EstaLibre = False Then Cancel = True
+        
+End Sub
+
+Private Sub IdFichaCab_AfterUpdate()
+    Me.NombreReserva = Me.IdFichaCab.Column(1)
+    If Len(Me.IdFichaCab.Column(2)) > 0 Then
+        If Len(Me.Notas) > 0 Then Me.Notas = Me.Notas & vbCrLf
+        Me.Notas = Me.Notas & Me.IdFichaCab.Column(2)
+    End If
+    Call AñadirServicio
+End Sub
+
+
+Public Function EstaLibre(Optional intMsg As Integer = True) As Integer
+    Dim intR As Integer
+    intR = Nz(DLookup("IdSalaReserva", "tbSalasReservas", "IdSala = " & Nz(Me.IdSala, 0) & " AND Fecha = " & CLng(CDate(Nz(Me.Fecha, 0))) & " AND Format(Hora,'hh:nn') = '" & Format(Nz(Me.Hora, "xx-xx"), "HH:NN") & "'"), 0) = 0
+    If intR = False And intMsg = True Then
+        MsgBox "La sala " & Me.IdSala.Column(1) & " está ocupada el " & Me.Fecha & " a esa hora"
+    End If
+    EstaLibre = intR
+End Function
+
+Private Sub AñadirServicio()
+    On Error GoTo Error_AñadirServicio
+    If Nz(Me.IdFichaCab, 0) = 0 Then Exit Sub
+    If Nz(Me.IdSala, 0) = 0 Then Exit Sub
+    If IsNull(Me.Fecha) Then Exit Sub
+    Dim lngIdSD As Long, lngIdFicha As Long, intR As Integer
+    lngIdSD = Nz(DLookup("IdSD", "tbSalas", "IdSala = " & Me.IdSala), 0)
+    If lngIdSD = 0 Then Exit Sub
+    If Not IsNull(DLookup("IdFichaDet", "tbFichasDet", "IdFichaCab = " & Me.IdFichaCab & " AND IdSD = " & lngIdSD)) Then Exit Sub
+    intR = MsgBox("¿Añadir servicio de " & DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD) & "?", vbYesNo + vbQuestion)
+    If intR <> vbYes Then Exit Sub
+    Dim rs As Recordset, rsSD As Recordset, curPU As Currency, intIVAinc As Integer, intEsSD As Integer
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFichasDet WHERE IdFichaCab = " & Me.IdFichaCab & " ORDER BY IdFichaDet", dbOpenDynaset)
+    Set rsSD = CurrentDb.OpenRecordset("SELECT * FROM tbServiciosdiarios WHERE IdSD = " & lngIdSD, dbOpenSnapshot)
+    If rsSD.EOF Then Exit Sub
+Añadir:
+    rs.AddNew
+    rs("IdFichaCab") = Me.IdFichaCab
+'    lngIdFichaDet = rs("IdFichaDet")
+    rs("IdSD") = lngIdSD
+    rs("Concepto") = rsSD("ServicioDiario")
+    rs("IVA") = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & rsSD("TipoIVA")), IVASDporDefecto())
+    intEsSD = Nz(DLookup("EsSD", "tbGruposDeIngresos", "CodNombreGrupo = " & ConComillas(rsSD("CodGrupoIngresos"))), True)
+    If intEsSD = True Then
+        rs("FechaInicio") = Me.Fecha
+    Else
+        rs("FechaFin") = Me.Fecha
+    End If
+    
+    rs("IdTipoParcela") = rsSD("IdTipoParcela")
+    intIVAinc = Nz(DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & Me.IdFichaCab), True)
+    curPU = DamePrecioSD(lngIdSD, CDate(Me.Fecha), intIVAinc, rs("IVA"), Nz(rs("FechaFin"), CDate(Me.Fecha)))
+    'If DameValorParam("IVAIncluidoEnPreciosSD") <> intIVAinc Then
+    '    If intIVAinc = False Then
+    '        curPU = curPU / (1 + rs("IVA"))
+    '    Else
+    '        curPU = curPU * (1 + rs("IVA"))
+    '    End If
+    'End If
+    curPU = Redondea(curPU, 2)
+    rs("PrecioUnitario") = curPU
+Grabar:
+    rs.Update
+Recalcular:
+    Call G_RecalculaTotales(Me.IdFichaCab)
+    
+Salir_AñadirServicio:
+    Exit Sub
+Error_AñadirServicio:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AñadirServicio" & vbCrLf & Err.Description
+            Resume Salir_AñadirServicio
+    End Select
+    
+End Sub
+
+Private Sub IdSala_AfterUpdate()
+    Call AñadirServicio
+End Sub

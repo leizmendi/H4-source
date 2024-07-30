@@ -1,0 +1,177 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gstrTeclas As String
+
+Private Sub btnCambiarColumnas_Click()
+    If Me.btnCambiarColumnas.Tag = "1" Then
+        Me.SubfrmPreciosSD.Form("txtTraPre").ControlSource = "=PreciosVD([IdSD],[IdTemporadaNombre])"
+        Me.SubfrmPreciosSD.Form("lblTraPre").Caption = "Precios de varios días..."
+        Me.btnCambiarColumnas.Tag = "2"
+        Me.btnTraPre.ControlTipText = "Asignar precios de varios días (F7)"
+    Else
+        Me.SubfrmPreciosSD.Form("txtTraPre").ControlSource = "=SD_EnIdiomas([IdSD])"
+        Me.SubfrmPreciosSD.Form("lblTraPre").Caption = "Traducciones..."
+        Me.btnCambiarColumnas.Tag = "1"
+        Me.btnTraPre.ControlTipText = "Asignar traducciones (F7)"
+    End If
+End Sub
+
+Private Sub btnPreciosVD_Click()
+    If IsNull(Me.SubfrmPreciosSD.Form("IdSD")) Or IsNull(Me.SubfrmPreciosSD.Form("IdTemporadaNombre")) Then
+        MsgBox "Debe estar situado en un registro de la tabla de precios"
+        Exit Sub
+    End If
+    DoCmd.OpenForm "frmPreciosSDVariosDias", acFormDS, , "IdSD = " & Me.SubfrmPreciosSD.Form("IdSD") & " AND IdTemporadaNombre = " & Me.SubfrmPreciosSD.Form("IdTemporadaNombre"), , acDialog, "Servicio: " & Me.SubfrmPreciosSD.Form("Servicio").Column(1) & ", T./" & Me.cmbIdTemporadaNombre.Column(1)
+    Me.SubfrmPreciosSD.Requery
+End Sub
+
+Private Sub btnSeleccionarImagen_Click()
+    If IsNull(Me.SubfrmPreciosSD.Form("IdSD")) Then Exit Sub
+    Dim strX As String, strSQL As String, strCurrentPath As String, intResp As Integer
+    Dim v As Variant, strCarImages As String
+    Dim strPic As String
+    strCarImages = CarpetaImagenes
+    strPic = Nz(DLookup("Imagen", "tbServiciosDiarios", "IdSD = " & Nz(Me.SubfrmPreciosSD.Form("IdSd"), 0)), "")
+    If strPic <> "" Then strPic = strCarImages & strPic
+    strX = SaveFileNameDlg("Indicar Fichero de imagen de " & Me.SubfrmPreciosSD.Form("Servicio").Column(1), "*.jpg", strPic)
+    If strX <> "" Then
+        If InStr(strX, strCarImages) <> 1 Then
+            MsgBox "Se debe seleccionar una carpeta de imagen contenida en la carpeta de imágenes del programa" & vbCrLf & "(" & strCarImages & ")"
+            Exit Sub
+        End If
+        
+        strSQL = "UPDATE tbServiciosDiarios SET Imagen = " & ConComillas(Mid(strX, Len(strCarImages) + 1))
+        strSQL = strSQL & " WHERE IdSD = " & Me.SubfrmPreciosSD.Form("IdSD")
+        CurrentDb.Execute strSQL, dbFailOnError
+    Else
+        v = DLookup("Imagen", "tbServiciosDiarios", "IdSD = " & Me.SubfrmPreciosSD.Form("IdSD"))
+        If Len(v) > 0 Then
+            intResp = MsgBox("¿Eliminar imagen del servicio-concepto?", vbYesNo + vbQuestion + vbDefaultButton2)
+            If intResp = vbYes Then
+                strSQL = "UPDATE tbServiciosDiarios SET Imagen = " & ConComillas(strX)
+                strSQL = strSQL & " WHERE IdSD = " & Me.SubfrmPreciosSD.Form("IdSD")
+                CurrentDb.Execute strSQL, dbFailOnError
+            End If
+        End If
+    End If
+    strPic = Nz(DLookup("Imagen", "tbServiciosDiarios", "IdSD = " & Nz(Me.SubfrmPreciosSD.Form("IdSd"), 0)), "")
+    If strPic <> "" Then strPic = strCarImages & strPic
+    Me.imgServicio.Picture = strPic
+    Me.SubfrmPreciosSD.SetFocus
+End Sub
+
+Private Sub btnTempo_Click()
+    DoCmd.OpenForm "frmTempo", , , , , acDialog
+End Sub
+
+Private Sub btnTemporadas_Click()
+    DoCmd.OpenForm "frmHD", , , , , , "frmTemporadasNombre//" '=TemporadasNombre()//Denominación de Temporadas"
+End Sub
+
+Private Sub btnTraPre_Click()
+    If IsNull(Me.SubfrmPreciosSD.Form("IdSD")) Or IsNull(Me.SubfrmPreciosSD.Form("IdTemporadaNombre")) Then
+        MsgBox "Debe estar situado en un registro de la tabla de precios"
+        Exit Sub
+    End If
+    Dim strXML As String
+    If Me.btnCambiarColumnas.Tag = "1" Then
+        DoCmd.OpenForm "frmSDIdiomas", acFormDS, , "IdSD = " & Me.SubfrmPreciosSD.Form("IdSD"), , acDialog, Me.SubfrmPreciosSD.Form("Servicio").Column(1) & "//" & Me.SubfrmPreciosSD.Form("IdSD")
+'        Forms("frmSDIdiomas").Tag = Me.SubfrmPreciosSD.Form("IdSD")
+    Else
+        PonXML strXML, "IdSD", Me.SubfrmPreciosSD.Form("IdSD")
+        PonXML strXML, "IdTemporadaNombre", Me.SubfrmPreciosSD.Form("IdTemporadaNombre")
+        PonXML strXML, "Titulo", "Servicio: " & Me.SubfrmPreciosSD.Form("Servicio").Column(1) & ", T./" & Me.cmbIdTemporadaNombre.Column(1)
+        DoCmd.OpenForm "frmPreciosSDVariosDias", acFormDS, , "IdSD = " & Me.SubfrmPreciosSD.Form("IdSD") & " AND IdTemporadaNombre = " & Me.SubfrmPreciosSD.Form("IdTemporadaNombre"), , acDialog, strXML
+    End If
+    Me.SubfrmPreciosSD.Requery
+        
+
+End Sub
+
+Private Sub cmbGrupo_AfterUpdate()
+    If Me.cmbGrupo = "Todos" Then
+        Me.SubfrmPreciosSD.Form.FilterOn = False
+    Else
+        Me.SubfrmPreciosSD.Form.Filter = "CodGrupoIngresos = '" & Me.cmbGrupo & "'"
+        Me.SubfrmPreciosSD.Form.FilterOn = True
+    End If
+End Sub
+
+
+Private Sub Form_Activate()
+    AñadirPreciosSD
+    'Me.SubfrmPreciosSD.Requery
+    'Me.SubfrmPreciosSD.Form("Servicio").Requery
+    Me.SubfrmPreciosSD.Form.Recalc
+End Sub
+
+Public Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, gstrTeclas
+End Sub
+
+Private Sub Form_Load()
+    Select Case DameValorParam("IVAincluidoEnPreciosSD")
+        Case -1: Me.lblPrecios.Caption = "Precios IVA incluido"
+        Case 0: Me.lblPrecios.Caption = "Precios IVA no incluido"
+        Case 3: Me.lblPrecios.Caption = "Precios IVA incluido según grupo de ingresos"
+    End Select
+    AñadirPreciosSD
+    Me.cmbIdTemporadaNombre = QueTemporadaEs(Date)
+    gstrTeclas = "|CTRL_0|#cmbIdTemporadaNombre#"
+    gstrTeclas = gstrTeclas & "|CTRL_1|#[SubfrmPreciosSD]#"
+    gstrTeclas = gstrTeclas & "|CTRL_I|#btnSeleccionarImagen#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_T|#btnTemporadas#¬"
+    gstrTeclas = gstrTeclas & "|F7|#btnTraPre#¬"
+    gstrTeclas = gstrTeclas & "|F10|#btnCambiarColumnas#¬"
+    If DameValorParam("AplicacionTraPre") = 2 Then
+        Me.btnCambiarColumnas.Tag = "1"
+    Else
+        Me.btnCambiarColumnas.Tag = "2"
+    End If
+    Call btnCambiarColumnas_Click
+End Sub
+Private Sub btnSD_Click()
+On Error GoTo Err_btnSD_Click
+
+    Dim stDocName As String
+    Dim stLinkCriteria As String
+
+    stDocName = "frmServiciosDiarios"
+    DoCmd.OpenForm "frmHD", , , stLinkCriteria, , , stDocName & "//"
+
+Exit_btnSD_Click:
+    Exit Sub
+
+Err_btnSD_Click:
+    MsgBox Err.Description
+    Resume Exit_btnSD_Click
+    
+End Sub
+
+Private Sub txtFecha_AfterUpdate()
+    Dim i As Integer
+    'For i = 0 To Me.cmbIdTemporadaNombre.ListCount - 1
+    '    If FechaANum(Me.cmbIdTemporadaNombre.Column(2)) <= FechaANum(Format(Me.txtFecha, "dd-mm")) And _
+    '       FechaANum(Me.cmbIdTemporadaNombre.Column(3)) >= FechaANum(Format(Me.txtFecha, "dd-mm")) Then
+    '       Me.cmbIdTemporadaNombre.ListIndex = 1
+    '       Exit Sub
+    '    End If
+    'Next i
+End Sub
+Public Function MisBotones(strNombreBoton As String)
+    Select Case strNombreBoton
+        Case "btnTemporadas"
+            Call btnTemporadas_Click
+        Case "btnSeleccionarImagen"
+            Call btnSeleccionarImagen_Click
+        Case "btnTraPre"
+            Call btnTraPre_Click
+        Case "btnCambiarColumnas"
+            Call btnCambiarColumnas_Click
+    End Select
+End Function

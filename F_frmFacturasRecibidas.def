@@ -1,0 +1,303 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim gfReqPro As Integer
+Dim gstrTeclas As String
+
+
+
+Private Sub btnBuscaProveedor_Click()
+    Me.Proveedor = Nz(BuscaAyuda("PR0", Me.Proveedor, 0), Me.Proveedor)
+    Call Proveedor_Click
+End Sub
+
+Private Sub btnEmpresaDef_Click()
+    Dim intR As Integer
+    intR = MsgBox("¿Establecer como empresa predeterminada: " & IIf(Me.cmbEmpresa.ListIndex = -1, "Ninguna", Me.cmbEmpresa.Column(1)) & "?", vbOKCancel + vbQuestion)
+    If intR = vbCancel Then Exit Sub
+    PonValorParam "FacturasRecibidasEmpresaXDefecto", Me.cmbEmpresa, 4
+End Sub
+
+Private Sub btnEmpresasFR_Click()
+    DoCmd.OpenForm "frmHD", , , , , , "frmEmpresasFR//"
+End Sub
+
+Private Sub btnModi_Click()
+    BloqueoFormulario Me
+End Sub
+
+Private Sub btnModi2_Click()
+    BloqueoFormulario Me, , 2
+End Sub
+
+Private Sub btnPago_Click()
+On Error GoTo Error_btnPago_Click
+    If Me.txtTotalBase > 0 Then
+    Else
+        Exit Sub
+    End If
+    If Me.Dirty Then
+        DoCmd.RunCommand acCmdSaveRecord
+    End If
+    fNuevoPago "R", Me.IdFacturaRecibida
+    Me.lstPagos.Requery
+Salir_btnPago_Click:
+    Exit Sub
+Error_btnPago_Click:
+    Select Case Err
+'        Case 2046
+'            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en btnPago_Click" & vbCrLf & Err.Description
+            Resume Salir_btnPago_Click
+    End Select
+End Sub
+
+Private Sub btnProveedores_Click()
+    If Me.Proveedor.ListIndex = -1 Then
+        DoCmd.OpenForm "frmProveedores"
+        DoCmd.GoToRecord acDataForm, "frmProveedores", acNewRec
+    Else
+        DoCmd.OpenForm "frmProveedores", , , "IdProveedor = " & Me.Proveedor.Column(2)
+    End If
+    gfReqPro = True
+End Sub
+
+
+Private Sub Concepto_Enter()
+    Me.Concepto.Requery
+End Sub
+
+Private Sub FechaF_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If Me.AllowEdits = False Then
+        Exit Sub
+    End If
+    If KeyCode = vbKeyF4 Then
+        If Me.FechaF.Locked = True Then Exit Sub
+        varFecha = adhDoCalendar(Me.FechaF)
+        If IsDate(varFecha) Then
+            Me.FechaF = varFecha
+        End If
+    End If
+End Sub
+
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Dim v As Variant
+    Dim var1 As Variant
+    Static intAvisado As Integer
+    Me.NumeroCorrelativo = NzCero(DMax("NumeroCorrelativo", "tbFacturasRecibidas")) + 1
+    var1 = DMax("Trimestre", "tbFacturasRecibidas")
+    If IsNull(var1) Then
+        Me.Trimestre = TrimestreActual
+    Else
+        If var1 <> TrimestreActual Then
+            If intAvisado = False Then
+                MsgBox "Si va a introducir facturas del trimestre actual, debe modificar el mismo"
+                intAvisado = True
+                Me.Trimestre = var1
+                Me.Trimestre.SetFocus
+            Else
+                Me.Trimestre = var1
+            End If
+        Else
+            Me.Trimestre = TrimestreActual
+        End If
+    End If
+    Me.cmbEmpresa = DameValorParam("FacturasRecibidasEmpresaXDefecto")
+End Sub
+
+
+Private Sub Form_Current()
+    Call Inversion_AfterUpdate
+    Call Carga_lstFacturas
+    Me.lstPagos.Requery
+    If Me.NewRecord Then
+        BloqueoFormulario Me, False
+    Else
+        BloqueoFormulario Me, True
+    End If
+End Sub
+
+Public Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call ControlTeclas(Me, KeyCode, Shift, gstrTeclas)
+End Sub
+
+Private Sub Form_Load()
+    CentrarTodoFRM Me, Me.cdrCentrar, , False
+    Me.cmbEmpresa.Visible = g_Multiempresa
+    Me.btnEmpresasFR.Visible = g_Multiempresa
+    gstrTeclas = "|CTRL_0|#NumeroDeFactura#"
+    gstrTeclas = gstrTeclas & "|CTRL_1|#subfrmFacturasRecibidasDet#"
+    gstrTeclas = gstrTeclas & "|CTRL_2|#txtTotalBase#"
+    gstrTeclas = gstrTeclas & "|CTRL_3|#lstPagos#"
+    gstrTeclas = gstrTeclas & "|F11|#btnPago#¬"
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    DoCmd.GoToRecord , , acNewRec
+End Sub
+
+
+
+Private Sub Inversion_AfterUpdate()
+    Me.AmortizableAnual.Visible = Nz(Me.Inversion, False)
+    Me.FechaInicioAmortizacion.Visible = Nz(Me.Inversion, False)
+    Me.cdrInverson.Visible = Nz(Me.Inversion, False)
+End Sub
+
+Private Sub lstFacturas_Click()
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    Dim rs As Recordset
+    Set rs = Me.RecordsetClone
+    rs.FindFirst "IdFacturaRecibida = " & Me.lstFacturas
+    If Not rs.NoMatch Then Me.Bookmark = rs.Bookmark
+End Sub
+
+Private Sub NIF_AfterUpdate()
+    Me.Proveedor = Me.NIF.Column(1)
+    Carga_lstFacturas
+End Sub
+
+
+Private Sub NumeroDeFactura_AfterUpdate()
+    On Error GoTo HandleError
+    If Nz(Me.NumeroDeFactura, "") = "" Then GoTo HandleExit
+    If Not IsNull(DLookup("IdFacturaRecibida", "tbFacturasRecibidas", "NumeroDeFactura = '" & Me.NumeroDeFactura & "' AND IdFacturaRecibida <> " & Me.IdFacturaRecibida)) Then
+        Dim strTNC As String
+        strTNC = DLookup("[Trimestre] & ' ' & [NumeroCorrelativo] & [NumeroCorrelativoAux]", "tbFacturasRecibidas", "NumeroDeFactura = '" & Me.NumeroDeFactura & "' AND IdFacturaRecibida <> " & Me.IdFacturaRecibida)
+        MsgBox "Se encontró Factura recibida con mismo Nº de Factura--> " & strTNC, vbExclamation
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Proveedor_Click()
+    Me.NIF = Me.Proveedor.Column(1)
+    Me.CodGrupoGastos = Me.Proveedor.Column(3)
+    'Me.RetencionIRPF = Me.Proveedor.Column(3)
+    'If Me.Proveedor.Column(4) <> "" Then
+    '    Me.TipoRetencion = Me.Proveedor.Column(4)
+    'End If
+End Sub
+
+
+Private Sub Proveedor_Enter()
+    If gfReqPro = True Then
+        Me.Proveedor.Requery
+        gfReqPro = False
+    End If
+End Sub
+
+Private Sub Proveedor_KeyDown(KeyCode As Integer, Shift As Integer)
+    If Me.AllowEdits = False Then Exit Sub
+    If KeyCode = vbKeyF4 Then
+        Call btnBuscaProveedor_Click
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub Proveedor_NotInList(NewData As String, response As Integer)
+Dim Respuesta As Integer
+Dim rs As Recordset
+
+   Respuesta = MsgBox(NewData & " no está registrado como proveedor." _
+                        & vbCrLf _
+                        & "¿Desea agregarlo?", _
+                        vbYesNo + vbQuestion + vbDefaultButton1)
+                        
+    If (vbNo = Respuesta) Then
+        ' No mostrar el mensaje de error
+        response = acDataErrContinue
+        ' Quitar el nombre nuevo del cuadro combinado
+        DoCmd.RunCommand acCmdUndo
+    Else  ' Agregar la nueva empresa
+        DoCmd.OpenForm "frmProveedores", , , , acFormAdd, acDialog, NewData
+          ' Continuar sin mostrar el mensaje de error predeterminado.
+        response = acDataErrAdded  ' Dato agregado
+    End If
+End Sub
+
+
+Private Sub txtTotalBase_KeyDown(KeyCode As Integer, Shift As Integer)
+    On Error Resume Next
+    If Me.AllowEdits = False Then
+        Exit Sub
+    End If
+    If KeyCode = vbKeyF4 Then
+        RecalculaBases Me.IdFacturaRecibida
+        Me.subfrmFacturasRecibidasDet.Requery
+    End If
+End Sub
+
+Public Sub RecalculaBases(lngIdFR As Long)
+    On Error GoTo Error_RecalculaBases
+    Dim strSQL As String, rs As Recordset
+'    strSQL = "UPDATE tbFacturasRecibidasDet SET tbFacturasRecibidasDet.Base = [Base]/(1+[IVA]+[RecEq])"
+'    strSQL = strSQL & " WHERE (((tbFacturasRecibidasDet.IdFacturaRecibida)=" & lngIdFR & "));"
+'    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT * FROM tbFacturasRecibidasDet WHERE IdFacturaRecibida = " & lngIdFR
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        rs.Edit
+        rs("Base") = Redondea(rs("Base") / (1 + rs("IVA") + rs("RecEq")), 2)
+        rs.Update
+        rs.MoveNext
+    Wend
+    CalculaTotalesFR Me.IdFacturaRecibida
+    DoCmd.RunCommand acCmdSaveRecord
+Salir_RecalculaBases:
+    Exit Sub
+Error_RecalculaBases:
+    Select Case Err
+        Case Else
+            MsgBox "Error  nº " & Err & " en RecalculaBases" & vbCrLf & Err.Description
+            Resume Salir_RecalculaBases
+    End Select
+
+End Sub
+Private Sub CalculaTotalesFR(lngIdFR As Long)
+    On Error GoTo Error_CalculaTotalesFR
+    Me.txtTotalBase = DimeFacturaRecibidaTotalBase(lngIdFR)
+    Me.txtTotalIVA = DimeFacturaRecibidaTotalIVA(lngIdFR)
+    Me.txtTotalRecEQ = DimeFacturaRecibidaTotalRecEq(lngIdFR)
+    Me.txtIVA_Cab = DimeFacturaRecibidaIVA(lngIdFR)
+    Me.txtRecEq_Cab = DimeFacturaRecibidaRecEq(lngIdFR)
+    Me.txtIVA_Cab.Visible = Not (Nz(Me.txtIVA_Cab, 1) = 1)
+    Me.txtRecEq_Cab.Visible = Not (Nz(Me.txtRecEq_Cab, 1) = 1)
+    
+Salir_CalculaTotalesFR:
+    Exit Sub
+Error_CalculaTotalesFR:
+    Select Case Err
+        Case Else
+            MsgBox "Error  nº " & Err & " en CalculaTotalesFR" & vbCrLf & Err.Description
+            Resume Salir_CalculaTotalesFR
+    End Select
+
+End Sub
+Public Function MisBotones(strNombreBoton As String)
+    Select Case strNombreBoton
+        Case "btnPago"
+            Call btnPago_Click
+    End Select
+End Function
+
+Public Sub Carga_lstFacturas()
+    Dim strSQL As String
+    strSQL = "SELECT tbFacturasRecibidas.IdFacturaRecibida, tbFacturasRecibidas.FechaFactura as Fecha, TotalBase + TotalIVA + TotalRecEq as [Total Importe], tbFacturasRecibidas.NumeroDeFactura as [Factura Nº]"
+    strSQL = strSQL & " FROM tbFacturasRecibidas"
+    strSQL = strSQL & " WHERE (((tbFacturasRecibidas.NIF) = " & ConComillas(Nz(Me.NIF, "")) & "))"
+    strSQL = strSQL & " ORDER BY tbFacturasRecibidas.[FechaFactura] DESC;"
+    Me.lstFacturas.RowSource = strSQL
+End Sub

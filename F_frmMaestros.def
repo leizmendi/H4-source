@@ -1,0 +1,164 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gintTipo As Integer, gstrFormName As String
+    
+Private Sub btnAnterior_Click()
+    Dim vBM As Variant, rs As Recordset
+    Set rs = Me.subfrm.Form.RecordsetClone
+    If Not rs.BOF Then
+        rs.MovePrevious
+        Me.subfrm.Form.Bookmark = rs.Bookmark
+    End If
+End Sub
+
+Private Sub btnPrimero_Click()
+    Dim vBM As Variant, rs As Recordset
+    Set rs = Me.subfrm.Form.RecordsetClone
+    If Not rs.BOF Then
+        rs.MoveFirst
+        Me.subfrm.Form.Bookmark = rs.Bookmark
+    End If
+End Sub
+
+Private Sub btnSiguiente_Click()
+    Dim vBM As Variant, rs As Recordset
+    Set rs = Me.subfrm.Form.RecordsetClone
+    If Not rs.EOF Then
+        rs.MoveNext
+        Me.subfrm.Form.Bookmark = rs.Bookmark
+    End If
+End Sub
+
+Private Sub btnUltimo_Click()
+    Dim vBM As Variant, rs As Recordset
+    Set rs = Me.subfrm.Form.RecordsetClone
+    If Not rs.EOF Then
+        rs.MoveLast
+        Me.subfrm.Form.Bookmark = rs.Bookmark
+    End If
+End Sub
+
+Private Sub btnEliminarServicio_Click()
+    On Error GoTo HandleError
+    Dim intR As Integer, lngIdSD As Long, strCodSD As String, strServicioD As String, lngFacs As Long, lngFics As Long, strSQL As String
+    strCodSD = Nz(Me.subfrm.Form("CodSD"), "")
+    If strCodSD = "" Then GoTo HandleExit
+    lngIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios", "CodSD = " & ConComillas(strCodSD)), 0)
+    If lngIdSD = 0 Then Exit Sub
+    strServicioD = Nz(Me.subfrm.Form("ServicioDiario"), "")
+    lngFacs = Nz(DCount("IdDetalle", "tbFacturasDet", "IdSD = " & lngIdSD), 0)
+    lngFics = Nz(DCount("IdFichaDet", "tbFichasDet", "IdSD = " & lngIdSD), 0)
+    
+    intR = MsgBox("¿Eliminar Servicio: " & strServicioD & "?" & vbCrLf & "Existen " & lngFacs & " registros en detalle de facturas y " & lngFics & " en detalle de fichas del servicio " & strServicioD & vbCrLf & "Se eliminirá el código de dicho servicio y los listados referentes a Servicios y/o grupos no serán exactos", vbExclamation + vbOKCancel)
+    If intR = vbCancel Then GoTo HandleExit
+    strSQL = "UPDATE tbFacturasDet SET IdSD = Null Where IdSD = " & lngIdSD
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE tbFichasDet SET IdSD = Null Where IdSD = " & lngIdSD
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "DELETE * FROM tbServiciosDiarios WHERE IdSD = " & lngIdSD
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox "Error Nº " & Err & " en btnEliminarServicio_Click" & vbCrLf & Err.Description
+    Resume HandleExit
+    
+End Sub
+
+Private Sub cmbIdFormsG_AfterUpdate()
+    Dim strSQL As String
+    
+    strSQL = "SELECT sysFormsGX.Id, sysFormsGX.FormName, sysFormsGX.Ord & '.- ' & sysFormsGX.Concepto"
+    strSQL = strSQL & " FROM sysFormsGX"
+    strSQL = strSQL & " WHERE sysFormsGX.IdFormsG=" & Nz(Me.cmbIdFormsG, 0)
+    strSQL = strSQL & " AND Nz([Desactivar],False)=False"
+    strSQL = strSQL & " ORDER BY sysFormsGX.Ord, Concepto"
+    Me.lstIdFormsGX.RowSource = strSQL
+    Me.lstIdFormsGX.BackColor = Nz(DLookup("Color", "sysFormsG", "IdFormsG = " & Nz(Me.cmbIdFormsG, 0)), Me.lstIdFormsGX.BackColor)
+    Me.lblSubfrm.BackColor = Me.lstIdFormsGX.BackColor
+    If gstrFormName = "" Then
+        Me.lstIdFormsGX = DameValorParam(Me.Name & "_IdFormsG" & Me.cmbIdFormsG & "_lstIdFormsGX")
+    Else
+        Me.lstIdFormsGX = Nz(DLookup("Id", "sysFormsGX", "FormName = '" & gstrFormName & "' AND IdFormsG=" & DLookup("IdFormsG", "sysFormsG", "Tipo = " & gintTipo)), 0)
+        gstrFormName = ""
+    End If
+    Call lstIdFormsGX_AfterUpdate
+    PonValorParam Me.Name & "_cmbIdFormsG_Tipo" & gintTipo, Me.cmbIdFormsG
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If Shift And acCtrlMask <> 0 And Shift And acShiftMask <> 0 Then
+        If KeyCode = vbKeyAdd Then
+            Me.subfrm.Height = Me.subfrm.Height + 100
+            PonValorParam Me.Name & "_subfrm_height", Me.subfrm.Height, 4
+            KeyCode = 0
+        ElseIf KeyCode = vbKeySubtract Then
+            Me.subfrm.Height = Me.subfrm.Height - 100
+            PonValorParam Me.Name & "_subfrm_height", Me.subfrm.Height, 4
+            KeyCode = 0
+        End If
+    End If
+End Sub
+
+Private Sub Form_Load()
+    Me.subfrm.Height = Nz(DameValorParam(Me.Name & "_subfrm_height"), Me.subfrm.Height)
+    Me.cmbIdFormsG = DameValorParam(Me.Name & "_cmbIdFormsG_Tipo" & gintTipo)
+    Call cmbIdFormsG_AfterUpdate
+'    BloqueoFormulario Me, True
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, strSQL As String
+    strXML = Nz(Me.OpenArgs, "")
+    gintTipo = Nz(DimeXML(strXML, "Tipo"), 1)
+    strSQL = "SELECT sysFormsG.IdFormsG, sysFormsG.NombreGrupo FROM sysFormsG "
+    strSQL = strSQL & " WHERE Tipo = " & gintTipo
+    strSQL = strSQL & " ORDER BY sysFormsG.Ord;"
+    Me.cmbIdFormsG.RowSource = strSQL
+    gstrFormName = Nz(DimeXML(strXML, "FormName"), "")
+End Sub
+
+Private Sub Form_Resize()
+    Me.btnSalir.Left = Me.WindowWidth - Me.btnSalir.Width * 2
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    On Error GoTo HandleError
+    Dim intCancel As Integer
+    If Me.subfrm.SourceObject <> "" Then
+        ComprobarParam Me.subfrm.Form, intCancel, False, Nz(DimeXML(Me.subfrm.Form.Tag, "Prefijo"), "")
+        If intCancel = True Then
+            Me.lstIdFormsGX = DameValorParam(Me.Name & "_IdFormsG" & Me.cmbIdFormsG & "_lstIdFormsGX")
+            Exit Sub
+        End If
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub lstIdFormsGX_AfterUpdate()
+    Dim intCancel As Integer
+    If Me.subfrm.SourceObject <> "" Then
+        ComprobarParam Me.subfrm.Form, intCancel, False, Nz(Me.subfrm.Form.Tag, Nz(DameValorParam("MultiEmpresaId"), ""))
+        If intCancel = True Then
+            Me.lstIdFormsGX = DameValorParam(Me.Name & "_IdFormsG" & Me.cmbIdFormsG & "_lstIdFormsGX")
+            Exit Sub
+        End If
+        GrabarSettingsForm Me.subfrm.Form
+    End If
+    Me.subfrm.SourceObject = Nz(Me.lstIdFormsGX.Column(1), "")
+    Me.lblSubfrm.Caption = Nz(Me.lstIdFormsGX.Column(2), "")
+    Me.Caption = Me.cmbIdFormsG.Column(1) & " - " & Me.lblSubfrm.Caption
+    PonValorParam Me.Name & "_IdFormsG" & Me.cmbIdFormsG & "_lstIdFormsGX", Me.lstIdFormsGX
+    Me.btnEliminarServicio.Visible = Me.lblSubfrm.Caption = "1.- Servicios / Conceptos"
+End Sub

@@ -1,0 +1,102 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gShift As Integer
+
+Private Sub btnCambiaAcentos_Click()
+    CambiaAcentosWbTablaRegistro "wbReservations", "reservation_code", Me.reservation_code
+    Me.Recalc
+End Sub
+
+Private Sub btnCC_data_Click()
+    On Error GoTo HandleError
+    Dim cWi As CWired, strResp As String
+    If Me.cc_info = 1 Then
+        Set cWi = New CWired
+        cWi.CargaCredenciales
+        cWi.GetToken
+        If cWi.FetchCCard(Me.reservation_code, , , strResp) = True Then Me.cc_data = strResp
+    Else
+        MsgBox "No hay datos de tarjeta", vbInformation, "H4"
+    End If
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnIrAFicha_Click()
+    On Error GoTo HandleError
+    Dim lngIdFicha As Long, strSQL As String, intR As Integer
+    If (gShift And acCtrlMask) > 0 Then
+        intR = MsgBox("¿Generar Ficha?", vbOKCancel)
+        If intR = vbOK Then
+            Importa_wbReservation Me.reservation_code
+        End If
+        Exit Sub
+    End If
+    If Not IsNull(Me.txtEnFicha) Then
+        AbrirFichaNum Me.txtEnFicha
+    Else
+        strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.NombreCliente & ' ' & tbFichasCab.ApellidosCliente as Cliente"
+        strSQL = strSQL & " From tbFichasCab"
+        strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada=" & CLng(Me.date_arrival)
+        strSQL = strSQL & " UNION SELECT -1 as Id, 'Nueva' as f, 'Importar a H4' as C FROM 1tbl1"
+        CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = " & ConComillas(strSQL) & " WHERE CodBusqueda = 'FI301'", dbFailOnError
+        lngIdFicha = Nz(BuscaAyuda("FI30", , 1), 0)
+        If lngIdFicha > 0 Then
+            intR = MsgBox("¿Enlazar esta reserva con la ficha nº " & lngIdFicha & "?", vbOKCancel + vbQuestion)
+            If intR = vbOK Then
+                CurrentDb.Execute "UPDATE tbFichasCab SET WubookID = " & Me.reservation_code & " WHERE IdFichaCab = " & lngIdFicha, dbFailOnError
+            End If
+        ElseIf lngIdFicha = -1 Then
+            intR = MsgBox("¿Importar esta reserva a H4?", vbOKCancel + vbQuestion)
+            If intR = vbOK Then Importa_wbReservation Me.reservation_code, False
+        End If
+        Me.Recalc
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnIrAFicha_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnIrAFicha_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnProcedencia_Click()
+    On Error GoTo HandleError
+    Dim lngIdPrc As Long, lngIdCh As Long, intR As Integer
+    If Len(Nz(Me.id_channel, "")) = 0 Then Exit Sub
+    intR = MsgBox("¿Asignar id_channel = " & Me.id_channel & " a una procedencia?", vbOKCancel + vbQuestion)
+    If intR = vbOK Then
+        lngIdPrc = Nz(BuscaAyuda("PRC0"), 0)
+        If lngIdPrc = 0 Then Exit Sub
+        CurrentDb.Execute "UPDATE tbProcedencias SET id_channel = null WHERE id_channel = " & Me.id_channel, dbFailOnError
+        CurrentDb.Execute "UPDATE tbProcedencias SET id_channel = " & Me.id_channel & " WHERE IdProcedencia = " & lngIdPrc, dbFailOnError
+        Me.txtProcedencia.Requery
+        MsgBox "Asignado id_channel =" & Me.id_channel & " a Procedencia = " & DLookup("Procedencia", "tbProcedencias", "IdPRocedencia = " & lngIdPrc) & " correctamente", vbInformation
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    If IsOpenForm("frmWubookReservations") Then Forms("frmWubookReservations").Visible = True
+End Sub

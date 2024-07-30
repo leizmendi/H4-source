@@ -1,0 +1,42 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Current()
+'    BloqueoFormulario Me, Not Me.NewRecord
+End Sub
+
+Private Sub Form_Load()
+    Dim strSQL As String, rs As Recordset, intR As Integer, i As Integer
+    For i = 1 To 2
+        strSQL = "SELECT qryTotalizacionesTPV" & i & ".*"
+        strSQL = strSQL & " FROM qryTotalizacionesTPV" & i & " LEFT JOIN qryTotalizacionesTarjetasTPV" & i & " ON qryTotalizacionesTPV" & i & ".Fecha = qryTotalizacionesTarjetasTPV" & i & ".Fecha"
+        strSQL = strSQL & " WHERE qryTotalizacionesTarjetasTPV" & i & ".Fecha Is Null"
+        strSQL = strSQL & " AND Year(qryTotalizacionesTPV" & i & ".Fecha)=" & Nz(DameValorParam("ContabilidadEjercicio"), 0)
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        If Not rs.EOF Then
+            rs.MoveLast
+            rs.MoveFirst
+            intR = MsgBox("Existen " & rs.RecordCount & " registros de totalizaciones de tarjeta de TPV " & i & " que no se han incluido" & vbCrLf & "¿Desea introducirlas automáticamente?" & vbCrLf & "(Después se podrán modificar)", vbYesNoCancel)
+            If intR = vbCancel Then Exit Sub
+            If intR = vbYes Then
+                strSQL = "INSERT INTO tbTotalizacionTarjetas ( Fecha, TPV, TipoTarjeta, Importe, Descuento )"
+                strSQL = strSQL & " SELECT qryTotalizacionesTPV" & i & ".Fecha, " & i & " AS Expr1, 'Visa' AS Expr2, qryTotalizacionesTPV" & i & ".SumaDeCantidad, [SumaDeCantidad] * " & ComaPunto(Nz(DameValorParam("TotalizacionTarjetasDescuentoTPV" & i & ""), 0)) & " AS Expr3"
+                strSQL = strSQL & " FROM qryTotalizacionesTPV" & i & " LEFT JOIN qryTotalizacionesTarjetasTPV" & i & " ON qryTotalizacionesTPV" & i & ".Fecha = qryTotalizacionesTarjetasTPV" & i & ".Fecha"
+                strSQL = strSQL & " WHERE (((qryTotalizacionesTarjetasTPV" & i & ".Fecha) Is Null));"
+                CurrentDb.Execute strSQL, dbFailOnError
+            End If
+        End If
+    Next i
+    Me.Requery
+    AjustarColumnas Me
+    DoCmd.GoToRecord , , acNewRec
+End Sub
+
+Private Sub TipoTarjeta_Enter()
+    Me.TipoTarjeta.Requery
+End Sub

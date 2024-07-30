@@ -1,0 +1,49 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+    
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    If Forms![frmListadosComprasYGastos]![mrcNivel] < 5 Then
+        Cancel = True
+    End If
+End Sub
+
+Private Sub EncabezadoDelGrupo1_Format(Cancel As Integer, FormatCount As Integer)
+    If Forms![frmListadosComprasYGastos]![mrcNivel] < 2 Then
+        Cancel = True
+    End If
+End Sub
+
+Private Sub EncabezadoDelGrupo2_Format(Cancel As Integer, FormatCount As Integer)
+    If Forms![frmListadosComprasYGastos]![mrcNivel] < 3 Then
+        Cancel = True
+    End If
+End Sub
+
+Private Sub EncabezadoDelGrupo3_Format(Cancel As Integer, FormatCount As Integer)
+    If Forms![frmListadosComprasYGastos]![mrcNivel] < 4 Then
+        Cancel = True
+    End If
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros que cumplan las condiciones"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Me.RecordSource = Forms![frmListadosComprasYGastos]![lblSQL].Caption
+    If Forms![frmListadosComprasYGastos].casIVAinc = True Then
+        Me.lblIVAinc.Caption = "IVA incluido"
+    Else
+        Me.lblIVAinc.Caption = "IVA no incluido"
+    End If
+    Me.PieDelInforme.Visible = Forms![frmListadosComprasYGastos]![casVisibleTotal]
+End Sub

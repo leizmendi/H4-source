@@ -1,0 +1,200 @@
+Option Compare Database
+Option Explicit
+
+Public Function PonParrafoConfirmacionReserva(Optional lngIdF__qryReserva As Long = 0, Optional intInputBox As Integer = False, Optional intMensajeEmail As Integer = False) As Integer
+    On Error GoTo Error_PonParrafoConfirmacionReserva
+    Dim strR As String, rs As Recordset, i As Integer
+    If lngIdF__qryReserva <> 0 Then Pon_qryReserva lngIdF__qryReserva, True
+    Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
+    If intMensajeEmail = False Then
+        strR = Nz(DameValorParam("FichasConfirmacionSaludosYConsejos"), "")
+    Else
+        strR = Nz(DameValorParam("FichasConfirmacionMensajeEmail"), "")
+    End If
+    For i = 0 To rs.Fields.Count - 1
+        strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+    Next i
+    If intInputBox Then
+        strR = Nz(myinputbox("Confirme mensaje a incluir", "Mensaje", strR, , Nz(DameValorParam("FichasEmailFormatoHTML_SN"), False)), "")
+        If strR = "" Then GoTo Salir_PonParrafoConfirmacionReserva
+    End If
+    
+    If intMensajeEmail = False Then
+        PonValorParam "ParrafoConfirmacionReserva_OK", IIf(strR = "", "Se debe definir párrafo de confirmación de reserva en parámetros", strR), 12
+    Else
+        PonValorParam "ParrafoConfirmacionMensajeEmail_OK", IIf(strR = "Se debe definir párrafo de confirmación de reserva en parámetros", "-", strR), 12
+    End If
+    PonValorParam "ParrafoConfirmacionMensajeEmail_OK", IIf(strR = "Se debe definir párrafo de confirmación de reserva en parámetros", "-", strR), 12
+    PonParrafoConfirmacionReserva = True
+Salir_PonParrafoConfirmacionReserva:
+    Exit Function
+Error_PonParrafoConfirmacionReserva:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonParrafoConfirmacionReserva" & vbCrLf & Err.Description
+            Resume Salir_PonParrafoConfirmacionReserva
+    End Select
+
+End Function
+
+Public Function DimeParrafoConfirmacionReserva(Optional lngIdFichaCab As Long = 0) As String
+    On Error GoTo Error_DimeParrafoConfirmacionReserva
+    Dim strR As String, rs As Recordset, i As Integer
+    If lngIdFichaCab <> 0 Then Pon_qryReserva lngIdFichaCab, True
+    Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
+    strR = Nz(DameValorParam("FichasConfirmacionSaludosYConsejos"), "")
+    For i = 0 To rs.Fields.Count - 1
+        strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+    Next i
+    'strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , True), "")
+    DimeParrafoConfirmacionReserva = strR
+Salir_DimeParrafoConfirmacionReserva:
+    Exit Function
+Error_DimeParrafoConfirmacionReserva:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeParrafoConfirmacionReserva" & vbCrLf & Err.Description
+            Resume Salir_DimeParrafoConfirmacionReserva
+    End Select
+
+End Function
+
+Public Function DimeParrafoRecordatorioReserva(Optional lngIdFichaCab As Long = 0, Optional lngIdIdioma As Long = 0) As String
+    On Error GoTo Error_DimeParrafoRecordatorioReserva
+    Dim strR As String, rs As Recordset, i As Integer
+    If lngIdFichaCab <> 0 Then Pon_qryReserva lngIdFichaCab, True
+    Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
+    If lngIdIdioma = 0 Then
+        strR = Nz(DameValorParam("FichasSMSRecordatorioEntrada"), "")
+    Else
+        strR = Nz(DameValorParam("FichasSMSRecordatorioEntrada_IdIdioma_" & lngIdIdioma), "")
+    End If
+    For i = 0 To rs.Fields.Count - 1
+        strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+    Next i
+    'strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , True), "")
+    If InStr(strR, "|BookerUrl|") > 0 Or InStr(strR, "|Url|") > 0 Then
+        Dim strURL As String, strBookerUrl As String, intOK As Integer
+        intOK = DameCheckinURL(lngIdFichaCab, strBookerUrl, strURL)
+        If intOK Then
+            strR = Replace(strR, "|BookerUrl|", strBookerUrl)
+            strR = Replace(strR, "|Url|", strURL)
+        End If
+    End If
+    DimeParrafoRecordatorioReserva = strR
+Salir_DimeParrafoRecordatorioReserva:
+    Exit Function
+Error_DimeParrafoRecordatorioReserva:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeParrafoRecordatorioReserva" & vbCrLf & Err.Description
+            Resume Salir_DimeParrafoRecordatorioReserva
+    End Select
+
+End Function
+
+Public Function PonParrafoEnvioFacturaEmail(Optional lngIdFactura As Long = 0, Optional strAdjuntarFicheros As String = "NO", Optional intInputBox As Integer = True) As Integer
+    On Error GoTo Error_PonParrafoEnvioFacturaEmail
+    Dim strR As String, rs As Recordset, i As Integer
+    Dim strSQL As String
+    If lngIdFactura <> 0 Then
+        strSQL = "SELECT ExtraeLin(Nz([DireccionCliente],''),1) AS Cliente, tbFacturasCab.*"
+        strSQL = strSQL & " From tbFacturasCab"
+        strSQL = strSQL & " WHERE tbFacturasCab.IdFactura=" & lngIdFactura
+        CurrentDb.QueryDefs("qryFactura").SQL = strSQL
+    End If
+    strSQL = "SELECT qryFactura.Cliente, qryFactura.Serie, qryFactura.NumeroDeFactura, qryFactura.FechaFactura, qryFactura.NIF, [TotalBase]+[TotalIVA] AS TotalFactura, qryFactura.DireccionCliente, qryFactura.TotalBase, qryFactura.TotalIVA, qryFactura.Observaciones"
+    strSQL = strSQL & " FROM qryFactura;"
+    CurrentDb.QueryDefs("qryFacturaEnvioEmail").SQL = strSQL
+
+    Set rs = CurrentDb.OpenRecordset("qryFacturaEnvioEmail", dbOpenSnapshot)
+    
+    strR = Nz(DameValorParam("FacturasMensajeEnvioEmail"), "Estimado |Cliente|" & vbCrLf & "Adjunto remitimos factura |NumeroDeFactura| " & vbCrLf & vbCrLf & "Reciba un cordial saludo." & vbCrLf & DameValorParam("EstablecimientoNombre"))
+    For i = 0 To rs.Fields.Count - 1
+        strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+    Next i
+    If intInputBox Then strR = Nz(myinputbox("Confirme mensaje a incluir", "Mensaje", strR, , True, strAdjuntarFicheros), "")
+    
+    PonValorParam "ParrafoEnvioFacturaEmail_OK", IIf(strR = "", "-", strR), 12
+    PonParrafoEnvioFacturaEmail = strR <> ""
+Salir_PonParrafoEnvioFacturaEmail:
+    Exit Function
+Error_PonParrafoEnvioFacturaEmail:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonParrafoEnvioFacturaEmail" & vbCrLf & Err.Description
+            Resume Salir_PonParrafoEnvioFacturaEmail
+    End Select
+
+End Function
+
+Public Function PonParrafoSMS(strTipo As String, Optional lngIdFichaCab As Long = 0, Optional lngIdIdioma As Long = 0, Optional strNumeroTelefono As String) As Integer
+    On Error GoTo Error_PonParrafoSMS
+    Dim strR As String, rs As Recordset, i As Integer
+    If lngIdFichaCab <> 0 Then Pon_qryReserva lngIdFichaCab, True
+    Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
+    Select Case strTipo
+        Case "Recordatorio Entrada":
+            If lngIdIdioma = 0 Then
+                strR = Nz(DameValorParam("FichasSMSRecordatorioEntrada"), "")
+            Else
+                strR = Nz(DameValorParam("FichasSMSRecordatorioEntrada_IdIdioma_" & lngIdIdioma), "")
+            End If
+        Case Else
+            MsgBox "No se reconoce tipo de SMS", vbExclamation
+            GoTo Salir_PonParrafoSMS
+            
+    End Select
+    For i = 0 To rs.Fields.Count - 1
+        strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+    Next i
+    strR = Nz(myinputbox("Confirme SMS a enviar" & IIf(strNumeroTelefono <> "", " al " & strNumeroTelefono, ""), "Mensaje", strR, , False), "")
+    
+    PonValorParam "MensajeSMS_OK", IIf(strR = "", "-", strR), 12
+    PonParrafoSMS = strR <> ""
+Salir_PonParrafoSMS:
+    Exit Function
+Error_PonParrafoSMS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonParrafoSMS" & vbCrLf & Err.Description
+            Resume Salir_PonParrafoSMS
+    End Select
+
+End Function
+
+
+Public Function DimeParrafoNotificacion(iNumNoti As Integer, lngIdFichaCab As Long, lIdIdioma As Long, sMensaje As String, sAsunto As String, sAdjuntos As String) As Boolean
+    On Error GoTo HandleError
+    Dim strR As String, rs As Recordset, i As Integer
+    If lngIdFichaCab <> 0 Then Pon_qryReserva lngIdFichaCab, True
+    Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
+    
+    If DimeNotificacionIdioma(iNumNoti, lIdIdioma, sMensaje, sAsunto, sAdjuntos) = False Then
+        MsgBox "No se pudo obtener el modelo de notificación Nº " & iNumNoti, vbExclamation
+        GoTo HandleExit
+    End If
+    For i = 0 To rs.Fields.Count - 1
+        sMensaje = Replace(sMensaje, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+        sAsunto = Replace(sAsunto, "|" & rs(i).Name & "|", Nz(rs(i), ""))
+    Next i
+    'strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , True), "")
+    If InStr(sMensaje, "|BookerUrl|") > 0 Or InStr(sMensaje, "|Url|") > 0 Then
+        Dim strURL As String, strBookerUrl As String, intOK As Integer
+        intOK = DameCheckinURL(lngIdFichaCab, strBookerUrl, strURL)
+        If intOK Then
+            sMensaje = Replace(sMensaje, "|BookerUrl|", strBookerUrl)
+            sMensaje = Replace(sMensaje, "|Url|", strURL)
+        End If
+    End If
+    DimeParrafoNotificacion = True
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeParrafoNotificacion" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+
+End Function

@@ -1,0 +1,284 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gstrDelParcelas As String
+
+Private Sub Cantidad_AfterUpdate()
+    If Len(Nz(Me.Parcela, "")) > 0 Then
+        If Nz(DLookup("PlazasEsCantidadSN", "tbParcelas", "NombreParcela = '" & Me.Parcela & "'"), False) = False Then Exit Sub
+        Dim strSQL As String
+        Me.PlazasOcupadas = Me.Cantidad
+        On Error Resume Next
+        DoCmd.RunCommand acCmdSaveRecord
+        Call AsignarAdultos(Me.IdFichaCab)
+    End If
+End Sub
+
+Private Sub Concepto_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim strCriteria As String
+    If Parent.AllowEdits = False Then Exit Sub
+    If KeyCode = vbKeyF4 Then
+        DoCmd.OpenForm "frmDimeGrupoIngresos", , , , , acDialog
+        If Not IsOpenForm("frmDimeGrupoIngresos") Then Exit Sub
+        If Forms("frmDimeGrupoIngresos").lstGrupo.ListIndex = -1 Or Forms("frmDimeGrupoIngresos").lstGrupo = "Todos" Then
+            Me.IdSD = Nz(BuscaAyuda("SD0", Me.IdSD, 0), Me.IdSD)
+        Else
+            Dim strSQL As String, strSQLAct As String
+            strSQL = "SELECT tbServiciosDiarios.IdSD, tbServiciosDiarios.CodSD As [Código], tbServiciosDiarios.ServicioDiario"
+            strSQL = strSQL & " FROM tbServiciosDiarios"
+            strSQL = strSQL & " WHERE tbServiciosDiarios.CodGrupoIngresos = '" & Forms("frmDimeGrupoIngresos").lstGrupo & "'"
+            strSQL = strSQL & " ORDER BY tbServiciosDiarios.CodSD;"
+            strSQLAct = "UPDATE sysBusquedas SET sysBusquedas.strSQL = " & ConComillas(strSQL) & ", sysBusquedas.Titulo = " & ConComillas("Seleccionar Concepto (" & Forms("frmDimeGrupoIngresos").lstGrupo.Column(1) & ")")
+            strSQLAct = strSQLAct & " WHERE (((sysBusquedas.CodBusqueda)='SD101'));"
+            CurrentDb.Execute strSQLAct, dbFailOnError
+            strSQL = "SELECT tbServiciosDiarios.IdSD, tbServiciosDiarios.ServicioDiario, tbServiciosDiarios.CodSD  As [Código]"
+            strSQL = strSQL & " FROM tbServiciosDiarios"
+            strSQL = strSQL & " WHERE tbServiciosDiarios.CodGrupoIngresos = '" & Forms("frmDimeGrupoIngresos").lstGrupo & "'"
+            strSQL = strSQL & " ORDER BY tbServiciosDiarios.ServicioDiario;"
+            strSQLAct = "UPDATE sysBusquedas SET sysBusquedas.strSQL = " & ConComillas(strSQL) & ", sysBusquedas.Titulo = " & ConComillas("Seleccionar Concepto (" & Forms("frmDimeGrupoIngresos").lstGrupo.Column(1) & ")")
+            strSQLAct = strSQLAct & " WHERE (((sysBusquedas.CodBusqueda)='SD102'));"
+            CurrentDb.Execute strSQLAct, dbFailOnError
+            Me.IdSD = Nz(BuscaAyuda("SD1", Me.IdSD, 0), Me.IdSD)
+            Forms("frmDimeGrupoIngresos").lstGrupo.DefaultValue = Forms("frmDimeGrupoIngresos").lstGrupo
+        End If
+        DoCmd.Close acForm, "frmDimeGrupoIngresos", acSaveYes
+        Call IdSD_AfterUpdate
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub FechaFin_AfterUpdate()
+    On Error GoTo Error_FechaFin_AfterUpdate
+    Dim curPU As Currency
+    If Me.IdSD.ListIndex = -1 Then
+        Exit Sub
+    End If
+    curPU = DamePrecioSD(Me.IdSD.Column(0), CDate(Nz(Me.FechaInicio, Date)), Parent.casIvaIncluido, Me.IVA, Nz(Me.FechaFin, Parent.FechaSalida))
+    If DameValorParam("IVAIncluidoEnPreciosSD") <> Parent.casIvaIncluido Then
+        If Parent.casIvaIncluido = False Then
+            curPU = curPU / (1 + Me.IVA)
+        Else
+            curPU = curPU * (1 + Me.IVA)
+        End If
+    End If
+    curPU = Redondea(curPU, 2)
+    If curPU <> Me.PrecioUnitario And curPU <> 0 Then
+        Me.PrecioUnitario = curPU
+    End If
+    
+Salir_FechaFin_AfterUpdate:
+    Exit Sub
+Error_FechaFin_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en FechaFin_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_FechaFin_AfterUpdate
+            Resume Next
+    End Select
+End Sub
+
+Private Sub FechaFin_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        varFecha = adhDoCalendar(Me.FechaFin)
+        If IsDate(varFecha) Then
+            Me.FechaFin = varFecha
+        End If
+    End If
+End Sub
+
+Private Sub FechaInicio_AfterUpdate()
+    'Call ServicioDiario_AfterUpdate
+End Sub
+
+Private Sub Form_AfterDelConfirm(status As Integer)
+    On Error GoTo Error_Form_AfterDelConfirm
+    Call Form_AfterUpdate
+    If status <> acDeleteOK Then
+        gstrDelParcelas = ""
+        Exit Sub
+    End If
+    If gstrDelParcelas = "" Then Exit Sub
+    ' Desmarcar las parcelas conectadas del panel
+    Dim i As Integer, j As Integer, strParcela As String
+    Dim rs As Recordset
+    Dim strSQL As String
+    strSQL = "SELECT tbParcelas.IdFicha, tbParcelas.NombreParcela"
+    strSQL = strSQL & " FROM tbParcelas"
+    strSQL = strSQL & " WHERE tbParcelas.IdFicha = " & Me.IdFichaCab & " AND ("
+    i = 1
+    j = 1
+    While i > 0
+        i = InStr(j, gstrDelParcelas, "|")
+        If i = 0 Then GoTo FinBucle
+        j = InStr(i + 1, gstrDelParcelas, "#")
+        If j = 0 Then GoTo FinBucle
+        strParcela = Mid(gstrDelParcelas, i + 1, j - i - 1)
+        strSQL = strSQL & " tbParcelas.NombreParcela = '" & strParcela & "' OR"
+    Wend
+FinBucle:
+    strSQL = Left(strSQL, Len(strSQL) - 3) & ")"
+    gstrDelParcelas = ""
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+        rs.Edit
+        strParcela = rs("NombreParcela")
+        rs!IdFicha = 0
+        rs.Update
+        If IsOpenForm("frmPanel") Then
+            PintaBotones Forms!frmPanel, strParcela
+        End If
+        rs.MoveNext
+    Wend
+    Parent.lstHabitaciones.Requery
+Salir_Form_AfterDelConfirm:
+    Exit Sub
+Error_Form_AfterDelConfirm:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Form_AfterDelConfirm" & vbCrLf & Err.Description
+            Resume Salir_Form_AfterDelConfirm
+            Resume Next
+    End Select
+End Sub
+
+Public Sub Form_AfterUpdate()
+    Parent.RecalculaTotales
+    Exit Sub
+'    Dim rs As Recordset, lngIdFichaCab As Long, rs2 As Recordset
+'    Dim v As Variant, strSQL As String
+'    On Error GoTo Error_Form_AfterUpdate
+''    gintCambios = True
+'    Set rs = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset) 'Parent.RecordsetClone
+''    lngIdFichaCab = Parent.IdFichaCab
+'    rs.FindFirst "IdFichaCab = " & lngIdFichaCab
+'    If rs.NoMatch Then Exit Sub
+'    strSQL = "SELECT * FROM qryFichaSumaTotal WHERE IdFichaCab = " & lngIdFichaCab
+'    Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+'    rs.Edit
+'    If rs2.EOF Then
+'        rs("TotalBase") = 0
+'        rs("TotalIVA") = 0
+'        rs("IVA_G") = Null
+'    Else
+'        rs("TotalBase") = Redondea(rs2("SumaDeImporteBase"), 2)
+'        rs("TotalIVA") = Redondea(rs2("SumaDeImporteIVA"), 2)
+'        If nz(DLookup("CuentaDeIVA", "qryFichasCuentaIVAs", "IdFichaCab = " & lngIdFichaCab), 0) = 1 Then
+'            rs("IVA_G") = DLookup("IVA", "tbFichasDet", "IdFichaCab = " & lngIdFichaCab)
+'        Else
+'            rs("IVA_G") = Null
+'        End If
+'        'rs("RecEq") = DimeFacturaRecEq(lngIdFichaCab)
+'    End If
+'    On Error Resume Next
+'    v = Me.Bookmark
+'    rs.Update
+'    Me.Bookmark = v
+'    Parent.IVA_G.Visible = Not (nz(Parent.IVA_G, 1) = 0)
+Salir_Form_AfterUpdate:
+    Exit Sub
+Error_Form_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_Form_AfterUpdate
+            Resume Next
+    End Select
+
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    If IsNull(Forms![frmFichas]![IdFichaCab]) Then
+        MsgBox "Se deben introducir datos en la Cabecera de la ficha"
+        Cancel = True
+        Forms![frmFichas]![txtFechaLlegada].SetFocus
+        Exit Sub
+    End If
+    Me.IVA = IVASDporDefecto()
+'    Me.CodGrupoIngresos = DLookup("CodNombreGrupo", "tbGruposDeIngresos", "Predeterminado = True")
+    Me.FechaInicio = Parent.txtFechaLlegada
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+    If Not IsNull(Me.Parcela) Then
+        gstrDelParcelas = gstrDelParcelas & "|" & Me.Parcela & "#"
+    End If
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call Parent.Form_KeyDown(KeyCode, Shift)
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+End Sub
+
+
+Private Sub IdSD_AfterUpdate()
+    On Error GoTo Error_IdSD_AfterUpdate
+    Dim dobPU As Double, v As Variant
+    If Me.IdSD.ListIndex = -1 Then
+        Exit Sub
+    End If
+    v = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & Me.IdSD.Column(3))
+    If Not IsNull(v) Then
+        Me.IVA = v
+    End If
+IdSD:
+    Me.Concepto = Me.IdSD.Column(2)
+    Me.PrecioUnitario = DamePrecioSD(Me.IdSD.Column(0), CDate(Nz(Me.FechaInicio, Date)), Parent.casIvaIncluido, Me.IVA, Nz(Me.FechaFin, Nz(Parent.FechaSalida, Date + 1)))
+    'If DameValorParam("IVAIncluidoEnPreciosSD") <> Parent.casIvaIncluido Then
+    '    If Parent.casIvaIncluido = False Then
+    '        Me.PrecioUnitario = Me.PrecioUnitario / (1 + Me.IVA)
+    '    Else
+    '        Me.PrecioUnitario = Me.PrecioUnitario * (1 + Me.IVA)
+    '    End If
+    'End If
+    Me.PrecioUnitario = Redondea(Me.PrecioUnitario, 2)
+    If Me.IdSD.Column(4) = False Then ' Es Extra
+        Me.FechaFin = Date
+        Me.FechaInicio = Null
+    Else
+        Me.FechaInicio = Nz(Parent.FechaLlegada, Date)
+        Me.FechaFin = Null
+    End If
+    Me.IdTipoParcela = Me.IdSD.Column(5)
+    
+Salir_IdSD_AfterUpdate:
+    Exit Sub
+Error_IdSD_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en IdSD_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_IdSD_AfterUpdate
+            Resume Next
+    End Select
+End Sub
+
+Private Sub IdSD_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim stDocName As String
+    If Parent.AllowEdits = False Then Exit Sub
+    If KeyCode = vbKeyF4 Then
+        Me.IdSD = Nz(BuscaAyuda("SD0", Me.IdSD, 0), Me.IdSD)
+        Call IdSD_AfterUpdate
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub PrecioUnitario_AfterUpdate()
+    Me.PrecioUnitario = CCur(Redondea(Me.PrecioUnitario, 2))
+End Sub
+
+
+Private Sub Concepto_BeforeUpdate(Cancel As Integer)
+    If Not IsNull(Me.Parcela) Then
+        MsgBox "No se puede modificar el Concepto de servicios referidos a " & g_strPHs & ", se debe eliminar y añadir uno nuevo", vbInformation
+        Cancel = True
+        SendKeys "{ESC}"
+    End If
+End Sub

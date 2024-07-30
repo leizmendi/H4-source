@@ -1,0 +1,370 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ParcelasDeUnaFicha(lngFicha As Long, Optional intSaltoLinea As Integer = False) As String
+    Dim db As Database
+    Dim rs As Recordset
+    Dim strSQL As String
+    Dim strResult
+    On Error GoTo Error_ParcelasDeUnaFicha
+    strSQL = "SELECT DISTINCT tbFichasDet.IdFichaCab, tbFichasDet.Parcela, tbParcelas.Orden"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN tbFichasDet ON tbParcelas.NombreParcela = tbFichasDet.Parcela"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngFicha & ") AND Not IsNull(tbFichasDet.Parcela))"
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden, tbFichasDet.Parcela;"
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset(strSQL)
+    If intSaltoLinea = True Then
+        While Not rs.EOF
+            strResult = strResult & rs("Parcela") & vbCrLf
+            rs.MoveNext
+        Wend
+    Else
+        While Not rs.EOF
+            strResult = strResult & rs("Parcela") & ", "
+            rs.MoveNext
+        Wend
+    End If
+    If Len(strResult) > 2 Then
+        strResult = RecDerTop(strResult, 2, 0)
+        ParcelasDeUnaFicha = strResult
+    Else
+        ParcelasDeUnaFicha = ""
+    End If
+Salir_ParcelasDeUnaFicha:
+    rs.Close
+    db.Close
+    Exit Function
+Error_ParcelasDeUnaFicha:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En ParcelasDeUnaFicha"
+    End Select
+    ParcelasDeUnaFicha = strResult
+    Resume Salir_ParcelasDeUnaFicha
+End Function
+Public Function CuentaParcelas(datFecha As Date, intESR As Integer) As String
+    'Devuelve cuenta de parcelas (Entre paréntesis cuenta parcelas sin nº asignado -Gogos, etc)
+    'intESR = 1-> Entradas, 2-> Salidas, 3-> Entradas de Reservas
+    Dim db As Database
+    Dim rs As Recordset
+    Dim strSQL As String, strSQL_res As String
+    Dim i As Integer
+    Dim strResult
+    
+    On Error GoTo Error_CuentaParcelas
+    strSQL = "SELECT tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasDet.Cantidad"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    If intESR = 1 Then
+        strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada=#" & Format(datFecha, "mm/dd/yyyy") & "# "
+    ElseIf intESR = 2 Then
+        strSQL = strSQL & " WHERE tbFichasCab.FechaSalida=#" & Format(datFecha, "mm/dd/yyyy") & "# "
+    ElseIf intESR = 3 Then
+        strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada=#" & Format(datFecha, "mm/dd/yyyy") & "# AND EstadoFicha = 1"
+    End If
+    strSQL_res = strSQL
+    strSQL = strSQL & " AND tbFichasDet.Parcela Is Not Null;"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If Not rs.EOF Then
+        rs.MoveLast
+        strResult = CStr(rs.RecordCount) & " "
+    Else
+        strResult = "0 "
+    End If
+    'Contar parcelas sin número-nombre de parcela
+    strSQL = strSQL_res & " AND tbFichasDet.Parcela Is Null AND tbFichasDet.IdTipoParcela Is Not Null ;"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+        i = i + rs("Cantidad")
+        rs.MoveNext
+    Wend
+    If i > 0 Then
+        strResult = strResult & "(+" & CStr(i) & ")"
+    End If
+    CuentaParcelas = Trim(strResult)
+Salir_CuentaParcelas:
+    rs.Close
+    Exit Function
+Error_CuentaParcelas:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En CuentaParcelas"
+    End Select
+    CuentaParcelas = strResult
+    Resume Salir_CuentaParcelas
+End Function
+
+Public Function RegimenDeUnaFicha(lngFicha As Long, Optional intSaltoLinea As Integer = False) As String
+    Dim rs As Recordset
+    Dim strSQL As String
+    Dim strResult
+    On Error GoTo Error_RegimenDeUnaFicha
+    strSQL = "SELECT tbServiciosDiarios.ServicioDiario"
+    strSQL = strSQL & " FROM tbServiciosDiarios INNER JOIN tbFichasDet ON tbServiciosDiarios.IdSD = tbFichasDet.IdSD"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngFicha & "))"
+    strSQL = strSQL & " ORDER BY tbFichasDet.IdFichaDet;"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If intSaltoLinea = True Then
+        While Not rs.EOF
+            If InStr(strResult, rs("ServicioDiario") & vbCrLf) = 0 Then
+                strResult = strResult & rs("ServicioDiario") & vbCrLf
+            End If
+            rs.MoveNext
+        Wend
+    Else
+        While Not rs.EOF
+            If InStr(strResult, rs("ServicioDiario") & ", ") = 0 Then
+                strResult = strResult & rs("ServicioDiario") & ", "
+            End If
+            rs.MoveNext
+        Wend
+    End If
+    If Len(strResult) > 2 Then
+        strResult = RecDerTop(strResult, 2, 0)
+        RegimenDeUnaFicha = strResult
+    Else
+        RegimenDeUnaFicha = ""
+    End If
+Salir_RegimenDeUnaFicha:
+    rs.Close
+    Exit Function
+Error_RegimenDeUnaFicha:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En RegimenDeUnaFicha"
+    End Select
+    RegimenDeUnaFicha = strResult
+    Resume Salir_RegimenDeUnaFicha
+End Function
+
+Public Function DetalleDeUnaFicha(lngIdFichaCab As Long, _
+                                  Optional intSaltoLinea As Integer = True, _
+                                  Optional intVerHabitacionEnConcepto As Integer = 8, _
+                                  Optional intTabuladorEspacios As Integer = False, _
+                                  Optional intVerPagosAdelantados As Integer = 88, _
+                                  Optional intDime0123 As Integer = 0, _
+                                  Optional intCabecera As Integer = False, _
+                                  Optional intMargenIz As Integer = 2, _
+                                  Optional intAgruparConceptos As Integer = 8, _
+                                  Optional intVerDesgloseIVA As Integer = 88) As String
+    Dim db As Database
+    Dim rs As Recordset
+    Dim strSQL As String
+    Dim strResult, curTotal As Currency, strSep As String
+    Dim strConcepto As String, strMrgI As String, i As Integer, j As Integer
+    On Error GoTo Error_DetalleDeUnaFicha
+    
+    CurrentDb.Execute "DELETE * FROM auxFichasDet", dbFailOnError
+    strSQL = "INSERT INTO auxFichasDet SELECT tbFichasDet.* FROM tbFichasDet"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngIdFichaCab & "))"
+    CurrentDb.Execute strSQL, dbFailOnError
+    If intVerHabitacionEnConcepto = 8 Then intVerHabitacionEnConcepto = Nz(DameValorParam("FichasEspecificarHabitacionEnDetalleFicha"), True)
+    If intAgruparConceptos = 8 Then intAgruparConceptos = Nz(DameValorParam("FichasConfirmacionAgruparConceptos"), True)
+    If intVerHabitacionEnConcepto = False Or intAgruparConceptos Then
+        'strSQL = "UPDATE qryauxFichasDet SET Concepto = Trim(Replace(Concepto, '(' & [Parcela] & ')',''))"' no funciona porque se le añade el regimen nb, bb, fb
+        'CurrentDb.Execute strSQL, dbFailOnError
+        Set rs = CurrentDb.OpenRecordset("qryauxFichasDet", dbOpenDynaset)
+        While Not rs.EOF
+            strConcepto = rs("Concepto")
+            If Nz(rs("Parcela"), "") <> "" Then
+                i = InStr(strConcepto, "(" & rs("Parcela"))
+                j = 0
+                If i > 0 Then j = InStr(i + Len(rs("Parcela")) + 1, strConcepto, ")")
+                If j > 0 Then
+                    strConcepto = Mid(strConcepto, 1, i - 1) & IIf(Len(strConcepto) > j, Mid(strConcepto, j + 1), "")
+                    rs.Edit
+                    rs("Concepto") = strConcepto
+                    rs.Update
+                End If
+            End If
+            rs.MoveNext
+        Wend
+    End If
+    strSQL = "UPDATE qryauxFichasDet SET Dias = IIf(IsNull(FechaInicio),1,Fecha_H-FechaInicio)"
+    CurrentDb.Execute strSQL, dbFailOnError
+    If intAgruparConceptos Then
+        'strSQL = "SELECT Sum(auxFichasDet.Cantidad) AS Cant, Concepto, PrecioUnitario as Precio, FechaInicio as Desde, Fecha_H as Hasta, IIf(IsNull(FechaInicio),1,Fecha_H-FechaInicio) AS Días, Sum(Cantidad * PrecioUnitario * [Días]) AS Importe"
+        strSQL = "SELECT Sum(auxFichasDet.Cantidad) AS Cant, Concepto, PrecioUnitario as Precio, FechaInicio as Desde, Dias as Días, Fecha_H as Hasta, Sum(Cantidad * PrecioUnitario * [Dias]) AS Importe"
+        strSQL = strSQL & " From auxFichasDet"
+        strSQL = strSQL & " GROUP BY auxFichasDet.Concepto, auxFichasDet.PrecioUnitario, auxFichasDet.FechaInicio, auxFichasDet.Fecha_H, auxFichasDet.IVA, Dias;"
+    Else
+        'strSQL = "SELECT Cantidad AS Cant, Concepto, PrecioUnitario as Precio, FechaInicio as Desde, Fecha_H as Hasta, IIf(IsNull(FechaInicio),1,Fecha_H-FechaInicio) AS Días, Cantidad * PrecioUnitario * [Días] AS Importe"
+        strSQL = "SELECT Cantidad AS Cant, Concepto, PrecioUnitario as Precio, FechaInicio as Desde, Fecha_H as Hasta, Dias as Días, Cantidad * PrecioUnitario * [Dias] AS Importe"
+        strSQL = strSQL & " From auxFichasDet"
+        strSQL = strSQL & " ORDER BY IdFichaDet"
+    End If
+    'strSQL = "SELECT tbFichasDet.Concepto, tbFichasDet.Cantidad AS Cant, Format([FechaInicio],'dd/mm/yy') AS Desde, FechaH([IdFichaDet]) AS Hasta, IIf(IsNull(tbFichasDet!FechaInicio),1,FechaH([IdFichaDet])-tbFichasDet!FechaInicio) AS Días, [PrecioUnitario] AS Precio, tbFichasDet!Cantidad*tbFichasDet!PrecioUnitario*[Días] AS Importe, tbFichasDet.Parcela"
+    'strSQL = strSQL & " FROM tbServiciosDiarios RIGHT JOIN tbFichasDet ON tbServiciosDiarios.IdSD = tbFichasDet.IdSD"
+    'strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab) = " & lngIdFichaCab & "))"
+    'strSQL = strSQL & " ORDER BY tbFichasDet.IdFichaDet;"
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot)
+    If intSaltoLinea = True Then
+        strSep = vbCrLf
+    Else
+        strSep = ", "
+    End If
+    strMrgI = space(intMargenIz)
+    If Not rs.EOF And intCabecera Then
+        If Not intTabuladorEspacios Then
+            strResult = strResult & strMrgI & UCase("Cant" & vbTab & "Concepto" & vbTab & "Desde" & vbTab & "Hasta" & vbTab & "Días" & vbTab & "Precio" & vbTab & "Importe") & strSep
+            strResult = strResult & strMrgI & UCase("----" & vbTab & "--------" & vbTab & "-----" & vbTab & "-----" & vbTab & "----" & vbTab & "------" & vbTab & "-------") & strSep
+        Else
+            strResult = strResult & strMrgI & UCase(Llena("Cant", 4) & " " & Centra("Concepto", 20) & " " & Llena("Desde", 5) & " " & Llena("Hasta", 5) & " " & Llena("Días", 4) & " " & Centra("Precio", 7) & " " & Centra("Importe", 9)) & strSep
+            strResult = strResult & strMrgI & LlenaChar("-", 4) & " " & LlenaChar("-", 20) & " " & LlenaChar("-", 5) & " " & LlenaChar("-", 5) & " " & LlenaChar("-", 4) & " " & LlenaChar("-", 7) & " " & LlenaChar("-", 9) & strSep
+        End If
+    End If
+    While Not rs.EOF
+        strConcepto = rs("Concepto")
+        'If intVerHabitacionEnConcepto = False Then strConcepto = Replace(strConcepto, "(" & rs("Parcela") & ")", "")
+        strResult = strResult & strMrgI
+        If rs("Cant") * rs("Días") = 0 Then
+            If True Then ' IsNull(rs("Parcela")) Then
+                If Not intTabuladorEspacios Then
+                    strResult = strResult & vbTab & strConcepto & vbTab & vbTab & vbTab & vbTab & vbTab & strSep
+                Else
+                    strResult = strResult & space(5) & strConcepto & strSep
+                End If
+            Else
+                If Not intTabuladorEspacios Then
+                    strResult = strResult & rs("Cant") & vbTab & strConcepto & vbTab & Format(rs("Desde"), "dd/mm") & vbTab & Format(rs("Hasta"), "dd/mm") & vbTab & rs("Días") & vbTab & vbTab & strSep
+                Else
+                    strResult = strResult & Llena(rs("Cant"), 4) & " " & Llena(strConcepto, 20) & " " & Format(rs("Desde"), "dd/mm") & " " & Format(rs("Hasta"), "dd/mm") & " " & rs("Días") & strSep
+                End If
+            End If
+        Else
+            If Not intTabuladorEspacios Then
+                strResult = strResult & rs("Cant") & vbTab & strConcepto & vbTab & Format(rs("Desde"), "dd/mm") & vbTab & Format(rs("Hasta"), "dd/mm") & vbTab & rs("Días") & vbTab & Format(rs("Precio"), "currency") & vbTab & Format(rs("Importe"), "currency") & strSep
+            Else
+                strResult = strResult & Llena(rs("Cant"), 4) & " " & Llena(strConcepto, 20) & " " & Llena(Format(rs("Desde"), "dd/mm"), 5) & " " & Llena(Format(rs("Hasta"), "dd/mm"), 5) & " " & Llena(rs("Días"), 3) & " " & LlenaIzq(Format(rs("Precio"), "#,##0.00"), 8) & " " & LlenaIzq(Format(rs("Importe"), "#,##0.00"), 9) & strSep
+            End If
+        End If
+        curTotal = curTotal + Nz(rs("Importe"), 0)
+        rs.MoveNext
+    Wend
+    If Not rs.BOF And intCabecera Then
+        strResult = strResult & strMrgI
+        If Not intTabuladorEspacios Then
+            strResult = strResult & UCase("----" & vbTab & "--------" & vbTab & "-----" & vbTab & "-----" & vbTab & "----" & vbTab & "------" & vbTab & "-------") & strSep
+        Else
+            strResult = strResult & LlenaChar("-", 4) & " " & LlenaChar("-", 20) & " " & LlenaChar("-", 5) & " " & LlenaChar("-", 5) & " " & LlenaChar("-", 4) & " " & LlenaChar("-", 7) & " " & LlenaChar("-", 9) & strSep
+        End If
+    End If
+    If Len(strResult) > 2 Then
+        If intVerDesgloseIVA = 88 Then intVerDesgloseIVA = Nz(DameValorParam("FichasVerDesgloseIVASN"), True)
+        If intVerDesgloseIVA Then
+            If Not intTabuladorEspacios Then
+                strResult = strResult & vbTab & CuadroDesgloseIVAFicha(lngIdFichaCab) & vbTab & vbTab & "TOTAL:" & vbTab & Format(curTotal, "currency")
+            Else
+                strResult = strResult & CuadroDesgloseIVAFicha(lngIdFichaCab) & LlenaIzq(" TOTAL: " & Format(curTotal, "currency"), 37)
+            End If
+        Else
+            If Not intTabuladorEspacios Then
+                strResult = strResult & vbTab & vbTab & vbTab & vbTab & vbTab & "TOTAL:" & vbTab & Format(curTotal, "currency")
+            Else
+                strResult = strResult & LlenaIzq(" TOTAL: " & Format(curTotal, "currency"), 60)
+            End If
+        End If
+        'strResult = RecDerTop(strResult, 2, 0)
+        'DetalleDeUnaFicha = strResult
+    Else
+        strResult = ""
+    End If
+    If intVerPagosAdelantados = 88 Then intVerPagosAdelantados = Nz(DameValorParam("FichasVerAdelantos"), True)
+    If intVerPagosAdelantados Then
+        Dim curPagado As Currency
+        curPagado = TFAdelanto(lngIdFichaCab, Date - 1, True)
+        If curPagado <> 0 Then
+            If Not intTabuladorEspacios Then
+                strResult = strResult & strSep & strSep & strMrgI & vbTab & "(Pago adelantado:" & vbTab & Format(curPagado, "currency") & ")"
+            Else
+                strResult = strResult & strSep & strSep & strMrgI & LlenaIzq("(Pago adelantado:" & space(3) & Format(curPagado, "currency") & ")", 63)
+            End If
+        End If
+    End If
+    Select Case intDime0123
+        Case 0
+        Case 1: strResult = Mid(strResult, 1, 255)
+        Case 2: strResult = Mid(strResult, 255 * 1 + 1, 255)
+        Case 3: strResult = Mid(strResult, 255 * 2 + 1, 255)
+    End Select
+    DetalleDeUnaFicha = strResult
+    
+    rs.Close
+    db.Close
+Salir_DetalleDeUnaFicha:
+    Exit Function
+Error_DetalleDeUnaFicha:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En DetalleDeUnaFicha"
+    End Select
+    DetalleDeUnaFicha = strResult
+    Resume Salir_DetalleDeUnaFicha
+End Function
+
+Public Sub PonDetalleEstancia(lngIdFichaCab As Long, Optional intSaltoLinea As Integer = True, _
+                                                    Optional intVerHabitacionEnConcepto As Integer = -8, _
+                                                    Optional intTabuladorEspacios As Integer = False, _
+                                                    Optional intVerPagosAdelantados As Integer = 88, _
+                                                    Optional intDime0123 As Integer = 0)
+    Dim strSQL As String, strDet As String
+    On Error GoTo Error_PonDetalleEstancia
+    If intVerHabitacionEnConcepto = -8 Then intVerHabitacionEnConcepto = Nz(DameValorParam("FichasEspecificarHabitacionEnDetalleFicha"), False)
+    strDet = DetalleDeUnaFicha(lngIdFichaCab, intSaltoLinea, intVerHabitacionEnConcepto, intTabuladorEspacios, intVerPagosAdelantados, intDime0123)
+    strSQL = "UPDATE tbFichasCab"
+    strSQL = strSQL & " SET DetalleEstancia = " & ConComillas(Replace(strDet, """", "'"))
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+    CurrentDb.Execute strSQL, dbFailOnError
+Salir_PonDetalleEstancia:
+    Exit Sub
+Error_PonDetalleEstancia:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En PonDetalleEstancia"
+    End Select
+    Resume Salir_PonDetalleEstancia
+End Sub
+
+Public Function ResumenDeUnaFicha(lngIdFichaCab As Long, _
+                                  Optional intSaltoLinea As Integer = True) As String
+    Dim db As Database
+    Dim rs As Recordset
+    Dim strSQL As String
+    Dim strRes, strSep As String
+    Dim strConcepto As String
+    On Error GoTo Error_ResumenDeUnaFicha
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbFichasCab"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If intSaltoLinea = True Then
+        strSep = vbCrLf
+    Else
+        strSep = ", "
+    End If
+    If Not rs.EOF Then
+        strRes = "Ficha Nº: " & lngIdFichaCab & IIf(Nz(rs("SuReferencia"), "") <> "", ", SU REF: " & rs("SuReferencia"), "")
+        strRes = strRes & strSep & "Viajero/a: " & rs("NombreCliente") & " " & rs("ApellidosCliente")
+        strRes = strRes & strSep & "Fecha entrada: " & Format(rs("FechaLlegada"), "dd/mm/yyyy") & ", Nº Pax: " & DSum("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & lngIdFichaCab)
+    Else
+        strRes = ""
+    End If
+    ResumenDeUnaFicha = strRes
+    rs.Close
+Salir_ResumenDeUnaFicha:
+    Exit Function
+Error_ResumenDeUnaFicha:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En ResumenDeUnaFicha"
+    End Select
+    ResumenDeUnaFicha = strRes
+    Resume Salir_ResumenDeUnaFicha
+End Function

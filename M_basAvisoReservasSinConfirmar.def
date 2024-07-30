@@ -1,0 +1,37 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ReservasSinConfirmar(Optional intAvisaSiempre As Integer = False)
+    On Error GoTo Error_ReservasSinConfirmar
+    If Not intAvisaSiempre And Nz(DameValorParam("ReservasSinConfirmarDiasAviso"), 1) = 0 Then Exit Function
+    Dim strResult As String, rs As Recordset, strSQL As String, intR As Integer
+    strSQL = "SELECT FechaReserva, IdFichaCab "
+    strSQL = strSQL & " FROM tbFichasCab"
+    strSQL = strSQL & " WHERE EstadoFicha=1 AND Not ConfirmadaReserva AND (Date() - FechaReserva >= " & Nz(DameValorParam("ReservasSinConfirmarDiasAviso"), 1) & ")"
+    strSQL = strSQL & " ORDER BY FechaReserva, IdFichaCab"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If Len(strResult) = 0 Then
+            strResult = "Las siguientes reservas están pendientes de confirmar desde hace más de " & Nz(DameValorParam("ReservasSinConfirmarDiasAviso"), 1) & " días:" & vbCrLf
+        End If
+        strResult = strResult & "Ficha Nº: " & rs("IdFichaCab") & ", del " & Format(rs("FechaReserva"), "dd/mm/yy") & vbCrLf
+        rs.MoveNext
+    Wend
+    If Len(strResult) > 0 Then
+        intR = MsgBox(strResult & "¿Desea repasar estas fichas ahora?", vbQuestion + vbYesNo)
+        If intR = vbYes Then
+            DoCmd.OpenForm "frmFichas", acNormal, , "EstadoFicha=1 AND Not ConfirmadaReserva AND (Date() - FechaReserva >= " & Nz(DameValorParam("ReservasSinConfirmarDiasAviso"), 1) & ")"
+        End If
+    Else
+        MsgBox "No existen reservas sin confirmar con el plazo de aviso cumplido", vbInformation
+    End If
+Salir_ReservasSinConfirmar:
+    Exit Function
+Error_ReservasSinConfirmar:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ReservasSinConfirmar" & vbCrLf & Err.Description
+            Resume Salir_ReservasSinConfirmar
+    End Select
+End Function

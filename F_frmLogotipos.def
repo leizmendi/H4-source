@@ -1,0 +1,280 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gintMouseDown As Integer, glngX As Long, glngY As Long
+    Dim glngAncho As Long, glngAlto As Long
+    
+Private Sub AlturaTiraLogos_AfterUpdate()
+    PonValorParam "AlturaTiraLogos_1", Nz(Me.AlturaTiraLogos, 2), 5
+    PonTiraLogos
+End Sub
+
+Private Sub btnAdd_Click()
+    Dim strPic As String, strX As String, strCarImages As String, strSQL As String, intR As Integer, i As Integer
+    Dim strFile As String
+    strPic = "*.jpg"
+    strCarImages = CarpetaImagenes
+    If strPic <> "" Then strPic = strCarImages & strPic
+    strX = SaveFileNameDlg("Indicar Fichero de imagen de logotipo " & Me.lstLogos.Column(1), "*.jpg", strPic)
+    If strX <> "" Then
+        If InStr(strX, strCarImages) <> 1 Then
+            intR = MsgBox("Se copiará imagen a la carpeta de imágenes del programa" & vbCrLf & "(" & strCarImages & ")", vbOKCancel + vbQuestion)
+            If intR = vbCancel Then Exit Sub
+            i = InStrRev(strX, "\")
+            strFile = Mid(strX, i + 1)
+            FileCopy strX, strCarImages & strFile
+            strX = strCarImages & strFile
+        End If
+        strPic = Mid(strX, Len(strCarImages) + 1)
+        strX = Nz(MyInputBox("Nombre del Logo", "Introduzca denominación del logotipo", strPic), "")
+        If strX = "" Then Exit Sub
+        strSQL = "INSERT INTO tbLogotipos (IdLogotipo, ImgLogo, Logo, Ord)"
+        strSQL = strSQL & " SELECT " & Nz(DMax("IdLogotipo", "tbLogotipos"), 0) + 1 & " as Ex0, '" & strPic & "' as Ex1, '" & strX & "' as Ex2, " & Nz(DMax("Ord", "tbLogotipos"), 0) + 1 & " as Ex3"
+        CurrentDb.Execute strSQL, dbFailOnError
+        Me.lstLogos.Requery
+        Me.lstLogos = Nz(DMax("IdLogotipo", "tbLogotipos"), 0)
+        Call lstLogos_AfterUpdate
+        PonTiraLogos
+    Else
+        Exit Sub
+    End If
+
+End Sub
+
+Private Sub btnCopiarTamaño_Click()
+    glngAncho = Me.imgLogo.Width
+    glngAlto = Me.imgLogo.Height
+End Sub
+
+Private Sub btnDel_Click()
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    Dim intR As Integer, strSQL As String
+    intR = MsgBox("¿Borrar el logotipo " & Me.lstLogos.Column(1) & "?", vbOKCancel + vbQuestion)
+    If intR = vbCancel Then Exit Sub
+    strSQL = "DELETE * FROM tbLogotipos Where IdLogotipo = " & Me.lstLogos
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.lstLogos.Requery
+    PonTiraLogos
+End Sub
+
+Private Sub btnOrd1_Click()
+    Ord_1_2 1
+End Sub
+
+Private Sub btnOrd2_Click()
+    Ord_1_2 2
+End Sub
+
+Private Sub Ord_1_2(intOrd)
+    Dim strSQL As String
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    strSQL = "UPDATE tbLogotipos SET Ord = Ord " & IIf(intOrd = 1, "-", "+") & " 1.5 WHERE IdLogotipo = " & Me.lstLogos
+    CurrentDb.Execute strSQL, dbFailOnError
+    Reordenar "tbLogotipos", "Ord"
+    Me.lstLogos.Requery
+    PonTiraLogos
+End Sub
+
+Private Sub btnPegarTamaño_Click()
+    If glngAncho = 0 Or glngAlto = 0 Then Exit Sub
+    Me.imgLogo.Width = glngAncho
+    Me.imgLogo.Height = glngAlto
+    PonCuadros
+    Dim strSQL As String
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    strSQL = "UPDATE tbLogotipos SET Ancho = " & Me.imgLogo.Width & ", Alto = " & Me.imgLogo.Height
+    strSQL = strSQL & " WHERE IdLogotipo = " & Me.lstLogos
+    CurrentDb.Execute strSQL, dbFailOnError
+    PonTiraLogos
+End Sub
+
+Private Sub btnVerSN_Click()
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    Dim strSQL As String
+    strSQL = "UPDATE tbLogotipos SET "
+    strSQL = strSQL & " EnFacturaSN = Not (Nz(EnFacturaSN,False))"
+    strSQL = strSQL & " WHERE IdLogotipo = " & Me.lstLogos
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.lstLogos.Requery
+    PonTiraLogos
+End Sub
+
+Private Sub cdrR_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gintMouseDown = True
+    glngX = X
+End Sub
+
+Private Sub cdrR_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    On Error GoTo Error_cdrR_MouseMove
+    Screen.MousePointer = 9
+    If gintMouseDown = True Then
+        Me.imgLogo.Width = X + cdrR.Left - Me.imgLogo.Left
+        glngX = X
+        PonCuadros
+    End If
+Salir_cdrR_MouseMove:
+    Exit Sub
+Error_cdrR_MouseMove:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en cdrR_MouseMove" & vbCrLf & Err.Description
+            Resume Salir_cdrR_MouseMove
+    End Select
+End Sub
+
+Private Sub cdrR_MouseUp(Button As Integer, Shift As Integer, X As Single, y As Single)
+    On Error GoTo Error_cdrR_MouseUp
+    gintMouseDown = False
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    Dim strSQL As String
+    strSQL = "UPDATE tbLogotipos SET Ancho = " & Me.imgLogo.Width & ", Alto = " & Me.imgLogo.Height
+    strSQL = strSQL & " WHERE IdLogotipo = " & Me.lstLogos
+    CurrentDb.Execute strSQL, dbFailOnError
+    PonTiraLogos
+Salir_cdrR_MouseUp:
+    Exit Sub
+Error_cdrR_MouseUp:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en cdrR_MouseUp" & vbCrLf & Err.Description
+            Resume Salir_cdrR_MouseUp
+    End Select
+End Sub
+
+Private Sub cdrB_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gintMouseDown = True
+    glngY = y
+End Sub
+
+Private Sub cdrB_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Screen.MousePointer = 7
+    If gintMouseDown = True Then
+        Me.imgLogo.Height = y + cdrB.Top - Me.imgLogo.Top
+        glngY = y
+        PonCuadros
+    End If
+End Sub
+
+Private Sub cdrB_MouseUp(Button As Integer, Shift As Integer, X As Single, y As Single)
+    On Error GoTo Error_cdrB_MouseUp
+    gintMouseDown = False
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    Dim strSQL As String
+    strSQL = "UPDATE tbLogotipos SET Ancho = " & Me.imgLogo.Width & ", Alto = " & Me.imgLogo.Height
+    strSQL = strSQL & " WHERE IdLogotipo = " & Me.lstLogos
+    CurrentDb.Execute strSQL, dbFailOnError
+    PonTiraLogos
+Salir_cdrB_MouseUp:
+    Exit Sub
+Error_cdrB_MouseUp:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en cdrB_MouseUp" & vbCrLf & Err.Description
+            Resume Salir_cdrB_MouseUp
+    End Select
+End Sub
+
+Private Sub Detalle_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Screen.MousePointer = 0
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call lstLogos_AfterUpdate
+    'Call mrcVerEn_AfterUpdate
+    Me.AlturaTiraLogos = Nz(DameValorParam("AlturaTiraLogos_1"), 2)
+    Me.LogosPictureAlignment = Nz(DameValorParam("LogosPictureAlignment_1"), 2)
+    Call LogosPictureAlignment_AfterUpdate
+    
+    PonTiraLogos
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    GrabarParam Me
+End Sub
+
+Private Sub imgLogo_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Screen.MousePointer = 0
+End Sub
+
+Private Sub LogosPictureAlignment_AfterUpdate()
+    Dim i As Integer
+    PonValorParam "LogosPictureAlignment_1", Nz(Me.LogosPictureAlignment, 2), 4
+    For i = 1 To 10
+        Me("img" & i).PictureAlignment = Me.LogosPictureAlignment
+    Next i
+End Sub
+
+Private Sub lstLogos_AfterUpdate()
+    Dim strCarImg As String, strPic As String
+    strCarImg = CarpetaImagenes
+    strPic = Nz(Me.lstLogos.Column(2), "")
+    If strPic <> "" Then
+        strPic = strCarImg & strPic
+    End If
+    Me.imgLogo.Picture = strPic
+    If Me.lstLogos.ListIndex = -1 Then Exit Sub
+    Dim lngAncho As Long, lngAlto As Long
+    lngAncho = Nz(DLookup("Ancho", "tbLogotipos", "IdLogotipo = " & Me.lstLogos), 0)
+    lngAlto = Nz(DLookup("Alto", "tbLogotipos", "IdLogotipo = " & Me.lstLogos), 0)
+    If lngAncho <> 0 Then Me.imgLogo.Width = lngAncho
+    If lngAlto <> 0 Then Me.imgLogo.Height = lngAlto
+    PonCuadros
+End Sub
+
+Private Sub PonCuadros()
+    On Error GoTo Error_PonCuadros
+    Me.cdrB.Top = Me.imgLogo.Top + Me.imgLogo.Height - Me.cdrB.Height / 2
+    Me.cdrB.Left = Me.imgLogo.Left + Me.imgLogo.Width / 2 - Me.cdrB.Width / 2
+    Me.cdrR.Top = Me.imgLogo.Top + Me.imgLogo.Height / 2 - Me.cdrR.Height / 2
+    Me.cdrR.Left = Me.imgLogo.Left + Me.imgLogo.Width - Me.cdrR.Width / 2
+    Me.cdrB.Visible = True: Me.cdrR.Visible = True
+Salir_PonCuadros:
+    Exit Sub
+Error_PonCuadros:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PonCuadros" & vbCrLf & Err.Description
+            Resume Salir_PonCuadros
+    End Select
+End Sub
+
+Public Sub PonTiraLogos()
+    On Error GoTo Error_PonTiraLogos
+    Dim strSQL As String, rs As Recordset, lngAlto As Long, i As Integer, strCarImages As String
+    strSQL = "SELECT * FROM tbLogotipos WHERE Nz(EnFacturaSN,False)=True ORDER BY Ord"
+    lngAlto = Nz(DameValorParam("AlturaTiraLogos_1"), 2) * TC_CmToPoints
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strCarImages = CarpetaImagenes
+    While Not rs.EOF
+        i = i + 1
+        Me("img" & i).Picture = strCarImages & rs("ImgLogo")
+        Me("img" & i).Height = lngAlto
+        Me("img" & i).Width = (rs("Ancho") / rs("Alto")) * lngAlto
+        If i > 1 Then Me("img" & i).Left = Me("img" & i - 1).Left + Me("img" & i - 1).Width
+        Me("img" & i).Visible = True
+        Me("img" & i).Tag = rs("IdLogotipo")
+        rs.MoveNext
+    Wend
+    While i < 10
+        i = i + 1
+        Me("img" & i).Visible = False
+    Wend
+Salir_PonTiraLogos:
+    Exit Sub
+Error_PonTiraLogos:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PonTiraLogos" & vbCrLf & Err.Description
+            Resume Salir_PonTiraLogos
+    End Select
+End Sub
+
+Public Sub SelectLogo(strImg As String)
+    Me.lstLogos = Me(strImg).Tag
+    Call lstLogos_AfterUpdate
+End Sub

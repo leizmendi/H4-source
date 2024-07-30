@@ -1,0 +1,273 @@
+Option Compare Database
+Option Explicit
+
+'Function popo()
+    'VaciarBase '"tbEnlaceContable"
+    'TraspasarDatos ' "tbEnlaceContable"
+'End Function
+
+Public Function VaciarBase(strMDB As String, Optional strTabla As String = "", Optional strPwd As String = "")
+    Dim strSQL As String, rs As Recordset, i As Integer, j As Integer
+    Dim qdf As QueryDef, str As String
+    Dim db As dao.Database, strXML As String
+    
+    On Error GoTo Error_VaciarBase
+    Set db = OpenDatabase(strMDB, False, False, "MS Access;PWD=" & strPwd)
+'    Set db = OpenDatabase(strMDB)
+    InsertLog "VaciarBase: " & strMDB
+    If strTabla = "" Then
+        If ActualizaTablas(db, 1) = False Then
+            InsertLog "No se actualizaron tablas"
+            Exit Function
+        End If
+    End If
+    strSQL = "SELECT * FROM _Tablas_ WHERE BorrarSN "
+    If strTabla <> "" Then strSQL = strSQL & " AND Tabla = '" & strTabla & "'"
+    strSQL = strSQL & " ORDER BY OrdenBorrar"
+    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        SysCmd acSysCmdSetStatus, "Borrando " & rs("Tabla")
+        db.Execute "DELETE * FROM " & rs("Tabla"), dbFailOnError
+        InsertLog vbTab & "DELETE: " & rs("Tabla")
+        rs.MoveNext
+        i = i + 1
+    Wend
+    MsgBox "Se borraron " & i & " tablas"
+    InsertLog vbTab & "Se borraron " & i & " tablas"
+    
+    'For i = 0 To 19
+    '    For Each qdf In CurrentDb.QueryDefs
+    '        str = qdf.Name
+    '        If Left(str, 2) = Format(i, "00") Then
+    '            SysCmd acSysCmdSetStatus, "Ejecutando " & qdf.Name
+    '            CurrentDb.Execute qdf.SQL, dbFailOnError
+    '            j = j + 1
+    '            GoTo SiguienteQdf
+    '        End If
+    '    Next qdf
+SiguienteQdf:
+    'Next i
+    'MsgBox "Se ejecutaron " & j & " consultas"
+    VaciarBase = True
+Salir_VaciarBase:
+    
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_VaciarBase:
+    Select Case Err
+        Case 3031 ' contraseña
+            strPwd = InputBox("Contraseña de la base de datos: " & strMDB)
+            Resume
+        Case Else
+            MsgBox "Error nº " & Err & " en VaciarBase" & vbCrLf & Err.Description
+            Resume Salir_VaciarBase
+    End Select
+End Function
+
+Public Function TraspasarDatos(strMDB As String, strFIND As String, Optional strTabla As String = "", Optional strPwd As String = "")
+    Dim strSQL As String, rs As Recordset, i As Integer, j As Integer, y As Long, z As Long, X As Long
+    Dim rs1 As Recordset, rs0 As Recordset
+    Dim db0 As dao.Database, db As dao.Database, strDAT As String
+    On Error GoTo Error_TraspasarDatos
+    Set db0 = OpenDatabase(strMDB, False, False, "MS Access;PWD=" & strPwd)
+    'Set db0 = OpenDatabase(strMDB)
+    InsertLog "TraspasarDatos: A -> " & strMDB
+    If strTabla = "" Then
+        If ActualizaTablas(db0, 2) = False Then
+            InsertLog "No se actualizaron tablas"
+            Exit Function
+        End If
+    End If
+    DoCmd.OpenForm "Formulario1"
+    strDAT = AbrirDialogo(, , , "*" & strFIND & "*.mdb", "Seleccionar fichero de datos a importar", "Fichero " & strFIND, , , , , , , , 0)
+    If strDAT = "" Then Exit Function
+    'strPWD = InputBox("Contraseña de la base de datos: " & strDAT, , strPWD)
+    Set db = OpenDatabase(strDAT, False, False, "MS Access;PWD=" & strPwd)
+    InsertLog "TraspasarDatos: Desde -> " & strDAT
+    'Set rs = CurrentDb.OpenRecordset("SELECT * FROM _AnexarTablas_ WHERE MarcarSN = True ORDER BY Orden", dbOpenSnapshot)
+    strSQL = "SELECT * FROM _Tablas_ WHERE AnexarSN "
+    If strTabla <> "" Then strSQL = strSQL & " AND Tabla = '" & strTabla & "'"
+    strSQL = strSQL & " ORDER BY OrdenAnexar"
+    Set rs = db0.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        SysCmd acSysCmdSetStatus, "Anexando " & rs("Tabla")
+        InsertLog vbTab & "Anexando " & rs("Tabla")
+        strSQL = "SELECT * FROM " & rs("Tabla") '& "1"
+        'strSQL = "SELECT " & IIf(Len(Nz(rs("SELECT"), "")) = 0, "*", rs("SELECT")) & " FROM " & rs("Tabla") '& "1"
+        'If Len(Nz(rs("Criteria"), "")) > 0 Then strSQL = strSQL & " WHERE " & rs("Criteria")
+        'Set rs1 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        On Error Resume Next
+        Set rs1 = db.OpenRecordset(strSQL, dbOpenSnapshot)
+        If Err <> 0 Then GoTo SiguienteTabla
+        On Error GoTo Error_TraspasarDatos
+        Set rs0 = db0.OpenRecordset(rs("Tabla"), dbOpenDynaset)
+        If Not rs1.EOF Then
+            rs1.MoveLast
+            rs1.MoveFirst
+        End If
+        z = rs1.RecordCount
+        y = 0
+        While Not rs1.EOF
+            rs0.AddNew
+            For j = 0 To rs1.Fields.Count - 1
+                rs0(rs1(j).Name) = rs1(j)
+            Next j
+            rs0.Update
+            rs1.MoveNext
+            y = y + 1
+            X = X + 1
+            SysCmd acSysCmdSetStatus, "Anexando " & rs("Tabla") & ": " & y & "/" & z
+            DoEvents
+        Wend
+SiguienteTabla:
+        InsertLog vbTab & "Anexados " & rs("Tabla") & ": " & y & "/" & z
+        On Error GoTo Error_TraspasarDatos
+        DoEvents
+        rs.MoveNext
+        i = i + 1
+    Wend
+    MsgBox "Se anexaron " & i & " tablas, " & X & " registros"
+    InsertLog "Se anexaron " & i & " tablas, " & X & " registros"
+    ActualizarAutonumericos db0
+    TraspasarDatos = True
+Salir_TraspasarDatos:
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_TraspasarDatos:
+    Select Case Err
+        Case 3031 ' contraseña
+            strPwd = InputBox("Contraseña de la base de datos: " & strMDB)
+            Resume
+        Case 3265 ' No se encontró elemento (campo no existente)
+            Resume Next
+        Case 3078 ' No se encontró elemento (tabla no existente)
+            Resume SiguienteTabla
+        Case 3022
+            MsgBox "Error nº " & Err & " en TraspasarDatos" & vbCrLf & Err.Description & vbCrLf & "Tabla: " & rs("Tabla")
+            Resume SiguienteTabla
+        Case Else
+            MsgBox "Error nº " & Err & " en TraspasarDatos" & vbCrLf & Err.Description
+            Resume Salir_TraspasarDatos
+    End Select
+End Function
+
+
+Public Sub ActualizarAutonumericos_old(db As dao.Database)
+    On Error GoTo Error_ActualizarAutonumericos_old
+    Dim rs As Recordset, strSQL As String, lngIdMax As Long, i As Integer
+    Dim rs2 As Recordset
+    Set rs = db.OpenRecordset("SELECT * FROM _Tablas_ WHERE AutonumericoSN = True ORDER BY OrdenAnexar", dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = "SELECT TOP 1 " & rs("CampoAutonumerico") & " FROM " & rs("Tabla") & " ORDER BY " & rs("CampoAutonumerico") & " DESC"
+        Set rs2 = db.OpenRecordset(strSQL, dbOpenSnapshot)
+        If rs2.EOF Then
+            lngIdMax = 1
+        Else
+            lngIdMax = rs2(rs("CampoAutonumerico")) + 1
+        End If
+        'lngIdMax = Nz(DMax(rs("CampoAutonumerico"), rs("Tabla")), 0) + 1
+        strSQL = "INSERT INTO " & rs("Tabla") & " (" & rs("CampoAutonumerico") & ")"
+        strSQL = strSQL & " SELECT " & lngIdMax & " AS Id"
+        'strSQL = strSQL & " SELECT Nz(Dmax('" & rs("CampoAutonumerico") & "', '" & rs("Tabla") & "'),0)+1  AS Id"
+        db.Execute strSQL
+        strSQL = "DELETE * FROM " & rs("Tabla")
+        strSQL = strSQL & " WHERE " & rs("CampoAutonumerico") & "=" & lngIdMax
+        db.Execute strSQL
+        i = i + 1
+        rs.MoveNext
+    Wend
+    MsgBox i & " autonuméricos ajustados", vbInformation
+'    InsertLog i & " autonuméricos ajustados"
+Salir_ActualizarAutonumericos_old:
+    Exit Sub
+Error_ActualizarAutonumericos_old:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ActualizarAutonumericos_old" & vbCrLf & Err.Description
+            Resume Salir_ActualizarAutonumericos_old
+    End Select
+End Sub
+
+Public Sub Crear_Tablas_()
+    Dim rsT As Recordset, rsB As Recordset, rsA As Recordset, rsU As Recordset
+    Dim tdf As TableDef, fld As Field
+    Set rsT = CurrentDb.OpenRecordset("_Tablas_", dbOpenDynaset)
+    For Each tdf In CurrentDb.TableDefs
+        If tdf.Name = "_Tablas_" Then GoTo Sigue
+        If tdf.Name Like "MSys*" Then GoTo Sigue
+        If tdf.Name Like "~TMP*" Then GoTo Sigue
+        rsT.FindFirst "Tabla = '" & tdf.Name & "'"
+        If rsT.NoMatch Then
+            rsT.AddNew
+            rsT("Tabla") = tdf.Name
+        Else
+            rsT.Edit
+        End If
+        Set fld = tdf.Fields(0)
+        If fld.Attributes And dbAutoIncrField Then
+            rsT("AutonumericoSN") = True
+            rsT("CampoAutonumerico") = fld.Name
+        Else
+            rsT("AutonumericoSN") = False
+        End If
+        rsT.Update
+Sigue:
+    Next tdf
+    MsgBox "ok"
+End Sub
+
+Public Sub InsertLog(strLog As String)
+    On Error GoTo HandleError
+    Dim strSQL As String
+    strSQL = "INSERT INTO 2myLog(Ahora, Log)"
+    strSQL = strSQL & " SELECT  " & ComaPunto(CDbl(Now())) & " as ahora, " & ConComillas(strLog) & " as log"
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Function ActualizaTablas(db As dao.Database, intBorrarAnexar As Integer) As Integer
+    On Error GoTo HandleError
+    Dim strSQL As String, strXML As String
+    CurrentDb.Execute "DELETE * FROM auxTablas", dbFailOnError
+    Set rs = db.OpenRecordset("SELECT * FROM _Tablas_", dbOpenSnapshot)
+    While Not rs.EOF
+        If intBorrarAnexar = 1 Then
+            strSQL = "INSERT INTO auxTablas (Tabla, OrdenBorrar, BorrarSN)"
+            strSQL = strSQL & " SELECT " & ConComillas(rs("Tabla")) & " AS Tbl, " & rs("OrdenBorrar") & " AS Ord, " & IIf(rs("BorrarSN") = True, "True", "False") & " AS BSN"
+        Else
+            strSQL = "INSERT INTO auxTablas (Tabla, OrdenAnexar, AnexarSN)"
+            strSQL = strSQL & " SELECT " & ConComillas(rs("Tabla")) & " AS Tbl, " & rs("OrdenAnexar") & " AS Ord, " & IIf(rs("AnexarSN") = True, "True", "False") & " AS ASN"
+        End If
+        CurrentDb.Execute strSQL, dbFailOnError
+        rs.MoveNext
+    Wend
+    If intBorrarAnexar = 1 Then
+        absw_3nak.PonXML strXML, "BorrarSN", "S"
+    Else
+        PonXML strXML, "AnexarSN", "S"
+    End If
+    DoCmd.OpenForm "frmTablas", , , , , acDialog, strXML
+    If Not IsOpenForm("frmTablas") Then Exit Function
+    DoCmd.Close acForm, "frmTablas"
+    Set rs = CurrentDb.OpenRecordset("auxTablas", dbOpenSnapshot)
+    While Not rs.EOF
+        If intBorrarAnexar = 1 Then
+            strSQL = "UPDATE _Tablas_ SET BorrarSN = " & IIf(Nz(rs("BorrarSN"), False), "True", "False") & " WHERE Tabla = '" & rs("Tabla") & "'"
+        Else
+            strSQL = "UPDATE _Tablas_ SET AnexarSN = " & IIf(Nz(rs("AnexarSN"), False), "True", "False") & " WHERE Tabla = '" & rs("Tabla") & "'"
+        End If
+        db.Execute strSQL, dbFailOnError
+        rs.MoveNext
+    Wend
+    ActualizaTablas = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

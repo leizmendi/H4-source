@@ -1,0 +1,133 @@
+Option Compare Database
+Option Explicit
+
+Public Function TraducirFicha(lngIdF As Long, lngIdIdioma As Long, Optional intEsPto As Integer = False)
+    On Error GoTo Error_TraducirFicha
+    Dim rs As Recordset, strSQL As String, strCodId As String
+    Dim strSD As String, strTrd As String, v As Variant
+    strCodId = DLookup("CodIdioma", "tbIdiomas", "IdIdioma = " & lngIdIdioma)
+    If strCodId <> "00" Then
+        Dim lngIdIdioma00 As Long
+        lngIdIdioma00 = Nz(DLookup("IdIdioma", "tbIdiomas", "CodIdioma = '00'"), 0)
+        If lngIdIdioma00 <> 0 Then
+            TraducirFicha lngIdF, lngIdIdioma00
+        End If
+    End If
+    If intEsPto = False Then
+        strSQL = "SELECT * FROM tbFichasDet"
+    Else
+        strSQL = "SELECT * FROM tbPtosDet"
+    End If
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdF
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        If Len(rs("Parcela")) > 0 Then
+            strSD = RecDerTop(rs("Concepto"), Len(rs("Parcela")) + 3, 0)
+        Else
+            strSD = rs("Concepto")
+        End If
+        If strCodId = "00" Then
+            v = DLookup("IdSD", "tbSDIdiomas", "Traduccion = " & ConComillas(strSD))
+            If Not IsNull(v) Then
+                strTrd = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rs("IdSD")), strSD)
+                If Len(rs("Parcela")) > 0 Then
+                    strTrd = strTrd & " (" & rs("Parcela") & ")"
+                End If
+                rs.Edit
+                rs("Concepto") = RecDerTop(strTrd, 0, 50)
+                rs.Update
+            End If
+        Else
+            v = DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & Nz(rs("IdSD"), 0))
+            If v = strSD Then
+                strTrd = Nz(DLookup("Traduccion", "tbSDIdiomas", "IdSD = " & rs("IdSD") & " AND IdIdioma = " & lngIdIdioma), strSD)
+                If Len(rs("Parcela")) > 0 Then
+                    strTrd = strTrd & " (" & rs("Parcela") & ")"
+                End If
+                rs.Edit
+                rs("Concepto") = RecDerTop(strTrd, 0, 50)
+                rs.Update
+            End If
+        End If
+        rs.MoveNext
+    Wend
+Salir_TraducirFicha:
+    Exit Function
+Error_TraducirFicha:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en TraducirFicha" & vbCrLf & Err.Description
+            Resume Salir_TraducirFicha
+            Resume Next
+            
+    End Select
+
+End Function
+
+
+Public Function TraducirFichaOLD(lngIdF As Long, lngIdIdioma As Long)
+    On Error GoTo Error_TraducirFichaOLD
+    Dim rs As Recordset, strSQL As String, strCodId As String
+    Dim strSD As String, strTrd As String, v As Variant
+    strCodId = DLookup("CodIdioma", "tbIdiomas", "IdIdioma = " & lngIdIdioma)
+    If strCodId <> "00" Then
+        Dim lngIdIdioma00 As Long
+        lngIdIdioma00 = Nz(DLookup("IdIdioma", "tbIdiomas", "CodIdioma = '00'"), 0)
+        If lngIdIdioma00 <> 0 Then
+            TraducirFichaOLD lngIdF, lngIdIdioma00
+        End If
+    End If
+    strSQL = "SELECT * FROM tbFichasDet"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdF
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        If Len(rs("Parcela")) > 0 Then
+            strSD = RecDerTop(rs("Concepto"), Len(rs("Parcela")) + 4, 0)
+        Else
+            strSD = rs("Concepto")
+        End If
+        If strCodId = "00" Then
+            v = DLookup("IdSD", "tbSDIdiomas", "Traduccion = " & ConComillas(strSD))
+            If Not IsNull(v) Then
+                strTrd = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rs("IdSD")), strSD)
+                If Len(rs("Parcela")) > 0 Then
+                    strTrd = strTrd & ", (" & rs("Parcela") & ")"
+                End If
+                rs.Edit
+                rs("Concepto") = RecDerTop(strTrd, 0, 50)
+                rs.Update
+            End If
+        Else
+            v = DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rs("IdSD"))
+            If v = strSD Then
+                strTrd = Nz(DLookup("Traduccion", "tbSDIdiomas", "IdSD = " & rs("IdSD") & " AND IdIdioma = " & lngIdIdioma), strSD)
+                If Len(rs("Parcela")) > 0 Then
+                    strTrd = strTrd & ", (" & rs("Parcela") & ")"
+                End If
+                rs.Edit
+                rs("Concepto") = RecDerTop(strTrd, 0, 50)
+                rs.Update
+            End If
+        End If
+        rs.MoveNext
+    Wend
+Salir_TraducirFichaOLD:
+    Exit Function
+Error_TraducirFichaOLD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en TraducirFichaOLD" & vbCrLf & Err.Description
+            Resume Salir_TraducirFichaOLD
+            Resume Next
+            
+    End Select
+
+End Function
+
+
+Public Function DimeConceptoIdioma(lngIdSD As Long, lngIdIdioma As Long) As String
+    Dim strConcepto As String
+    strConcepto = Nz(DLookup("Traduccion", "tbSDIdiomas", "IdSD = " & lngIdSD & " AND IdIdioma = " & lngIdIdioma), "¿?")
+    If strConcepto = "¿?" Then strConcepto = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD), "-")
+    DimeConceptoIdioma = strConcepto
+End Function

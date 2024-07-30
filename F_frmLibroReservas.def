@@ -1,0 +1,310 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+Dim gintDia As Integer
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnConfirmar_Click()
+    Dim i As Integer
+    For i = 1 To 7
+        If Me("lstActi" & i).ListIndex <> -1 Then Exit For
+    Next i
+    If i > 7 Then Exit Sub
+    If Me("lstActi" & i).ListIndex = -1 Then Exit Sub
+    Dim lngNumEstado As Long, strSQL As String
+    lngNumEstado = Nz(DLookup("NumEstado", "tbSalasReservas", "IdSalaReserva = " & Me("lstActi" & i)), -1)
+    lngNumEstado = Nz(BuscaAyuda("REs00", lngNumEstado, 2), -1)
+    If lngNumEstado = -1 Then Exit Sub
+    strSQL = "UPDATE tbSalasReservas SET NumEstado = " & lngNumEstado & " WHERE IdSalaReserva = " & Me("lstActi" & i)
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me("lstActi" & i).Requery
+End Sub
+
+Private Sub btnIrAFicha_Click()
+'    On Error Resume Next
+    Dim intResp As Integer
+    Dim ctl As Control, strFecha As String
+    If gintDia = 0 Then
+        Set ctl = Screen.PreviousControl
+        Select Case ctl.Name
+            Case "lstActi1", "lstActi2", "lstActi3", "lstActi4", "lstActi5", "lstActi6", "lstActi7"
+                gintDia = CInt(Right(ctl.Name, 1))
+            Case Else
+                Exit Sub
+        End Select
+    Else
+        Set ctl = Screen.ActiveControl
+    End If
+    Select Case gintDia
+        Case 1
+            strFecha = Me.txtLunes
+        Case 2
+            strFecha = Me.txtM
+        Case 3
+            strFecha = Me.txtX
+        Case 4
+            strFecha = Me.txtJ
+        Case 5
+            strFecha = Me.txtV
+        Case 6
+            strFecha = Me.txtS
+        Case 7
+            strFecha = Me.txtD
+    End Select
+    gintDia = 0
+'    If ctl.ListIndex = -1 Then GoTo NuevaActi 'Exit Sub
+    If (ctl.Column(0) = 0) Or ctl.ListIndex = -1 Then
+        intResp = vbOK 'MsgBox("¿Nueva reserva el día " & strFecha & "?", vbDefaultButton1 + vbOKCancel + vbQuestion)
+        If intResp = vbOK Then
+NuevaActi:
+            DoCmd.OpenForm "frmReservas", acNormal, , , acFormAdd
+            Forms!frmReservas.Fecha = strFecha
+            ctl.value = Forms!frmReservas.IdSalaReserva
+        End If
+    Else
+        ctl.SetFocus
+        DoCmd.OpenForm "frmReservas", , , "IdSalaReserva = " & ctl.Column(0)
+    End If
+End Sub
+
+
+Private Sub Form_Activate()
+    Call CargaListas
+End Sub
+
+Private Sub Form_GotFocus()
+    Call CargaListas
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call ControlTeclaControl(KeyCode, Shift)
+End Sub
+
+Private Sub Form_Load()
+    Application.CommandBars("Basica").Visible = True
+
+    Me.txtFecha.value = Date
+    Call txtFecha_Updated(1)
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    Dim i As Integer
+    For i = 1 To 7
+        Me("lstActi" & i).RowSource = ""
+    Next i
+    PonValorParam "LibroReservasForm", Me.Name, 10
+End Sub
+
+Private Sub lstEstados_AfterUpdate()
+    CargaListas
+End Sub
+
+Private Sub lstSalas_AfterUpdate()
+    CargaListas
+End Sub
+
+Private Sub txtFecha_AfterUpdate()
+    Me.txtLunes.Requery
+    CargaListas
+End Sub
+
+'Private Sub txtFecha_KeyDown(KeyCode As Integer, Shift As Integer)
+'    If KeyCode = vbKeyF4 Then
+'        Me.txtFecha = adhDoCalendar(Me.txtFecha)
+'        'ListaAFecha CDate(Me.txtFecha)
+'    End If
+'End Sub
+
+Private Sub txtFecha_Updated(Code As Integer)
+    CargaListas
+End Sub
+Public Sub ControlTeclaControl(KeyCode As Integer, Shift As Integer)
+    Dim ctl As Control
+    Dim MayusculasPresionada As Integer
+    Dim ControlPresionada As Integer
+    Dim AltPresionada As Integer
+    Dim intNotSetFocus As Integer
+    Dim intIrAFICHA As Integer
+    On Error GoTo Error_ControlTeclaControl
+    MayusculasPresionada = (Shift And acShiftMask) > 0
+    ControlPresionada = (Shift And acCtrlMask) > 0
+    AltPresionada = (Shift And acAltMask) > 0
+    If ControlPresionada Then
+        Select Case KeyCode
+            Case vbKey0, vbKeyNumpad0
+                Set ctl = Me.btnIrAFicha
+                intIrAFICHA = True
+            Case vbKey1, vbKeyNumpad1
+                Set ctl = Me.lstActi1
+            Case vbKey2, vbKeyNumpad2
+                Set ctl = Me.lstActi2
+            Case vbKey3, vbKeyNumpad3
+                Set ctl = Me.lstActi3
+            Case vbKey4, vbKeyNumpad4
+                Set ctl = Me.lstActi4
+            Case vbKey5, vbKeyNumpad5
+                Set ctl = Me.lstActi5
+            Case vbKey6, vbKeyNumpad6
+                Set ctl = Me.lstActi6
+            Case vbKey7, vbKeyNumpad7
+                Set ctl = Me.lstActi7
+            Case Else
+                Exit Sub
+        End Select
+        KeyCode = 0
+        If intNotSetFocus Then Exit Sub
+        If ctl.Visible = True And ctl.Enabled = True Then
+            ctl.SetFocus
+        End If
+        If intIrAFICHA Then
+            Call btnIrAFicha_Click
+        End If
+    End If
+Salir_ControlTeclaControl:
+    Exit Sub
+Error_ControlTeclaControl:
+    Select Case Err
+        Case 2501
+        Case 2046
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En ControlTeclaControl:"
+    End Select
+    KeyCode = 0
+    Resume Salir_ControlTeclaControl
+
+End Sub
+
+Public Function LunesDe(Dat As Date) As Date
+'Devuelve la fecha de la semana de la fecha pasada en Dat
+    On Error GoTo Error_LunesDe
+    Select Case Weekday(Dat)
+        Case vbSunday
+            LunesDe = Dat - 6
+        Case vbMonday
+            LunesDe = Dat
+        Case vbTuesday
+            LunesDe = Dat - 1
+        Case vbWednesday
+            LunesDe = Dat - 2
+        Case vbThursday  '5   Jueves
+            LunesDe = Dat - 3
+        Case vbFriday    '6   Viernes
+            LunesDe = Dat - 4
+        Case vbSaturday  '7   Sábado
+            LunesDe = Dat - 5
+    End Select
+Salir_LunesDe:
+    Exit Function
+Error_LunesDe:
+        LunesDe = "-"
+        Resume Salir_LunesDe
+End Function
+
+
+
+Public Sub CargaListas()
+    Dim strSQL As String, i As Integer, rs As Recordset, strLbl As String
+    For i = 1 To 7
+        strSQL = "SELECT tbSalasReservas.IdSalaReserva, tbSalas.Sala, Format(tbSalasReservas.Hora,'HH:NN') as Hora, [Adultos]+[Niños] AS Pax, tbSalasReservas.NombreReserva as Nombre, Telefono as Teléfono, Email"
+        strSQL = strSQL & " FROM tbSalas RIGHT JOIN tbSalasReservas ON tbSalas.IdSala = tbSalasReservas.IdSala"
+        strSQL = strSQL & " WHERE tbSalasReservas.Fecha = #" & Format(CDate(Me.txtLunes) + i - 1, "mm/dd/yyyy") & "#"
+        If Me.lstSalas <> 0 Then
+            strSQL = strSQL & " AND tbSalasReservas.IdSala = " & Me.lstSalas
+        End If
+        strSQL = strSQL & " UNION SELECT 0 as IdR, '*' as S, 'N' as H, '' as P, '-->Nueva' As N, '' as T, '' as E"
+        strSQL = strSQL & " FROM 1tbl1"
+        strSQL = strSQL & " ORDER BY Hora;"
+        Me("lstActi" & i).RowSource = strSQL
+        strSQL = "SELECT tbSalas.Sala, ([Adultos]+[Niños]) AS Pax"
+        strSQL = strSQL & " FROM tbSalas Left JOIN tbSalasReservas ON tbSalas.IdSala = tbSalasReservas.IdSala"
+        strSQL = strSQL & " WHERE tbSalasReservas.Fecha = #" & Format(CDate(Me.txtLunes) + i - 1, "mm/dd/yyyy") & "#"
+        strSQL = strSQL & " Order By tbSalas.IdSala"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        strLbl = "Totales:      "
+        While Not rs.EOF
+            If strLbl = "Totales:      " Then
+                strLbl = strLbl & rs("Sala") & ": " & rs("Pax") & " Pax" & vbCrLf
+            Else
+                strLbl = strLbl & rs("Sala") & ": " & rs("Pax") & " Pax" & ", "
+            End If
+            rs.MoveNext
+        Wend
+        If strLbl = "Totales:      " Then
+            strLbl = ""
+        Else
+            strLbl = Left(strLbl, Len(strLbl) - 2)
+        End If
+        Me("lblPie" & i).Caption = strLbl
+    Next i
+        
+End Sub
+
+Public Function PonLblReserva()
+    Dim ctl As Control, i As Integer, j As Integer, strLbl As String, strName As String, strNotas As String
+    Dim strFecha As String, intResp As Integer
+    Set ctl = Screen.ActiveControl
+    strName = ctl.Name
+    If strName Like "lstActi*" Then
+        i = CInt(Mid(ctl.Name, 8))
+    Else
+        Exit Function
+    End If
+    For j = 1 To 7
+        If j <> i Then
+            Me("lstActi" & j) = Null
+        End If
+    Next j
+    Me.lblZoom.Caption = ""
+    If Me("lstActi" & i) = 0 Then
+        strFecha = Format(CDate(Me.txtLunes) + i - 1, "Short Date")
+        intResp = MsgBox("¿Nueva reserva el día " & strFecha & "?", vbDefaultButton1 + vbOKCancel + vbQuestion)
+        If intResp = vbOK Then
+NuevaActi:
+            DoCmd.OpenForm "frmReservas", acNormal, , , acFormAdd
+            Forms!frmReservas.Fecha = strFecha
+            ctl.value = Forms!frmReservas.IdSalaReserva
+        End If
+    Else
+        strLbl = Format(CDate(Me.txtLunes) + i - 1, "dd/mm/yyyy") & vbCrLf
+        Me.lblZoom.Caption = strLbl & Me("lstActi" & i).Column(1) & ", " _
+                                    & Me("lstActi" & i).Column(2) & vbCrLf _
+                                    & Me("lstActi" & i).Column(3) & " Pax, " _
+                                    & Me("lstActi" & i).Column(4) & ", Tel. " _
+                                    & Me("lstActi" & i).Column(5)
+        If Len(Me("lstActi" & i).Column(6)) > 0 Then Me.lblZoom.Caption = Me.lblZoom.Caption & ", Email: " _
+                                    & Me("lstActi" & i).Column(6)
+        strNotas = Nz(DLookup("Notas", "tbSalasReservas", "IdSalaReserva = " & Me("lstActi" & i)), "")
+        If strNotas <> "" Then Me.lblZoom.Caption = Me.lblZoom.Caption & vbCrLf & strNotas
+    End If
+End Function
+
+Public Function IrAReserva()
+    Dim ctl As Control, i As Integer, j As Integer, strLbl As String, strName As String
+    Set ctl = Screen.ActiveControl
+    strName = ctl.Name
+    If strName Like "lstActi*" Then
+        gintDia = CInt(Mid(ctl.Name, 8))
+    Else
+        Exit Function
+    End If
+    Call btnIrAFicha_Click
+End Function
+
+Private Function VerDia()
+    Dim strXML As String, ctl As Control
+    Set ctl = Screen.ActiveControl
+    If ctl.Name Like "btn*" Then Set ctl = Me.Controls("txt" & Mid(ctl.Name, 4))
+    PonXML strXML, "Fecha", CDate(ctl.value)
+    DoCmd.OpenForm "frmLibroReservasDia", , , , , , strXML
+    DoCmd.Close acForm, Me.Name
+End Function

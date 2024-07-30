@@ -1,0 +1,64 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros para la fecha indicada"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim frm As Form
+    If Not IsOpenForm("frmListadoOcupacion") Then
+        MsgBox "Debe estar abierto frmListadoOcupacion"
+        Cancel = True
+    Else
+        Set frm = Forms("frmListadoOcupacion")
+    End If
+    Me.lblTitulo.Caption = "Listado de Reservas - Entradas entre fechas"
+    Me.lblTitulo2.Caption = "Desde el: " & Format(frm("txtDesde"), "dd/mm/yy") & vbCrLf & "Hasta el: " & Format(frm("txtHasta"), "dd/mm/yy")
+    Me.txtTotalPaxEntradas.Visible = True
+    Me.txtTotalPaxSalidas.Visible = False
+    Me.RecordSource = frm("lblSQL").Caption
+    
+End Sub
+
+Public Function DimeTiposParcelaYNotas(lngIdFichaCab As Long) As String
+    On Error GoTo Error_DimeTiposParcelaYNotas
+    Dim strSQL As String, rs As Recordset, strResult As String
+    strSQL = "SELECT tbFichasDet.IdFichaCab, tbParcelasTipo.TipoParcela"
+    strSQL = strSQL & " FROM tbParcelasTipo RIGHT JOIN tbFichasDet ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela"
+    strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaCab)=" & lngIdFichaCab & "));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If Len(rs("TipoParcela")) > 0 Then
+            strResult = strResult & rs("TipoParcela") & ", "
+        End If
+        rs.MoveNext
+    Wend
+    If Len(strResult) > 2 Then
+        strResult = RecDerTop(strResult, 2, 0)
+    End If
+    Dim v As Variant
+    v = DLookup("Notas", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab)
+    If Not IsNull(v) Then
+        If Len(strResult) > 0 Then
+            strResult = strResult & " - "
+        End If
+        strResult = strResult & v
+    End If
+    DimeTiposParcelaYNotas = strResult
+Salir_DimeTiposParcelaYNotas:
+    Exit Function
+Error_DimeTiposParcelaYNotas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeTiposParcelaYNotas" & vbCrLf & Err.Description
+            Resume Salir_DimeTiposParcelaYNotas
+    End Select
+    
+End Function

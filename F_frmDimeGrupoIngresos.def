@@ -1,0 +1,25 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    If Len(Me.OpenArgs) > 0 Then
+        Me.lstGrupo = Me.OpenArgs
+    End If
+End Sub
+
+Private Sub lstGrupo_DblClick(Cancel As Integer)
+    btnAceptar_Click
+End Sub

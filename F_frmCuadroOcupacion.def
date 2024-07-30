@@ -1,0 +1,192 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Public Sub btnIrAFicha_Click()
+On Error GoTo Err_btnIrAFicha_Click
+
+    Dim rs As Recordset, lTop As Long, lLeft As Long, lHeight As Long, lWidth As Long
+    Dim lAbajo As Long, lDerecha As Long
+    Dim i As Integer, j As Integer, X As Integer, intPrimero As Integer, lngIdFicha1 As Long, lngIdFicha2 As Long
+    lTop = Me.subfrmCuadroOcupadas.Form.SelTop
+    lLeft = Me.subfrmCuadroOcupadas.Form.SelLeft - 1
+    lHeight = Me.subfrmCuadroOcupadas.Form.SelHeight
+    lWidth = Me.subfrmCuadroOcupadas.Form.SelWidth
+    Forms![frmCuadroOcupacion]![lblSelTop].Caption = lTop
+    Forms![frmCuadroOcupacion]![lblSelLeft].Caption = lLeft
+    Forms![frmCuadroOcupacion]![lblSelHeight].Caption = lHeight
+    Forms![frmCuadroOcupacion]![lblSelWidth].Caption = lWidth
+    If lHeight = 0 Then lHeight = 1
+    If lWidth = 0 Then lWidth = 1
+    lAbajo = lTop + lHeight - 1
+    lDerecha = lLeft + lWidth - 1
+    Set rs = Me.subfrmCuadroOcupadas.Form.RecordsetClone
+    rs.MoveFirst
+    If lTop > rs.RecordCount Then ' se ha pinchado en el nuevo resgistro....
+        GoTo NuevaFicha
+    End If
+    rs.Move lTop - 1
+    intPrimero = True
+    For i = lTop To lAbajo
+        For j = lLeft To lDerecha
+            X = InStr(rs(j - 1), "¬")
+            'lngIdFicha2 = CLng(Mid(rs(j - 1), x + 1))
+            If X = 0 Then
+                lngIdFicha2 = 0
+            Else
+                lngIdFicha2 = CLng(Left(rs(j - 1), X - 1))
+            End If
+            If intPrimero = True Then
+              lngIdFicha1 = lngIdFicha2
+              intPrimero = False
+            End If
+            If lngIdFicha1 <> lngIdFicha2 Then
+                MsgBox "Se han seleccionado fechas libres y ocupadas a la vez, o diferentes reservas." & vbCrLf & vbCrLf _
+                    & "Si se quiere realizar una nueva reserva, se deben seleccionar sólo fechas libres." & vbCrLf & vbCrLf _
+                    & "Si se quiere consultar o modificar una reserva, seleccione sólo fechas de la misma" _
+                    , vbExclamation
+                Exit Sub
+            End If
+        Next j
+        rs.MoveNext
+    Next i
+    If lngIdFicha1 = 0 Then
+NuevaFicha:
+        Dim rs2 As Recordset, lngIdFicha As Long
+        Set rs2 = CurrentDb.OpenRecordset("tbFichasCab")
+        rs2.AddNew
+        rs2("EstadoFicha") = 1
+        Dim strF As String
+        strF = rs.Fields(lLeft - 1).Name
+        strF = Me.subfrmCuadroOcupadas.Form("lbl" & strF).Caption
+        rs2("FechaReserva") = Date
+        rs2("FechaLlegada") = RecDerTop(strF, 4, 0) 'CDate(Left(strF, 8))
+        
+        rs2("FechaSalida") = rs2("FechaLlegada") + lWidth
+        rs2("IVAIncluido") = DameValorParam("IVAIncluidoEnFacturasYFichas")
+        rs2("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+        lngIdFicha = rs2("IdFichaCab")
+        rs2.Update
+        If lTop > rs.RecordCount Then ' es ficha sin parcela....
+        Else
+            rs.MoveFirst
+            rs.Move lTop - 1
+            For i = lTop To lAbajo
+                If Not IsNull(rs(0)) Then
+                    AñadirLineasDetallePredeterminadas lngIdFicha, rs(0)
+                End If
+                rs.MoveNext
+            Next i
+        End If
+        rs2.Close
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha ', , acDialog, "Mod"
+    Else
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha1 ', , acDialog, "Mod"
+    End If
+    'Call My_Form_Activate
+Exit_btnIrAFicha_Click:
+    DoCmd.Close acForm, "frmBtnFicha"
+Exit_btnIrAFicha_Click2:
+    Exit Sub
+
+Err_btnIrAFicha_Click:
+    Select Case Err
+        'Case 2186, 2450
+        'Case 3021 ' No hay un registro activo,
+        '    Resume Exit_btnIrAFicha_Click
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description
+'            AbrirFrmCuadroOcupadas CDate(Forms![frmCuadroOcupacion]![txtFechaIni])
+            Resume Exit_btnIrAFicha_Click2
+            Resume Next
+    End Select
+    
+End Sub
+
+Private Sub btnSelFecha_Click()
+    Dim varFecha As Variant
+    If Me.txtFechaIni.Locked = True Then Exit Sub
+    varFecha = adhDoCalendar(Me.txtFechaIni)
+    If IsDate(varFecha) Then
+        Dim vstrAux As Variant, Cancel As Integer
+        vstrAux = Me.txtFechaIni
+        Me.txtFechaIni = varFecha
+        Call txtFechaIni_AfterUpdate
+    End If
+End Sub
+
+Private Sub cmbVerParcelas_AfterUpdate()
+    PonValorParam "CuadroOcupacionVerTodasParcelas", Me.cmbVerParcelas, dbBoolean
+    Call txtFechaIni_AfterUpdate
+End Sub
+
+Public Sub My_Form_Activate()
+    Call txtFechaIni_AfterUpdate
+    'DoCmd.OpenForm "frmBtnFicha"
+    If IsNumeric(Me![lblSelTop].Caption) Then
+        Me![subfrmCuadroOcupadas].Form.SelTop = Me.lblSelTop.Caption
+        Me![subfrmCuadroOcupadas].Form.SelHeight = Me.lblSelHeight.Caption
+        Me![subfrmCuadroOcupadas].Form.SelLeft = Me.lblSelLeft.Caption + IIf(Me.lblSelWidth.Caption = 0, 0, 1)
+        
+        Me![subfrmCuadroOcupadas].Form.SelWidth = Me.lblSelWidth.Caption
+    End If
+ '   Me.SetFocus
+End Sub
+
+Private Sub Form_Close()
+    DoCmd.Close acForm, "frmBtnFicha"
+End Sub
+
+Private Sub Form_Deactivate()
+'    DoCmd.Close acForm, "frmBtnFicha"
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call Me.subfrmCuadroOcupadas.Form.Form_KeyDown(KeyCode, Shift)
+End Sub
+
+Private Sub Form_Load()
+    'Traducir me
+    Me.txtFechaIni = Date
+    Call txtFechaIni_AfterUpdate
+'    DoCmd.OpenForm "frmBtnFicha"
+    Me.SetFocus
+    Me.cmbVerParcelas = DameValorParam("CuadroOcupacionVerTodasParcelas")
+    Me.cmbVerParcelas.Requery
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+'    DoCmd.OpenForm "frmCalen"
+End Sub
+
+Private Sub mrcVer_AfterUpdate()
+    Call txtFechaIni_AfterUpdate
+    Select Case Me.mrcVer
+        Case 1
+            Me.lblTitulo.Caption = "Cuadro de ocupación - Reservas"
+            Me.Caption = "Cuadro de ocupación - Reservas"
+        Case 2
+            Me.lblTitulo.Caption = "Cuadro de Entradas"
+            Me.Caption = "Cuadro de Entradas"
+        Case 3
+            Me.lblTitulo.Caption = "Cuadro de Salidas"
+            Me.Caption = "Cuadro de Salidas"
+    End Select
+End Sub
+
+Public Sub txtFechaIni_AfterUpdate()
+    AbrirFrmCuadroOcupadas CDate(Me.txtFechaIni), Me.mrcVer
+    If IsOpenForm("frmCalen") Then
+        Forms("frmCalen")("calen1") = CDate(Me.txtFechaIni)
+    End If
+End Sub
+
+Private Sub txtFechaIni_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+        Call btnSelFecha_Click
+    End If
+End Sub

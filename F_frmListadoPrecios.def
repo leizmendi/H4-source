@@ -1,0 +1,53 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim lngGuia As Long
+    Dim strCrit As String
+    On Error GoTo Error_btnAceptar_Click
+    DoCmd.OpenReport "rptListadoPrecios", acViewPreview, , strCrit
+'    Me.Visible = False
+Exit_btnAceptar_click:
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub ListadoPreciosCabecera_AfterUpdate()
+    PonValorParam "ListadoPreciosCabecera", Me.ListadoPreciosCabecera
+End Sub
+
+Private Sub ListadoPreciosLogoSN_AfterUpdate()
+    PonValorParam "ListadoPreciosLogoSN", Me.ListadoPreciosLogoSN, 1
+End Sub
+
+Private Sub ListadoPreciosSaltoPag_AfterUpdate()
+    PonValorParam "ListadoPreciosSaltoPag", Me.ListadoPreciosSaltoPag, 1
+End Sub
+
+Private Sub ListadoPreciosVerTemporada_AfterUpdate()
+    PonValorParam "ListadoPreciosVerTemporada", Me.ListadoPreciosVerTemporada, 1
+End Sub

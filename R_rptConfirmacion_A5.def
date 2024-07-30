@@ -1,0 +1,35 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim FilasPorPágina As Byte
+
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim sngAltoMax As Single
+    Me.lblPH.Caption = " " & g_strPH_s
+    FilasPorPágina = Nz(DameValorParam("FichasLineasDetalle"), 15)
+    If DameValorParam("FichasLogoSN") = True Then
+        Me.LogoImagen.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+        Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+        sngAltoMax = Nz(DameValorParam("FichasLogoMaxAlto"), 0) * TC_CmToPoints
+        If sngAltoMax < Me.LogoImagen.Height Then
+            Me.LogoImagen.Width = Me.LogoImagen.Width * (sngAltoMax / Me.LogoImagen.Height)
+            Me.LogoImagen.Height = sngAltoMax
+        End If
+        Me.LogoImagen.Visible = True
+    Else
+        Me.LogoImagen.Visible = False
+    End If
+    If DameValorParam("FichasCabeceraSN") = True Then
+        Me.txtCabecera.Visible = True
+        Me.CuadroCabecera.Visible = True
+    Else
+        Me.txtCabecera.Visible = False
+        Me.CuadroCabecera.Visible = False
+    End If
+End Sub

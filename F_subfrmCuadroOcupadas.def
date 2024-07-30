@@ -1,0 +1,85 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+Option Compare Database
+Option Explicit
+
+
+Public Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 And ((Shift And acCtrlMask) = False) And ((Shift And acAltMask) = False) Then
+        Parent.txtFechaIni.SetFocus
+    End If
+    Call EsReturn(KeyCode, Shift)
+End Sub
+
+Private Sub Form_Load()
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If ctl.ControlType = acTextBox Then
+            'MsgBox ctl.Name & " = " & ctl.ColumnWidth
+            ctl.ColumnHidden = False
+            ctl.ColumnWidth = 1320
+        End If
+    Next ctl
+End Sub
+
+Private Sub txtDia7_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim strHab As String
+    On Error Resume Next
+    If KeyCode = vbKeyRight Then
+        strHab = Me.Parcela
+        Parent.txtFechaIni = Format(CDate(Parent.txtFechaIni) + 1, "dd/mm/yy")
+        Call Parent.txtFechaIni_AfterUpdate
+        Dim rs As Recordset
+        Set rs = Me.RecordsetClone
+        rs.FindFirst "Habit = '" & strHab & "'"
+        If Not rs.NoMatch Then
+            Me.Bookmark = rs.Bookmark
+        End If
+        Me.txtDia7.SetFocus
+        KeyCode = 0
+    End If
+End Sub
+Private Sub txtDia1_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim strHab As String
+    On Error Resume Next
+    If KeyCode = vbKeyLeft Then
+        strHab = Me.Parcela
+        Parent.txtFechaIni = Format(CDate(Parent.txtFechaIni) - 1, "dd/mm/yy")
+        Call Parent.txtFechaIni_AfterUpdate
+        Dim rs As Recordset
+        Set rs = Me.RecordsetClone
+        rs.FindFirst "Parcela = '" & strHab & "'"
+        If Not rs.NoMatch Then
+            Me.Bookmark = rs.Bookmark
+        End If
+        Me.txtDia1.SetFocus
+        KeyCode = 0
+    End If
+    Call EsReturn(KeyCode, Shift)
+End Sub
+
+
+Public Sub EsReturn(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyReturn Or (Shift And acAltMask And KeyCode = vbKeyF) Then
+        Parent.btnIrAFicha_Click
+        KeyCode = 0
+    End If
+
+End Sub
+Public Function Parent_btnIrAFicha_Click()
+    Parent.btnIrAFicha_Click
+End Function
+
+Public Function PonParentLBL()
+    On Error Resume Next
+    Parent.lblFicha.Caption = Screen.ActiveControl
+    If Err <> 0 Then
+        Parent.lblFicha.Caption = ""
+    End If
+End Function

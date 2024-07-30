@@ -1,0 +1,31 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ComprobarReservas(datDesde As Date, datHasta As Date, strHabi As String, Optional lngIdFicha As Long = 0) As Integer
+'A la funcion se le pasan los parámetros de Fecha inicial, fecha final, nombre de Parcela o parcela y idFichaCab desde la que se le llama
+'nos devuelve True si la Parcela esta libre entre dichas fechas, (o si sólo está ocupada por la ficha que le llama)
+    On Error GoTo Error_ComprobarReservas
+    Dim rs As Recordset
+    Dim strSQL As String
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasDet.Parcela"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasDet.Parcela = '" & strHabi & "' AND tbFichasCab.IdFichaCab <> " & lngIdFicha
+    strSQL = strSQL & " AND tbFichasDet.FechaInicio < #" & Format(datHasta, "mm/dd/yyyy") & "# AND IIf(IsNull(tbFichasDet.FechaFin),tbFichasCab.FechaSalida,tbFichasDet.FechaFin) > #" & Format(datDesde, "mm/dd/yyyy") & "#"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If Not rs.EOF Then
+        ComprobarReservas = False
+        rs.MoveFirst
+        lngIdFicha = rs("IdFichaCab")
+    Else
+        ComprobarReservas = True
+    End If
+Salir_ComprobarReservas:
+    Exit Function
+Error_ComprobarReservas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ComprobarReservas" & vbCrLf & Err.Description
+            Resume Salir_ComprobarReservas
+    End Select
+End Function

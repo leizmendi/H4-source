@@ -1,0 +1,146 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub ReformatearDNI_Clientes()
+    On Error GoTo Error_ReformatearDNI_Clientes
+    Dim rs As Recordset, strDNI As String, strNuevoDNI As String, lngC As Long, lngD As Long, lngE As Long, lngF As Long
+    Dim y As Long, z As Long
+    Set rs = CurrentDb.OpenRecordset("tbClientes", dbOpenDynaset)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        strDNI = Nz(rs("NIF"), "")
+        DoEvents
+        If EsFormatoAntiguoDNI(strDNI) Then
+            strNuevoDNI = NuevoDNI(strDNI)
+            Select Case TraspasoDatosCli(strDNI, strNuevoDNI)
+                Case 1
+                    lngD = lngD + 1
+                Case 2
+                    lngC = lngC + 1
+                Case Else
+                    lngE = lngE + 1
+            End Select
+        Else
+            lngF = lngF + 1
+        End If
+        rs.MoveNext
+        y = y + 1
+        'If y Mod 100 = 0 Then MsgBox y
+        SysCmd acSysCmdSetStatus, y & "/" & z
+    Wend
+Salir_ReformatearDNI_Clientes:
+    MsgBox "Se procesaron " & y & " registros de clientes: " & vbCrLf & _
+                             lngD & " se encontraron duplicados" & vbCrLf & _
+                             lngC & " se modificaron DNIs" & vbCrLf & _
+                             lngE & " desconocidos" & vbCrLf & _
+                             lngF & " no se modificaron"
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+Error_ReformatearDNI_Clientes:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ReformatearDNI_Clientes" & vbCrLf & Err.Description
+            Resume Salir_ReformatearDNI_Clientes
+    End Select
+
+End Sub
+
+Public Function EsFormatoAntiguoDNI(strDNI As String) As Integer
+    On Error GoTo Error_EsFormatoAntiguoDNI
+    Dim i As Integer, j As Integer
+    EsFormatoAntiguoDNI = False
+    i = InStr(strDNI, ".")
+    If i = 2 Or i = 3 Then
+        j = i + 1
+        i = InStr(j, strDNI, ".")
+        If i = j + 3 Then
+            If Len(strDNI) >= i + 4 Then
+                If Mid(strDNI, i + 4, 1) = "-" Then
+                    EsFormatoAntiguoDNI = True
+                End If
+            End If
+        End If
+    End If
+Salir_EsFormatoAntiguoDNI:
+    Exit Function
+Error_EsFormatoAntiguoDNI:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EsFormatoAntiguoDNI" & vbCrLf & Err.Description
+            Resume Salir_EsFormatoAntiguoDNI
+    End Select
+End Function
+
+Public Function NuevoDNI(strAntiguoDNI As String) As String
+    On Error GoTo Error_NuevoDNI
+    NuevoDNI = Replace(Replace(strAntiguoDNI, ".", ""), "-", "")
+Salir_NuevoDNI:
+    Exit Function
+Error_NuevoDNI:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en NuevoDNI" & vbCrLf & Err.Description
+            Resume Salir_NuevoDNI
+    End Select
+End Function
+
+
+Public Function TraspasoDatosCli(strAntiguoDNI As String, strNuevoDNI As String) As Integer
+    On Error GoTo Error_TraspasoDatosCli
+    Dim strSQL As String, lngIdClienteOld As Long, lngIdClienteNew As Long, db As Database
+    Dim rsCli As Recordset, rsDelCli As Recordset, i As Integer
+    TraspasoDatosCli = 0
+    lngIdClienteOld = Nz(DLookup("IdCliente", "tbClientes", "NIF = '" & strAntiguoDNI & "'"), 0)
+    If lngIdClienteOld = 0 Then
+        MsgBox "No se encontró Cliente con Antiguo DNI: " & strAntiguoDNI
+        Exit Function
+    End If
+    lngIdClienteNew = Nz(DLookup("IdCliente", "tbClientes", "NIF = '" & strNuevoDNI & "'"), 0)
+    If lngIdClienteNew = 0 Then
+        lngIdClienteNew = lngIdClienteOld
+        'MsgBox "No se encontró Cliente con Nuevo DNI: " & strNuevoDNI
+        'Exit Function
+    End If
+    strSQL = "UPDATE tbFichasCab SET DNICliente = '" & strNuevoDNI & "' WHERE DNICliente = '" & strAntiguoDNI & "'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    'strSQL = "UPDATE tbClientesParcelasHistorial SET IdCliente = " & lngIdClienteNew & " WHERE IdCliente = " & lngIdClienteOld
+    'CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE tbFacturasCab SET NIF = '" & strNuevoDNI & "' WHERE NIF = '" & strAntiguoDNI & "'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    'strSQL = "UPDATE tbPtosCab SET DNICliente = '" & strNuevoDNI & "' WHERE DNICliente = '" & strAntiguoDNI & "'"
+    'CurrentDb.Execute strSQL, dbFailOnError
+    If lngIdClienteOld <> lngIdClienteNew Then
+        Set db = OpenDatabase(DirectorioDe(CurrentDb.Name) & "ClientesBorrados.mdb")
+        Set rsDelCli = db.OpenRecordset("tbClientesBorrados", dbOpenDynaset)
+        Set rsCli = CurrentDb.OpenRecordset("SELECT * FROM tbClientes WHERE IdCliente = " & lngIdClienteOld, dbOpenSnapshot)
+        If Not rsCli.EOF Then
+            rsDelCli.AddNew
+            rsDelCli("HoraBorrado") = Now()
+            For i = 1 To rsDelCli.Fields.Count - 1
+                rsDelCli(i) = rsCli(rsDelCli(i).Name)
+            Next i
+            rsDelCli.Update
+            strSQL = "DELETE * FROM tbClientes WHERE IdCliente = " & lngIdClienteOld
+            CurrentDb.Execute strSQL, dbFailOnError
+            TraspasoDatosCli = 1
+        End If
+    Else
+        strSQL = "UPDATE tbClientes SET NIF = '" & strNuevoDNI & "' WHERE NIF = '" & strAntiguoDNI & "'"
+        CurrentDb.Execute strSQL, dbFailOnError
+        TraspasoDatosCli = 2
+    End If
+    
+Salir_TraspasoDatosCli:
+    Exit Function
+Error_TraspasoDatosCli:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en TraspasoDatosCli" & vbCrLf & Err.Description
+            Resume Salir_TraspasoDatosCli
+    End Select
+End Function

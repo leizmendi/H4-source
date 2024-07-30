@@ -1,0 +1,3804 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim glngAncho1 As Long, glngAncho As Long
+    Dim glngAlto1 As Long, glngAlto As Long
+    Dim gintColA As Integer, gintColD As Integer
+    Dim gintFilA As Integer, gintFilD As Integer
+    Dim gstrAntTag As String, gstrNum As String
+    Dim gintShift As Integer, glngX As Long, glngY As Long, glngX0 As Long, glngY0 As Long
+
+
+Private Sub lbl600_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("600", Button, Shift, X, y)
+End Sub
+Private Sub lbl600_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("600", Button, Shift, X, y)
+End Sub
+Private Sub lbl599_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("599", Button, Shift, X, y)
+End Sub
+Private Sub lbl599_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("599", Button, Shift, X, y)
+End Sub
+Private Sub lbl598_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("598", Button, Shift, X, y)
+End Sub
+Private Sub lbl598_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("598", Button, Shift, X, y)
+End Sub
+Private Sub lbl597_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("597", Button, Shift, X, y)
+End Sub
+Private Sub lbl597_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("597", Button, Shift, X, y)
+End Sub
+Private Sub lbl596_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("596", Button, Shift, X, y)
+End Sub
+Private Sub lbl596_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("596", Button, Shift, X, y)
+End Sub
+Private Sub lbl595_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("595", Button, Shift, X, y)
+End Sub
+Private Sub lbl595_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("595", Button, Shift, X, y)
+End Sub
+Private Sub lbl594_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("594", Button, Shift, X, y)
+End Sub
+Private Sub lbl594_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("594", Button, Shift, X, y)
+End Sub
+Private Sub lbl593_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("593", Button, Shift, X, y)
+End Sub
+Private Sub lbl593_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("593", Button, Shift, X, y)
+End Sub
+Private Sub lbl592_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("592", Button, Shift, X, y)
+End Sub
+Private Sub lbl592_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("592", Button, Shift, X, y)
+End Sub
+Private Sub lbl591_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("591", Button, Shift, X, y)
+End Sub
+Private Sub lbl591_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("591", Button, Shift, X, y)
+End Sub
+Private Sub lbl590_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("590", Button, Shift, X, y)
+End Sub
+Private Sub lbl590_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("590", Button, Shift, X, y)
+End Sub
+Private Sub lbl589_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("589", Button, Shift, X, y)
+End Sub
+Private Sub lbl589_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("589", Button, Shift, X, y)
+End Sub
+Private Sub lbl588_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("588", Button, Shift, X, y)
+End Sub
+Private Sub lbl588_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("588", Button, Shift, X, y)
+End Sub
+Private Sub lbl587_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("587", Button, Shift, X, y)
+End Sub
+Private Sub lbl587_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("587", Button, Shift, X, y)
+End Sub
+Private Sub lbl586_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("586", Button, Shift, X, y)
+End Sub
+Private Sub lbl586_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("586", Button, Shift, X, y)
+End Sub
+Private Sub lbl585_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("585", Button, Shift, X, y)
+End Sub
+Private Sub lbl585_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("585", Button, Shift, X, y)
+End Sub
+Private Sub lbl584_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("584", Button, Shift, X, y)
+End Sub
+Private Sub lbl584_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("584", Button, Shift, X, y)
+End Sub
+Private Sub lbl583_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("583", Button, Shift, X, y)
+End Sub
+Private Sub lbl583_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("583", Button, Shift, X, y)
+End Sub
+Private Sub lbl582_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("582", Button, Shift, X, y)
+End Sub
+Private Sub lbl582_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("582", Button, Shift, X, y)
+End Sub
+Private Sub lbl581_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("581", Button, Shift, X, y)
+End Sub
+Private Sub lbl581_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("581", Button, Shift, X, y)
+End Sub
+Private Sub lbl580_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("580", Button, Shift, X, y)
+End Sub
+Private Sub lbl580_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("580", Button, Shift, X, y)
+End Sub
+Private Sub lbl579_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("579", Button, Shift, X, y)
+End Sub
+Private Sub lbl579_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("579", Button, Shift, X, y)
+End Sub
+Private Sub lbl578_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("578", Button, Shift, X, y)
+End Sub
+Private Sub lbl578_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("578", Button, Shift, X, y)
+End Sub
+Private Sub lbl577_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("577", Button, Shift, X, y)
+End Sub
+Private Sub lbl577_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("577", Button, Shift, X, y)
+End Sub
+Private Sub lbl576_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("576", Button, Shift, X, y)
+End Sub
+Private Sub lbl576_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("576", Button, Shift, X, y)
+End Sub
+Private Sub lbl575_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("575", Button, Shift, X, y)
+End Sub
+Private Sub lbl575_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("575", Button, Shift, X, y)
+End Sub
+Private Sub lbl574_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("574", Button, Shift, X, y)
+End Sub
+Private Sub lbl574_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("574", Button, Shift, X, y)
+End Sub
+Private Sub lbl573_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("573", Button, Shift, X, y)
+End Sub
+Private Sub lbl573_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("573", Button, Shift, X, y)
+End Sub
+Private Sub lbl572_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("572", Button, Shift, X, y)
+End Sub
+Private Sub lbl572_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("572", Button, Shift, X, y)
+End Sub
+Private Sub lbl571_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("571", Button, Shift, X, y)
+End Sub
+Private Sub lbl571_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("571", Button, Shift, X, y)
+End Sub
+Private Sub lbl570_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("570", Button, Shift, X, y)
+End Sub
+Private Sub lbl570_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("570", Button, Shift, X, y)
+End Sub
+Private Sub lbl569_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("569", Button, Shift, X, y)
+End Sub
+Private Sub lbl569_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("569", Button, Shift, X, y)
+End Sub
+Private Sub lbl568_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("568", Button, Shift, X, y)
+End Sub
+Private Sub lbl568_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("568", Button, Shift, X, y)
+End Sub
+Private Sub lbl567_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("567", Button, Shift, X, y)
+End Sub
+Private Sub lbl567_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("567", Button, Shift, X, y)
+End Sub
+Private Sub lbl566_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("566", Button, Shift, X, y)
+End Sub
+Private Sub lbl566_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("566", Button, Shift, X, y)
+End Sub
+Private Sub lbl565_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("565", Button, Shift, X, y)
+End Sub
+Private Sub lbl565_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("565", Button, Shift, X, y)
+End Sub
+Private Sub lbl564_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("564", Button, Shift, X, y)
+End Sub
+Private Sub lbl564_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("564", Button, Shift, X, y)
+End Sub
+Private Sub lbl563_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("563", Button, Shift, X, y)
+End Sub
+Private Sub lbl563_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("563", Button, Shift, X, y)
+End Sub
+Private Sub lbl562_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("562", Button, Shift, X, y)
+End Sub
+Private Sub lbl562_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("562", Button, Shift, X, y)
+End Sub
+Private Sub lbl561_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("561", Button, Shift, X, y)
+End Sub
+Private Sub lbl561_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("561", Button, Shift, X, y)
+End Sub
+Private Sub lbl560_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("560", Button, Shift, X, y)
+End Sub
+Private Sub lbl560_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("560", Button, Shift, X, y)
+End Sub
+Private Sub lbl559_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("559", Button, Shift, X, y)
+End Sub
+Private Sub lbl559_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("559", Button, Shift, X, y)
+End Sub
+Private Sub lbl558_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("558", Button, Shift, X, y)
+End Sub
+Private Sub lbl558_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("558", Button, Shift, X, y)
+End Sub
+Private Sub lbl557_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("557", Button, Shift, X, y)
+End Sub
+Private Sub lbl557_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("557", Button, Shift, X, y)
+End Sub
+Private Sub lbl556_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("556", Button, Shift, X, y)
+End Sub
+Private Sub lbl556_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("556", Button, Shift, X, y)
+End Sub
+Private Sub lbl555_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("555", Button, Shift, X, y)
+End Sub
+Private Sub lbl555_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("555", Button, Shift, X, y)
+End Sub
+Private Sub lbl554_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("554", Button, Shift, X, y)
+End Sub
+Private Sub lbl554_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("554", Button, Shift, X, y)
+End Sub
+Private Sub lbl553_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("553", Button, Shift, X, y)
+End Sub
+Private Sub lbl553_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("553", Button, Shift, X, y)
+End Sub
+Private Sub lbl552_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("552", Button, Shift, X, y)
+End Sub
+Private Sub lbl552_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("552", Button, Shift, X, y)
+End Sub
+Private Sub lbl551_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("551", Button, Shift, X, y)
+End Sub
+Private Sub lbl551_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("551", Button, Shift, X, y)
+End Sub
+Private Sub lbl550_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("550", Button, Shift, X, y)
+End Sub
+Private Sub lbl550_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("550", Button, Shift, X, y)
+End Sub
+Private Sub lbl549_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("549", Button, Shift, X, y)
+End Sub
+Private Sub lbl549_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("549", Button, Shift, X, y)
+End Sub
+Private Sub lbl548_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("548", Button, Shift, X, y)
+End Sub
+Private Sub lbl548_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("548", Button, Shift, X, y)
+End Sub
+Private Sub lbl547_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("547", Button, Shift, X, y)
+End Sub
+Private Sub lbl547_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("547", Button, Shift, X, y)
+End Sub
+Private Sub lbl546_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("546", Button, Shift, X, y)
+End Sub
+Private Sub lbl546_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("546", Button, Shift, X, y)
+End Sub
+Private Sub lbl545_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("545", Button, Shift, X, y)
+End Sub
+Private Sub lbl545_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("545", Button, Shift, X, y)
+End Sub
+Private Sub lbl544_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("544", Button, Shift, X, y)
+End Sub
+Private Sub lbl544_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("544", Button, Shift, X, y)
+End Sub
+Private Sub lbl543_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("543", Button, Shift, X, y)
+End Sub
+Private Sub lbl543_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("543", Button, Shift, X, y)
+End Sub
+Private Sub lbl542_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("542", Button, Shift, X, y)
+End Sub
+Private Sub lbl542_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("542", Button, Shift, X, y)
+End Sub
+Private Sub lbl541_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("541", Button, Shift, X, y)
+End Sub
+Private Sub lbl541_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("541", Button, Shift, X, y)
+End Sub
+Private Sub lbl540_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("540", Button, Shift, X, y)
+End Sub
+Private Sub lbl540_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("540", Button, Shift, X, y)
+End Sub
+Private Sub lbl539_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("539", Button, Shift, X, y)
+End Sub
+Private Sub lbl539_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("539", Button, Shift, X, y)
+End Sub
+Private Sub lbl538_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("538", Button, Shift, X, y)
+End Sub
+Private Sub lbl538_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("538", Button, Shift, X, y)
+End Sub
+Private Sub lbl537_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("537", Button, Shift, X, y)
+End Sub
+Private Sub lbl537_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("537", Button, Shift, X, y)
+End Sub
+Private Sub lbl536_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("536", Button, Shift, X, y)
+End Sub
+Private Sub lbl536_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("536", Button, Shift, X, y)
+End Sub
+Private Sub lbl535_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("535", Button, Shift, X, y)
+End Sub
+Private Sub lbl535_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("535", Button, Shift, X, y)
+End Sub
+Private Sub lbl534_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("534", Button, Shift, X, y)
+End Sub
+Private Sub lbl534_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("534", Button, Shift, X, y)
+End Sub
+Private Sub lbl533_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("533", Button, Shift, X, y)
+End Sub
+Private Sub lbl533_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("533", Button, Shift, X, y)
+End Sub
+Private Sub lbl532_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("532", Button, Shift, X, y)
+End Sub
+Private Sub lbl532_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("532", Button, Shift, X, y)
+End Sub
+Private Sub lbl531_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("531", Button, Shift, X, y)
+End Sub
+Private Sub lbl531_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("531", Button, Shift, X, y)
+End Sub
+Private Sub lbl530_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("530", Button, Shift, X, y)
+End Sub
+Private Sub lbl530_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("530", Button, Shift, X, y)
+End Sub
+Private Sub lbl529_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("529", Button, Shift, X, y)
+End Sub
+Private Sub lbl529_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("529", Button, Shift, X, y)
+End Sub
+Private Sub lbl528_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("528", Button, Shift, X, y)
+End Sub
+Private Sub lbl528_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("528", Button, Shift, X, y)
+End Sub
+Private Sub lbl527_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("527", Button, Shift, X, y)
+End Sub
+Private Sub lbl527_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("527", Button, Shift, X, y)
+End Sub
+Private Sub lbl526_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("526", Button, Shift, X, y)
+End Sub
+Private Sub lbl526_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("526", Button, Shift, X, y)
+End Sub
+Private Sub lbl525_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("525", Button, Shift, X, y)
+End Sub
+Private Sub lbl525_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("525", Button, Shift, X, y)
+End Sub
+Private Sub lbl524_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("524", Button, Shift, X, y)
+End Sub
+Private Sub lbl524_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("524", Button, Shift, X, y)
+End Sub
+Private Sub lbl523_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("523", Button, Shift, X, y)
+End Sub
+Private Sub lbl523_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("523", Button, Shift, X, y)
+End Sub
+Private Sub lbl522_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("522", Button, Shift, X, y)
+End Sub
+Private Sub lbl522_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("522", Button, Shift, X, y)
+End Sub
+Private Sub lbl521_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("521", Button, Shift, X, y)
+End Sub
+Private Sub lbl521_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("521", Button, Shift, X, y)
+End Sub
+Private Sub lbl520_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("520", Button, Shift, X, y)
+End Sub
+Private Sub lbl520_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("520", Button, Shift, X, y)
+End Sub
+Private Sub lbl519_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("519", Button, Shift, X, y)
+End Sub
+Private Sub lbl519_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("519", Button, Shift, X, y)
+End Sub
+Private Sub lbl518_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("518", Button, Shift, X, y)
+End Sub
+Private Sub lbl518_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("518", Button, Shift, X, y)
+End Sub
+Private Sub lbl517_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("517", Button, Shift, X, y)
+End Sub
+Private Sub lbl517_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("517", Button, Shift, X, y)
+End Sub
+Private Sub lbl516_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("516", Button, Shift, X, y)
+End Sub
+Private Sub lbl516_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("516", Button, Shift, X, y)
+End Sub
+Private Sub lbl515_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("515", Button, Shift, X, y)
+End Sub
+Private Sub lbl515_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("515", Button, Shift, X, y)
+End Sub
+Private Sub lbl514_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("514", Button, Shift, X, y)
+End Sub
+Private Sub lbl514_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("514", Button, Shift, X, y)
+End Sub
+Private Sub lbl513_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("513", Button, Shift, X, y)
+End Sub
+Private Sub lbl513_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("513", Button, Shift, X, y)
+End Sub
+Private Sub lbl512_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("512", Button, Shift, X, y)
+End Sub
+Private Sub lbl512_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("512", Button, Shift, X, y)
+End Sub
+Private Sub lbl511_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("511", Button, Shift, X, y)
+End Sub
+Private Sub lbl511_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("511", Button, Shift, X, y)
+End Sub
+Private Sub lbl510_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("510", Button, Shift, X, y)
+End Sub
+Private Sub lbl510_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("510", Button, Shift, X, y)
+End Sub
+Private Sub lbl509_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("509", Button, Shift, X, y)
+End Sub
+Private Sub lbl509_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("509", Button, Shift, X, y)
+End Sub
+Private Sub lbl508_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("508", Button, Shift, X, y)
+End Sub
+Private Sub lbl508_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("508", Button, Shift, X, y)
+End Sub
+Private Sub lbl507_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("507", Button, Shift, X, y)
+End Sub
+Private Sub lbl507_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("507", Button, Shift, X, y)
+End Sub
+Private Sub lbl506_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("506", Button, Shift, X, y)
+End Sub
+Private Sub lbl506_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("506", Button, Shift, X, y)
+End Sub
+Private Sub lbl505_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("505", Button, Shift, X, y)
+End Sub
+Private Sub lbl505_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("505", Button, Shift, X, y)
+End Sub
+Private Sub lbl504_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("504", Button, Shift, X, y)
+End Sub
+Private Sub lbl504_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("504", Button, Shift, X, y)
+End Sub
+Private Sub lbl503_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("503", Button, Shift, X, y)
+End Sub
+Private Sub lbl503_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("503", Button, Shift, X, y)
+End Sub
+Private Sub lbl502_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("502", Button, Shift, X, y)
+End Sub
+Private Sub lbl502_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("502", Button, Shift, X, y)
+End Sub
+Private Sub lbl501_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("501", Button, Shift, X, y)
+End Sub
+Private Sub lbl501_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("501", Button, Shift, X, y)
+End Sub
+Private Sub lbl500_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("500", Button, Shift, X, y)
+End Sub
+Private Sub lbl500_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("500", Button, Shift, X, y)
+End Sub
+Private Sub lbl499_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("499", Button, Shift, X, y)
+End Sub
+Private Sub lbl499_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("499", Button, Shift, X, y)
+End Sub
+Private Sub lbl498_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("498", Button, Shift, X, y)
+End Sub
+Private Sub lbl498_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("498", Button, Shift, X, y)
+End Sub
+Private Sub lbl497_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("497", Button, Shift, X, y)
+End Sub
+Private Sub lbl497_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("497", Button, Shift, X, y)
+End Sub
+Private Sub lbl496_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("496", Button, Shift, X, y)
+End Sub
+Private Sub lbl496_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("496", Button, Shift, X, y)
+End Sub
+Private Sub lbl495_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("495", Button, Shift, X, y)
+End Sub
+Private Sub lbl495_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("495", Button, Shift, X, y)
+End Sub
+Private Sub lbl494_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("494", Button, Shift, X, y)
+End Sub
+Private Sub lbl494_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("494", Button, Shift, X, y)
+End Sub
+Private Sub lbl493_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("493", Button, Shift, X, y)
+End Sub
+Private Sub lbl493_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("493", Button, Shift, X, y)
+End Sub
+Private Sub lbl492_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("492", Button, Shift, X, y)
+End Sub
+Private Sub lbl492_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("492", Button, Shift, X, y)
+End Sub
+Private Sub lbl491_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("491", Button, Shift, X, y)
+End Sub
+Private Sub lbl491_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("491", Button, Shift, X, y)
+End Sub
+Private Sub lbl490_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("490", Button, Shift, X, y)
+End Sub
+Private Sub lbl490_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("490", Button, Shift, X, y)
+End Sub
+Private Sub lbl489_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("489", Button, Shift, X, y)
+End Sub
+Private Sub lbl489_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("489", Button, Shift, X, y)
+End Sub
+Private Sub lbl488_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("488", Button, Shift, X, y)
+End Sub
+Private Sub lbl488_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("488", Button, Shift, X, y)
+End Sub
+Private Sub lbl487_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("487", Button, Shift, X, y)
+End Sub
+Private Sub lbl487_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("487", Button, Shift, X, y)
+End Sub
+Private Sub lbl486_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("486", Button, Shift, X, y)
+End Sub
+Private Sub lbl486_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("486", Button, Shift, X, y)
+End Sub
+Private Sub lbl485_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("485", Button, Shift, X, y)
+End Sub
+Private Sub lbl485_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("485", Button, Shift, X, y)
+End Sub
+Private Sub lbl484_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("484", Button, Shift, X, y)
+End Sub
+Private Sub lbl484_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("484", Button, Shift, X, y)
+End Sub
+Private Sub lbl483_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("483", Button, Shift, X, y)
+End Sub
+Private Sub lbl483_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("483", Button, Shift, X, y)
+End Sub
+Private Sub lbl482_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("482", Button, Shift, X, y)
+End Sub
+Private Sub lbl482_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("482", Button, Shift, X, y)
+End Sub
+Private Sub lbl481_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("481", Button, Shift, X, y)
+End Sub
+Private Sub lbl481_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("481", Button, Shift, X, y)
+End Sub
+Private Sub lbl480_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("480", Button, Shift, X, y)
+End Sub
+Private Sub lbl480_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("480", Button, Shift, X, y)
+End Sub
+Private Sub lbl479_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("479", Button, Shift, X, y)
+End Sub
+Private Sub lbl479_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("479", Button, Shift, X, y)
+End Sub
+Private Sub lbl478_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("478", Button, Shift, X, y)
+End Sub
+Private Sub lbl478_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("478", Button, Shift, X, y)
+End Sub
+Private Sub lbl477_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("477", Button, Shift, X, y)
+End Sub
+Private Sub lbl477_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("477", Button, Shift, X, y)
+End Sub
+Private Sub lbl476_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("476", Button, Shift, X, y)
+End Sub
+Private Sub lbl476_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("476", Button, Shift, X, y)
+End Sub
+Private Sub lbl475_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("475", Button, Shift, X, y)
+End Sub
+Private Sub lbl475_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("475", Button, Shift, X, y)
+End Sub
+Private Sub lbl474_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("474", Button, Shift, X, y)
+End Sub
+Private Sub lbl474_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("474", Button, Shift, X, y)
+End Sub
+Private Sub lbl473_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("473", Button, Shift, X, y)
+End Sub
+Private Sub lbl473_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("473", Button, Shift, X, y)
+End Sub
+Private Sub lbl472_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("472", Button, Shift, X, y)
+End Sub
+Private Sub lbl472_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("472", Button, Shift, X, y)
+End Sub
+Private Sub lbl471_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("471", Button, Shift, X, y)
+End Sub
+Private Sub lbl471_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("471", Button, Shift, X, y)
+End Sub
+Private Sub lbl470_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("470", Button, Shift, X, y)
+End Sub
+Private Sub lbl470_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("470", Button, Shift, X, y)
+End Sub
+Private Sub lbl469_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("469", Button, Shift, X, y)
+End Sub
+Private Sub lbl469_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("469", Button, Shift, X, y)
+End Sub
+Private Sub lbl468_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("468", Button, Shift, X, y)
+End Sub
+Private Sub lbl468_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("468", Button, Shift, X, y)
+End Sub
+Private Sub lbl467_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("467", Button, Shift, X, y)
+End Sub
+Private Sub lbl467_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("467", Button, Shift, X, y)
+End Sub
+Private Sub lbl466_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("466", Button, Shift, X, y)
+End Sub
+Private Sub lbl466_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("466", Button, Shift, X, y)
+End Sub
+Private Sub lbl465_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("465", Button, Shift, X, y)
+End Sub
+Private Sub lbl465_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("465", Button, Shift, X, y)
+End Sub
+Private Sub lbl464_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("464", Button, Shift, X, y)
+End Sub
+Private Sub lbl464_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("464", Button, Shift, X, y)
+End Sub
+Private Sub lbl463_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("463", Button, Shift, X, y)
+End Sub
+Private Sub lbl463_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("463", Button, Shift, X, y)
+End Sub
+Private Sub lbl462_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("462", Button, Shift, X, y)
+End Sub
+Private Sub lbl462_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("462", Button, Shift, X, y)
+End Sub
+Private Sub lbl461_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("461", Button, Shift, X, y)
+End Sub
+Private Sub lbl461_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("461", Button, Shift, X, y)
+End Sub
+Private Sub lbl460_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("460", Button, Shift, X, y)
+End Sub
+Private Sub lbl460_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("460", Button, Shift, X, y)
+End Sub
+Private Sub lbl459_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("459", Button, Shift, X, y)
+End Sub
+Private Sub lbl459_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("459", Button, Shift, X, y)
+End Sub
+Private Sub lbl458_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("458", Button, Shift, X, y)
+End Sub
+Private Sub lbl458_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("458", Button, Shift, X, y)
+End Sub
+Private Sub lbl457_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("457", Button, Shift, X, y)
+End Sub
+Private Sub lbl457_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("457", Button, Shift, X, y)
+End Sub
+Private Sub lbl456_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("456", Button, Shift, X, y)
+End Sub
+Private Sub lbl456_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("456", Button, Shift, X, y)
+End Sub
+Private Sub lbl455_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("455", Button, Shift, X, y)
+End Sub
+Private Sub lbl455_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("455", Button, Shift, X, y)
+End Sub
+Private Sub lbl454_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("454", Button, Shift, X, y)
+End Sub
+Private Sub lbl454_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("454", Button, Shift, X, y)
+End Sub
+Private Sub lbl453_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("453", Button, Shift, X, y)
+End Sub
+Private Sub lbl453_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("453", Button, Shift, X, y)
+End Sub
+Private Sub lbl452_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("452", Button, Shift, X, y)
+End Sub
+Private Sub lbl452_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("452", Button, Shift, X, y)
+End Sub
+Private Sub lbl451_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("451", Button, Shift, X, y)
+End Sub
+Private Sub lbl451_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("451", Button, Shift, X, y)
+End Sub
+Private Sub lbl450_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("450", Button, Shift, X, y)
+End Sub
+Private Sub lbl450_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("450", Button, Shift, X, y)
+End Sub
+Private Sub lbl449_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("449", Button, Shift, X, y)
+End Sub
+Private Sub lbl449_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("449", Button, Shift, X, y)
+End Sub
+Private Sub lbl448_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("448", Button, Shift, X, y)
+End Sub
+Private Sub lbl448_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("448", Button, Shift, X, y)
+End Sub
+Private Sub lbl447_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("447", Button, Shift, X, y)
+End Sub
+Private Sub lbl447_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("447", Button, Shift, X, y)
+End Sub
+Private Sub lbl446_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("446", Button, Shift, X, y)
+End Sub
+Private Sub lbl446_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("446", Button, Shift, X, y)
+End Sub
+Private Sub lbl445_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("445", Button, Shift, X, y)
+End Sub
+Private Sub lbl445_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("445", Button, Shift, X, y)
+End Sub
+Private Sub lbl444_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("444", Button, Shift, X, y)
+End Sub
+Private Sub lbl444_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("444", Button, Shift, X, y)
+End Sub
+Private Sub lbl443_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("443", Button, Shift, X, y)
+End Sub
+Private Sub lbl443_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("443", Button, Shift, X, y)
+End Sub
+Private Sub lbl442_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("442", Button, Shift, X, y)
+End Sub
+Private Sub lbl442_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("442", Button, Shift, X, y)
+End Sub
+Private Sub lbl441_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("441", Button, Shift, X, y)
+End Sub
+Private Sub lbl441_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("441", Button, Shift, X, y)
+End Sub
+Private Sub lbl440_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("440", Button, Shift, X, y)
+End Sub
+Private Sub lbl440_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("440", Button, Shift, X, y)
+End Sub
+Private Sub lbl439_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("439", Button, Shift, X, y)
+End Sub
+Private Sub lbl439_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("439", Button, Shift, X, y)
+End Sub
+Private Sub lbl438_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("438", Button, Shift, X, y)
+End Sub
+Private Sub lbl438_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("438", Button, Shift, X, y)
+End Sub
+Private Sub lbl437_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("437", Button, Shift, X, y)
+End Sub
+Private Sub lbl437_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("437", Button, Shift, X, y)
+End Sub
+Private Sub lbl436_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("436", Button, Shift, X, y)
+End Sub
+Private Sub lbl436_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("436", Button, Shift, X, y)
+End Sub
+Private Sub lbl435_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("435", Button, Shift, X, y)
+End Sub
+Private Sub lbl435_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("435", Button, Shift, X, y)
+End Sub
+Private Sub lbl434_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("434", Button, Shift, X, y)
+End Sub
+Private Sub lbl434_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("434", Button, Shift, X, y)
+End Sub
+Private Sub lbl433_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("433", Button, Shift, X, y)
+End Sub
+Private Sub lbl433_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("433", Button, Shift, X, y)
+End Sub
+Private Sub lbl432_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("432", Button, Shift, X, y)
+End Sub
+Private Sub lbl432_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("432", Button, Shift, X, y)
+End Sub
+Private Sub lbl431_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("431", Button, Shift, X, y)
+End Sub
+Private Sub lbl431_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("431", Button, Shift, X, y)
+End Sub
+Private Sub lbl430_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("430", Button, Shift, X, y)
+End Sub
+Private Sub lbl430_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("430", Button, Shift, X, y)
+End Sub
+Private Sub lbl429_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("429", Button, Shift, X, y)
+End Sub
+Private Sub lbl429_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("429", Button, Shift, X, y)
+End Sub
+Private Sub lbl428_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("428", Button, Shift, X, y)
+End Sub
+Private Sub lbl428_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("428", Button, Shift, X, y)
+End Sub
+Private Sub lbl427_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("427", Button, Shift, X, y)
+End Sub
+Private Sub lbl427_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("427", Button, Shift, X, y)
+End Sub
+Private Sub lbl426_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("426", Button, Shift, X, y)
+End Sub
+Private Sub lbl426_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("426", Button, Shift, X, y)
+End Sub
+Private Sub lbl425_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("425", Button, Shift, X, y)
+End Sub
+Private Sub lbl425_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("425", Button, Shift, X, y)
+End Sub
+Private Sub lbl424_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("424", Button, Shift, X, y)
+End Sub
+Private Sub lbl424_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("424", Button, Shift, X, y)
+End Sub
+Private Sub lbl423_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("423", Button, Shift, X, y)
+End Sub
+Private Sub lbl423_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("423", Button, Shift, X, y)
+End Sub
+Private Sub lbl422_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("422", Button, Shift, X, y)
+End Sub
+Private Sub lbl422_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("422", Button, Shift, X, y)
+End Sub
+Private Sub lbl421_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("421", Button, Shift, X, y)
+End Sub
+Private Sub lbl421_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("421", Button, Shift, X, y)
+End Sub
+Private Sub lbl420_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("420", Button, Shift, X, y)
+End Sub
+Private Sub lbl420_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("420", Button, Shift, X, y)
+End Sub
+Private Sub lbl419_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("419", Button, Shift, X, y)
+End Sub
+Private Sub lbl419_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("419", Button, Shift, X, y)
+End Sub
+Private Sub lbl418_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("418", Button, Shift, X, y)
+End Sub
+Private Sub lbl418_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("418", Button, Shift, X, y)
+End Sub
+Private Sub lbl417_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("417", Button, Shift, X, y)
+End Sub
+Private Sub lbl417_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("417", Button, Shift, X, y)
+End Sub
+Private Sub lbl416_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("416", Button, Shift, X, y)
+End Sub
+Private Sub lbl416_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("416", Button, Shift, X, y)
+End Sub
+Private Sub lbl415_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("415", Button, Shift, X, y)
+End Sub
+Private Sub lbl415_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("415", Button, Shift, X, y)
+End Sub
+Private Sub lbl414_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("414", Button, Shift, X, y)
+End Sub
+Private Sub lbl414_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("414", Button, Shift, X, y)
+End Sub
+Private Sub lbl413_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("413", Button, Shift, X, y)
+End Sub
+Private Sub lbl413_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("413", Button, Shift, X, y)
+End Sub
+Private Sub lbl412_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("412", Button, Shift, X, y)
+End Sub
+Private Sub lbl412_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("412", Button, Shift, X, y)
+End Sub
+Private Sub lbl411_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("411", Button, Shift, X, y)
+End Sub
+Private Sub lbl411_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("411", Button, Shift, X, y)
+End Sub
+Private Sub lbl410_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("410", Button, Shift, X, y)
+End Sub
+Private Sub lbl410_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("410", Button, Shift, X, y)
+End Sub
+Private Sub lbl409_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("409", Button, Shift, X, y)
+End Sub
+Private Sub lbl409_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("409", Button, Shift, X, y)
+End Sub
+Private Sub lbl408_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("408", Button, Shift, X, y)
+End Sub
+Private Sub lbl408_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("408", Button, Shift, X, y)
+End Sub
+Private Sub lbl407_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("407", Button, Shift, X, y)
+End Sub
+Private Sub lbl407_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("407", Button, Shift, X, y)
+End Sub
+Private Sub lbl406_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("406", Button, Shift, X, y)
+End Sub
+Private Sub lbl406_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("406", Button, Shift, X, y)
+End Sub
+Private Sub lbl405_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("405", Button, Shift, X, y)
+End Sub
+Private Sub lbl405_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("405", Button, Shift, X, y)
+End Sub
+Private Sub lbl404_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("404", Button, Shift, X, y)
+End Sub
+Private Sub lbl404_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("404", Button, Shift, X, y)
+End Sub
+Private Sub lbl403_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("403", Button, Shift, X, y)
+End Sub
+Private Sub lbl403_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("403", Button, Shift, X, y)
+End Sub
+Private Sub lbl402_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("402", Button, Shift, X, y)
+End Sub
+Private Sub lbl402_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("402", Button, Shift, X, y)
+End Sub
+Private Sub lbl401_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("401", Button, Shift, X, y)
+End Sub
+Private Sub lbl401_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("401", Button, Shift, X, y)
+End Sub
+Private Sub lbl400_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("400", Button, Shift, X, y)
+End Sub
+Private Sub lbl400_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("400", Button, Shift, X, y)
+End Sub
+Private Sub lbl399_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("399", Button, Shift, X, y)
+End Sub
+Private Sub lbl399_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("399", Button, Shift, X, y)
+End Sub
+Private Sub lbl398_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("398", Button, Shift, X, y)
+End Sub
+Private Sub lbl398_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("398", Button, Shift, X, y)
+End Sub
+Private Sub lbl397_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("397", Button, Shift, X, y)
+End Sub
+Private Sub lbl397_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("397", Button, Shift, X, y)
+End Sub
+Private Sub lbl396_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("396", Button, Shift, X, y)
+End Sub
+Private Sub lbl396_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("396", Button, Shift, X, y)
+End Sub
+Private Sub lbl395_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("395", Button, Shift, X, y)
+End Sub
+Private Sub lbl395_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("395", Button, Shift, X, y)
+End Sub
+Private Sub lbl394_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("394", Button, Shift, X, y)
+End Sub
+Private Sub lbl394_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("394", Button, Shift, X, y)
+End Sub
+Private Sub lbl393_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("393", Button, Shift, X, y)
+End Sub
+Private Sub lbl393_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("393", Button, Shift, X, y)
+End Sub
+Private Sub lbl392_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("392", Button, Shift, X, y)
+End Sub
+Private Sub lbl392_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("392", Button, Shift, X, y)
+End Sub
+Private Sub lbl391_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("391", Button, Shift, X, y)
+End Sub
+Private Sub lbl391_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("391", Button, Shift, X, y)
+End Sub
+Private Sub lbl390_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("390", Button, Shift, X, y)
+End Sub
+Private Sub lbl390_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("390", Button, Shift, X, y)
+End Sub
+Private Sub lbl389_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("389", Button, Shift, X, y)
+End Sub
+Private Sub lbl389_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("389", Button, Shift, X, y)
+End Sub
+Private Sub lbl388_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("388", Button, Shift, X, y)
+End Sub
+Private Sub lbl388_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("388", Button, Shift, X, y)
+End Sub
+Private Sub lbl387_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("387", Button, Shift, X, y)
+End Sub
+Private Sub lbl387_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("387", Button, Shift, X, y)
+End Sub
+Private Sub lbl386_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("386", Button, Shift, X, y)
+End Sub
+Private Sub lbl386_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("386", Button, Shift, X, y)
+End Sub
+Private Sub lbl385_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("385", Button, Shift, X, y)
+End Sub
+Private Sub lbl385_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("385", Button, Shift, X, y)
+End Sub
+Private Sub lbl384_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("384", Button, Shift, X, y)
+End Sub
+Private Sub lbl384_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("384", Button, Shift, X, y)
+End Sub
+Private Sub lbl383_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("383", Button, Shift, X, y)
+End Sub
+Private Sub lbl383_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("383", Button, Shift, X, y)
+End Sub
+Private Sub lbl382_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("382", Button, Shift, X, y)
+End Sub
+Private Sub lbl382_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("382", Button, Shift, X, y)
+End Sub
+Private Sub lbl381_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("381", Button, Shift, X, y)
+End Sub
+Private Sub lbl381_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("381", Button, Shift, X, y)
+End Sub
+Private Sub lbl380_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("380", Button, Shift, X, y)
+End Sub
+Private Sub lbl380_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("380", Button, Shift, X, y)
+End Sub
+Private Sub lbl379_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("379", Button, Shift, X, y)
+End Sub
+Private Sub lbl379_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("379", Button, Shift, X, y)
+End Sub
+Private Sub lbl378_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("378", Button, Shift, X, y)
+End Sub
+Private Sub lbl378_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("378", Button, Shift, X, y)
+End Sub
+Private Sub lbl377_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("377", Button, Shift, X, y)
+End Sub
+Private Sub lbl377_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("377", Button, Shift, X, y)
+End Sub
+Private Sub lbl376_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("376", Button, Shift, X, y)
+End Sub
+Private Sub lbl376_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("376", Button, Shift, X, y)
+End Sub
+Private Sub lbl375_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("375", Button, Shift, X, y)
+End Sub
+Private Sub lbl375_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("375", Button, Shift, X, y)
+End Sub
+Private Sub lbl374_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("374", Button, Shift, X, y)
+End Sub
+Private Sub lbl374_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("374", Button, Shift, X, y)
+End Sub
+Private Sub lbl373_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("373", Button, Shift, X, y)
+End Sub
+Private Sub lbl373_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("373", Button, Shift, X, y)
+End Sub
+Private Sub lbl372_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("372", Button, Shift, X, y)
+End Sub
+Private Sub lbl372_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("372", Button, Shift, X, y)
+End Sub
+Private Sub lbl371_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("371", Button, Shift, X, y)
+End Sub
+Private Sub lbl371_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("371", Button, Shift, X, y)
+End Sub
+Private Sub lbl370_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("370", Button, Shift, X, y)
+End Sub
+Private Sub lbl370_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("370", Button, Shift, X, y)
+End Sub
+Private Sub lbl369_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("369", Button, Shift, X, y)
+End Sub
+Private Sub lbl369_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("369", Button, Shift, X, y)
+End Sub
+Private Sub lbl368_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("368", Button, Shift, X, y)
+End Sub
+Private Sub lbl368_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("368", Button, Shift, X, y)
+End Sub
+Private Sub lbl367_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("367", Button, Shift, X, y)
+End Sub
+Private Sub lbl367_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("367", Button, Shift, X, y)
+End Sub
+Private Sub lbl366_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("366", Button, Shift, X, y)
+End Sub
+Private Sub lbl366_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("366", Button, Shift, X, y)
+End Sub
+Private Sub lbl365_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("365", Button, Shift, X, y)
+End Sub
+Private Sub lbl365_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("365", Button, Shift, X, y)
+End Sub
+Private Sub lbl364_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("364", Button, Shift, X, y)
+End Sub
+Private Sub lbl364_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("364", Button, Shift, X, y)
+End Sub
+Private Sub lbl363_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("363", Button, Shift, X, y)
+End Sub
+Private Sub lbl363_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("363", Button, Shift, X, y)
+End Sub
+Private Sub lbl362_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("362", Button, Shift, X, y)
+End Sub
+Private Sub lbl362_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("362", Button, Shift, X, y)
+End Sub
+Private Sub lbl361_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("361", Button, Shift, X, y)
+End Sub
+Private Sub lbl361_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("361", Button, Shift, X, y)
+End Sub
+Private Sub lbl360_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("360", Button, Shift, X, y)
+End Sub
+Private Sub lbl360_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("360", Button, Shift, X, y)
+End Sub
+Private Sub lbl359_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("359", Button, Shift, X, y)
+End Sub
+Private Sub lbl359_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("359", Button, Shift, X, y)
+End Sub
+Private Sub lbl358_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("358", Button, Shift, X, y)
+End Sub
+Private Sub lbl358_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("358", Button, Shift, X, y)
+End Sub
+Private Sub lbl357_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("357", Button, Shift, X, y)
+End Sub
+Private Sub lbl357_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("357", Button, Shift, X, y)
+End Sub
+Private Sub lbl356_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("356", Button, Shift, X, y)
+End Sub
+Private Sub lbl356_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("356", Button, Shift, X, y)
+End Sub
+Private Sub lbl355_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("355", Button, Shift, X, y)
+End Sub
+Private Sub lbl355_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("355", Button, Shift, X, y)
+End Sub
+Private Sub lbl354_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("354", Button, Shift, X, y)
+End Sub
+Private Sub lbl354_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("354", Button, Shift, X, y)
+End Sub
+Private Sub lbl353_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("353", Button, Shift, X, y)
+End Sub
+Private Sub lbl353_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("353", Button, Shift, X, y)
+End Sub
+Private Sub lbl352_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("352", Button, Shift, X, y)
+End Sub
+Private Sub lbl352_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("352", Button, Shift, X, y)
+End Sub
+Private Sub lbl351_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("351", Button, Shift, X, y)
+End Sub
+Private Sub lbl351_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("351", Button, Shift, X, y)
+End Sub
+Private Sub lbl350_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("350", Button, Shift, X, y)
+End Sub
+Private Sub lbl350_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("350", Button, Shift, X, y)
+End Sub
+Private Sub lbl349_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("349", Button, Shift, X, y)
+End Sub
+Private Sub lbl349_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("349", Button, Shift, X, y)
+End Sub
+Private Sub lbl348_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("348", Button, Shift, X, y)
+End Sub
+Private Sub lbl348_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("348", Button, Shift, X, y)
+End Sub
+Private Sub lbl347_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("347", Button, Shift, X, y)
+End Sub
+Private Sub lbl347_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("347", Button, Shift, X, y)
+End Sub
+Private Sub lbl346_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("346", Button, Shift, X, y)
+End Sub
+Private Sub lbl346_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("346", Button, Shift, X, y)
+End Sub
+Private Sub lbl345_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("345", Button, Shift, X, y)
+End Sub
+Private Sub lbl345_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("345", Button, Shift, X, y)
+End Sub
+Private Sub lbl344_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("344", Button, Shift, X, y)
+End Sub
+Private Sub lbl344_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("344", Button, Shift, X, y)
+End Sub
+Private Sub lbl343_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("343", Button, Shift, X, y)
+End Sub
+Private Sub lbl343_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("343", Button, Shift, X, y)
+End Sub
+Private Sub lbl342_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("342", Button, Shift, X, y)
+End Sub
+Private Sub lbl342_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("342", Button, Shift, X, y)
+End Sub
+Private Sub lbl341_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("341", Button, Shift, X, y)
+End Sub
+Private Sub lbl341_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("341", Button, Shift, X, y)
+End Sub
+Private Sub lbl340_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("340", Button, Shift, X, y)
+End Sub
+Private Sub lbl340_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("340", Button, Shift, X, y)
+End Sub
+Private Sub lbl339_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("339", Button, Shift, X, y)
+End Sub
+Private Sub lbl339_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("339", Button, Shift, X, y)
+End Sub
+Private Sub lbl338_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("338", Button, Shift, X, y)
+End Sub
+Private Sub lbl338_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("338", Button, Shift, X, y)
+End Sub
+Private Sub lbl337_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("337", Button, Shift, X, y)
+End Sub
+Private Sub lbl337_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("337", Button, Shift, X, y)
+End Sub
+Private Sub lbl336_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("336", Button, Shift, X, y)
+End Sub
+Private Sub lbl336_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("336", Button, Shift, X, y)
+End Sub
+Private Sub lbl335_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("335", Button, Shift, X, y)
+End Sub
+Private Sub lbl335_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("335", Button, Shift, X, y)
+End Sub
+Private Sub lbl334_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("334", Button, Shift, X, y)
+End Sub
+Private Sub lbl334_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("334", Button, Shift, X, y)
+End Sub
+Private Sub lbl333_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("333", Button, Shift, X, y)
+End Sub
+Private Sub lbl333_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("333", Button, Shift, X, y)
+End Sub
+Private Sub lbl332_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("332", Button, Shift, X, y)
+End Sub
+Private Sub lbl332_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("332", Button, Shift, X, y)
+End Sub
+Private Sub lbl331_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("331", Button, Shift, X, y)
+End Sub
+Private Sub lbl331_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("331", Button, Shift, X, y)
+End Sub
+Private Sub lbl330_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("330", Button, Shift, X, y)
+End Sub
+Private Sub lbl330_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("330", Button, Shift, X, y)
+End Sub
+Private Sub lbl329_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("329", Button, Shift, X, y)
+End Sub
+Private Sub lbl329_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("329", Button, Shift, X, y)
+End Sub
+Private Sub lbl328_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("328", Button, Shift, X, y)
+End Sub
+Private Sub lbl328_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("328", Button, Shift, X, y)
+End Sub
+Private Sub lbl327_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("327", Button, Shift, X, y)
+End Sub
+Private Sub lbl327_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("327", Button, Shift, X, y)
+End Sub
+Private Sub lbl326_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("326", Button, Shift, X, y)
+End Sub
+Private Sub lbl326_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("326", Button, Shift, X, y)
+End Sub
+Private Sub lbl325_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("325", Button, Shift, X, y)
+End Sub
+Private Sub lbl325_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("325", Button, Shift, X, y)
+End Sub
+Private Sub lbl324_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("324", Button, Shift, X, y)
+End Sub
+Private Sub lbl324_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("324", Button, Shift, X, y)
+End Sub
+Private Sub lbl323_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("323", Button, Shift, X, y)
+End Sub
+Private Sub lbl323_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("323", Button, Shift, X, y)
+End Sub
+Private Sub lbl322_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("322", Button, Shift, X, y)
+End Sub
+Private Sub lbl322_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("322", Button, Shift, X, y)
+End Sub
+Private Sub lbl321_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("321", Button, Shift, X, y)
+End Sub
+Private Sub lbl321_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("321", Button, Shift, X, y)
+End Sub
+Private Sub lbl320_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("320", Button, Shift, X, y)
+End Sub
+Private Sub lbl320_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("320", Button, Shift, X, y)
+End Sub
+Private Sub lbl319_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("319", Button, Shift, X, y)
+End Sub
+Private Sub lbl319_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("319", Button, Shift, X, y)
+End Sub
+Private Sub lbl318_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("318", Button, Shift, X, y)
+End Sub
+Private Sub lbl318_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("318", Button, Shift, X, y)
+End Sub
+Private Sub lbl317_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("317", Button, Shift, X, y)
+End Sub
+Private Sub lbl317_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("317", Button, Shift, X, y)
+End Sub
+Private Sub lbl316_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("316", Button, Shift, X, y)
+End Sub
+Private Sub lbl316_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("316", Button, Shift, X, y)
+End Sub
+Private Sub lbl315_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("315", Button, Shift, X, y)
+End Sub
+Private Sub lbl315_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("315", Button, Shift, X, y)
+End Sub
+Private Sub lbl314_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("314", Button, Shift, X, y)
+End Sub
+Private Sub lbl314_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("314", Button, Shift, X, y)
+End Sub
+Private Sub lbl313_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("313", Button, Shift, X, y)
+End Sub
+Private Sub lbl313_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("313", Button, Shift, X, y)
+End Sub
+Private Sub lbl312_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("312", Button, Shift, X, y)
+End Sub
+Private Sub lbl312_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("312", Button, Shift, X, y)
+End Sub
+Private Sub lbl311_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("311", Button, Shift, X, y)
+End Sub
+Private Sub lbl311_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("311", Button, Shift, X, y)
+End Sub
+Private Sub lbl310_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("310", Button, Shift, X, y)
+End Sub
+Private Sub lbl310_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("310", Button, Shift, X, y)
+End Sub
+Private Sub lbl309_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("309", Button, Shift, X, y)
+End Sub
+Private Sub lbl309_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("309", Button, Shift, X, y)
+End Sub
+Private Sub lbl308_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("308", Button, Shift, X, y)
+End Sub
+Private Sub lbl308_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("308", Button, Shift, X, y)
+End Sub
+Private Sub lbl307_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("307", Button, Shift, X, y)
+End Sub
+Private Sub lbl307_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("307", Button, Shift, X, y)
+End Sub
+Private Sub lbl306_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("306", Button, Shift, X, y)
+End Sub
+Private Sub lbl306_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("306", Button, Shift, X, y)
+End Sub
+Private Sub lbl305_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("305", Button, Shift, X, y)
+End Sub
+Private Sub lbl305_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("305", Button, Shift, X, y)
+End Sub
+Private Sub lbl304_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("304", Button, Shift, X, y)
+End Sub
+Private Sub lbl304_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("304", Button, Shift, X, y)
+End Sub
+Private Sub lbl303_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("303", Button, Shift, X, y)
+End Sub
+Private Sub lbl303_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("303", Button, Shift, X, y)
+End Sub
+Private Sub lbl302_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("302", Button, Shift, X, y)
+End Sub
+Private Sub lbl302_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("302", Button, Shift, X, y)
+End Sub
+Private Sub lbl301_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("301", Button, Shift, X, y)
+End Sub
+Private Sub lbl301_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("301", Button, Shift, X, y)
+End Sub
+Private Sub lbl300_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("300", Button, Shift, X, y)
+End Sub
+Private Sub lbl300_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("300", Button, Shift, X, y)
+End Sub
+Private Sub lbl299_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("299", Button, Shift, X, y)
+End Sub
+Private Sub lbl299_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("299", Button, Shift, X, y)
+End Sub
+Private Sub lbl298_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("298", Button, Shift, X, y)
+End Sub
+Private Sub lbl298_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("298", Button, Shift, X, y)
+End Sub
+Private Sub lbl297_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("297", Button, Shift, X, y)
+End Sub
+Private Sub lbl297_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("297", Button, Shift, X, y)
+End Sub
+Private Sub lbl296_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("296", Button, Shift, X, y)
+End Sub
+Private Sub lbl296_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("296", Button, Shift, X, y)
+End Sub
+Private Sub lbl295_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("295", Button, Shift, X, y)
+End Sub
+Private Sub lbl295_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("295", Button, Shift, X, y)
+End Sub
+Private Sub lbl294_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("294", Button, Shift, X, y)
+End Sub
+Private Sub lbl294_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("294", Button, Shift, X, y)
+End Sub
+Private Sub lbl293_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("293", Button, Shift, X, y)
+End Sub
+Private Sub lbl293_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("293", Button, Shift, X, y)
+End Sub
+Private Sub lbl292_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("292", Button, Shift, X, y)
+End Sub
+Private Sub lbl292_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("292", Button, Shift, X, y)
+End Sub
+Private Sub lbl291_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("291", Button, Shift, X, y)
+End Sub
+Private Sub lbl291_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("291", Button, Shift, X, y)
+End Sub
+Private Sub lbl290_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("290", Button, Shift, X, y)
+End Sub
+Private Sub lbl290_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("290", Button, Shift, X, y)
+End Sub
+Private Sub lbl289_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("289", Button, Shift, X, y)
+End Sub
+Private Sub lbl289_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("289", Button, Shift, X, y)
+End Sub
+Private Sub lbl288_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("288", Button, Shift, X, y)
+End Sub
+Private Sub lbl288_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("288", Button, Shift, X, y)
+End Sub
+Private Sub lbl287_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("287", Button, Shift, X, y)
+End Sub
+Private Sub lbl287_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("287", Button, Shift, X, y)
+End Sub
+Private Sub lbl286_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("286", Button, Shift, X, y)
+End Sub
+Private Sub lbl286_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("286", Button, Shift, X, y)
+End Sub
+Private Sub lbl285_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("285", Button, Shift, X, y)
+End Sub
+Private Sub lbl285_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("285", Button, Shift, X, y)
+End Sub
+Private Sub lbl284_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("284", Button, Shift, X, y)
+End Sub
+Private Sub lbl284_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("284", Button, Shift, X, y)
+End Sub
+Private Sub lbl283_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("283", Button, Shift, X, y)
+End Sub
+Private Sub lbl283_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("283", Button, Shift, X, y)
+End Sub
+Private Sub lbl282_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("282", Button, Shift, X, y)
+End Sub
+Private Sub lbl282_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("282", Button, Shift, X, y)
+End Sub
+Private Sub lbl281_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("281", Button, Shift, X, y)
+End Sub
+Private Sub lbl281_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("281", Button, Shift, X, y)
+End Sub
+Private Sub lbl280_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("280", Button, Shift, X, y)
+End Sub
+Private Sub lbl280_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("280", Button, Shift, X, y)
+End Sub
+Private Sub lbl279_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("279", Button, Shift, X, y)
+End Sub
+Private Sub lbl279_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("279", Button, Shift, X, y)
+End Sub
+Private Sub lbl278_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("278", Button, Shift, X, y)
+End Sub
+Private Sub lbl278_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("278", Button, Shift, X, y)
+End Sub
+Private Sub lbl277_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("277", Button, Shift, X, y)
+End Sub
+Private Sub lbl277_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("277", Button, Shift, X, y)
+End Sub
+Private Sub lbl276_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("276", Button, Shift, X, y)
+End Sub
+Private Sub lbl276_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("276", Button, Shift, X, y)
+End Sub
+Private Sub lbl275_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("275", Button, Shift, X, y)
+End Sub
+Private Sub lbl275_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("275", Button, Shift, X, y)
+End Sub
+Private Sub lbl274_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("274", Button, Shift, X, y)
+End Sub
+Private Sub lbl274_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("274", Button, Shift, X, y)
+End Sub
+Private Sub lbl273_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("273", Button, Shift, X, y)
+End Sub
+Private Sub lbl273_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("273", Button, Shift, X, y)
+End Sub
+Private Sub lbl272_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("272", Button, Shift, X, y)
+End Sub
+Private Sub lbl272_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("272", Button, Shift, X, y)
+End Sub
+Private Sub lbl271_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("271", Button, Shift, X, y)
+End Sub
+Private Sub lbl271_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("271", Button, Shift, X, y)
+End Sub
+Private Sub lbl270_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("270", Button, Shift, X, y)
+End Sub
+Private Sub lbl270_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("270", Button, Shift, X, y)
+End Sub
+Private Sub lbl269_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("269", Button, Shift, X, y)
+End Sub
+Private Sub lbl269_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("269", Button, Shift, X, y)
+End Sub
+Private Sub lbl268_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("268", Button, Shift, X, y)
+End Sub
+Private Sub lbl268_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("268", Button, Shift, X, y)
+End Sub
+Private Sub lbl267_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("267", Button, Shift, X, y)
+End Sub
+Private Sub lbl267_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("267", Button, Shift, X, y)
+End Sub
+Private Sub lbl266_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("266", Button, Shift, X, y)
+End Sub
+Private Sub lbl266_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("266", Button, Shift, X, y)
+End Sub
+Private Sub lbl265_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("265", Button, Shift, X, y)
+End Sub
+Private Sub lbl265_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("265", Button, Shift, X, y)
+End Sub
+Private Sub lbl264_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("264", Button, Shift, X, y)
+End Sub
+Private Sub lbl264_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("264", Button, Shift, X, y)
+End Sub
+Private Sub lbl263_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("263", Button, Shift, X, y)
+End Sub
+Private Sub lbl263_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("263", Button, Shift, X, y)
+End Sub
+Private Sub lbl262_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("262", Button, Shift, X, y)
+End Sub
+Private Sub lbl262_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("262", Button, Shift, X, y)
+End Sub
+Private Sub lbl261_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("261", Button, Shift, X, y)
+End Sub
+Private Sub lbl261_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("261", Button, Shift, X, y)
+End Sub
+Private Sub lbl260_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("260", Button, Shift, X, y)
+End Sub
+Private Sub lbl260_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("260", Button, Shift, X, y)
+End Sub
+Private Sub lbl259_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("259", Button, Shift, X, y)
+End Sub
+Private Sub lbl259_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("259", Button, Shift, X, y)
+End Sub
+Private Sub lbl258_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("258", Button, Shift, X, y)
+End Sub
+Private Sub lbl258_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("258", Button, Shift, X, y)
+End Sub
+Private Sub lbl257_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("257", Button, Shift, X, y)
+End Sub
+Private Sub lbl257_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("257", Button, Shift, X, y)
+End Sub
+Private Sub lbl256_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("256", Button, Shift, X, y)
+End Sub
+Private Sub lbl256_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("256", Button, Shift, X, y)
+End Sub
+Private Sub lbl255_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("255", Button, Shift, X, y)
+End Sub
+Private Sub lbl255_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("255", Button, Shift, X, y)
+End Sub
+Private Sub lbl254_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("254", Button, Shift, X, y)
+End Sub
+Private Sub lbl254_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("254", Button, Shift, X, y)
+End Sub
+Private Sub lbl253_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("253", Button, Shift, X, y)
+End Sub
+Private Sub lbl253_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("253", Button, Shift, X, y)
+End Sub
+Private Sub lbl252_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("252", Button, Shift, X, y)
+End Sub
+Private Sub lbl252_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("252", Button, Shift, X, y)
+End Sub
+Private Sub lbl251_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("251", Button, Shift, X, y)
+End Sub
+Private Sub lbl251_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("251", Button, Shift, X, y)
+End Sub
+Private Sub lbl250_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("250", Button, Shift, X, y)
+End Sub
+Private Sub lbl250_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("250", Button, Shift, X, y)
+End Sub
+Private Sub lbl249_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("249", Button, Shift, X, y)
+End Sub
+Private Sub lbl249_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("249", Button, Shift, X, y)
+End Sub
+Private Sub lbl248_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("248", Button, Shift, X, y)
+End Sub
+Private Sub lbl248_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("248", Button, Shift, X, y)
+End Sub
+Private Sub lbl247_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("247", Button, Shift, X, y)
+End Sub
+Private Sub lbl247_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("247", Button, Shift, X, y)
+End Sub
+Private Sub lbl246_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("246", Button, Shift, X, y)
+End Sub
+Private Sub lbl246_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("246", Button, Shift, X, y)
+End Sub
+Private Sub lbl245_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("245", Button, Shift, X, y)
+End Sub
+Private Sub lbl245_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("245", Button, Shift, X, y)
+End Sub
+Private Sub lbl244_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("244", Button, Shift, X, y)
+End Sub
+Private Sub lbl244_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("244", Button, Shift, X, y)
+End Sub
+Private Sub lbl243_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("243", Button, Shift, X, y)
+End Sub
+Private Sub lbl243_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("243", Button, Shift, X, y)
+End Sub
+Private Sub lbl242_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("242", Button, Shift, X, y)
+End Sub
+Private Sub lbl242_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("242", Button, Shift, X, y)
+End Sub
+Private Sub lbl241_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("241", Button, Shift, X, y)
+End Sub
+Private Sub lbl241_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("241", Button, Shift, X, y)
+End Sub
+Private Sub lbl240_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("240", Button, Shift, X, y)
+End Sub
+Private Sub lbl240_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("240", Button, Shift, X, y)
+End Sub
+Private Sub lbl239_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("239", Button, Shift, X, y)
+End Sub
+Private Sub lbl239_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("239", Button, Shift, X, y)
+End Sub
+Private Sub lbl238_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("238", Button, Shift, X, y)
+End Sub
+Private Sub lbl238_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("238", Button, Shift, X, y)
+End Sub
+Private Sub lbl237_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("237", Button, Shift, X, y)
+End Sub
+Private Sub lbl237_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("237", Button, Shift, X, y)
+End Sub
+Private Sub lbl236_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("236", Button, Shift, X, y)
+End Sub
+Private Sub lbl236_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("236", Button, Shift, X, y)
+End Sub
+Private Sub lbl235_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("235", Button, Shift, X, y)
+End Sub
+Private Sub lbl235_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("235", Button, Shift, X, y)
+End Sub
+Private Sub lbl234_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("234", Button, Shift, X, y)
+End Sub
+Private Sub lbl234_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("234", Button, Shift, X, y)
+End Sub
+Private Sub lbl233_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("233", Button, Shift, X, y)
+End Sub
+Private Sub lbl233_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("233", Button, Shift, X, y)
+End Sub
+Private Sub lbl232_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("232", Button, Shift, X, y)
+End Sub
+Private Sub lbl232_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("232", Button, Shift, X, y)
+End Sub
+Private Sub lbl231_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("231", Button, Shift, X, y)
+End Sub
+Private Sub lbl231_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("231", Button, Shift, X, y)
+End Sub
+Private Sub lbl230_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("230", Button, Shift, X, y)
+End Sub
+Private Sub lbl230_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("230", Button, Shift, X, y)
+End Sub
+Private Sub lbl229_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("229", Button, Shift, X, y)
+End Sub
+Private Sub lbl229_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("229", Button, Shift, X, y)
+End Sub
+Private Sub lbl228_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("228", Button, Shift, X, y)
+End Sub
+Private Sub lbl228_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("228", Button, Shift, X, y)
+End Sub
+Private Sub lbl227_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("227", Button, Shift, X, y)
+End Sub
+Private Sub lbl227_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("227", Button, Shift, X, y)
+End Sub
+Private Sub lbl226_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("226", Button, Shift, X, y)
+End Sub
+Private Sub lbl226_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("226", Button, Shift, X, y)
+End Sub
+Private Sub lbl225_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("225", Button, Shift, X, y)
+End Sub
+Private Sub lbl225_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("225", Button, Shift, X, y)
+End Sub
+Private Sub lbl224_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("224", Button, Shift, X, y)
+End Sub
+Private Sub lbl224_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("224", Button, Shift, X, y)
+End Sub
+Private Sub lbl223_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("223", Button, Shift, X, y)
+End Sub
+Private Sub lbl223_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("223", Button, Shift, X, y)
+End Sub
+Private Sub lbl222_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("222", Button, Shift, X, y)
+End Sub
+Private Sub lbl222_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("222", Button, Shift, X, y)
+End Sub
+Private Sub lbl221_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("221", Button, Shift, X, y)
+End Sub
+Private Sub lbl221_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("221", Button, Shift, X, y)
+End Sub
+Private Sub lbl220_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("220", Button, Shift, X, y)
+End Sub
+Private Sub lbl220_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("220", Button, Shift, X, y)
+End Sub
+Private Sub lbl219_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("219", Button, Shift, X, y)
+End Sub
+Private Sub lbl219_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("219", Button, Shift, X, y)
+End Sub
+Private Sub lbl218_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("218", Button, Shift, X, y)
+End Sub
+Private Sub lbl218_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("218", Button, Shift, X, y)
+End Sub
+Private Sub lbl217_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("217", Button, Shift, X, y)
+End Sub
+Private Sub lbl217_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("217", Button, Shift, X, y)
+End Sub
+Private Sub lbl216_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("216", Button, Shift, X, y)
+End Sub
+Private Sub lbl216_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("216", Button, Shift, X, y)
+End Sub
+Private Sub lbl215_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("215", Button, Shift, X, y)
+End Sub
+Private Sub lbl215_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("215", Button, Shift, X, y)
+End Sub
+Private Sub lbl214_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("214", Button, Shift, X, y)
+End Sub
+Private Sub lbl214_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("214", Button, Shift, X, y)
+End Sub
+Private Sub lbl213_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("213", Button, Shift, X, y)
+End Sub
+Private Sub lbl213_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("213", Button, Shift, X, y)
+End Sub
+Private Sub lbl212_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("212", Button, Shift, X, y)
+End Sub
+Private Sub lbl212_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("212", Button, Shift, X, y)
+End Sub
+Private Sub lbl211_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("211", Button, Shift, X, y)
+End Sub
+Private Sub lbl211_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("211", Button, Shift, X, y)
+End Sub
+Private Sub lbl210_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("210", Button, Shift, X, y)
+End Sub
+Private Sub lbl210_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("210", Button, Shift, X, y)
+End Sub
+Private Sub lbl209_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("209", Button, Shift, X, y)
+End Sub
+Private Sub lbl209_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("209", Button, Shift, X, y)
+End Sub
+Private Sub lbl208_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("208", Button, Shift, X, y)
+End Sub
+Private Sub lbl208_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("208", Button, Shift, X, y)
+End Sub
+Private Sub lbl207_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("207", Button, Shift, X, y)
+End Sub
+Private Sub lbl207_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("207", Button, Shift, X, y)
+End Sub
+Private Sub lbl206_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("206", Button, Shift, X, y)
+End Sub
+Private Sub lbl206_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("206", Button, Shift, X, y)
+End Sub
+Private Sub lbl205_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("205", Button, Shift, X, y)
+End Sub
+Private Sub lbl205_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("205", Button, Shift, X, y)
+End Sub
+Private Sub lbl204_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("204", Button, Shift, X, y)
+End Sub
+Private Sub lbl204_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("204", Button, Shift, X, y)
+End Sub
+Private Sub lbl203_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("203", Button, Shift, X, y)
+End Sub
+Private Sub lbl203_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("203", Button, Shift, X, y)
+End Sub
+Private Sub lbl202_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("202", Button, Shift, X, y)
+End Sub
+Private Sub lbl202_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("202", Button, Shift, X, y)
+End Sub
+Private Sub lbl201_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("201", Button, Shift, X, y)
+End Sub
+Private Sub lbl201_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("201", Button, Shift, X, y)
+End Sub
+Private Sub lbl200_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("200", Button, Shift, X, y)
+End Sub
+Private Sub lbl200_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("200", Button, Shift, X, y)
+End Sub
+Private Sub lbl199_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("199", Button, Shift, X, y)
+End Sub
+Private Sub lbl199_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("199", Button, Shift, X, y)
+End Sub
+Private Sub lbl198_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("198", Button, Shift, X, y)
+End Sub
+Private Sub lbl198_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("198", Button, Shift, X, y)
+End Sub
+Private Sub lbl197_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("197", Button, Shift, X, y)
+End Sub
+Private Sub lbl197_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("197", Button, Shift, X, y)
+End Sub
+Private Sub lbl196_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("196", Button, Shift, X, y)
+End Sub
+Private Sub lbl196_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("196", Button, Shift, X, y)
+End Sub
+Private Sub lbl195_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("195", Button, Shift, X, y)
+End Sub
+Private Sub lbl195_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("195", Button, Shift, X, y)
+End Sub
+Private Sub lbl194_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("194", Button, Shift, X, y)
+End Sub
+Private Sub lbl194_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("194", Button, Shift, X, y)
+End Sub
+Private Sub lbl193_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("193", Button, Shift, X, y)
+End Sub
+Private Sub lbl193_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("193", Button, Shift, X, y)
+End Sub
+Private Sub lbl192_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("192", Button, Shift, X, y)
+End Sub
+Private Sub lbl192_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("192", Button, Shift, X, y)
+End Sub
+Private Sub lbl191_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("191", Button, Shift, X, y)
+End Sub
+Private Sub lbl191_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("191", Button, Shift, X, y)
+End Sub
+Private Sub lbl190_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("190", Button, Shift, X, y)
+End Sub
+Private Sub lbl190_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("190", Button, Shift, X, y)
+End Sub
+Private Sub lbl189_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("189", Button, Shift, X, y)
+End Sub
+Private Sub lbl189_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("189", Button, Shift, X, y)
+End Sub
+Private Sub lbl188_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("188", Button, Shift, X, y)
+End Sub
+Private Sub lbl188_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("188", Button, Shift, X, y)
+End Sub
+Private Sub lbl187_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("187", Button, Shift, X, y)
+End Sub
+Private Sub lbl187_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("187", Button, Shift, X, y)
+End Sub
+Private Sub lbl186_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("186", Button, Shift, X, y)
+End Sub
+Private Sub lbl186_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("186", Button, Shift, X, y)
+End Sub
+Private Sub lbl185_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("185", Button, Shift, X, y)
+End Sub
+Private Sub lbl185_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("185", Button, Shift, X, y)
+End Sub
+Private Sub lbl184_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("184", Button, Shift, X, y)
+End Sub
+Private Sub lbl184_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("184", Button, Shift, X, y)
+End Sub
+Private Sub lbl183_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("183", Button, Shift, X, y)
+End Sub
+Private Sub lbl183_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("183", Button, Shift, X, y)
+End Sub
+Private Sub lbl182_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("182", Button, Shift, X, y)
+End Sub
+Private Sub lbl182_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("182", Button, Shift, X, y)
+End Sub
+Private Sub lbl181_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("181", Button, Shift, X, y)
+End Sub
+Private Sub lbl181_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("181", Button, Shift, X, y)
+End Sub
+Private Sub lbl180_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("180", Button, Shift, X, y)
+End Sub
+Private Sub lbl180_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("180", Button, Shift, X, y)
+End Sub
+Private Sub lbl179_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("179", Button, Shift, X, y)
+End Sub
+Private Sub lbl179_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("179", Button, Shift, X, y)
+End Sub
+Private Sub lbl178_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("178", Button, Shift, X, y)
+End Sub
+Private Sub lbl178_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("178", Button, Shift, X, y)
+End Sub
+Private Sub lbl177_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("177", Button, Shift, X, y)
+End Sub
+Private Sub lbl177_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("177", Button, Shift, X, y)
+End Sub
+Private Sub lbl176_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("176", Button, Shift, X, y)
+End Sub
+Private Sub lbl176_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("176", Button, Shift, X, y)
+End Sub
+Private Sub lbl175_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("175", Button, Shift, X, y)
+End Sub
+Private Sub lbl175_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("175", Button, Shift, X, y)
+End Sub
+Private Sub lbl174_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("174", Button, Shift, X, y)
+End Sub
+Private Sub lbl174_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("174", Button, Shift, X, y)
+End Sub
+Private Sub lbl173_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("173", Button, Shift, X, y)
+End Sub
+Private Sub lbl173_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("173", Button, Shift, X, y)
+End Sub
+Private Sub lbl172_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("172", Button, Shift, X, y)
+End Sub
+Private Sub lbl172_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("172", Button, Shift, X, y)
+End Sub
+Private Sub lbl171_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("171", Button, Shift, X, y)
+End Sub
+Private Sub lbl171_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("171", Button, Shift, X, y)
+End Sub
+Private Sub lbl170_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("170", Button, Shift, X, y)
+End Sub
+Private Sub lbl170_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("170", Button, Shift, X, y)
+End Sub
+Private Sub lbl169_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("169", Button, Shift, X, y)
+End Sub
+Private Sub lbl169_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("169", Button, Shift, X, y)
+End Sub
+Private Sub lbl168_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("168", Button, Shift, X, y)
+End Sub
+Private Sub lbl168_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("168", Button, Shift, X, y)
+End Sub
+Private Sub lbl167_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("167", Button, Shift, X, y)
+End Sub
+Private Sub lbl167_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("167", Button, Shift, X, y)
+End Sub
+Private Sub lbl166_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("166", Button, Shift, X, y)
+End Sub
+Private Sub lbl166_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("166", Button, Shift, X, y)
+End Sub
+Private Sub lbl165_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("165", Button, Shift, X, y)
+End Sub
+Private Sub lbl165_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("165", Button, Shift, X, y)
+End Sub
+Private Sub lbl164_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("164", Button, Shift, X, y)
+End Sub
+Private Sub lbl164_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("164", Button, Shift, X, y)
+End Sub
+Private Sub lbl163_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("163", Button, Shift, X, y)
+End Sub
+Private Sub lbl163_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("163", Button, Shift, X, y)
+End Sub
+Private Sub lbl162_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("162", Button, Shift, X, y)
+End Sub
+Private Sub lbl162_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("162", Button, Shift, X, y)
+End Sub
+Private Sub lbl161_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("161", Button, Shift, X, y)
+End Sub
+Private Sub lbl161_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("161", Button, Shift, X, y)
+End Sub
+Private Sub lbl160_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("160", Button, Shift, X, y)
+End Sub
+Private Sub lbl160_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("160", Button, Shift, X, y)
+End Sub
+Private Sub lbl159_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("159", Button, Shift, X, y)
+End Sub
+Private Sub lbl159_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("159", Button, Shift, X, y)
+End Sub
+Private Sub lbl158_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("158", Button, Shift, X, y)
+End Sub
+Private Sub lbl158_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("158", Button, Shift, X, y)
+End Sub
+Private Sub lbl157_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("157", Button, Shift, X, y)
+End Sub
+Private Sub lbl157_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("157", Button, Shift, X, y)
+End Sub
+Private Sub lbl156_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("156", Button, Shift, X, y)
+End Sub
+Private Sub lbl156_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("156", Button, Shift, X, y)
+End Sub
+Private Sub lbl155_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("155", Button, Shift, X, y)
+End Sub
+Private Sub lbl155_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("155", Button, Shift, X, y)
+End Sub
+Private Sub lbl154_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("154", Button, Shift, X, y)
+End Sub
+Private Sub lbl154_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("154", Button, Shift, X, y)
+End Sub
+Private Sub lbl153_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("153", Button, Shift, X, y)
+End Sub
+Private Sub lbl153_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("153", Button, Shift, X, y)
+End Sub
+Private Sub lbl152_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("152", Button, Shift, X, y)
+End Sub
+Private Sub lbl152_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("152", Button, Shift, X, y)
+End Sub
+Private Sub lbl151_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("151", Button, Shift, X, y)
+End Sub
+Private Sub lbl151_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("151", Button, Shift, X, y)
+End Sub
+Private Sub lbl150_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("150", Button, Shift, X, y)
+End Sub
+Private Sub lbl150_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("150", Button, Shift, X, y)
+End Sub
+Private Sub lbl149_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("149", Button, Shift, X, y)
+End Sub
+Private Sub lbl149_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("149", Button, Shift, X, y)
+End Sub
+Private Sub lbl148_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("148", Button, Shift, X, y)
+End Sub
+Private Sub lbl148_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("148", Button, Shift, X, y)
+End Sub
+Private Sub lbl147_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("147", Button, Shift, X, y)
+End Sub
+Private Sub lbl147_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("147", Button, Shift, X, y)
+End Sub
+Private Sub lbl146_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("146", Button, Shift, X, y)
+End Sub
+Private Sub lbl146_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("146", Button, Shift, X, y)
+End Sub
+Private Sub lbl145_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("145", Button, Shift, X, y)
+End Sub
+Private Sub lbl145_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("145", Button, Shift, X, y)
+End Sub
+Private Sub lbl144_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("144", Button, Shift, X, y)
+End Sub
+Private Sub lbl144_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("144", Button, Shift, X, y)
+End Sub
+Private Sub lbl143_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("143", Button, Shift, X, y)
+End Sub
+Private Sub lbl143_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("143", Button, Shift, X, y)
+End Sub
+Private Sub lbl142_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("142", Button, Shift, X, y)
+End Sub
+Private Sub lbl142_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("142", Button, Shift, X, y)
+End Sub
+Private Sub lbl141_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("141", Button, Shift, X, y)
+End Sub
+Private Sub lbl141_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("141", Button, Shift, X, y)
+End Sub
+Private Sub lbl140_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("140", Button, Shift, X, y)
+End Sub
+Private Sub lbl140_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("140", Button, Shift, X, y)
+End Sub
+Private Sub lbl139_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("139", Button, Shift, X, y)
+End Sub
+Private Sub lbl139_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("139", Button, Shift, X, y)
+End Sub
+Private Sub lbl138_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("138", Button, Shift, X, y)
+End Sub
+Private Sub lbl138_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("138", Button, Shift, X, y)
+End Sub
+Private Sub lbl137_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("137", Button, Shift, X, y)
+End Sub
+Private Sub lbl137_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("137", Button, Shift, X, y)
+End Sub
+Private Sub lbl136_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("136", Button, Shift, X, y)
+End Sub
+Private Sub lbl136_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("136", Button, Shift, X, y)
+End Sub
+Private Sub lbl135_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("135", Button, Shift, X, y)
+End Sub
+Private Sub lbl135_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("135", Button, Shift, X, y)
+End Sub
+Private Sub lbl134_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("134", Button, Shift, X, y)
+End Sub
+Private Sub lbl134_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("134", Button, Shift, X, y)
+End Sub
+Private Sub lbl133_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("133", Button, Shift, X, y)
+End Sub
+Private Sub lbl133_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("133", Button, Shift, X, y)
+End Sub
+Private Sub lbl132_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("132", Button, Shift, X, y)
+End Sub
+Private Sub lbl132_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("132", Button, Shift, X, y)
+End Sub
+Private Sub lbl131_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("131", Button, Shift, X, y)
+End Sub
+Private Sub lbl131_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("131", Button, Shift, X, y)
+End Sub
+Private Sub lbl130_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("130", Button, Shift, X, y)
+End Sub
+Private Sub lbl130_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("130", Button, Shift, X, y)
+End Sub
+Private Sub lbl129_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("129", Button, Shift, X, y)
+End Sub
+Private Sub lbl129_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("129", Button, Shift, X, y)
+End Sub
+Private Sub lbl128_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("128", Button, Shift, X, y)
+End Sub
+Private Sub lbl128_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("128", Button, Shift, X, y)
+End Sub
+Private Sub lbl127_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("127", Button, Shift, X, y)
+End Sub
+Private Sub lbl127_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("127", Button, Shift, X, y)
+End Sub
+Private Sub lbl126_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("126", Button, Shift, X, y)
+End Sub
+Private Sub lbl126_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("126", Button, Shift, X, y)
+End Sub
+Private Sub lbl125_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("125", Button, Shift, X, y)
+End Sub
+Private Sub lbl125_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("125", Button, Shift, X, y)
+End Sub
+Private Sub lbl124_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("124", Button, Shift, X, y)
+End Sub
+Private Sub lbl124_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("124", Button, Shift, X, y)
+End Sub
+Private Sub lbl123_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("123", Button, Shift, X, y)
+End Sub
+Private Sub lbl123_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("123", Button, Shift, X, y)
+End Sub
+Private Sub lbl122_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("122", Button, Shift, X, y)
+End Sub
+Private Sub lbl122_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("122", Button, Shift, X, y)
+End Sub
+Private Sub lbl121_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("121", Button, Shift, X, y)
+End Sub
+Private Sub lbl121_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("121", Button, Shift, X, y)
+End Sub
+Private Sub lbl120_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("120", Button, Shift, X, y)
+End Sub
+Private Sub lbl120_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("120", Button, Shift, X, y)
+End Sub
+Private Sub lbl119_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("119", Button, Shift, X, y)
+End Sub
+Private Sub lbl119_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("119", Button, Shift, X, y)
+End Sub
+Private Sub lbl118_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("118", Button, Shift, X, y)
+End Sub
+Private Sub lbl118_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("118", Button, Shift, X, y)
+End Sub
+Private Sub lbl117_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("117", Button, Shift, X, y)
+End Sub
+Private Sub lbl117_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("117", Button, Shift, X, y)
+End Sub
+Private Sub lbl116_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("116", Button, Shift, X, y)
+End Sub
+Private Sub lbl116_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("116", Button, Shift, X, y)
+End Sub
+Private Sub lbl115_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("115", Button, Shift, X, y)
+End Sub
+Private Sub lbl115_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("115", Button, Shift, X, y)
+End Sub
+Private Sub lbl114_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("114", Button, Shift, X, y)
+End Sub
+Private Sub lbl114_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("114", Button, Shift, X, y)
+End Sub
+Private Sub lbl113_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("113", Button, Shift, X, y)
+End Sub
+Private Sub lbl113_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("113", Button, Shift, X, y)
+End Sub
+Private Sub lbl112_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("112", Button, Shift, X, y)
+End Sub
+Private Sub lbl112_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("112", Button, Shift, X, y)
+End Sub
+Private Sub lbl111_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("111", Button, Shift, X, y)
+End Sub
+Private Sub lbl111_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("111", Button, Shift, X, y)
+End Sub
+Private Sub lbl110_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("110", Button, Shift, X, y)
+End Sub
+Private Sub lbl110_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("110", Button, Shift, X, y)
+End Sub
+Private Sub lbl109_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("109", Button, Shift, X, y)
+End Sub
+Private Sub lbl109_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("109", Button, Shift, X, y)
+End Sub
+Private Sub lbl108_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("108", Button, Shift, X, y)
+End Sub
+Private Sub lbl108_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("108", Button, Shift, X, y)
+End Sub
+Private Sub lbl107_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("107", Button, Shift, X, y)
+End Sub
+Private Sub lbl107_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("107", Button, Shift, X, y)
+End Sub
+Private Sub lbl106_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("106", Button, Shift, X, y)
+End Sub
+Private Sub lbl106_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("106", Button, Shift, X, y)
+End Sub
+Private Sub lbl105_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("105", Button, Shift, X, y)
+End Sub
+Private Sub lbl105_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("105", Button, Shift, X, y)
+End Sub
+Private Sub lbl104_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("104", Button, Shift, X, y)
+End Sub
+Private Sub lbl104_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("104", Button, Shift, X, y)
+End Sub
+Private Sub lbl103_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("103", Button, Shift, X, y)
+End Sub
+Private Sub lbl103_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("103", Button, Shift, X, y)
+End Sub
+Private Sub lbl102_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("102", Button, Shift, X, y)
+End Sub
+Private Sub lbl102_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("102", Button, Shift, X, y)
+End Sub
+Private Sub lbl101_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("101", Button, Shift, X, y)
+End Sub
+Private Sub lbl101_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("101", Button, Shift, X, y)
+End Sub
+Private Sub lbl100_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("100", Button, Shift, X, y)
+End Sub
+Private Sub lbl100_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("100", Button, Shift, X, y)
+End Sub
+Private Sub lbl099_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("099", Button, Shift, X, y)
+End Sub
+Private Sub lbl099_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("099", Button, Shift, X, y)
+End Sub
+Private Sub lbl098_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("098", Button, Shift, X, y)
+End Sub
+Private Sub lbl098_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("098", Button, Shift, X, y)
+End Sub
+Private Sub lbl097_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("097", Button, Shift, X, y)
+End Sub
+Private Sub lbl097_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("097", Button, Shift, X, y)
+End Sub
+Private Sub lbl096_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("096", Button, Shift, X, y)
+End Sub
+Private Sub lbl096_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("096", Button, Shift, X, y)
+End Sub
+Private Sub lbl095_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("095", Button, Shift, X, y)
+End Sub
+Private Sub lbl095_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("095", Button, Shift, X, y)
+End Sub
+Private Sub lbl094_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("094", Button, Shift, X, y)
+End Sub
+Private Sub lbl094_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("094", Button, Shift, X, y)
+End Sub
+Private Sub lbl093_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("093", Button, Shift, X, y)
+End Sub
+Private Sub lbl093_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("093", Button, Shift, X, y)
+End Sub
+Private Sub lbl092_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("092", Button, Shift, X, y)
+End Sub
+Private Sub lbl092_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("092", Button, Shift, X, y)
+End Sub
+Private Sub lbl091_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("091", Button, Shift, X, y)
+End Sub
+Private Sub lbl091_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("091", Button, Shift, X, y)
+End Sub
+Private Sub lbl090_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("090", Button, Shift, X, y)
+End Sub
+Private Sub lbl090_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("090", Button, Shift, X, y)
+End Sub
+Private Sub lbl089_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("089", Button, Shift, X, y)
+End Sub
+Private Sub lbl089_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("089", Button, Shift, X, y)
+End Sub
+Private Sub lbl088_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("088", Button, Shift, X, y)
+End Sub
+Private Sub lbl088_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("088", Button, Shift, X, y)
+End Sub
+Private Sub lbl087_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("087", Button, Shift, X, y)
+End Sub
+Private Sub lbl087_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("087", Button, Shift, X, y)
+End Sub
+Private Sub lbl086_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("086", Button, Shift, X, y)
+End Sub
+Private Sub lbl086_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("086", Button, Shift, X, y)
+End Sub
+Private Sub lbl085_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("085", Button, Shift, X, y)
+End Sub
+Private Sub lbl085_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("085", Button, Shift, X, y)
+End Sub
+Private Sub lbl084_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("084", Button, Shift, X, y)
+End Sub
+Private Sub lbl084_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("084", Button, Shift, X, y)
+End Sub
+Private Sub lbl083_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("083", Button, Shift, X, y)
+End Sub
+Private Sub lbl083_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("083", Button, Shift, X, y)
+End Sub
+Private Sub lbl082_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("082", Button, Shift, X, y)
+End Sub
+Private Sub lbl082_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("082", Button, Shift, X, y)
+End Sub
+Private Sub lbl081_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("081", Button, Shift, X, y)
+End Sub
+Private Sub lbl081_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("081", Button, Shift, X, y)
+End Sub
+Private Sub lbl080_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("080", Button, Shift, X, y)
+End Sub
+Private Sub lbl080_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("080", Button, Shift, X, y)
+End Sub
+Private Sub lbl079_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("079", Button, Shift, X, y)
+End Sub
+Private Sub lbl079_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("079", Button, Shift, X, y)
+End Sub
+Private Sub lbl078_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("078", Button, Shift, X, y)
+End Sub
+Private Sub lbl078_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("078", Button, Shift, X, y)
+End Sub
+Private Sub lbl077_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("077", Button, Shift, X, y)
+End Sub
+Private Sub lbl077_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("077", Button, Shift, X, y)
+End Sub
+Private Sub lbl076_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("076", Button, Shift, X, y)
+End Sub
+Private Sub lbl076_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("076", Button, Shift, X, y)
+End Sub
+Private Sub lbl075_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("075", Button, Shift, X, y)
+End Sub
+Private Sub lbl075_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("075", Button, Shift, X, y)
+End Sub
+Private Sub lbl074_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("074", Button, Shift, X, y)
+End Sub
+Private Sub lbl074_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("074", Button, Shift, X, y)
+End Sub
+Private Sub lbl073_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("073", Button, Shift, X, y)
+End Sub
+Private Sub lbl073_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("073", Button, Shift, X, y)
+End Sub
+Private Sub lbl072_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("072", Button, Shift, X, y)
+End Sub
+Private Sub lbl072_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("072", Button, Shift, X, y)
+End Sub
+Private Sub lbl071_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("071", Button, Shift, X, y)
+End Sub
+Private Sub lbl071_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("071", Button, Shift, X, y)
+End Sub
+Private Sub lbl070_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("070", Button, Shift, X, y)
+End Sub
+Private Sub lbl070_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("070", Button, Shift, X, y)
+End Sub
+Private Sub lbl069_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("069", Button, Shift, X, y)
+End Sub
+Private Sub lbl069_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("069", Button, Shift, X, y)
+End Sub
+Private Sub lbl068_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("068", Button, Shift, X, y)
+End Sub
+Private Sub lbl068_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("068", Button, Shift, X, y)
+End Sub
+Private Sub lbl067_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("067", Button, Shift, X, y)
+End Sub
+Private Sub lbl067_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("067", Button, Shift, X, y)
+End Sub
+Private Sub lbl066_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("066", Button, Shift, X, y)
+End Sub
+Private Sub lbl066_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("066", Button, Shift, X, y)
+End Sub
+Private Sub lbl065_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("065", Button, Shift, X, y)
+End Sub
+Private Sub lbl065_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("065", Button, Shift, X, y)
+End Sub
+Private Sub lbl064_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("064", Button, Shift, X, y)
+End Sub
+Private Sub lbl064_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("064", Button, Shift, X, y)
+End Sub
+Private Sub lbl063_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("063", Button, Shift, X, y)
+End Sub
+Private Sub lbl063_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("063", Button, Shift, X, y)
+End Sub
+Private Sub lbl062_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("062", Button, Shift, X, y)
+End Sub
+Private Sub lbl062_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("062", Button, Shift, X, y)
+End Sub
+Private Sub lbl061_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("061", Button, Shift, X, y)
+End Sub
+Private Sub lbl061_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("061", Button, Shift, X, y)
+End Sub
+Private Sub lbl060_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("060", Button, Shift, X, y)
+End Sub
+Private Sub lbl060_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("060", Button, Shift, X, y)
+End Sub
+Private Sub lbl059_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("059", Button, Shift, X, y)
+End Sub
+Private Sub lbl059_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("059", Button, Shift, X, y)
+End Sub
+Private Sub lbl058_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("058", Button, Shift, X, y)
+End Sub
+Private Sub lbl058_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("058", Button, Shift, X, y)
+End Sub
+Private Sub lbl057_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("057", Button, Shift, X, y)
+End Sub
+Private Sub lbl057_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("057", Button, Shift, X, y)
+End Sub
+Private Sub lbl056_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("056", Button, Shift, X, y)
+End Sub
+Private Sub lbl056_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("056", Button, Shift, X, y)
+End Sub
+Private Sub lbl055_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("055", Button, Shift, X, y)
+End Sub
+Private Sub lbl055_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("055", Button, Shift, X, y)
+End Sub
+Private Sub lbl054_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("054", Button, Shift, X, y)
+End Sub
+Private Sub lbl054_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("054", Button, Shift, X, y)
+End Sub
+Private Sub lbl053_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("053", Button, Shift, X, y)
+End Sub
+Private Sub lbl053_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("053", Button, Shift, X, y)
+End Sub
+Private Sub lbl052_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("052", Button, Shift, X, y)
+End Sub
+Private Sub lbl052_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("052", Button, Shift, X, y)
+End Sub
+Private Sub lbl051_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("051", Button, Shift, X, y)
+End Sub
+Private Sub lbl051_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("051", Button, Shift, X, y)
+End Sub
+Private Sub lbl050_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("050", Button, Shift, X, y)
+End Sub
+Private Sub lbl050_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("050", Button, Shift, X, y)
+End Sub
+Private Sub lbl049_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("049", Button, Shift, X, y)
+End Sub
+Private Sub lbl049_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("049", Button, Shift, X, y)
+End Sub
+Private Sub lbl048_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("048", Button, Shift, X, y)
+End Sub
+Private Sub lbl048_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("048", Button, Shift, X, y)
+End Sub
+Private Sub lbl047_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("047", Button, Shift, X, y)
+End Sub
+Private Sub lbl047_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("047", Button, Shift, X, y)
+End Sub
+Private Sub lbl046_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("046", Button, Shift, X, y)
+End Sub
+Private Sub lbl046_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("046", Button, Shift, X, y)
+End Sub
+Private Sub lbl045_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("045", Button, Shift, X, y)
+End Sub
+Private Sub lbl045_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("045", Button, Shift, X, y)
+End Sub
+Private Sub lbl044_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("044", Button, Shift, X, y)
+End Sub
+Private Sub lbl044_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("044", Button, Shift, X, y)
+End Sub
+Private Sub lbl043_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("043", Button, Shift, X, y)
+End Sub
+Private Sub lbl043_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("043", Button, Shift, X, y)
+End Sub
+Private Sub lbl042_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("042", Button, Shift, X, y)
+End Sub
+Private Sub lbl042_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("042", Button, Shift, X, y)
+End Sub
+Private Sub lbl041_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("041", Button, Shift, X, y)
+End Sub
+Private Sub lbl041_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("041", Button, Shift, X, y)
+End Sub
+Private Sub lbl040_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("040", Button, Shift, X, y)
+End Sub
+Private Sub lbl040_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("040", Button, Shift, X, y)
+End Sub
+Private Sub lbl039_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("039", Button, Shift, X, y)
+End Sub
+Private Sub lbl039_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("039", Button, Shift, X, y)
+End Sub
+Private Sub lbl038_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("038", Button, Shift, X, y)
+End Sub
+Private Sub lbl038_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("038", Button, Shift, X, y)
+End Sub
+Private Sub lbl037_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("037", Button, Shift, X, y)
+End Sub
+Private Sub lbl037_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("037", Button, Shift, X, y)
+End Sub
+Private Sub lbl036_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("036", Button, Shift, X, y)
+End Sub
+Private Sub lbl036_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("036", Button, Shift, X, y)
+End Sub
+Private Sub lbl035_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("035", Button, Shift, X, y)
+End Sub
+Private Sub lbl035_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("035", Button, Shift, X, y)
+End Sub
+Private Sub lbl034_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("034", Button, Shift, X, y)
+End Sub
+Private Sub lbl034_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("034", Button, Shift, X, y)
+End Sub
+Private Sub lbl033_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("033", Button, Shift, X, y)
+End Sub
+Private Sub lbl033_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("033", Button, Shift, X, y)
+End Sub
+Private Sub lbl032_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("032", Button, Shift, X, y)
+End Sub
+Private Sub lbl032_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("032", Button, Shift, X, y)
+End Sub
+Private Sub lbl031_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("031", Button, Shift, X, y)
+End Sub
+Private Sub lbl031_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("031", Button, Shift, X, y)
+End Sub
+Private Sub lbl030_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("030", Button, Shift, X, y)
+End Sub
+Private Sub lbl030_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("030", Button, Shift, X, y)
+End Sub
+Private Sub lbl029_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("029", Button, Shift, X, y)
+End Sub
+Private Sub lbl029_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("029", Button, Shift, X, y)
+End Sub
+Private Sub lbl028_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("028", Button, Shift, X, y)
+End Sub
+Private Sub lbl028_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("028", Button, Shift, X, y)
+End Sub
+Private Sub lbl027_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("027", Button, Shift, X, y)
+End Sub
+Private Sub lbl027_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("027", Button, Shift, X, y)
+End Sub
+Private Sub lbl026_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("026", Button, Shift, X, y)
+End Sub
+Private Sub lbl026_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("026", Button, Shift, X, y)
+End Sub
+Private Sub lbl025_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("025", Button, Shift, X, y)
+End Sub
+Private Sub lbl025_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("025", Button, Shift, X, y)
+End Sub
+Private Sub lbl024_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("024", Button, Shift, X, y)
+End Sub
+Private Sub lbl024_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("024", Button, Shift, X, y)
+End Sub
+Private Sub lbl023_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("023", Button, Shift, X, y)
+End Sub
+Private Sub lbl023_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("023", Button, Shift, X, y)
+End Sub
+Private Sub lbl022_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("022", Button, Shift, X, y)
+End Sub
+Private Sub lbl022_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("022", Button, Shift, X, y)
+End Sub
+Private Sub lbl021_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("021", Button, Shift, X, y)
+End Sub
+Private Sub lbl021_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("021", Button, Shift, X, y)
+End Sub
+Private Sub lbl020_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("020", Button, Shift, X, y)
+End Sub
+Private Sub lbl020_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("020", Button, Shift, X, y)
+End Sub
+Private Sub lbl019_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("019", Button, Shift, X, y)
+End Sub
+Private Sub lbl019_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("019", Button, Shift, X, y)
+End Sub
+Private Sub lbl018_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("018", Button, Shift, X, y)
+End Sub
+Private Sub lbl018_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("018", Button, Shift, X, y)
+End Sub
+Private Sub lbl017_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("017", Button, Shift, X, y)
+End Sub
+Private Sub lbl017_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("017", Button, Shift, X, y)
+End Sub
+Private Sub lbl016_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("016", Button, Shift, X, y)
+End Sub
+Private Sub lbl016_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("016", Button, Shift, X, y)
+End Sub
+Private Sub lbl015_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("015", Button, Shift, X, y)
+End Sub
+Private Sub lbl015_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("015", Button, Shift, X, y)
+End Sub
+Private Sub lbl014_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("014", Button, Shift, X, y)
+End Sub
+Private Sub lbl014_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("014", Button, Shift, X, y)
+End Sub
+Private Sub lbl013_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("013", Button, Shift, X, y)
+End Sub
+Private Sub lbl013_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("013", Button, Shift, X, y)
+End Sub
+Private Sub lbl012_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("012", Button, Shift, X, y)
+End Sub
+Private Sub lbl012_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("012", Button, Shift, X, y)
+End Sub
+Private Sub lbl011_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("011", Button, Shift, X, y)
+End Sub
+Private Sub lbl011_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("011", Button, Shift, X, y)
+End Sub
+Private Sub lbl010_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("010", Button, Shift, X, y)
+End Sub
+Private Sub lbl010_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("010", Button, Shift, X, y)
+End Sub
+Private Sub lbl009_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("009", Button, Shift, X, y)
+End Sub
+Private Sub lbl009_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("009", Button, Shift, X, y)
+End Sub
+Private Sub lbl008_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("008", Button, Shift, X, y)
+End Sub
+Private Sub lbl008_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("008", Button, Shift, X, y)
+End Sub
+Private Sub lbl007_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("007", Button, Shift, X, y)
+End Sub
+Private Sub lbl007_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("007", Button, Shift, X, y)
+End Sub
+Private Sub lbl006_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("006", Button, Shift, X, y)
+End Sub
+Private Sub lbl006_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("006", Button, Shift, X, y)
+End Sub
+Private Sub lbl005_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("005", Button, Shift, X, y)
+End Sub
+Private Sub lbl005_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("005", Button, Shift, X, y)
+End Sub
+Private Sub lbl004_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("004", Button, Shift, X, y)
+End Sub
+Private Sub lbl004_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("004", Button, Shift, X, y)
+End Sub
+Private Sub lbl003_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("003", Button, Shift, X, y)
+End Sub
+Private Sub lbl003_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("003", Button, Shift, X, y)
+End Sub
+Private Sub lbl002_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("002", Button, Shift, X, y)
+End Sub
+Private Sub lbl002_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("002", Button, Shift, X, y)
+End Sub
+Private Sub lbl001_MouseMove(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseMove("001", Button, Shift, X, y)
+End Sub
+Private Sub lbl001_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call lblxxx_MouseDown("001", Button, Shift, X, y)
+End Sub
+
+Private Function FocoLbl(strNum As String)
+    Dim strTag As String
+    If Not IsNumeric(Me("lbl" & strNum).Tag) Then Exit Function
+    If CLng(Me("lbl" & strNum).Tag) <= 0 Then Exit Function
+    strTag = Me("lbl" & strNum).Tag
+    If strTag = gstrAntTag Then
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me("lbl" & strNum).Tag, , , "Mod"
+    Else
+        Dim i As Integer
+        For i = g_intC To g_intNMax
+            If Me("lbl" & Format(i, "000")).Tag = Me("lbl" & strNum).Tag Then
+                Me("lbl" & Format(i, "000")).BorderWidth = 2
+            Else
+                Me("lbl" & Format(i, "000")).BorderWidth = 0
+            End If
+        Next i
+        Parent("lbl").Caption = Me("lbl" & strNum).Caption
+        Parent("lbl").BackColor = Me("lbl" & strNum).BackColor
+        Parent("lbl").ForeColor = Me("lbl" & strNum).ForeColor
+        Parent("lbl").Tag = Me("lbl" & strNum).Tag
+        gstrAntTag = strTag
+    End If
+End Function
+
+Private Function MouseDownBtn(strNum As String)
+    Me("lbl" & strNum).SpecialEffect = 1
+    If gintShift And acCtrlMask > 0 Then
+        CopiaASombra strNum
+        gstrAntTag = ""
+    Else
+        Me("lbl" & strNum).SpecialEffect = 1
+    End If
+    gstrNum = strNum
+End Function
+
+Private Function MouseUpBtn(strNum As String)
+    Dim intR As Integer, intNoches As Integer
+    If Not IsNumeric(Me("lbl" & strNum).Tag) Then Exit Function
+    If Me.lblSombra.Visible = True Then
+        gintFilA = 1 + ((Me.lblSombra.Top - glngAlto1) \ glngAlto)
+        gintColA = 1 + ((Me.lblSombra.Left - glngAncho1 - glngAncho * 0.5) / glngAncho)
+        If gintColD = 0 Then gintColD = 1
+        If Me.lblSombra.Top = Me("lbl" & strNum).Top And Me.lblSombra.Left = Me("lbl" & strNum).Left Then
+            'Se ha soltado en el mismo sitio, sin cambios
+        Else
+            intR = MsgBox("¿Modificar estancia a: " & g_Columnas(gintColA) & ", " & g_Filas(gintFilA) & "?", vbOKCancel)
+            If intR = vbOK Then
+                intNoches = Me.lblSombra.Width \ glngAncho
+                If MoverEstancia(CLng(Me("lbl" & strNum).Tag), (g_Filas(gintFilD)), (g_Filas(gintFilA)), CDate(g_Columnas(gintColD)), CDate(g_Columnas(gintColA)), intNoches) = True Then
+                    If IsOpenForm("frmPlaningH") Then
+                        SysCmd acSysCmdSetStatus, "Actualizando Planing"
+                        Call Forms("frmPlaningH").Form_Load
+                        SysCmd acSysCmdClearStatus
+                    End If
+                End If
+            End If
+        End If
+        Me.lblSombra.Visible = False
+        gintShift = 0
+    Else
+        Me("lbl" & strNum).SpecialEffect = 0
+    End If
+End Function
+
+Private Sub Detalle_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    If glngAncho = 0 Or glngAlto = 0 Then Call Form_Load
+    Dim lngX As Long, lngY As Long, intR As Integer
+    If Button <> 1 Then Exit Sub
+    lngX = X - glngAncho1 '* TC_CmToPoints 'glngAncho1
+    lngY = y - glngAlto1
+    gintColD = (lngX \ glngAncho) + 1
+    gintFilD = (lngY \ glngAlto) + 1
+    If gintColD > g_intC Or gintColD < 1 Then Exit Sub
+    If gintFilD > g_intF Or gintFilD < 1 Then Exit Sub
+    intR = MsgBox("¿Nueva Ficha el día " & g_Columnas(gintColD) & " en " & g_Filas(gintFilD) & "?", vbQuestion + vbOKCancel)
+    If intR = vbCancel Then Exit Sub
+NuevaFicha:
+    Dim rs2 As Recordset, lngIdFicha As Long, dtFin As Date, varFecha As Variant
+    Set rs2 = CurrentDb.OpenRecordset("tbFichasCab")
+    rs2.AddNew
+    rs2("EstadoFicha") = 1
+    rs2("FechaReserva") = Date
+    rs2("FechaLlegada") = CDate(g_Columnas(gintColD))
+    dtFin = rs2("FechaLlegada") + 1
+    varFecha = adhDoCalendar(dtFin, 1, "Fecha SALIDA")
+    If IsDate(varFecha) Then
+        dtFin = varFecha
+    Else
+        rs2.Close
+        Exit Sub
+    End If
+    rs2("FechaSalida") = dtFin
+    rs2("IVAIncluido") = DameValorParam("IVAIncluidoEnFacturasYFichas")
+    rs2("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    lngIdFicha = rs2("IdFichaCab")
+    rs2.Update
+    If g_Filas(gintFilD) = Nz(DameValorParam("PlanningParcelaSinAsignarTXT"), "Sin H.") Then ' es ficha sin parcela....
+    Else
+        AñadirLineasDetallePredeterminadas lngIdFicha, g_Filas(gintFilD)
+    End If
+    rs2.Close
+    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha ', , , "Mod"
+End Sub
+
+Private Sub Form_Activate()
+    PintaBotones Me
+End Sub
+
+Private Sub Form_Load()
+    glngAncho = Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+    glngAncho1 = glngAncho 'Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+    glngAlto = Nz(DameValorParam("PlanningHAltoCeldas"), 0.7) * TC_CmToPoints
+    glngAlto1 = glngAlto
+'    CargarPlanning 2, 2003, Me, 1
+End Sub
+
+Public Function fDobleClic()
+    If Len(gstrNum) > 0 Then DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me("lbl" & gstrNum).Tag ', , , "Mod"
+End Function
+
+Public Sub CopiaASombra(strNum As String)
+    Dim ctl As Control
+    Set ctl = Me("lbl" & strNum)
+    Me.lblSombra.Height = 0
+    Me.lblSombra.BackColor = ctl.BackColor
+    Me.lblSombra.BackStyle = 1
+    Me.lblSombra.Left = ctl.Left
+    Me.lblSombra.Top = ctl.Top
+    Me.lblSombra.Height = ctl.Height
+    Me.lblSombra.Width = ctl.Width
+    Me.lblSombra.Caption = ctl.Caption
+    Me.lblSombra.Visible = True
+    gintFilD = 1 + ((ctl.Top - glngAlto1) \ glngAlto)
+    gintColD = 1 + ((ctl.Left - glngAncho1 - glngAncho \ 2) \ glngAncho)
+    
+End Sub
+
+Private Sub lblxxx_MouseDown(strNum As String, Button As Integer, Shift As Integer, X As Single, y As Single)
+    If Not IsNumeric(Me("lbl" & strNum).Tag) Then Exit Sub
+    If Me("lbl" & strNum).Tag = 0 Then Exit Sub
+    If glngAncho = 0 Or glngAlto = 0 Then Call Form_Load
+    If (Shift And acCtrlMask > 0) Or (Button = acRightButton) Then
+        CopiaASombra strNum
+        gstrAntTag = ""
+        Button = 0
+    Else
+        Me("lbl" & strNum).SpecialEffect = 1
+    End If
+    glngX = X
+    glngY = y
+    glngX0 = Me("lbl" & strNum).Left
+    glngY0 = Me("lbl" & strNum).Top
+    'SysCmd acSysCmdSetStatus, "X: " & X & ", Y: " & Y
+End Sub
+
+Private Sub lblxxx_MouseMove(strNum_se_ignora As String, Button As Integer, Shift As Integer, X As Single, y As Single)
+    If Not Me.lblSombra.Visible Then Exit Sub
+    Dim lngL As Long, lngT As Long, intColumnasAncho As Integer
+    If glngAncho = 0 Or glngAlto = 0 Then Call Form_Load
+    
+    lngL = glngX0 + X - glngX
+    lngT = glngY0 + y '- glngY
+    lngL = lngL - glngAncho1
+    lngT = lngT - glngAlto
+    
+    If (lngT \ glngAlto) > g_intF Then
+        lngT = (g_intF) * glngAlto
+    Else
+        lngT = (lngT \ glngAlto) * glngAlto
+    End If
+    
+    intColumnasAncho = Me.lblSombra.Width \ glngAncho
+    If (lngL \ glngAncho) + intColumnasAncho > g_intC - 1 Then
+        lngL = (g_intC - 1) * glngAncho
+    Else
+        lngL = (lngL \ glngAncho) * glngAncho
+    End If
+    
+    If lngL < 0 Then lngL = 0
+    lngL = lngL + glngAncho1 + glngAncho \ 2
+    If lngT < 0 Then lngT = 0
+    lngT = lngT + glngAlto
+    
+    Me.lblSombra.Left = lngL
+    Me.lblSombra.Top = lngT
+    'SysCmd acSysCmdSetStatus, "X: " & X & ", Y: " & Y
+    
+End Sub

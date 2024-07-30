@@ -1,0 +1,81 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    
+    Dim lngIdFichaCab As Long
+
+Private Sub btnEnviaRecordatorio_Click()
+    On Error GoTo HandleError
+    Dim sPEN As String
+    If Me.lstNotificaciones.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar una notificación de la lista", vbExclamation
+        GoTo HandleExit
+    End If
+    EnviaNotificacion lngIdFichaCab, Mid(Me.lstNotificaciones, 14, 1), True
+    Me.lstNotificaciones.Requery
+    If IsOpenForm("frmListaEmails") Then Forms("frmListaEmails").lstEmails.Requery
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnSN_Click()
+    On Error GoTo HandleError
+    Dim sPEN As String
+    If Me.lstNotificaciones.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar una notificación de la lista", vbExclamation
+        GoTo HandleExit
+    End If
+    'sPEN = Nz(DameValorParam(Me.lstNotificaciones & "_PEN_IdF_" & lngIdFichaCab), "P")
+    sPEN = DimeNotificacionPEN(lngIdFichaCab, Mid(Me.lstNotificaciones, 14, 1))
+    Select Case sPEN
+        Case "P": sPEN = "E"
+        Case "E": sPEN = "N"
+        Case Else: sPEN = "P"
+    End Select
+    PonNotificacionPEN lngIdFichaCab, Mid(Me.lstNotificaciones, 14, 1), sPEN
+    'PonValorParam Me.lstNotificaciones & "_PEN_IdF_" & lngIdFichaCab, sPEN, 10
+    Me.lstNotificaciones.Requery
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    On Error GoTo HandleError
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdFichaCab = Nz(DimeXML(strXML, "IdFichaCab"), 0)
+    If lngIdFichaCab = 0 Then
+        MsgBox "Se debe pasa IdFichaCab en OpenArgs", vbExclamation
+        GoTo HandleExit
+    End If
+    Dim strSQL As String
+    Me.Caption = "Notificaciones de la ficha: " & lngIdFichaCab
+    Me.lblNoti.Caption = "Notificaciones de la ficha: " & lngIdFichaCab
+    'strSQL = "SELECT cfgParam.NP, cfgParam.VP, Nz(damevalorparam([NP] & '_PEN_IdF_" & lngIdFichaCab & "'),'P') AS [Enviar (S-N)]" & _
+             " From cfgParam" & _
+             " WHERE cfgParam.NP Like 'Notificacion_?' AND Nz(DameValorParam([NP] & '_SN'),True)=True"
+    strSQL = "SELECT cfgParam.NP, cfgParam.VP, DimeNotificacionPEN(" & lngIdFichaCab & ",Mid([NP],14,1)) AS PEN" & _
+             " From cfgParam" & _
+             " WHERE (((cfgParam.NP) Like 'Notificacion_?') AND ((Nz(damevalorparam([NP] & '_SN'),True))=True));"
+
+    Me.lstNotificaciones.RowSource = strSQL
+
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

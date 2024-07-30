@@ -1,0 +1,31 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    If Len(Me.OpenArgs) > 0 Then
+        Dim strSQL As String
+        strSQL = "UPDATE tbFichasDet SET tbFichasDet.PlazasOcupadas = " & Me.txt
+        strSQL = strSQL & " WHERE (((tbFichasDet.IdFichaDet)=" & Me.OpenArgs & "));"
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    DoCmd.Close
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    If Len(Me.OpenArgs) > 0 Then
+        Dim lng As Long
+        lng = Nz(DLookup("PlazasOcupadas", "tbFichasDet", "IdFichaDet = " & Me.OpenArgs), 0)
+        Me.txt = lng
+        Me.lbl.Caption = "Plazas Ocupadas en " & Nz(DLookup("Parcela", "tbFichasDet", "IdFichaDet = " & Me.OpenArgs), "-")
+    End If
+        
+End Sub

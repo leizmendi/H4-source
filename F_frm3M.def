@@ -1,0 +1,86 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    
+    Dim gintNumPuerto As Integer
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+
+Private Sub btnOpciones_Click()
+    If gintNumPuerto <> 0 Then
+        CommClose gintNumPuerto
+        Me.lblPuerto.Caption = " Puerto COM" & gintNumPuerto & " cerrado..."
+    End If
+    Me.TimerInterval = 0
+    DoCmd.OpenForm "frmPArametros3M", , , , , acDialog
+    Call Form_Load
+End Sub
+
+
+Private Sub Form_Activate()
+    Call Form_Load
+End Sub
+
+Private Sub Form_Load()
+    Dim intPuertoAbierto As Integer
+    Me.TimerInterval = 0
+    gintNumPuerto = Nz(DameValorParam("TRESM_PUERTO_SERIE"), 0)
+    If gintNumPuerto = 0 Then
+        MsgBox "Se debe indicar el puerto de comunicación", vbExclamation
+        Exit Sub
+    End If
+    CommClose gintNumPuerto
+    Me.lblPuerto.Caption = " Puerto COM" & gintNumPuerto & " cerrado..."
+    intPuertoAbierto = AbrirPuerto(gintNumPuerto)
+    If intPuertoAbierto Then
+            'gintPort = intNumPuerto
+        Me.lblPuerto.Caption = " Puerto COM" & gintNumPuerto & " ABIERTO..."
+        Me.TimerInterval = 1000
+    End If
+    Me.txtOutput = Null
+End Sub
+
+Private Sub Form_Timer()
+    Call LeerPuerto
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    If gintNumPuerto <> 0 Then
+        CommClose gintNumPuerto
+'        Me.lblPuerto.Caption = " Puerto COM" & gintNumPuerto & " cerrado..."
+    End If
+End Sub
+
+Public Sub LeerPuerto()
+    Dim strData As String, lngStatus As Long, k As Integer
+    Dim viaD As Viajero
+    If gintNumPuerto > 0 Then
+    
+        'Do While InStr(strData, vbCr) = 0 And k < 1000
+        Do While strData = "" And k < 1000
+            lngStatus = CommRead(gintNumPuerto, strData, 0)
+            k = k + 1
+            'Me.lblDisplay.Caption = k & ", " & strData
+        Loop
+    End If
+    If strData <> "" Then
+        strData = Mid(strData, 8, Len(strData) - 9)
+        strData = Replace(strData, Chr(13), vbCrLf)
+        If InStr(strData, vbCrLf) = 1 Then strData = Mid(strData, 3)
+        Me.txtOutput = strData
+    End If
+    If lngStatus > 0 Then
+        'Me.txtElPuertoDice = Me.txtElPuertoDice & strData
+    End If
+End Sub

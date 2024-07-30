@@ -1,0 +1,516 @@
+Option Compare Database
+Option Explicit
+Const FILETicket = "C:\Ticket.txt"
+Dim strPathPrintTeam As String
+Dim strPathPrintPort As String
+Dim strError As String
+Dim intCabecera As Integer
+Dim intMargSup As Integer
+Dim intMargIzdo As Integer
+Dim intLinDet As Integer
+Dim intNumCop As Integer
+Dim intLetraCN As Integer
+Dim glngIdTickCab As Long
+Dim strgLinea As String
+Dim strMargen As String
+Dim intgCambiaAcentos As Integer
+Dim intgTicFac As Integer
+Dim intgIvaInc As Integer
+Dim intgPtsEuros As Integer
+Dim glngIdTick_Fac As Long
+Dim gintAncho As Integer
+
+'intTicFac vale 1 o 2, si 1 significa que es un Ticket de restaurante, entonces lngIdTickCab debe ser el IdTickCab (en string)
+                ' si vale 2, significa que es una factura de restaurante, lngIdTickCab es entonces el número de factura
+Public Function ImprimirTicketDOS(lngIdTickCab As Long, Optional intPag As Integer, Optional intTicFac As Integer = 1) As Integer
+    On Error GoTo Error_ImprimirTicketDOS
+    intgTicFac = intTicFac
+    ParametrosIniTic intTicFac
+    glngIdTickCab = lngIdTickCab
+    If ImprimirCabeceraTic(lngIdTickCab, intPag) = False Then
+        ImprimirTicketDOS = False
+        Close
+        Exit Function
+    End If
+    If intgTicFac = 1 Then
+        glngIdTick_Fac = lngIdTickCab
+    Else
+        'glngIdTick_Fac = DLookup("IdFactura", "tbFacturasCab", "NumeroDeFactura = '" & lngIdTickCab & "'")
+        glngIdTick_Fac = lngIdTickCab
+    End If
+    If ImprimirDetalleTic(glngIdTick_Fac) = False Then
+        ImprimirTicketDOS = False
+        Close
+        Exit Function
+    End If
+    If ImprimirPieTic(lngIdTickCab) = False Then
+        ImprimirTicketDOS = False
+        Close
+        Exit Function
+    End If
+    Dim intSalto As Integer, intCorte As Integer
+    If intgTicFac = 1 Then
+        intSalto = Nz(DameValorParam("TicketsSaltoPaginaAlFinal"), False)
+        intCorte = Nz(DameValorParam("TicketsCortePapel"), False)
+    Else
+        intSalto = Nz(DameValorParam("FacturasSaltoPaginaAlFinal"), False)
+        intCorte = Nz(DameValorParam("FacturasCortePapel"), False)
+    End If
+    If intSalto Then
+        Print #1, seSaltPg;
+    End If
+    If intCorte Then
+'        Print #1, TraduceSE("029080") & Chr$(144) & Chr$(144)
+        Print #1, TraduceSE("027074") & Chr$(144)
+        Print #1, TraduceSE("027105");
+    End If
+    Close
+    Dim intBloc As Integer
+    intBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    If intBloc = False Then
+        ImprimirDOS FILETicket, strPathPrintTeam & strPathPrintPort
+    Else
+        Shell "NotePad " & FILETicket
+    End If
+
+Salir_ImprimirTicketDOS:
+    Exit Function
+Error_ImprimirTicketDOS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirTicketDOS"
+            
+    End Select
+    
+    Resume Salir_ImprimirTicketDOS
+    
+End Function
+
+Private Sub ParametrosIniTic(Optional intTicFac As Integer = 1)
+    Dim strImpresoraTickets  As String
+    On Error GoTo Error_ParametrosIniFac
+    If intTicFac = 1 Then
+        intCabecera = DameValorParam("TicketsCabeceraSN")
+        intMargSup = DameValorParam("TicketsMargenSup")
+        intMargIzdo = DameValorParam("TicketsMargenIzdo")
+        intLinDet = DameValorParam("TicketsLineasDetalle")
+        intNumCop = DameValorParam("TicketsNumCopias")
+        intLetraCN = DameValorParam("TicketsLetraCN")
+        strImpresoraTickets = DameValorParam("TicketsImpresora")
+    Else
+        intCabecera = DameValorParam("FacturasCabeceraSN")
+        intMargSup = DameValorParam("FacturasMargenSup")
+        intMargIzdo = DameValorParam("FacturasMargenIzdo")
+        intLinDet = DameValorParam("FacturasLineasDetalle")
+        intNumCop = DameValorParam("FacturasNumCopias")
+        intLetraCN = DameValorParam("FacturasLetraCN")
+        strImpresoraTickets = DameValorParam("FacturasImpresora")
+    End If
+    intgCambiaAcentos = DLookup("CambiarAcentos", "cfgImpresoras", "NombreImpresora = '" & strImpresoraTickets & "'")
+    CargarCodigosEscape strImpresoraTickets
+    strPathPrintTeam = DLookup("NombrePuesto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraTickets & "'")
+    If strPathPrintTeam = DameValorParam("PuestoNombre") Then
+        strPathPrintTeam = "c:\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraTickets & "'"), 1, True)
+    Else
+        strPathPrintTeam = "\\" & strPathPrintTeam & "\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraTickets & "'"), 2, True)
+    End If
+AbrirFichero:
+    Open FILETicket For Output As #1
+    Print #1, seInicia;
+    If intLetraCN = 1 Then
+        Print #1, seCOMPRI;
+    Else
+        Print #1, seNORMAL;
+    End If
+Salir_ParametrosIniFac:
+    Exit Sub
+Error_ParametrosIniFac:
+    Select Case Err
+        Case 55
+            Close
+            Resume AbrirFichero
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ParametrosIniFac"
+            
+    End Select
+    Resume Salir_ParametrosIniFac
+End Sub
+
+Private Function ImprimirCabeceraTic(lngIdTic_Fac As Long, Optional intPag As Integer) As Integer
+    Dim rs As Recordset
+    Dim i As Integer, j As Integer
+    Dim strMiCab As String
+    Dim strSQL As String, strX As String
+    On Error GoTo Error_ImprimirCabeceraTic
+    If intgTicFac = 1 Then
+        gintAncho = DameValorParam("TicketsAncho")
+    Else
+        gintAncho = DameValorParam("FacturasAncho")
+    End If
+    If intgTicFac = 1 Then
+        strSQL = "SELECT tbTickCab.IdTickCab, tbTickCab.NumTicket, tbTickCab.Fecha AS Fecha, tbTickCab.IvaInc_Det AS IVAinc, tbTickCab.IdLugar"
+        strSQL = strSQL & " FROM tbTickCab"
+        Set rs = CurrentDb.OpenRecordset(strSQL)
+        rs.FindFirst "IdTickCab = " & lngIdTic_Fac
+    Else
+        strSQL = "SELECT tbFacturasCab.IdFactura, tbFacturasCab.NumeroDeFactura, tbFacturasCab.FechaFactura AS Fecha, tbFacturasCab.IvaIncluidoDetalle AS IVAinc"
+        strSQL = strSQL & " FROM tbFacturasCab"
+        Set rs = CurrentDb.OpenRecordset(strSQL)
+        rs.FindFirst "IdFactura = " & lngIdTic_Fac
+    End If
+    If rs.NoMatch Then
+        MsgBox "No existe la factura/ficha Id: " & lngIdTic_Fac
+        ImprimirCabeceraTic = False
+        Exit Function
+    End If
+'    If intgTicFac = 2 Then 'Espera papel
+'        Print #1, TraduceSE("027099052048") ' & Chr$(4) ' se incluye en la inicialización
+        If intMargSup > 0 Then
+            For i = 1 To intMargSup
+                Print #1, seReturn;
+            Next i
+        End If
+'    End If
+    
+    If intgTicFac = 1 Then 'Cabecera establecimiento
+        If Nz(DameValorParam("TicketsCabeceraSN"), False) = True Then
+            strMiCab = Nz(DameValorParam("TicketsCabecera"), "")
+        Else
+            strMiCab = ""
+        End If
+    Else
+        If Nz(DameValorParam("FacturasCabeceraSN"), False) = True Then
+            strMiCab = Nz(DameValorParam("FacturasCabecera"), "")
+        Else
+            strMiCab = ""
+        End If
+    End If
+    If intMargIzdo > 0 Then
+        strMargen = space(intMargIzdo)
+    Else
+        strMargen = ""
+    End If
+    If intCabecera = True Then
+        j = LineasDeStr(strMiCab)
+        For i = 1 To j
+            strgLinea = strMargen & ExtraeLin(strMiCab, i)
+            ImprimeLinea
+        Next i
+    End If
+    If intgTicFac = 1 Then
+        'strgLinea = strMargen & seSubrayON & Centra(" F A C T U R A ", gintAncho)
+        'If intPag > 0 Then
+        '    strX = "Pag. " & intPag
+        '    strgLinea = Left(strgLinea, Len(strgLinea) - Len(strX)) & strX
+        'End If
+        'strgLinea = strgLinea & seSubrayOFF
+        'ImprimeLinea
+        strgLinea = strMargen & "Fecha: " & Format(rs("Fecha"), "dd/mm/yy")
+        strgLinea = strgLinea & seRemarcON & LlenaIzq("Ticket Nº: " & Format(rs("NumTicket"), "00000"), DameValorParam("TicketsAncho") - 15) & seRemarcOFF '& LlenaIzq(IIf(intPag > 0, "Pag. " & intPag, " "), 14)
+        ImprimeLinea
+        strgLinea = strMargen & "Hora:  " & Format(Now(), "hh:nn") & LlenaIzq(Nz(DLookup("Lugar", "tbEspa_Lugares", "IdLugar = " & rs("IdLugar")), ""), gintAncho - 12)
+        ImprimeLinea
+    Else
+        strgLinea = strMargen & seSubrayON & Centra(" F A C T U R A ", gintAncho)
+        If intPag > 0 Then
+            strX = "Pag. " & intPag
+            strgLinea = Left(strgLinea, Len(strgLinea) - Len(strX)) & strX
+        End If
+        strgLinea = strgLinea & seSubrayOFF
+        ImprimeLinea
+        strgLinea = strMargen & LlenaIzq("Nº:  " & rs("NumeroDeFactura"), gintAncho)
+        ImprimeLinea
+        strgLinea = strMargen & LlenaIzq("Fecha: " & Format(rs("Fecha"), "dd/mm/yy"), gintAncho)
+        ImprimeLinea
+    End If
+salto1:
+    Print #1, seReturn;
+    strgLinea = strMargen & "   C O N C E P T O    " & " " & " Precio" & " " & " Importe "
+    ImprimeLinea
+    If rs("IvaInc") = True Then
+        intgIvaInc = True
+        strgLinea = strMargen & LlenaChar("_concepto", 22) & " " & seSubrayON & "IVAinc." & " " & seSubrayON & "  Euros  " & seSubrayOFF
+    Else
+        intgIvaInc = False
+        strgLinea = strMargen & LlenaChar("_concepto", 22) & " " & LlenaChar("_precio", 7) & " " & seSubrayON & "  Euros  " & seSubrayOFF
+    End If
+    ImprimeLinea
+    ImprimirCabeceraTic = True
+Salir_ImprimirCabeceraTic:
+    Exit Function
+Error_ImprimirCabeceraTic:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraTic"
+    End Select
+    Resume Salir_ImprimirCabeceraTic
+End Function
+
+
+Private Function ImprimirDetalleTic(lngIdTicFac As Long)
+    Dim rs As Recordset
+    Dim i As Integer, intPag As Integer, j As Integer
+    Dim l As Integer
+    Dim strSQL As String, strConcepto As String
+    Dim strMiCab As String
+    Dim strNF As String
+    Dim curImporte As Currency
+    On Error GoTo Error_ImprimirDetalleTic
+    If intgTicFac = 1 Then
+        strSQL = "SELECT tbTickDet.*"
+        strSQL = strSQL & " FROM tbTickDet"
+        strSQL = strSQL & " WHERE (((tbTickDet.IdTickCab) = " & lngIdTicFac & "))"
+        strSQL = strSQL & " ORDER BY tbTickDet.IdTickDet;"
+    Else
+        strSQL = "SELECT tbFacturasDet.Concepto, tbFacturasDet.Cantidad, tbFacturasDet.PrecioUnitario, [Cantidad]*[PrecioUnitario] AS Importe, tbFacturasDet.IVA"
+        strSQL = strSQL & " FROM tbFacturasDet"
+        strSQL = strSQL & " WHERE (((tbFacturasDet.IdFactura) = " & lngIdTicFac & "))"
+        strSQL = strSQL & " ORDER BY tbFacturasDet.IdDetalle"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    rs.MoveLast
+    rs.MoveFirst
+    intPag = 1
+    While Not rs.EOF
+        i = i + 1
+        j = j + 1
+        If intLinDet > 0 And i >= intLinDet And rs.RecordCount > j Then
+            strgLinea = strMargen & LlenaIzq("Sigue...............", gintAncho)
+            ImprimeLinea
+            strgLinea = seSaltPg
+            ImprimeLinea
+            intPag = intPag + 1
+            ImprimirCabeceraTic lngIdTicFac, intPag
+            i = 0
+        End If
+        strConcepto = Nz(rs("Concepto"), "")
+        If intgTicFac = 1 Then
+            curImporte = Redondea(rs("Cantidad") * rs("Precio"), 2)
+            strgLinea = strMargen & Llena(rs("Cantidad") & " " & strConcepto, 22) & " " & LlenaIzq(Format(rs("Precio"), "#,##0.00"), 7) & LlenaIzq(Format(curImporte, "#,##0.00"), 10)
+        Else
+            curImporte = Redondea(rs("Cantidad") * rs("PrecioUnitario"), 2)
+            strgLinea = strMargen & Llena(rs("Cantidad") & " " & strConcepto, 22) & " " & LlenaIzq(Format(rs("PrecioUnitario"), "#,##0.00"), 7) & LlenaIzq(Format(curImporte, "#,##0.00"), 10)
+        End If
+        If rs("Cantidad") = 0 Then
+            strgLinea = strMargen & Llena("  " & strConcepto, gintAncho)
+        ElseIf curImporte = 0 Then
+            strgLinea = strMargen & Llena(rs("Cantidad") & " " & strConcepto, gintAncho)
+        End If
+        ImprimeLinea
+        rs.MoveNext
+    Wend
+    If intgTicFac = 1 Then GoTo Salto4 ' los tiquets en papel contínuo se ponen líneas detalle=0
+    While i <= intLinDet
+        Print #1, seReturn;
+        i = i + 1
+    Wend
+Salto4:
+    ImprimirDetalleTic = True
+    
+Salir_ImprimirDetalleTic:
+    Exit Function
+Error_ImprimirDetalleTic:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirDetalleTic"
+            
+    End Select
+    
+    Resume Salir_ImprimirDetalleTic
+
+End Function
+
+Private Function ImprimirPieTic(lngIdTic_Fac As Long) As Integer
+    Dim rs As Recordset
+    Dim rs2 As Recordset
+    Dim i As Integer, j As Integer
+    Dim strIVA As String
+    Dim strSaludos As String
+    Dim curTotalBase As Currency, curTotalIVA As Currency
+    On Error GoTo Error_ImprimirPieTic
+    If intgTicFac = 1 Then
+        strSaludos = DameValorParam("TicketsSaludos")
+    Else
+        strSaludos = DameValorParam("FacturasSaludos")
+    End If
+    If intgTicFac = 1 Then
+        Set rs = CurrentDb.OpenRecordset("tbTickCab")
+        rs.FindFirst "IdTickCab = " & lngIdTic_Fac
+        If rs.NoMatch Then
+            MsgBox "No existe el Ticket con IdTickCab: " & lngIdTic_Fac
+            ImprimirPieTic = False
+            Exit Function
+        End If
+    Else
+        Set rs = CurrentDb.OpenRecordset("tbFacturasCab")
+        rs.FindFirst "IdFactura = " & lngIdTic_Fac
+        If rs.NoMatch Then
+            MsgBox "No existe la factura IdFactura: " & lngIdTic_Fac
+            ImprimirPieTic = False
+            Exit Function
+        End If
+    End If
+Salto3:
+    strgLinea = strMargen & LlenaChar("_", gintAncho)
+    ImprimeLinea
+    If intgTicFac = 1 Then
+        'Set rs2 = CurrentDb.OpenRecordset("qryCuentaIVAsTickets")
+        'rs2.FindFirst "IdTickCab = " & lngIdTic_Fac
+        'If Not rs.NoMatch Then
+        '    If rs2("CuentaDeIVA") > 1 Then
+        '        strIVA = LlenaIzq(DesgloseIVATic(lngIdTic_Fac), 24) & " IVA: "
+        '    Else
+        '        strIVA = Format(rs2("PrimeroDeIVA"), "percent")
+        '        strIVA = LlenaIzq(strIVA & " IVA: ", 30)
+        '    End If
+        'End If
+    Else
+        Set rs2 = CurrentDb.OpenRecordset("qryCuentaIVAs")
+        rs2.FindFirst "IdFactura = " & lngIdTic_Fac
+        If Not rs.NoMatch Then
+            If rs2("CuentaDeIVA") > 1 Then
+                strIVA = LlenaIzq(DesgloseIVAFac(lngIdTic_Fac), 24) & " IVA: "
+            Else
+                strIVA = Format(rs2("PrimeroDeIVA"), "percent")
+                strIVA = LlenaIzq(strIVA & " IVA: ", 30)
+            End If
+        End If
+    End If
+    If intgTicFac = 1 Then
+        curTotalBase = rs("TotalBase")
+        curTotalIVA = rs("TotalTicket") - rs("TotalBase")
+    Else
+        curTotalBase = rs("TotalBase")
+        curTotalIVA = rs("TotalIVA")
+    End If
+    If intgTicFac = 1 Then
+        'strgLinea = strMargen & LlenaIzq("Base: ", 30) & LlenaIzq(Format(curTotalBase, "#,##0.00"), 10)
+        'ImprimeLinea
+        'strgLinea = strMargen & strIVA & LlenaIzq(Format(curTotalIVA, "#,##0.00"), 10)
+        'ImprimeLinea
+    Else
+        strgLinea = strMargen & LlenaIzq("Base: ", 30) & LlenaIzq(Format(curTotalBase, "#,##0.00"), 10)
+        ImprimeLinea
+        strgLinea = strMargen & strIVA & LlenaIzq(Format(curTotalIVA, "#,##0.00"), 10)
+        ImprimeLinea
+    End If
+    Print #1, seRemarcON;
+    strgLinea = strMargen & LlenaIzq("TOTAL: ", 30) & LlenaIzq(Format((curTotalBase + curTotalIVA), "#,##0.00"), 10)
+    ImprimeLinea
+    Print #1, seRemarcOFF;
+'    If intgTicFac = 1 Then 'Salto lineas
+'        Print #1, TraduceSE("027074") & Chr$(144)
+'    End If
+    If Len(strSaludos) > 0 Then
+        Print #1,
+        j = LineasDeStr(strSaludos)
+        For i = 1 To j
+            strgLinea = strMargen & Centra(ExtraeLin(strSaludos, i), gintAncho)
+            ImprimeLinea
+        Next i
+    End If
+    Print #1,
+    ImprimirPieTic = True
+Salir_ImprimirPieTic:
+    Exit Function
+Error_ImprimirPieTic:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirPieTic"
+            Resume Salir_ImprimirPieTic
+            Resume Next
+    End Select
+End Function
+
+Private Function DesgloseIVAFac(lngIdFactura As Long, Optional intCRLF As Integer = False) As String
+    Dim rs As Recordset
+    Dim strRes As String
+    Dim intPtsEuros As Integer
+    On Error GoTo Error_DesgloseIVAFac
+    Set rs = CurrentDb.OpenRecordset("qryFacturasTotalesTiposIVA")
+    rs.FindFirst "IdFactura = " & lngIdFactura
+    If rs.NoMatch Then
+        DesgloseIVAFac = ""
+        Exit Function
+    End If
+    While rs("IdFactura") = lngIdFactura
+        strRes = strRes & IIf(intCRLF = True, vbCrLf, ", ") & Format(rs("IVA") * 100, "0") & "% s/" & Format(rs("Base"), "#,##0.00")
+        rs.MoveNext
+        If rs.EOF Then GoTo Sigue
+    Wend
+Sigue:
+    strRes = Right(strRes, Len(strRes) - 2)
+    DesgloseIVAFac = strRes
+Salir_DesgloseIVAFac:
+    Exit Function
+Error_DesgloseIVAFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En DesgloseIVAFac"
+    End Select
+    Resume Salir_DesgloseIVAFac
+    
+End Function
+
+Private Function DesgloseIVATic(lngIdTickCab As Long, Optional intCRLF As Integer = False) As String
+    Dim rs As Recordset
+    Dim strRes As String
+    Dim intPtsEuros As Integer
+    On Error GoTo Error_DesgloseIVATic
+    Set rs = CurrentDb.OpenRecordset("qryTicketsTotalesTiposIVA")
+    rs.FindFirst "IdTickCab = " & lngIdTickCab
+    If rs.NoMatch Then
+        DesgloseIVATic = ""
+        Exit Function
+    End If
+    While rs("IdTickCab") = lngIdTickCab
+        strRes = strRes & IIf(intCRLF = True, vbCrLf, ", ") & Format(rs("IVA") * 100, "0") & "% s/" & Format(rs("Base"), "#,##0.00")
+        rs.MoveNext
+        If rs.EOF Then GoTo Sigue
+    Wend
+Sigue:
+    strRes = Right(strRes, Len(strRes) - 2)
+    DesgloseIVATic = strRes
+Salir_DesgloseIVATic:
+    Exit Function
+Error_DesgloseIVATic:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En DesgloseIVATic"
+    End Select
+    Resume Salir_DesgloseIVATic
+    
+End Function
+
+Private Sub ImprimeLinea()
+    If intgCambiaAcentos = True Then
+        Print #1, CambiaAcentos(strgLinea)
+    Else
+        Print #1, strgLinea
+    End If
+End Sub
+
+Public Function AbreCajonNew() As Integer
+    On Error GoTo Error_AbreCajonNew
+    'ParametrosIniTic
+    Open FILETicket For Output As #1
+    Print #1, TraduceSE("027112000100250")
+    'Print #1, TraduceSE("027112000010100")
+ '-->Print #1, TraduceSE("027112000008032")' EPSON
+    Close
+    ImprimirDOS FILETicket, DameValorParam("PuestoPuertoCajon")
+
+Salir_AbreCajonNew:
+    Exit Function
+Error_AbreCajonNew:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En AbreCajonNew"
+            
+    End Select
+    
+    Resume Salir_AbreCajonNew
+    
+End Function

@@ -1,0 +1,200 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function EsBisiesto(intAño As Integer) As Integer
+    On Error GoTo Error_EsBisiesto
+    EsBisiesto = False
+    If (intAño Mod 4 = 0 And intAño Mod 100 <> 0) Or intAño Mod 400 = 0 Then
+        EsBisiesto = True
+    End If
+Salir_EsBisiesto:
+    Exit Function
+Error_EsBisiesto:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EsBisiesto" & vbCrLf & Err.Description
+            Resume Salir_EsBisiesto
+    End Select
+End Function
+
+Public Function DiaD(Dat As Date, Optional intLargo As Integer = False, Optional strLang As String = "ES", Optional intVerFestivos As Integer = False, Optional intSNF As Integer = 1, Optional strPref As String = "") As String
+    On Error GoTo Error_DiaD
+    Dim strD As String
+    If intSNF = 2 Then
+        GoTo Fin
+    End If
+    Select Case strLang
+        Case "EU"
+            Select Case Weekday(Dat)
+                Case vbSunday
+                    strD = IIf(Not intLargo, "I", "Igandea")
+                Case vbMonday
+                    strD = IIf(Not intLargo, "A", "Astelehena")
+                Case vbTuesday
+                    strD = IIf(Not intLargo, "A", "Asteartea")
+                Case vbWednesday
+                    strD = IIf(Not intLargo, "A", "Asteazkena")
+                Case vbThursday  '5   Jueves
+                    strD = IIf(Not intLargo, "O", "Ostirala")
+                Case vbFriday    '6   Viernes
+                    strD = IIf(Not intLargo, "O", "Osteguna")
+                Case vbSaturday  '7   Sábado
+                    strD = IIf(Not intLargo, "L", "Larunbata")
+            End Select
+        Case Else
+            Select Case Weekday(Dat)
+                Case vbSunday
+                    strD = IIf(Not intLargo, "D", "Domingo")
+                Case vbMonday
+                    strD = IIf(Not intLargo, "L", "Lunes")
+                Case vbTuesday
+                    strD = IIf(Not intLargo, "M", "Martes")
+                Case vbWednesday
+                    strD = IIf(Not intLargo, "X", "Miércoles")
+                Case vbThursday  '5   Jueves
+                    strD = IIf(Not intLargo, "J", "Jueves")
+                Case vbFriday    '6   Viernes
+                    strD = IIf(Not intLargo, "V", "Viernes")
+                Case vbSaturday  '7   Sábado
+                    strD = IIf(Not intLargo, "S", "Sábado")
+            End Select
+        End Select
+        Dim intWE As Integer
+        If intVerFestivos Or intSNF = 3 Then
+            If EsFestivo(Dat, , intWE) Then
+                If Not intWE Then
+                    Select Case strLang
+                        Case "EU"
+                            strD = IIf(Not intLargo, "F", "Festa")
+                        Case Else
+                            strD = IIf(Not intLargo, "F", "Festivo")
+                    End Select
+                End If
+            ElseIf intSNF = 3 Then
+                strD = ""
+            End If
+        End If
+        If strD <> "" Then strD = strPref & strD
+Fin:
+        DiaD = strD
+Salir_DiaD:
+    Exit Function
+Error_DiaD:
+        DiaD = "-"
+        Resume Salir_DiaD
+End Function
+
+Public Function LunesDe(Dat As Date) As Date
+'Devuelve la fecha de la semana de la fecha pasada en Dat
+    On Error GoTo Error_LunesDe
+    Select Case Weekday(Dat)
+        Case vbSunday
+            LunesDe = Dat - 6
+        Case vbMonday
+            LunesDe = Dat
+        Case vbTuesday
+            LunesDe = Dat - 1
+        Case vbWednesday
+            LunesDe = Dat - 2
+        Case vbThursday  '5   Jueves
+            LunesDe = Dat - 3
+        Case vbFriday    '6   Viernes
+            LunesDe = Dat - 4
+        Case vbSaturday  '7   Sábado
+            LunesDe = Dat - 5
+    End Select
+Salir_LunesDe:
+    Exit Function
+Error_LunesDe:
+        LunesDe = "-"
+        Resume Salir_LunesDe
+End Function
+
+Public Function DDM(intMes As Integer, intAño As Integer) As Integer
+    Select Case intMes
+        Case 1, 3, 5, 7, 8, 10, 12
+            DDM = 31
+        Case 4, 6, 9, 11
+            DDM = 30
+        Case 2
+            If EsBisiesto(intAño) Then
+                DDM = 29
+            Else
+                DDM = 28
+            End If
+        Case Else
+            MsgBox "Mes no válido"
+            DDM = 0
+    End Select
+End Function
+
+
+Public Function PonFecha(strCtl As String, intDifDias As Integer)
+    Dim ctl As Control, frm As Form
+    On Error GoTo Error_PonFecha
+    Set frm = Screen.ActiveForm
+    Set ctl = frm(strCtl)
+    If Not IsDate(ctl.value) Then ctl = Date
+    ctl.value = ctl.value + intDifDias
+Salir_PonFecha:
+    Exit Function
+Error_PonFecha:
+    Select Case Err
+        Case 2465
+            Set frm = frm("subfrm").Form
+            Resume
+        Case Else
+            MsgBox "error nº " & Err & " en PonFecha" & vbCrLf & Err.Description
+            Resume Salir_PonFecha
+    End Select
+End Function
+
+
+Public Function EsFestivo(dt As Date, Optional intIncluirSabados As Integer = True, Optional ByRef intEsWeekend As Integer)
+    EsFestivo = False
+    If Weekday(dt) = vbSunday Or (intIncluirSabados And Weekday(dt) = vbSaturday) Then
+        EsFestivo = True
+        intEsWeekend = True
+    ElseIf Nz(DLookup("FFiesta", "tbFestivos", "FFiesta = " & CLng(dt)), 0) = dt Then
+        EsFestivo = True
+    ElseIf Nz(DLookup("FiestaMMDD", "tbFestivosA", "FiestaMMDD = '" & Format(dt, "mmdd") & "'"), "") = Format(dt, "mmdd") Then
+        EsFestivo = True
+    End If
+End Function
+
+Public Function Minutos_a_Horas(lngMinutos As Long, Optional intQuita0h As Integer = False) As String
+    If intQuita0h And lngMinutos < 60 Then
+        Minutos_a_Horas = Format(lngMinutos Mod 60, "0") & "'"
+    Else
+        Minutos_a_Horas = Format(lngMinutos \ 60, "#,##0") & "h " & Format(lngMinutos Mod 60, "00") & "'"
+    End If
+End Function
+
+Public Function DimeHHNN(strHH_NN As String) As Variant
+    On Error GoTo HandleError
+    Dim strXML As String, strR As String, dt As Date
+    On Error Resume Next
+    dt = CDate(strHH_NN)
+    If Err <> 0 Then
+        strHH_NN = "  :  "
+    Else
+        strHH_NN = Format(dt, "HH:NN")
+    End If
+    PonXML strXML, "HH", Left(strHH_NN, 2)
+    PonXML strXML, "NN", Mid(strHH_NN, 4, 2)
+    DoCmd.OpenForm "frmHH_NN", , , , , acDialog, strXML
+    If Not IsOpenForm("frmHH_NN") Then
+        DimeHHNN = Null
+        Exit Function
+    End If
+    strR = SpNz(Forms("frmHH_NN")("txtHH"), "00") & ":" & SpNz(Forms("frmHH_NN")("txtNN"), "00")
+    DoCmd.Close acForm, "frmHH_NN"
+    DimeHHNN = strR
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

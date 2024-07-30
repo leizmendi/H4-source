@@ -1,0 +1,61 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ActualizarTODASTbOcupadas() As Integer
+    On Error GoTo Error_ActualizarTODASTbOcupadas
+    ActualizarTODASTbOcupadas = False
+    Dim strSQL As String, intRes As Integer
+    Dim rsOcu As Recordset, rsRes As Recordset, strAux As String
+    Dim rsFi As Recordset, datF As Date
+    Dim i As Integer
+    'Primero borrar todas las parcelas ocupadas
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbOcupadas"
+    Set rsOcu = CurrentDb.OpenRecordset(strSQL)
+    While Not rsOcu.EOF
+        rsOcu.Edit
+        rsOcu("IdFicha") = 0
+        rsOcu.Update
+        rsOcu.MoveNext
+    Wend
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasDet.Parcela"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab;"
+
+    Set rsFi = CurrentDb.OpenRecordset(strSQL)
+    While Not rsFi.EOF
+        If IsNull(rsFi("FechaLlegada")) Then
+            MsgBox "En la Ficha " & rsFi("IdFichaCab") & " no se indica la Fecha de Llegada"
+            GoTo SiguienteFicha
+        End If
+        If IsNull(rsFi("FechaSalida")) Then
+            MsgBox "En la Ficha " & rsFi("IdFichaCab") & " no se indica la Fecha de Salida"
+            GoTo SiguienteFicha
+        End If
+        For datF = rsFi("FechaLlegada") To rsFi("FechaSalida")
+            rsOcu.FindFirst "Fecha = #" & Format(datF, "mm/dd/yy") & "# AND NombreParcela = '" & rsFi("Parcela") & "'"
+            If Not rsOcu.NoMatch Then
+                If rsOcu("IdFicha") <> 0 Then
+                    MsgBox "El Día " & Format(datF, "dd/mm/yy") & " la Parcela " & rsFi("Parcela") & " está ocupada por las fichas: " & rsFi("IdFichaCab") & " y " & rsOcu("IdFicha")
+                Else
+                    rsOcu.Edit
+                    rsOcu("IdFicha") = rsFi("IdFichaCab")
+                    rsOcu.Update
+                End If
+            Else
+                MsgBox "Falta en tbOcupadas, el día " & datF & " en la Parcela " & rsFi("Parcela")
+            End If
+        Next datF
+SiguienteFicha:
+        rsFi.MoveNext
+    Wend
+    ActualizarTODASTbOcupadas = True
+Salir_ActualizarTODASTbOcupadas:
+    Exit Function
+Error_ActualizarTODASTbOcupadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ActualizarTODASTbOcupadas" & vbCrLf & Err.Description
+            Resume Salir_ActualizarTODASTbOcupadas
+    End Select
+End Function

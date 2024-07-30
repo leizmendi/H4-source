@@ -1,0 +1,2232 @@
+Option Compare Database
+Option Explicit
+    
+    Public Enum CriterioBusquedaCuenta
+        EmpiezaPor = 1
+        EntreT1yT2 = 2
+        Contiene = 3
+    End Enum
+    
+    Public Enum AccionAyudaBusquedaCuenta
+        Cuenta_T2 = 1
+        BuscaProveedor = 2
+        BuscaCliente = 3
+    End Enum
+    
+    
+    Dim grsASI As Recordset, grsAPU As Recordset, grsIVA As Recordset, grsSUB As Recordset
+    Dim gstrEmpresa As String, gstrCanal As String, gstrEjercicio As String
+    Const MINIMO_FACTURA_CUENTA_CLIENTE = 500 'facturas de + de 500 euros --> generar cuenta de cliente
+
+Public Sub EnlaceContabilidad(Optional intGenerarNoEnlazar As Integer = False)
+    On Error GoTo Error_EnlaceContabilidad
+    Dim strSQL As String, lngF As Long, lngO As Long, lngR As Long, lngC As Long, lngP As Long, lngT As Long, lngB As Long
+    Dim lngF_no As Long, lngO_no As Long, lngR_no As Long, lngC_no As Long, lngP_no As Long, lngT_no As Long, lngB_no As Long, lngN As Long
+    Dim rs As Recordset, rsEE As Recordset
+    Dim z As Long, y As Long, strMSG As String, intEnlazadaSN As Integer, dt As Date, lngRegEnlace As Long
+    Dim lngRegEnlaceMax As Long, lngRegEnlaceMin As Long, intMarcarNoEnlazar  As Integer, intR As Integer, strConcepto As String
+    CurrentDb.Execute "DELETE * FROM [conEE-REG]", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM [conASI-REG]", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM [conAPU-REG]", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM [conIVA-REG]", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM [conSUB-REG]", dbFailOnError
+    gstrEmpresa = Nz(DameValorParam("ContabilidadEmpresa"), "")
+    If gstrEmpresa = "" Then
+        MsgBox "Se debe definir empresa de contabilidad"
+        Exit Sub
+    End If
+    gstrEjercicio = Nz(DameValorParam("ContabilidadEjercicio"), "")
+    If gstrEjercicio = "" Then
+        MsgBox "Se debe definir ejercicio de contabilidad"
+        Exit Sub
+    End If
+    gstrCanal = "+"
+    Set rsEE = CurrentDb.OpenRecordset("conEE-REG", dbOpenDynaset)
+    Set grsASI = CurrentDb.OpenRecordset("conASI-REG", dbOpenDynaset)
+    Set grsAPU = CurrentDb.OpenRecordset("conAPU-REG", dbOpenDynaset)
+    Set grsIVA = CurrentDb.OpenRecordset("conIVA-REG", dbOpenDynaset)
+    Set grsSUB = CurrentDb.OpenRecordset("conSUB-REG", dbOpenDynaset)
+    rsEE.AddNew
+    rsEE(0) = gstrEmpresa
+    rsEE(1) = gstrCanal
+    rsEE(2) = gstrEjercicio
+    rsEE.Update
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM conEnlazar WHERE MarcarSN = True", dbOpenDynaset)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        intEnlazadaSN = False
+        intMarcarNoEnlazar = False
+        DoEvents
+        If intGenerarNoEnlazar = True Then
+            intEnlazadaSN = True
+            GoTo SiguienteContador
+        End If
+            
+        Select Case rs("Tipo")
+            Case "F"
+                strConcepto = Replace(rs("Concepto"), Chr(13), "-")
+                If EnlazarRegistroFacturaEmitida(rs("IdFOR"), strConcepto) = True Then
+                    lngF = lngF + 1
+                    intEnlazadaSN = True
+                Else
+                    lngF_no = lngF_no + 1
+                End If
+            Case "O"
+                If EnlazarRegistroOtrosIngresos(rs("IdFOR")) = True Then
+                    lngO = lngO + 1
+                    intEnlazadaSN = True
+                Else
+                    lngO_no = lngO_no + 1
+                End If
+            Case "R"
+                intR = EnlazarRegistroFacturaRecibida(rs("IdFOR"))
+                If intR = True Then
+                    lngR = lngR + 1
+                    intEnlazadaSN = True
+                Else
+                    lngR_no = lngR_no + 1
+                    If intR = -2 Then
+                        intEnlazadaSN = True
+                        intMarcarNoEnlazar = True
+                    End If
+                End If
+            Case "C"
+                If EnlazarRegistroCobroFacturaE(rs("IdFOR")) = True Then
+                    lngC = lngC + 1
+                    intEnlazadaSN = True
+                Else
+                    lngC_no = lngC_no + 1
+                End If
+            Case "P"
+                intR = EnlazarRegistroPagoFacturaR(rs("IdFOR"))
+                If intR = True Then
+                    lngP = lngP + 1
+                    intEnlazadaSN = True
+                Else
+                    lngP_no = lngP_no + 1
+                    If intR = -2 Then
+                        intMarcarNoEnlazar = True
+                        intEnlazadaSN = True
+                    End If
+                End If
+            Case "T"
+                If EnlazarRegistroTotalizacionTarjetas(rs("IdFOR")) = True Then
+                    lngT = lngT + 1
+                    intEnlazadaSN = True
+                Else
+                    lngT_no = lngT_no + 1
+                End If
+            Case "B"
+                If EnlazarRegistroBanco(rs("IdFOR")) = True Then
+                    lngB = lngB + 1
+                    intEnlazadaSN = True
+                Else
+                    lngB_no = lngB_no + 1
+                End If
+        End Select
+SiguienteContador:
+'        If intEnlazadaSN = True Then
+            rs.Edit
+            rs("EnlazadaSN") = intEnlazadaSN
+            rs("MarcarNoEnlazarSN") = intMarcarNoEnlazar
+            rs.Update
+'        End If
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Enlazando registros a Contabilidad " & y & "/" & z
+        rs.MoveNext
+    Wend
+    SysCmd acSysCmdClearStatus
+'    If intGenerarNoEnlazar = True Then GoTo GrabarRegistrosEnlace
+    Dim strCarpeta As String, j As Integer, strFile As String, FSO As FileSystemObject
+    strCarpeta = Nz(DameValorParam("ContabilidadCarpetaEnlace"), "C:\")
+    strFile = Nz(DameValorParam("ContabilidadFicheroEnlace"), "FEnlace.pbs")
+    'strFile = AbrirDialogo(False, , , strFile, "Guardar fichero de enlace como", "Guardar", strCarpeta)
+    If strFile = "" Then Exit Sub
+    If Dir(strCarpeta & strFile) <> "" Then
+        intR = MsgBox("¿Reemplazar el fichero " & strFile & " existente?", vbOKCancel + vbQuestion)
+        If intR <> vbOK Then Exit Sub
+    End If
+    EscribeFilePBS strCarpeta & strFile, j
+    'MsgBox j & " líneas"
+    'Set rs = CurrentDb.OpenRecordset("conEE-REG", dbOpenSnapshot)
+    'PasarTabla rs, strCarpeta & "Sfnee.txt", 1, j
+    'Set rs = CurrentDb.OpenRecordset("SELECT * FROM [conSUB-REG] ORDER BY [SUB-CODIGO]", dbOpenSnapshot)
+    'PasarTabla rs, strCarpeta & "Sfnsub.txt", 1, j
+    'Set rs = CurrentDb.OpenRecordset("conIVA-REG", dbOpenSnapshot)
+    'PasarTabla rs, strCarpeta & "Sfniva.txt", 1, j
+    'Set rs = CurrentDb.OpenRecordset("SELECT [conASI-REG].* FROM [conASI-REG] ORDER BY [conASI-REG].[ASI-ASIENTO]", dbOpenSnapshot)
+    'PasarTabla rs, strCarpeta & "Sfnasi.txt", 1, j
+    'Set rs = CurrentDb.OpenRecordset("SELECT [conAPU-REG].* FROM [conAPU-REG] ORDER BY [conAPU-REG].[APU-ASIENTO], [conAPU-REG].[APU-APUNTE]", dbOpenSnapshot)
+    'PasarTabla rs, strCarpeta & "Sfnapu.txt", 1, j
+    'Set rs = CurrentDb.OpenRecordset("SELECT [conAPU-REG].* FROM [conAPU-REG] WHERE FALSE ORDER BY [conAPU-REG].[APU-ASIENTO], [conAPU-REG].[APU-APUNTE]", dbOpenSnapshot)
+    'PasarTabla rs, strCarpeta & "Sfnefe.txt", 1, j
+    
+GrabarRegistrosEnlace:
+    'Grabar registros de Enlace
+    strSQL = "SELECT conEnlazar.Tipo, conEnlazar.IdFOR, conEnlazar.MarcarNoEnlazarSN"
+    strSQL = strSQL & " FROM conEnlazar"
+    strSQL = strSQL & " WHERE conEnlazar.EnlazadaSN=True"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsEE = CurrentDb.OpenRecordset("tbEnlaceContable", dbOpenDynaset)
+    dt = Date
+    lngRegEnlaceMax = Nz(DMax("RegEnlace", "tbEnlaceContable"), 0)
+    lngRegEnlaceMin = Nz(DMin("RegEnlace", "tbEnlaceContable"), 0)
+    If Abs(lngRegEnlaceMin) > Abs(lngRegEnlaceMax) Then
+        lngRegEnlace = Abs(lngRegEnlaceMin)
+    Else
+        lngRegEnlace = Abs(lngRegEnlaceMax)
+    End If
+    
+    While Not rs.EOF
+        lngRegEnlace = lngRegEnlace + 1
+        If intGenerarNoEnlazar = True Then
+            rsEE.FindFirst "Tipo = '" & rs("Tipo") & "' AND  IdFor = " & rs("IdFor")
+            If Not rsEE.NoMatch Then
+                CurrentDb.Execute "DELETE * FROM tbEnlaceContable WHERE Tipo = '" & rs("Tipo") & "' AND IdFor = " & rs("IdFor"), dbFailOnError
+                GoTo Siguiente
+            End If
+        End If
+        CurrentDb.Execute "DELETE * FROM tbEnlaceContable WHERE Tipo = '" & rs("Tipo") & "' AND IdFor = " & rs("IdFor"), dbFailOnError
+        rsEE.AddNew
+        rsEE("Tipo") = rs("Tipo")
+        rsEE("IdFOR") = rs("IdFOR")
+        If intGenerarNoEnlazar = False And rs("MarcarNoEnlazarSN") = False Then
+            rsEE("RegEnlace") = lngRegEnlace
+        Else
+            rsEE("RegEnlace") = -1 * lngRegEnlace
+            rsEE("NoEnlazar") = True
+        End If
+        rsEE("FechaEnlace") = dt
+        rsEE.Update
+Siguiente:
+        If intGenerarNoEnlazar Then lngN = lngN + 1
+        rs.MoveNext
+    Wend
+    If lngF > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngF & " facturas emitidas" & vbCrLf
+    If lngO > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngO & " otros ingresos" & vbCrLf
+    If lngR > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngR & " facturas recibidas" & vbCrLf
+    If lngC > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngC & " cobros de facturas emitidas" & vbCrLf
+    If lngP > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngP & " pagos de facturas recibidas" & vbCrLf
+    If lngT > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngT & " totalizaciones de tarjetas" & vbCrLf
+    If lngB > 0 Then strMSG = strMSG & "Se generó enlace de: " & lngB & " bancos" & vbCrLf
+    If lngN > 0 Then strMSG = strMSG & "Se marcaron para enlazar S/N " & lngN & " registros" & vbCrLf
+    If lngF_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngF_no & " facturas emitidas" & vbCrLf
+    If lngO_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngO_no & " otros ingresos" & vbCrLf
+    If lngR_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngR_no & " facturas recibidas" & vbCrLf
+    If lngC_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngC_no & " cobros de facturas emitidas" & vbCrLf
+    If lngP_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngP_no & " pagos de facturas recibidas" & vbCrLf
+    If lngT_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngT_no & " totalizaciones de tarjetas" & vbCrLf
+    If lngB_no > 0 Then strMSG = strMSG & "No se pudo generar enlace de: " & lngB_no & " bancos" & vbCrLf
+    
+    MsgBox strMSG
+Salir_EnlaceContabilidad:
+    Exit Sub
+Error_EnlaceContabilidad:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlaceContabilidad" & vbCrLf & Err.Description
+            Resume Salir_EnlaceContabilidad
+    End Select
+End Sub
+
+Private Function EnlazarRegistroFacturaEmitida(lngIdFor As Long, strDescripcion As String) As Integer
+    On Error GoTo Error_EnlazarRegistroFacturaEmitida
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strCuentaConta As String
+    Dim lngIdFicha As Long, strSubCuentaCliente As String, strDescripcionCliente As String, strDescripcionCuenta As String
+    Dim i As Integer, strFechaFac As String, strNumFac As String, rs2 As dao.Recordset
+    Dim strConcepto As String
+    strConcepto = Nz(DameValorParam("ContabilidadConceptoFE"), "1")
+    strSQL = "SELECT tbFacturasCab.*, tbClientes.*"
+    strSQL = strSQL & " FROM tbFacturasCab LEFT JOIN tbClientes ON tbFacturasCab.NIF = tbClientes.NIF"
+    strSQL = strSQL & " WHERE tbFacturasCab.IdFactura=" & lngIdFor
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroFacturaEmitida = False
+        Exit Function
+    End If
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    strAsiento = "1" & LlenaIzqChar(SoloNum(Left(rs("NumeroDeFactura"), 5)), 6, "0") & "00"
+    strNumFac = rs("NumeroDeFactura")
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("FechaFactura"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(rs("FechaFactura"), "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 0
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = "V"
+    grsASI("NumeroFactura") = recdertop(strNumFac, 0, 8)
+    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = recdertop(strNumFac, 0, 10) ' Mid(strNumFac, 9)
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+    strFechaFac = Format(rs("FechaFactura"), "DDMMYYYY")
+'APUNTE AL DEBE------------------------------------------->CLIENTE
+    intApunte = 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round((Nz(rs("TotalBase"), 0) + Nz(rs("TotalIVA"), 0)) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(DameValorParam("ContabilidadCuentaClientesVarios"), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de clientes varios en Parámetros\Contabilidad"
+        EnlazarRegistroFacturaEmitida = False
+        Exit Function
+    End If
+    strDescripcionCuenta = "CLIENTES VARIOS"
+    strCuentaConta = Nz(rs("CuentaContabilidad"), "")
+    If strCuentaConta <> "" Then
+        strSubcuenta = strCuentaConta
+        strDescripcionCuenta = Trim(rs("NombreCli") & " " & rs("ApellidosCli"))
+    Else
+        If (rs("Agencia") = True Or rs("TotalBase") > MINIMO_FACTURA_CUENTA_CLIENTE) And Len(rs("tbClientes.CodCliente")) > 0 Then
+            strCuentaConta = strSubcuenta
+            Mid(strCuentaConta, 9 - Len(rs("tbClientes.CodCliente")) + 1, Len(rs("tbClientes.CodCliente"))) = rs("tbClientes.CodCliente")
+            strSQL = "UPDATE tbClientes SET CuentaContabilidad = '" & strCuentaConta & "' WHERE IdCliente = " & rs("IdCliente")
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSubcuenta = strCuentaConta
+            strDescripcionCuenta = Trim(rs("NombreCli") & " " & rs("ApellidosCli"))
+        End If
+    End If
+    strSubCuentaCliente = strSubcuenta
+    grsAPU("APU-SUBCUENTA") = strSubCuentaCliente
+    grsAPU("APU-DESCRIPCION") = strDescripcion
+    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    If grsAPU("APU-CONTRAPARTIDA") = "" Then
+        MsgBox "Se debe indicar la cuenta de Ingresos de Acampada en Parámetros\Contabilidad"
+        EnlazarRegistroFacturaEmitida = False
+        Exit Function
+    End If
+    grsAPU("APU-TIPO") = "0"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    If strSubcuenta = DameValorParam("ContabilidadCuentaClientesVarios") Then
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+    Else
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta, -1 * rs("IdCliente")
+    End If
+    'Al Libro de IVA---------------------------------------------
+    ApuntarEnLibroDeIVA 1, rs("IdFactura"), strAsiento, intApunte
+    
+'APUNTEs AL HABER------------------------------------------>INGRESOS ACAMPADA
+    strSQL = "SELECT tbFacturasDet.IdFactura, CCur(Sum([Cantidad]*[PrecioUnitario]*(IIf(IsDate([FechaFin]) And IsDate([FechaInicio]),CLng([FechaFin])-CLng([FechaInicio]),1)))) AS TotalImporte, tbFacturasDet.IVA, tbFacturasCab.IvaIncluidoDetalle AS IvaIncluido, tbGruposDeIngresos.CuentaContabilidad, tbGruposDeIngresos.DescripcionGrupo, IIf([IvaIncluido]=True,[TotalImporte]/(1+[IVA]),[TotalImporte]) AS Base, [Base]*[IVA] AS ImporteIVA, tbFacturasCab.NumeroDeFactura"
+    strSQL = strSQL & " FROM tbGruposDeIngresos RIGHT JOIN (tbServiciosDiarios RIGHT JOIN (tbFacturasCab INNER JOIN tbFacturasDet ON tbFacturasCab.IdFactura = tbFacturasDet.IdFactura) ON tbServiciosDiarios.IdSD = tbFacturasDet.IdSD) ON tbGruposDeIngresos.CodNombreGrupo = tbServiciosDiarios.CodGrupoIngresos"
+    strSQL = strSQL & " WHERE tbFacturasDet.IdFactura = " & lngIdFor
+    strSQL = strSQL & " GROUP BY tbFacturasDet.IdFactura, tbFacturasDet.IVA, tbFacturasCab.IvaIncluidoDetalle, tbGruposDeIngresos.CuentaContabilidad, tbGruposDeIngresos.DescripcionGrupo, tbFacturasCab.NumeroDeFactura"
+    strSQL = strSQL & " ORDER BY tbFacturasDet.IdFactura, tbFacturasDet.IVA;"
+    Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs2.EOF
+        intApunte = intApunte + 1
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = strConcepto
+        grsAPU("APU-DH") = "H"
+        curTotal = Round(Nz(rs2("Base"), 0) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        strSubcuenta = Nz(rs2("CuentaContabilidad"), "")
+        If strSubcuenta = "" Then
+            strSubcuenta = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+            If strSubcuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de ingresos acampada en Parámetros\Contabilidad"
+                EnlazarRegistroFacturaEmitida = False
+                Exit Function
+            End If
+            strDescripcionCuenta = "INGRESOS ACAMPADA"
+        Else
+            strDescripcionCuenta = "INGRESOS " & rs2("DescripcionGrupo")
+        End If
+        grsAPU("APU-SUBCUENTA") = strSubcuenta
+        grsAPU("APU-DESCRIPCION") = recdertop(strDescripcionCuenta, 0, 60)
+        'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+        grsAPU("APU-TIPO") = "L"
+    
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+        rs2.MoveNext
+    Wend
+'APUNTE AL HABER------------------------------------------>HP IVA REPERCUTIDO
+    intApunte = intApunte + 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "H"
+    curTotal = Round(Nz(rs("TotalIVA"), 0) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(DameValorParam("ContabilidadCuentaIVARepercutido"), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de IVA repercutido en Parámetros\Contabilidad"
+        EnlazarRegistroFacturaEmitida = False
+        Exit Function
+    End If
+    strDescripcionCuenta = "H.P. IVA REPERCUTIDO"
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcionCuenta, 0, 60)
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "I"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+
+    EnlazarRegistroFacturaEmitida = True
+    
+Salir_EnlazarRegistroFacturaEmitida:
+    Exit Function
+Error_EnlazarRegistroFacturaEmitida:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistroFacturaEmitida" & vbCrLf & Err.Description
+            Resume Salir_EnlazarRegistroFacturaEmitida
+    End Select
+End Function
+
+Private Function EnlazarRegistroOtrosIngresos(lngIdFor As Long) As Integer
+    On Error GoTo Error_EnlazarRegistroOtrosIngresos
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strCuentaConta As String, strDescripcion As String
+    Dim lngIdFicha As Long, strSubCuentaCliente As String, strDescripcionCliente As String, i As Integer
+    Dim strConcepto As String
+    Dim strNumOI As String
+    strConcepto = Nz(DameValorParam("ContabilidadConceptoOI"), "2")
+'    strSQL = "SELECT tbOI.*, [Importe1]+[Importe2]+[Importe3]+[Importe4] AS Total, tbGruposDeIngresos.CuentaContabilidad, tbGruposDeIngresos.DescripcionGrupo, CCur([Total]/(1+IVA)) As Base"
+    strSQL = "SELECT tbOI.*, Nz([ImporteTotal],0) AS Total, tbGruposDeIngresos.CuentaContabilidad, tbGruposDeIngresos.DescripcionGrupo, CCur([Total]/(1+IVA)) As Base"
+    strSQL = strSQL & " FROM tbOI LEFT JOIN tbGruposDeIngresos ON tbOI.CodGrupoIngresos = tbGruposDeIngresos.CodNombreGrupo"
+    strSQL = strSQL & " WHERE IdOtrosIngresos=" & lngIdFor
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroOtrosIngresos = False
+        Exit Function
+    End If
+            'If rs("CuentaContabilidad") = "NOENLAZAR" Then
+            '    EnlazarRegistroCobroFacturaE = -2
+            '    Exit Function
+            'ElseIf IsNull(rs("CuentaContabilidad")) Then
+            '    EnlazarRegistroCobroFacturaE = False
+            '    Exit Function
+            'End If
+   '
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    strAsiento = "2" & LlenaIzqChar(rs("NumeroCorrelativo"), 6, "0")
+    If IsNull(rs("NumeroCorrelativoAux")) Then
+        strAsiento = strAsiento & "00"
+    Else
+        strAsiento = strAsiento & DimeNumNumCorrAux(rs("NumeroCorrelativo"), rs("NumeroCorrelativoAux"))
+    End If
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("Fecha"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(rs("Fecha"), "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 0
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = "V"
+    strNumOI = "OI_" & rs("NumeroCorrelativo") & DimeNumNumCorrAux(rs("NumeroCorrelativo"), Nz(rs("NumeroCorrelativoAux"), ""))
+    'strNumOI = "OI_" & DimeNumNumCorrAux(rs("NumeroCorrelativo"), Nz(rs("NumeroCorrelativoAux"), ""))
+    grsASI("NumeroFactura") = recdertop(strNumOI, 0, 8)
+    If Len(strNumOI) > 8 Then grsASI("NumeroFactura2") = Mid(strNumOI, 9)
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+'APUNTE AL DEBE------------------------------------------->CLIENTE
+    strSubcuenta = Nz(DameValorParam("ContabilidadCuentaClientesVarios"), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de clientes varios en Parámetros\Contabilidad"
+        EnlazarRegistroOtrosIngresos = False
+        Exit Function
+    End If
+    strDescripcion = "CLIENTES VARIOS"
+    strCuentaConta = strSubcuenta
+    strSubCuentaCliente = strSubcuenta
+    strDescripcionCliente = recdertop(strDescripcion, 0, 60)
+    If rs("Total") = 0 Then GoTo FormasDePago
+    intApunte = intApunte + 1
+    'intApunte = 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round(Nz(rs("Total"), 0) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    grsAPU("APU-SUBCUENTA") = strSubCuentaCliente
+    grsAPU("APU-DESCRIPCION") = strDescripcionCliente
+    grsAPU("APU-CONTRAPARTIDA") = Nz(rs("CuentaContabilidad"), "")
+    If grsAPU("APU-CONTRAPARTIDA") = "" Then
+        MsgBox "Se debe indicar la cuenta de contabilidad correspondiente al grupo de ingresos " & rs("DescripcionGrupo")
+        EnlazarRegistroOtrosIngresos = False
+        Exit Function
+    End If
+    grsAPU("APU-TIPO") = "0"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+    'Al Libro de IVA---------------------------------------------
+    ApuntarEnLibroDeIVA 2, rs("IdOtrosIngresos"), strAsiento, intApunte
+    
+'APUNTE AL HABER------------------------------------------>INGRESOS grupo
+    intApunte = intApunte + 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "H"
+    On Error Resume Next
+    curTotal = Round(Nz(rs("Base"), 0) * 100, 0)
+    If Err <> 0 Then curTotal = 0
+    On Error GoTo Error_EnlazarRegistroOtrosIngresos
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(rs("CuentaContabilidad"), "")
+    strDescripcion = rs("DescripcionGrupo")
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "L"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+'APUNTE AL HABER------------------------------------------>HP IVA REPERCUTIDO
+    If Nz(rs("IVA"), 0) <> 0 Then
+        intApunte = intApunte + 1
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = strConcepto
+        grsAPU("APU-DH") = "H"
+        curTotal = Round((Nz(rs("Total"), 0) - Nz(rs("Base"), 0)) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        strSubcuenta = Nz(DameValorParam("ContabilidadCuentaIVARepercutido"), "")
+        If strSubcuenta = "" Then
+            MsgBox "Se debe indicar la cuenta de IVA repercutido en Parámetros\Contabilidad"
+            EnlazarRegistroOtrosIngresos = False
+            Exit Function
+        End If
+        strDescripcion = "H.P. IVA REPERCUTIDO"
+        grsAPU("APU-SUBCUENTA") = strSubcuenta
+        grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+        'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+        grsAPU("APU-TIPO") = "I"
+    
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+        AñadirSubcuenta strSubcuenta, strDescripcion
+    End If
+'PAGO/S DE OTROS INGRESOS------------------------------------------
+    'APUNTES AL DEBE------------------------------------------->caja-banco, etc
+FormasDePago:
+    Dim curTotalPagos As Currency
+    For i = 1 To 4
+        Select Case i
+            Case 1
+                strSubcuenta = Nz(DameValorParam("ContabilidadCuentaMetalico"), "")
+                strDescripcion = "Metálico"
+            Case 2
+                strSubcuenta = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
+                strDescripcion = "Visa"
+            Case 3
+                strSubcuenta = Nz(DameValorParam("ContabilidadCuentaTalon"), "")
+                strDescripcion = "Talón"
+            Case 4
+                strSubcuenta = Nz(DameValorParam("ContabilidadCuentaTransferencia"), "")
+                strDescripcion = "Transferencia"
+        End Select
+        If strSubcuenta = "" Then
+            MsgBox "Se debe indicar la cuenta de " & strDescripcion & " en Parámetros\Contabilidad"
+            EnlazarRegistroOtrosIngresos = False
+            Exit Function
+        End If
+        If rs("Importe" & i) <> 0 And strSubcuenta <> "NOENLAZAR" Then
+            intApunte = intApunte + 1
+            grsAPU.AddNew
+            grsAPU("APU-EMPRESA") = gstrEmpresa
+            grsAPU("APU-CANAL") = gstrCanal
+            grsAPU("APU-EJERCICIO") = gstrEjercicio
+            grsAPU("APU-ASIENTO") = strAsiento
+            grsAPU("APU-APUNTE") = Format(intApunte, "00")
+            grsAPU("APU-CONCEPTO") = strConcepto
+            grsAPU("APU-DH") = "D"
+            curTotal = Round((rs("Importe" & i)) * 100, 0)
+            curTotalPagos = curTotalPagos + curTotal / 100
+            grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+            grsAPU("APU-SUBCUENTA") = strSubcuenta
+            grsAPU("APU-DESCRIPCION") = strDescripcion
+            'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+            grsAPU("APU-TIPO") = "L"
+    
+            grsAPU("TipoRegistro") = "O"
+            grsAPU.Update
+            AñadirSubcuenta strSubcuenta, strDescripcion
+        End If
+    Next i
+    'APUNTE AL HABER------------------------------------------->CLIENTE
+    If curTotalPagos <> 0 Then
+        intApunte = intApunte + 1
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = strConcepto
+        grsAPU("APU-DH") = "H"
+        'curTotal = Round((rs("Total")) * 100, 0)
+        curTotal = Round((curTotalPagos) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        'strSubcuenta = Nz(rs("CuentaContabilidad"), "")
+        'strDescripcion = rs("DescripcionGrupo")
+        grsAPU("APU-SUBCUENTA") = strSubCuentaCliente
+        grsAPU("APU-DESCRIPCION") = recdertop(strDescripcionCliente, 0, 60)
+        'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+        grsAPU("APU-TIPO") = "L"
+    
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+    End If
+    EnlazarRegistroOtrosIngresos = True
+Salir_EnlazarRegistroOtrosIngresos:
+    Exit Function
+Error_EnlazarRegistroOtrosIngresos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistroOtrosIngresos" & vbCrLf & Err.Description
+            Resume Salir_EnlazarRegistroOtrosIngresos
+    End Select
+End Function
+
+Private Function EnlazarRegistroFacturaRecibida(lngIdFor As Long) As Integer
+    On Error GoTo Error_EnlazarRegistroFacturaRecibida
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strCuentaConta As String, strDescripcion As String
+    Dim lngIdFicha As Long, strSubCuentaProveedor As String, strDescripcionProveedor As String
+    Dim i As Integer, strFechaFac As String, lngIdFR As Long
+    Dim strConcepto As String, strNumFR As String
+    
+    strConcepto = Nz(DameValorParam("ContabilidadConceptoRE"), "51")
+    strSQL = "SELECT tbFacturasRecibidas.*, tbProveedores.*, tbGruposDeGastos.NombreGrupo, tbGruposDeGastos.Compra, tbGruposDeGastos.CuentaContabilidad as CC"
+    strSQL = strSQL & " FROM (tbProveedores RIGHT JOIN tbFacturasRecibidas ON tbProveedores.NIF = tbFacturasRecibidas.NIF) LEFT JOIN tbGruposDeGastos ON tbFacturasRecibidas.CodGrupoGastos = tbGruposDeGastos.CodNombreGrupoGastos"
+    strSQL = strSQL & " WHERE tbFacturasRecibidas.IdFacturaRecibida=" & lngIdFor
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroFacturaRecibida = False
+        Exit Function
+    End If
+    If rs("CC") = "NOENLAZAR" Then
+        EnlazarRegistroFacturaRecibida = -2
+        Exit Function
+    End If
+    
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    strAsiento = "3" & LlenaIzqChar(CStr(rs("NumeroCorrelativo")), 5, "0") '& "00"
+    If IsNull(rs("NumeroCorrelativoAux")) Then
+        strAsiento = strAsiento & "000"
+    Else
+        strAsiento = strAsiento & recdertop(CStr(DimeNumNumCorrAux(rs("NumeroCorrelativo"), rs("NumeroCorrelativoAux"))), 0, 1)
+        strAsiento = strAsiento & "00"
+    End If
+    lngIdFR = rs("IdFacturaRecibida")
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("FechaFactura"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(rs("FechaFactura"), "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 1
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = "C"
+    strNumFR = "FR_" & rs("NumeroCorrelativo") '& DimeNumNumCorrAux(rs("NumeroCorrelativo"), Nz(rs("NumeroCorrelativoAux"), ""))
+    grsASI("NumeroFactura") = recdertop(strNumFR, 0, 8)
+    If Len(strNumFR) > 8 Then
+        grsASI("NumeroFactura2") = recdertop(strNumFR, 0, 10)
+        grsASI("NumeroFactura") = Null
+    End If
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+    strFechaFac = Format(rs("FechaFactura"), "DDMMYYYY")
+'APUNTE AL HABER------------------------------------------->PROVEEDOR-ACREEDOR
+    intApunte = 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "H"
+    curTotal = Round((rs("TotalBase") + rs("TotalIVA") + rs("TotalRecEq")) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(rs("CuentaContabilidad"), "")
+    If strSubcuenta = "" Then
+        If rs("Compra") = True Then
+            strSubcuenta = Nz(DameValorParam("ContabilidadCuentaProveedoresVarios"), "")
+            If strSubcuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de proveedores varios en Parámetros\Contabilidad"
+                EnlazarRegistroFacturaRecibida = False
+                Exit Function
+            End If
+        Else
+            strSubcuenta = Nz(DameValorParam("ContabilidadCuentaAcreedoresVarios"), "")
+            If strSubcuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de acreedores varios en Parámetros\Contabilidad"
+                EnlazarRegistroFacturaRecibida = False
+                Exit Function
+            End If
+        End If
+        strSubcuenta = Left(strSubcuenta, 4) & LlenaIzqChar(rs("CodProveedor"), 5, "0")
+        strSQL = "UPDATE tbProveedores SET CuentaContabilidad = '" & strSubcuenta & "' WHERE IdProveedor = " & Nz(rs("IdProveedor"), 0)
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    strDescripcion = Nz(rs("Proveedor"), "PROVEEDORES VARIOS")
+    strSubCuentaProveedor = strSubcuenta
+    strDescripcionProveedor = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-SUBCUENTA") = strSubCuentaProveedor
+    grsAPU("APU-DESCRIPCION") = strDescripcionProveedor
+    grsAPU("APU-CONTRAPARTIDA") = Nz(rs("CC"), "")
+    If grsAPU("APU-CONTRAPARTIDA") = "" Then
+        MsgBox "Se debe indicar la cuenta de gastos: " & rs("NombreGrupo")
+        EnlazarRegistroFacturaRecibida = False
+        Exit Function
+    End If
+    grsAPU("APU-TIPO") = "0"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    If strSubcuenta = DameValorParam("ContabilidadCuentaProveedoresVarios") Or strSubcuenta = DameValorParam("ContabilidadCuentaAcreedoresVarios") Then
+        AñadirSubcuenta strSubcuenta, strDescripcion
+    Else
+        AñadirSubcuenta strSubcuenta, strDescripcion, rs("IdProveedor")
+    End If
+    'Al Libro de IVA---------------------------------------------
+    ApuntarEnLibroDeIVA 3, rs("IdFacturaRecibida"), strAsiento, intApunte
+'APUNTE AL DEBE------------------------------------------>GRUPO GASTOS
+    intApunte = 2
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round((rs("TotalBase")) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(rs("CC"), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de gastos: " & rs("NombreGrupo")
+        EnlazarRegistroFacturaRecibida = False
+        Exit Function
+    End If
+    strDescripcion = rs("NombreGrupo")
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "R"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+'APUNTE AL DEBE------------------------------------------>HP IVA SOPORTADO
+    intApunte = 3
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round((rs("TotalIVA") + rs("TotalRecEq")) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(DameValorParam("ContabilidadCuentaIVASoportado"), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de IVA soportado en Parámetros\Contabilidad"
+        EnlazarRegistroFacturaRecibida = False
+        Exit Function
+    End If
+    strDescripcion = "H.P. IVA SOPORTADO"
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "I"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+    
+    EnlazarRegistroFacturaRecibida = True
+Salir_EnlazarRegistroFacturaRecibida:
+    Exit Function
+Error_EnlazarRegistroFacturaRecibida:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistroFacturaRecibida" & vbCrLf & Err.Description
+            Resume Salir_EnlazarRegistroFacturaRecibida
+    End Select
+End Function
+
+Private Function EnlazarRegistroCobroFacturaE(lngIdCajaDet As Long) As Integer
+    On Error GoTo Error_EnlazarRegistroCobroFacturaE
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strCuentaConta As String, strDescripcion As String
+    Dim lngIdFicha As Long, strSubCuentaCliente As String, strDescripcionCliente As String, strDescripcionCuenta As String
+    Dim i As Integer, strFechaFac As String, strNumFac As String, dtFechaFac As Date
+    Dim strConcepto As String
+    strConcepto = Nz(DameValorParam("ContabilidadConceptoCobroFE"), "7")
+    strSQL = "SELECT IdCajaDet, tbCajaDet.*, tbFPago.Descripcion, tbFPago.CuentaContabilidad"
+    strSQL = strSQL & " FROM tbFPago INNER JOIN tbCajaDet ON tbFPago.CodFPago = tbCajaDet.CodFPago"
+    strSQL = strSQL & " WHERE IdCajaDet=" & lngIdCajaDet
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroCobroFacturaE = False
+        Exit Function
+    End If
+    If rs("CuentaContabilidad") = "NOENLAZAR" Then
+        EnlazarRegistroCobroFacturaE = -2
+        Exit Function
+    ElseIf IsNull(rs("CuentaContabilidad")) Then
+        EnlazarRegistroCobroFacturaE = False
+        Exit Function
+    End If
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    i = DimeNumPago(lngIdCajaDet, dtFechaFac, strNumFac)
+    strNumFac = strNumFac & "-" & i
+    strAsiento = "4" & LlenaIzqChar(SoloNum(Left(strNumFac, 5)), 6, "0")
+    strAsiento = strAsiento & Right(Format(i, "00"), 2)
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("Fecha"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(dtFechaFac, "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 0
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = " "
+    grsASI("NumeroFactura") = recdertop(strNumFac, 0, 8)
+    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = recdertop(strNumFac, 0, 10) ' Mid(strNumFac, 9)
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+'APUNTE AL DEBE------------------------------------------->FORMA DE PAGO
+    intApunte = 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round(Nz(rs("Cantidad"), 0) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(rs("CuentaContabilidad"), "")
+    If strSubcuenta = "" Then strSubcuenta = Nz(DameValorParam("ContabilidadCuentaMetalico"), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de metálico en Parámetros\Contabilidad"
+        EnlazarRegistroCobroFacturaE = False
+        Exit Function
+    End If
+    strDescripcionCuenta = Nz(rs("Descripcion"), "Caja")
+    strDescripcion = recdertop("Pago de " & strDescripcion, 0, 60)
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = strDescripcionCuenta
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "0"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+    
+'APUNTE AL HABER------------------------------------------>CLIENTE
+    intApunte = 2
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "H"
+    curTotal = Round(Nz(rs("Cantidad"), 0) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = DimeCuentaCliente(lngIdCajaDet, strDescripcionCuenta)
+    strDescripcion = recdertop("Factura nº " & strNumFac & ", " & strDescripcionCuenta, 0, 60)
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = strDescripcion
+    grsAPU("APU-CONTRAPARTIDA") = ""
+    grsAPU("APU-TIPO") = "L"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    If strSubcuenta = DameValorParam("ContabilidadCuentaClientesVarios") Then
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+    Else
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta ', -1 * rs("IdCliente") paso de momento
+    End If
+    EnlazarRegistroCobroFacturaE = True
+Salir_EnlazarRegistroCobroFacturaE:
+    Exit Function
+Error_EnlazarRegistroCobroFacturaE:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistroCobroFacturaE" & vbCrLf & Err.Description
+            Resume Salir_EnlazarRegistroCobroFacturaE
+    End Select
+End Function
+
+Private Function EnlazarRegistroPagoFacturaR(lngIdCajaDet As Long) As Integer
+    On Error GoTo Error_EnlazarRegistroPagoFacturaR
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strDescripcion As String
+    Dim strDescripcionCuenta As String, strProveedor As String
+    Dim i As Integer, strFechaFac As String, strNumFac As String, dtFechaFac As Date
+    Dim strConcepto As String
+    strConcepto = Nz(DameValorParam("ContabilidadConceptoPagoRE"), "6")
+    strSQL = "SELECT tbCajaDet.*, tbFPago.Descripcion, tbFPago.CuentaContabilidad, tbGruposDeGastos.CuentaContabilidad as CC"
+    strSQL = strSQL & " FROM  ((tbFPago INNER JOIN tbCajaDet ON tbFPago.CodFPago = tbCajaDet.CodFPago) LEFT JOIN tbFacturasRecibidas ON tbCajaDet.IdFrom= tbFacturasRecibidas.IdFacturaRecibida) LEFT JOIN tbGruposDeGastos ON tbFacturasRecibidas.CodGrupoGastos = tbGruposDeGastos.CodNombreGrupoGastos"
+    strSQL = strSQL & " WHERE IdCajaDet=" & lngIdCajaDet
+    strSQL = strSQL & " AND Origen = 'R'"
+    
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroPagoFacturaR = False
+        Exit Function
+    End If
+    If rs("CC") = "NOENLAZAR" Or rs("CuentaContabilidad") = "NOENLAZAR" Then
+        EnlazarRegistroPagoFacturaR = -2
+        Exit Function
+    ElseIf IsNull(rs("CC")) Then
+        EnlazarRegistroPagoFacturaR = False
+        Exit Function
+    End If
+    
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    i = DimeNumPago(lngIdCajaDet, dtFechaFac, strNumFac)
+    strNumFac = strNumFac & "-" & i
+    strAsiento = "5" & LlenaIzqChar(SoloNum(strNumFac), 6, "0")
+    strAsiento = strAsiento & Right(Format(i, "00"), 2)
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("Fecha"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(dtFechaFac, "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 1
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = " "
+    grsASI("NumeroFactura") = recdertop(strNumFac, 0, 8)
+    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = Mid(strNumFac, 9)
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+'APUNTE AL DEBE------------------------------------------->PROVEEDOR-ACREEDOR
+    intApunte = 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round(Nz(-1 * rs("Cantidad"), 0) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(DimeCuentaProveedor(lngIdCajaDet, strDescripcionCuenta), "")
+    strDescripcionCuenta = recdertop(strDescripcionCuenta, 0, 60)
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = strDescripcionCuenta
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "0"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+    strProveedor = strDescripcionCuenta
+    
+'APUNTE AL HABER------------------------------------------>forma de pago
+    intApunte = 2
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "H"
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = DimeCuentaFPago(lngIdCajaDet, strDescripcionCuenta)
+    strDescripcion = recdertop("Pago Factura nº " & strNumFac & ", " & strProveedor, 0, 60)
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = strDescripcion
+    grsAPU("APU-CONTRAPARTIDA") = ""
+    grsAPU("APU-TIPO") = "L"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    If strSubcuenta = DameValorParam("ContabilidadCuentaClientesVarios") Then
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta
+    Else
+        AñadirSubcuenta strSubcuenta, strDescripcionCuenta  ', rs("IdCliente") paso de momento
+    End If
+    EnlazarRegistroPagoFacturaR = True
+Salir_EnlazarRegistroPagoFacturaR:
+    Exit Function
+Error_EnlazarRegistroPagoFacturaR:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistroPagoFacturaR" & vbCrLf & Err.Description
+            Resume Salir_EnlazarRegistroPagoFacturaR
+    End Select
+End Function
+
+Private Function EnlazarRegistroTotalizacionTarjetas(lngIdFor As Long) As Integer
+    
+    On Error GoTo Error_EnlazarRegistroTotalizacionTarjetas
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strCuentaConta As String, strDescripcion As String
+    Dim lngIdFicha As Long, strSubCuentaCliente As String, strDescripcionCliente As String, i As Integer
+    Dim strConcepto As String
+    'strConcepto = Nz(DameValorParam("ContabilidadConceptoOI"), "2")
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbTotalizacionTarjetas"
+    strSQL = strSQL & " WHERE IdTotalizacionTarjetas=" & lngIdFor
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroTotalizacionTarjetas = False
+        Exit Function
+    End If
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    strAsiento = "6" & rs("TPV") & LlenaIzqChar(Format(rs("Fecha"), "yymmdd"), 7, "0")
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("Fecha"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(rs("Fecha"), "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 0
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = " "
+    grsASI("NumeroFactura") = "-" 'RecDerTop(strNumFac, 0, 8)
+    grsASI("NumeroFactura2") = "--" 'Mid(strNumFac, 9)
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+
+'APUNTE AL DEBE------------------------------------------->CLIENTE
+    intApunte = 1
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round((rs("Importe") - rs("Descuento")) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(DameValorParam("ContabilidadCuentaCobroVisa" & rs("TPV")), "")
+    If strSubcuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de Visa " & rs("TPV") & " en Parámetros\Contabilidad"
+        EnlazarRegistroTotalizacionTarjetas = False
+        Exit Function
+    End If
+    strDescripcion = "INGRESO VISA " & rs("TPV")
+    strCuentaConta = strSubcuenta
+    strSubCuentaCliente = strSubcuenta
+    strDescripcionCliente = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-SUBCUENTA") = strSubCuentaCliente
+    grsAPU("APU-DESCRIPCION") = strDescripcionCliente
+'    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
+'    If grsAPU("APU-CONTRAPARTIDA") = "" Then
+'        MsgBox "Se debe indicar la cuenta de contabilidad correspondiente a Visa"
+'        EnlazarRegistroTotalizacionTarjetas = False
+'        Exit Function
+'    End If
+    grsAPU("APU-TIPO") = "0"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+    
+'APUNTE AL DEBE------------------------------------------>GASTOS Banco
+    intApunte = 2
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "D"
+    curTotal = Round(rs("Descuento") * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    strSubcuenta = Nz(DameValorParam("ContabilidadCuentaGastosVisa" & rs("TPV")), "")
+    strDescripcion = "Gastos Visa " & rs("TPV")
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "L"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+'APUNTE AL HABER------------------------------------------>HP IVA REPERCUTIDO
+    intApunte = 3
+    grsAPU.AddNew
+    grsAPU("APU-EMPRESA") = gstrEmpresa
+    grsAPU("APU-CANAL") = gstrCanal
+    grsAPU("APU-EJERCICIO") = gstrEjercicio
+    grsAPU("APU-ASIENTO") = strAsiento
+    grsAPU("APU-APUNTE") = Format(intApunte, "00")
+    grsAPU("APU-CONCEPTO") = strConcepto
+    grsAPU("APU-DH") = "H"
+    curTotal = Round((rs("Importe")) * 100, 0)
+    grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+    If rs("TPV") = 1 Then ' TPV del Camping => la cuenta de visa es la de la forma d pago Tarjeta...
+        strSubcuenta = Nz(DLookup("CuentaContabilidad", "tbFPago", "CodFPago = '" & Nz(DameValorParam("TotalizacionTarjetasCodFPago"), "") & "'"), "")
+        If strSubcuenta = "" Then
+            MsgBox "No se ha encontrado la cuenta de contabilidad o forma de pago para Totalización de Tarjetas en Parámetros"
+            EnlazarRegistroTotalizacionTarjetas = False
+            Exit Function
+        End If
+    Else
+        strSubcuenta = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
+        If strSubcuenta = "" Then
+            MsgBox "Se debe indicar la cuenta de IVA repercutido en Parámetros\Contabilidad"
+            EnlazarRegistroTotalizacionTarjetas = False
+            Exit Function
+        End If
+    End If
+    strDescripcion = "Visa " & rs("TPV") & IIf(rs("TPV") = 1, " (camping)", " (bar-restaurante)")
+    grsAPU("APU-SUBCUENTA") = strSubcuenta
+    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+    grsAPU("APU-TIPO") = "L"
+    
+    grsAPU("TipoRegistro") = "O"
+    grsAPU.Update
+    AñadirSubcuenta strSubcuenta, strDescripcion
+    EnlazarRegistroTotalizacionTarjetas = True
+Salir_EnlazarRegistroTotalizacionTarjetas:
+    Exit Function
+Error_EnlazarRegistroTotalizacionTarjetas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistroTotalizacionTarjetas" & vbCrLf & Err.Description
+            Resume Salir_EnlazarRegistroTotalizacionTarjetas
+    End Select
+End Function
+
+Public Function DimeProveedor(sCuentaContable As String) As String
+    On Error GoTo HandleError
+    Dim rs As Recordset
+    Set rs = CurrentDb.OpenRecordset("SELECT NombreProveedor FROM tbProveedores WHERE CuentaContabilidad = '" & sCuentaContable & "'", dbOpenSnapshot)
+    If Not rs.EOF Then DimeProveedor = rs("Nombre")
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
+    
+    On Error GoTo HandleError
+    Dim rs As Recordset, strSQL As String, strAsiento As String
+    Dim intApunte As Integer, curTotal As Currency, strSubcuenta As String, strDescripcion As String
+    Dim lngIdFicha As Long, strDescripcionProveedor As String, strDescripcionCliente As String, i As Integer
+    Dim strConcepto As String
+    'strConcepto = Nz(DameValorParam("ContabilidadConceptoOI"), "2")
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbCuentasMoves"
+    strSQL = strSQL & " WHERE Id=" & lngIdFor
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        EnlazarRegistroBanco = False
+        GoTo HandleExit
+    End If
+    If Not IsNumeric(rs("CuentaContable")) Then
+        EnlazarRegistroBanco = False
+        GoTo HandleExit
+    End If
+    grsASI.AddNew
+    grsASI("ASI-EMPRESA") = gstrEmpresa
+    grsASI("ASI-CANAL") = gstrCanal
+    grsASI("ASI-EJERCICIO") = gstrEjercicio
+    strAsiento = "7" & Format(rs("Id"), "0000000") '& LlenaIzqChar(Format(rs("FechaValor"), "yymmdd"), 7, "0")
+    grsASI("ASI-ASIENTO") = strAsiento
+    grsASI("ASI-FECHA") = Format(rs("FechaValor"), "DDMMYYYY")
+    grsASI("ASI-FECHADOC") = Format(rs("FechaOperacion"), "DDMMYYYY")
+    grsASI("ASI-PAGOCOBRO") = 0
+    grsASI("ASI-DIARIO") = 1
+    
+    grsASI("TipoIVA") = " "
+    grsASI("NumeroFactura") = "-" 'RecDerTop(strNumFac, 0, 8)
+    grsASI("NumeroFactura2") = "--" 'Mid(strNumFac, 9)
+    grsASI("CriterioCajaSN") = "N"
+    grsASI("TipoRegistro") = "C"
+    
+    grsASI.Update
+    
+    'Registros de APUNTES--------------------------------------
+    If rs("Importe") < 0 Then
+    
+        'APUNTE AL DEBE------------------------------------------->PROVEEDOR
+        strDescripcionProveedor = Nz(DLookup("NombreProveedor", "tbProveedores", "CuentaContabilidad = '" & rs("CuentaContable") & "'"), "?")
+        strDescripcion = "PAGO FRA."
+        intApunte = 1
+        
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = 6
+        grsAPU("APU-DH") = "D"
+        curTotal = Round((rs("Importe") * -1) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        strSubcuenta = rs("CuentaContable")
+        If strSubcuenta = "" Then
+            MsgBox "Se debe indicar la cuenta del Proveedor" & rs("Concepto") & " en Movimientos de Cuentas"
+            EnlazarRegistroBanco = False
+            GoTo HandleExit
+        End If
+        grsAPU("APU-SUBCUENTA") = strSubcuenta
+        If strDescripcionProveedor <> "?" Then
+            grsAPU("APU-DESCRIPCION") = strDescripcion
+        Else
+            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+        End If
+    '    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
+    '    If grsAPU("APU-CONTRAPARTIDA") = "" Then
+    '        MsgBox "Se debe indicar la cuenta de contabilidad correspondiente a Visa"
+    '        EnlazarRegistrobanco = False
+    '        Exit Function
+    '    End If
+        'grsAPU("APU-TIPO") = "0"
+        
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+        AñadirSubcuenta strSubcuenta, strDescripcionProveedor
+    
+    'APUNTE AL HABER------------------------------------------>BANCO
+        intApunte = 2
+        strDescripcion = recdertop("PAGO FRA./" & strDescripcionProveedor, 0, 60)
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = 6
+        grsAPU("APU-DH") = "H"
+        curTotal = Round((rs("Importe") * -1) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        strSubcuenta = Nz(DLookup("CuentaContabilidad", "tbMisCuentas", "Id = " & rs("IdCuenta")), "")
+        If strSubcuenta = "" Then
+            MsgBox "No se ha encontrado la cuenta de contabilidad de la Cuenta Bancaria"
+            EnlazarRegistroBanco = False
+            GoTo HandleExit
+        End If
+        grsAPU("APU-SUBCUENTA") = strSubcuenta
+        If strDescripcionProveedor <> "?" Then
+            grsAPU("APU-DESCRIPCION") = strDescripcion
+        Else
+            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+        End If
+        'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+        'grsAPU("APU-TIPO") = "L"
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+        AñadirSubcuenta strSubcuenta, Nz(DLookup("NombreCuenta", "tbMisCuentas", "Id = " & rs("IdCuenta")), "BANCO")
+    Else
+        'APUNTE AL HABER------------------------------------------->CLIENTE
+        intApunte = 1
+        strDescripcionCliente = Trim(Nz(DLookup("[NombreCli] & ' ' & [ApellidosCli]", "tbClientes", "CuentaContabilidad = '" & rs("CuentaContable") & "'"), "?"))
+        strDescripcion = "COBRO FRA."
+        
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = 7
+        grsAPU("APU-DH") = "H"
+        curTotal = Round((rs("Importe")) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        strSubcuenta = rs("CuentaContable")
+        If strSubcuenta = "" Then
+            MsgBox "Se debe indicar la cuenta del CLIENTE" & rs("Concepto") & " en Movimientos de Cuentas"
+            EnlazarRegistroBanco = False
+            GoTo HandleExit
+        End If
+        grsAPU("APU-SUBCUENTA") = strSubcuenta
+        If strDescripcionCliente <> "?" Then
+            grsAPU("APU-DESCRIPCION") = strDescripcion
+        Else
+            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+        End If
+    '    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
+    '    If grsAPU("APU-CONTRAPARTIDA") = "" Then
+    '        MsgBox "Se debe indicar la cuenta de contabilidad correspondiente a Visa"
+    '        EnlazarRegistrobanco = False
+    '        Exit Function
+    '    End If
+        'grsAPU("APU-TIPO") = "0"
+        
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+        AñadirSubcuenta strSubcuenta, strDescripcionCliente
+    
+    'APUNTE AL DEBE------------------------------------------>BANCO
+        strDescripcion = recdertop("COBRO FRA./" & strDescripcionCliente, 0, 60)
+
+        intApunte = 2
+        grsAPU.AddNew
+        grsAPU("APU-EMPRESA") = gstrEmpresa
+        grsAPU("APU-CANAL") = gstrCanal
+        grsAPU("APU-EJERCICIO") = gstrEjercicio
+        grsAPU("APU-ASIENTO") = strAsiento
+        grsAPU("APU-APUNTE") = Format(intApunte, "00")
+        grsAPU("APU-CONCEPTO") = 7
+        grsAPU("APU-DH") = "D"
+        curTotal = Round((rs("Importe")) * 100, 0)
+        grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
+        strSubcuenta = Nz(DLookup("CuentaContabilidad", "tbMisCuentas", "Id = " & rs("IdCuenta")), "")
+        If strSubcuenta = "" Then
+            MsgBox "No se ha encontrado la cuenta de contabilidad de la Cuenta Bancaria"
+            EnlazarRegistroBanco = False
+            GoTo HandleExit
+        End If
+        grsAPU("APU-SUBCUENTA") = strSubcuenta
+        If strDescripcionCliente <> "?" Then
+            grsAPU("APU-DESCRIPCION") = strDescripcion
+        Else
+            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+        End If
+        'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
+        'grsAPU("APU-TIPO") = "L"
+        grsAPU("TipoRegistro") = "O"
+        grsAPU.Update
+        AñadirSubcuenta strSubcuenta, Nz(DLookup("NombreCuenta", "tbMisCuentas", "Id = " & rs("IdCuenta")), "BANCO")
+    End If
+    EnlazarRegistroBanco = True
+HandleExit:
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnlazarRegistrobanco" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+
+'''''''- - - - - - - - - - - - - -     A Ñ A D I R   S U B C U E N T A     - - - - - - - - - - - - - ''''''''
+           
+           
+           '03 SUB-EMPRESA                PIC X(5). > IGUAL QUE EN EE
+           '03 SUB-CANAL                  PIC X.    > IGUAL QUE EN EE
+           '03 SUB-CODIGO                 PIC X(12).> CODIGO DE CUENTE
+           '03 SUB-NOMBRE                 PIC X(60).> NOMBRE
+           '03 SUB-DNI                    PIC X(15).> DNI
+           '03 SUB-DIRECCION              PIC X(30).> DIRECCION
+           '03 SUB-CPOSTAL                PIC X(05).> CODIGO POSTAL
+           '03 SUB-POBLACION              PIC X(30).> POBLACION
+           '03 SUB-PAIS                   PIC X(2). > PAIS SI ES ESPA¥A "ES" SINO SU CODIGO DE PAIS
+           '03 SUB-PRO-CODIGO             PIC X(2). > CODIGO DE PROVINCIA
+           '03 SUB-PRO-NOMBRE             PIC X(30).> NOMBRE DE LA PROVINCIA
+
+
+'''''''- - - - - - - - - - - - - -     A Ñ A D I R   S U B C U E N T A     - - - - - - - - - - - - - ''''''''
+           
+           
+           '03 SUB-EMPRESA                PIC X(5). > IGUAL QUE EN EE
+           '03 SUB-CANAL                  PIC X.    > IGUAL QUE EN EE
+           '03 SUB-CODIGO                 PIC X(12).> CODIGO DE CUENTE
+           '03 SUB-NOMBRE                 PIC X(60).> NOMBRE
+           '03 SUB-DNI                    PIC X(15).> DNI
+           '03 SUB-DIRECCION              PIC X(30).> DIRECCION
+           '03 SUB-CPOSTAL                PIC X(05).> CODIGO POSTAL
+           '03 SUB-POBLACION              PIC X(30).> POBLACION
+           '03 SUB-PAIS                   PIC X(2). > PAIS SI ES ESPA¥A "ES" SINO SU CODIGO DE PAIS
+           '03 SUB-PRO-CODIGO             PIC X(2). > CODIGO DE PROVINCIA
+           '03 SUB-PRO-NOMBRE             PIC X(30).> NOMBRE DE LA PROVINCIA
+
+
+Private Sub AñadirSubcuenta(strCodigo As String, strNombre As String, Optional lngIdCliPro As Long = 0) ',
+    If Not IsNull(DLookup("[SUB-CODIGO]", "[conSUB-REG]", "[SUB-EMPRESA] = '" & gstrEmpresa & "' AND [SUB-CANAL] = '" & gstrCanal & "' AND [SUB-CODIGO] = '" & strCodigo & "'")) Then Exit Sub
+    Dim strDNI As String, strDirecciona As String, strCPostal As String, strPoblacion As String
+    Dim strPais As String, strPro_Codigo As String, strPro_Nombre As String, rs As Recordset, strSQL As String
+    Dim i As Integer, j As Integer, strAux As String
+    grsSUB.AddNew
+    grsSUB("SUB-EMPRESA") = gstrEmpresa
+    grsSUB("SUB-CANAL") = gstrCanal
+    grsSUB("SUB-CODIGO") = strCodigo
+    grsSUB("SUB-NOMBRE") = strNombre
+    Select Case lngIdCliPro
+        Case Is < 0
+            strSQL = "SELECT * FROM tbClientes WHERE IdCliente = " & Abs(lngIdCliPro)
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then
+                grsSUB("SUB-DNI") = rs("NIF")
+                grsSUB("SUB-DIRECCION") = recdertop(Nz(rs("Direccion"), ""), 0, 30)
+                grsSUB("SUB-CPOSTAL") = recdertop(Nz(rs("CodPostal"), ""), 0, 5)
+                grsSUB("SUB-POBLACION") = recdertop(Nz(rs("Ciudad"), ""), 0, 30)
+                grsSUB("SUB-PAIS") = recdertop(Nz(rs("Pais"), ""), 0, 2)
+                grsSUB("SUB-PRO-CODIGO") = recdertop(Nz(rs("CodPostal"), ""), 0, 2)
+                grsSUB("SUB-PRO-NOMBRE") = recdertop(Nz(rs("EdoOProv"), ""), 0, 30)
+            End If
+        Case Is > 0
+            strSQL = "SELECT * FROM tbProveedores WHERE IdProveedor = " & Abs(lngIdCliPro)
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then
+                grsSUB("SUB-DNI") = recdertop(Nz(rs("NIF"), ""), 0, 15)
+                grsSUB("SUB-DIRECCION") = recdertop(Nz(rs("Direccion"), ""), 0, 30)
+                grsSUB("SUB-CPOSTAL") = recdertop(Nz(rs("CodPostal"), ""), 0, 5)
+                grsSUB("SUB-POBLACION") = recdertop(Nz(rs("Ciudad"), ""), 0, 30)
+                'grsSUB("SUB-PAIS") = RecDerTop(Nz(rs("Pais"), ""), 0, 2)
+                grsSUB("SUB-PRO-CODIGO") = recdertop(Nz(rs("CodPostal"), ""), 0, 2)
+                grsSUB("SUB-PRO-NOMBRE") = recdertop(Nz(rs("EdoOProv"), ""), 0, 30)
+            End If
+    End Select
+    For i = 0 To grsSUB.Fields.Count - 1
+        j = InStr(CStr(Nz(grsSUB(i), "")), vbCrLf)
+        If j > 0 Then
+            grsSUB(i) = Sin_vbCrLf(grsSUB(i), "--")
+        End If
+    Next i
+    grsSUB.Update
+End Sub
+
+Public Function Sin_vbCrLf(ByVal strTexto As String, str2Reemplaza As String) As String
+    Dim i As Integer, j As Integer
+    If Len(str2Reemplaza) > 2 Then
+        str2Reemplaza = Left(str2Reemplaza, 2)
+    Else
+        str2Reemplaza = LlenaIzqChar(str2Reemplaza, 2, "-")
+    End If
+verSalto:
+    i = InStr(strTexto, vbCrLf)
+    If i > 0 Then
+        Mid(strTexto, i, 2) = str2Reemplaza
+        GoTo verSalto
+    End If
+    Sin_vbCrLf = strTexto
+End Function
+
+Private Sub ApuntarEnLibroDeIVA(intFOR As Integer, lngIdFor As Long, strAsiento As String, intApunte As Integer)
+    On Error GoTo Error_ApuntarEnLibroDeIVA
+    Dim strSQL As String, rs As Recordset, intLin As Integer
+    Select Case intFOR
+        Case 1
+            strSQL = "SELECT CCur(Sum([Cantidad]*[PrecioUnitario]*(IIf(IsDate([FechaFin]) And IsDate([FechaInicio]),CLng([FechaFin])-CLng([FechaInicio]),1)))) AS TotalTipoIVA, tbFacturasDet.IVA, tbFacturasCab.IvaIncluidoDetalle AS IvaIncluido, IIf([IvaIncluido]=True,[TotalTipoIVA]/(1+[IVA]),[TotalTipoIVA]) AS Base, [Base]*[IVA] AS CuotaIVA, 0 as RecEq"
+            strSQL = strSQL & " FROM tbFacturasCab INNER JOIN tbFacturasDet ON tbFacturasCab.IdFactura = tbFacturasDet.IdFactura"
+            strSQL = strSQL & " GROUP BY tbFacturasDet.IdFactura, tbFacturasDet.IVA, tbFacturasCab.IvaIncluidoDetalle, tbFacturasCab.NumeroDeFactura"
+            strSQL = strSQL & " HAVING (((tbFacturasDet.IdFactura) = " & lngIdFor & "))"
+            strSQL = strSQL & " ORDER BY tbFacturasDet.IVA;"
+        Case 2
+            'strSQL = "SELECT tbOI.IdOtrosIngresos, CCur(([Importe1]+[Importe2]+[Importe3]+[Importe4])/(1+[IVA])) AS Base, tbOI.IVA, CCur([Base]*[IVA]) AS CuotaIVA, CCur([Importe1]+[Importe2]+[Importe3]+[Importe4]) AS Total, 0 as RecEq"
+            strSQL = "SELECT tbOI.IdOtrosIngresos, CCur((Iif([Importe1]+[Importe2]+[Importe3]+[Importe4]=0,[ImporteTotal],[Importe1]+[Importe2]+[Importe3]+[Importe4]))/(1+[IVA])) AS Base, tbOI.IVA, CCur([Base]*[IVA]) AS CuotaIVA, CCur([Importe1]+[Importe2]+[Importe3]+[Importe4]) AS Total, 0 as RecEq"
+            strSQL = strSQL & " FROM tbOI"
+            strSQL = strSQL & " WHERE IdOtrosIngresos = " & lngIdFor
+        Case 3
+            strSQL = "SELECT tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.IVA, tbFacturasRecibidasDet.RecEq, Sum(tbFacturasRecibidasDet.Base) AS Base"
+            strSQL = strSQL & " FROM tbFacturasRecibidasDet"
+            strSQL = strSQL & " GROUP BY tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.IVA, tbFacturasRecibidasDet.RecEq"
+            strSQL = strSQL & " HAVING (((tbFacturasRecibidasDet.IdFacturaRecibida)=" & lngIdFor & "));"
+    End Select
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If Nz(rs("IVA"), 0) <> 0 Then
+            intLin = intLin + 1
+            grsIVA.AddNew
+            grsIVA("IVA-EMPRESA") = gstrEmpresa
+            grsIVA("IVA-CANAL") = gstrCanal
+            grsIVA("IVA-EJERCICIO") = gstrEjercicio
+            grsIVA("IVA-ASIENTO") = strAsiento
+            grsIVA("IVA-APUNTE") = Format(intApunte, "00")
+            grsIVA("IVA-LIBROIVA") = Format(intLin, "00000")
+            grsIVA("IVA-BASE") = Format(Abs(CLng(rs("Base") * 100)), "000000000000") & IIf(rs("Base") < 0, "-", "+")
+            grsIVA("IVA-CUOTA") = Format(Abs(CLng(rs("Base") * rs("IVA") * 100)), "000000000000") & IIf(rs("Base") < 0, "-", "+")
+            grsIVA("IVA-CODIGO") = CStr(rs("IVA") * 100)
+            grsIVA("IVA-PORCENTAJE") = Format(rs("IVA") * 10000, "0000")
+            grsIVA("IVA-ACCION") = "S"
+            
+            grsIVA("TipoLibroIVA") = IIf(intFOR = 3, "S", "R")
+            grsIVA("TipoRegistro") = "I"
+            grsIVA.Update
+            If rs("RecEq") > 0 Then
+                intLin = intLin + 1
+                grsIVA.AddNew
+                grsIVA("IVA-EMPRESA") = gstrEmpresa
+                grsIVA("IVA-CANAL") = gstrCanal
+                grsIVA("IVA-EJERCICIO") = gstrEjercicio
+                grsIVA("IVA-ASIENTO") = strAsiento
+                grsIVA("IVA-APUNTE") = Format(intApunte, "00")
+                grsIVA("IVA-LIBROIVA") = Format(intLin, "00000")
+                grsIVA("IVA-BASE") = Format(Abs(CLng(rs("Base") * 100)), "000000000000") & IIf(rs("Base") < 0, "-", "+")
+                grsIVA("IVA-CUOTA") = Format(Abs(CLng(rs("Base") * rs("RecEq") * 100)), "000000000000") & IIf(rs("Base") < 0, "-", "+")
+                grsIVA("IVA-CODIGO") = CStr(rs("RecEq") * 100)
+                grsIVA("IVA-PORCENTAJE") = Format(rs("RecEq") * 10000, "0000")
+                grsIVA("IVA-ACCION") = "S"
+            
+                grsIVA("TipoLibroIVA") = IIf(intFOR = 3, "S", "R")
+                grsIVA("TipoRegistro") = "I"
+                grsIVA.Update
+            End If
+        End If
+        rs.MoveNext
+    Wend
+        
+Salir_ApuntarEnLibroDeIVA:
+    Exit Sub
+Error_ApuntarEnLibroDeIVA:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ApuntarEnLibroDeIVA" & vbCrLf & Err.Description
+            Resume Salir_ApuntarEnLibroDeIVA
+    End Select
+End Sub
+
+Private Sub PasarTabla(rs As Recordset, strFile As String, intTipo As Integer, j As Integer)
+    On Error GoTo Error_PasarTabla
+    Dim i As Integer
+    Open strFile For Output As #1
+    While Not rs.EOF
+        For i = 0 To rs.Fields.Count - 1
+            Print #1, Llena(Nz(rs(i), ""), rs.Fields(i).Properties("Size"));
+        Next i
+        If intTipo = 1 Then
+            Print #1,
+        End If
+        rs.MoveNext
+        j = j + 1
+    Wend
+Salir_PasarTabla:
+    Close 1
+    Exit Sub
+Error_PasarTabla:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PasarTabla" & vbCrLf & Err.Description
+            Resume Salir_PasarTabla
+    End Select
+        
+End Sub
+
+
+Public Function DimeNumPago(lngIdCajaDet As Long, ByRef dtFechaFac As Date, ByRef strNumFac As String) As Integer
+    Dim strSQL As String, i As Integer, rs As Recordset
+    Dim strCodProv As String, strSubcuenta As String, strAux As String, lngNC As Long
+    Dim strOrigen As String, lngIdFrom As Long, lngIdFParcial As Long
+    On Error GoTo Error_DimeNumPago
+    strOrigen = Nz(DLookup("Origen", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), "")
+    lngIdFrom = Nz(DLookup("IdFrom", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), 0)
+    lngIdFParcial = Nz(DLookup("IdFParcial", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), 0)
+    strSQL = "SELECT * FROM tbCajaDet WHERE Origen = '" & strOrigen & "' AND IdFrom = " & lngIdFrom & " ORDER BY Fecha, IdCajaDet"
+    Select Case strOrigen
+        Case "R"
+            'lngIdF = lngIdFrom
+            dtFechaFac = Nz(DLookup("FechaFactura", "tbFacturasRecibidas", "IdFacturaRecibida = " & lngIdFrom), 0)
+            lngNC = Nz(DLookup("NumeroCorrelativo", "tbFacturasRecibidas", "IdFacturaRecibida = " & lngIdFrom), 0)
+            strNumFac = CStr(lngNC)
+            strAux = Nz(DLookup("NumeroCorrelativoAux", "tbFacturasRecibidas", "IdFacturaRecibida = " & lngIdFrom), "")
+            If strAux = "" Then
+                strNumFac = strNumFac & "0"
+            Else
+                strNumFac = strNumFac & recdertop(CStr(DimeNumNumCorrAux(lngNC, strAux)), 0, 1)
+            End If
+        Case "F"
+            dtFechaFac = Nz(DLookup("FechaFactura", "tbFacturasCab", "IdFactura = " & lngIdFrom), 0)
+            strNumFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFrom), 0)
+        Case "E"
+            If lngIdFParcial <> 0 Then
+                dtFechaFac = Nz(DLookup("FechaFactura", "tbFacturasCab", "IdFactura = " & lngIdFParcial), 0)
+                strNumFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFParcial), 0)
+                strSQL = "SELECT * FROM tbCajaDet WHERE (Origen = 'F' AND IdFrom = " & lngIdFParcial & ")"
+                strSQL = strSQL & " OR (IdFParcial = " & lngIdFParcial & ")"
+                strSQL = strSQL & " ORDER BY Fecha, IdCajaDet"
+            Else
+                strSQL = "SELECT * FROM tbCajaDet WHERE Origen = '" & strOrigen & "' AND IdFrom = " & lngIdFrom & " ORDER BY Fecha, IdCajaDet"
+                dtFechaFac = Nz(DLookup("FechaFactura", "tbFacturasCab", "IdFactura = " & Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & lngIdFrom), 0)), 0)
+                strNumFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & lngIdFrom), 0)), 0)
+            End If
+        Case Else
+            DimeNumPago = 0
+            Exit Function
+        
+    End Select
+SetRS:
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        i = i + 1
+        If rs("IdCajaDet") = lngIdCajaDet Then GoTo Fin
+        rs.MoveNext
+    Wend
+Fin:
+    DimeNumPago = i
+Salir_DimeNumPago:
+    Exit Function
+Error_DimeNumPago:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeNumPago" & vbCrLf & Err.Description
+            Resume Salir_DimeNumPago
+    End Select
+End Function
+
+Public Function DimeCuentaProveedor(lngIdCajaDet As Long, ByRef strNombreCuenta As String) As String
+    Dim strCuenta As String, strNIF As String, strCodGrupo As String, intCompraSN As Integer, strCodProv As String
+    Dim strSQL As String, lngIdFacturaRecibida  As Long
+    On Error GoTo Error_DimeCuentaProveedor
+    DimeCuentaProveedor = ""
+    If Nz(DLookup("Origen", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), "") <> "R" Then
+        MsgBox "El pago no corresponde a una factura recibida", vbExclamation
+        Exit Function
+    End If
+    lngIdFacturaRecibida = Nz(DLookup("IdFrom", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), 0)
+    strNIF = Nz(DLookup("NIF", "tbFacturasRecibidas", "IdFacturaRecibida = " & lngIdFacturaRecibida), "")
+    If strNIF = "" Then
+        strCuenta = Nz(DameValorParam("ContabilidadCuentaProveedoresVarios"), "")
+        strNombreCuenta = "PROVEEDORES VARIOS"
+        If strCuenta = "" Then
+            MsgBox "Se debe indicar la cuenta de proveedores varios en Parámetros\Contabilidad"
+            Exit Function
+        End If
+        Exit Function
+    End If
+    strCuenta = Nz(DLookup("CuentaContabilidad", "tbProveedores", "NIF = '" & strNIF & "'"), "")
+    strNombreCuenta = Nz(DLookup("NombreProveedor", "tbProveedores", "NIF = '" & strNIF & "'"), "")
+    If strCuenta = "" Then
+        strCodGrupo = Nz(DLookup("CodGrupoGastos", "tbFacturasRecibidas", "IdFacturaRecibida = " & lngIdFacturaRecibida), "")
+        intCompraSN = Nz(DLookup("Compra", "tbGruposDeGastos", "CodNombreGrupoGastos = '" & strCodGrupo & "'"), True)
+        If intCompraSN = True Then
+            strCuenta = Nz(DameValorParam("ContabilidadCuentaProveedoresVarios"), "")
+            strNombreCuenta = "PROVEEDORES VARIOS"
+            If strCuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de proveedores varios en Parámetros\Contabilidad"
+                Exit Function
+            End If
+        Else
+            strCuenta = Nz(DameValorParam("ContabilidadCuentaAcreedoresVarios"), "")
+            strNombreCuenta = "ACREEDORES VARIOS"
+            If strCuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de acreedores varios en Parámetros\Contabilidad"
+                Exit Function
+            End If
+        End If
+        strCodProv = Nz(DLookup("CodProveedor", "tbProveedores", "NIF = '" & strNIF & "'"), "")
+        strCuenta = Left(strCuenta, 4) & LlenaIzqChar(strCodProv, 5, "0")
+        strSQL = "UPDATE tbProveedores SET CuentaContabilidad = '" & strCuenta & "' WHERE CodProveedor = '" & strCodProv & "'"
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    DimeCuentaProveedor = strCuenta
+Salir_DimeCuentaProveedor:
+    Exit Function
+Error_DimeCuentaProveedor:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeCuentaProveedor" & vbCrLf & Err.Description
+            Resume Salir_DimeCuentaProveedor
+    End Select
+End Function
+
+Public Function DimeCuentaCliente(lngIdCajaDet As Long, ByRef strNombreCuenta As String) As String
+    Dim strCuenta As String, strNIF As String, strCodCliente As String
+    Dim strSQL As String, curTotalBase As Currency, intFaFi As Integer
+    DimeCuentaCliente = ""
+    Dim strOrigen As String, lngIdFrom As Long
+    On Error GoTo Error_DimeCuentaCliente
+    strOrigen = Nz(DLookup("Origen", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), "")
+    lngIdFrom = Nz(DLookup("IdFrom", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), 0)
+    Select Case strOrigen
+        Case "F": intFaFi = 1
+        Case "E": intFaFi = 2
+        Case Else
+            MsgBox "El IdCajaDet: " & lngIdCajaDet & " no se correponde con un pago de cliente"
+            Exit Function
+    End Select
+        
+    If intFaFi = 1 Then
+        strNIF = Nz(DLookup("NIF", "tbFacturasCab", "IdFactura = " & lngIdFrom), "")
+        curTotalBase = Nz(DLookup("TotalBase", "tbFacturasCab", "IdFactura = " & lngIdFrom), "")
+    Else
+        strNIF = Nz(DLookup("DNICliente", "tbFichasCab", "IdFichaCab = " & lngIdFrom), "")
+        curTotalBase = Nz(DSum("TotalBase", "tbFichasCab_Totales", "IdFichaCab = " & lngIdFrom), "")
+    End If
+    If strNIF = "" Then Exit Function
+    strCuenta = Nz(DLookup("CuentaContabilidad", "tbClientes", "NIF = '" & strNIF & "'"), "")
+    strNombreCuenta = Trim(Nz(DLookup("[NombreCli] & ' ' & [ApellidosCli]", "tbClientes", "NIF = '" & strNIF & "'"), ""))
+    If strCuenta = "" Then
+        If curTotalBase > MINIMO_FACTURA_CUENTA_CLIENTE Or Nz(DLookup("Agencia", "tbClientes", "NIF = '" & strNIF & "'"), False) = True Then
+            strCodCliente = Nz(DLookup("CodCliente", "tbClientes", "NIF = '" & strNIF & "'"), "")
+            strCuenta = Nz(DameValorParam("ContabilidadCuentaClientesVarios"), "")
+            If strCuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de clientes varios en Parámetros\Contabilidad"
+                Exit Function
+            End If
+            Mid(strCuenta, 9 - Len(strCodCliente) + 1, Len(strCodCliente)) = strCodCliente
+            strSQL = "UPDATE tbClientes SET CuentaContabilidad = '" & strCuenta & "' WHERE CodCliente = '" & strCodCliente & "'"
+            CurrentDb.Execute strSQL, dbFailOnError
+        Else
+            strCuenta = Nz(DameValorParam("ContabilidadCuentaClientesVarios"), "")
+            If strCuenta = "" Then
+                MsgBox "Se debe indicar la cuenta de clientes varios en Parámetros\Contabilidad"
+                Exit Function
+            End If
+            strNombreCuenta = "CLIENTES VARIOS"
+        End If
+    End If
+    DimeCuentaCliente = strCuenta
+Salir_DimeCuentaCliente:
+    Exit Function
+Error_DimeCuentaCliente:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeCuentaCliente" & vbCrLf & Err.Description
+            Resume Salir_DimeCuentaCliente
+    End Select
+End Function
+
+Public Function DimeCuentaFPago(lngIdCajaDet As Long, ByRef strNombreCuenta As String) As String
+    Dim strCuenta As String, strCodFPago As String
+    Dim strSQL As String, curTotalBase As Currency
+    On Error GoTo Error_DimeCuentaFPago
+    DimeCuentaFPago = ""
+    strCodFPago = Nz(DLookup("CodFPago", "tbCajaDet", "IdCajaDet = " & lngIdCajaDet), "")
+    If strCodFPago = "" Then
+        strCuenta = Nz(DameValorParam("ContabilidadCuentaMetalico"), "")
+        If strCuenta = "" Then
+            MsgBox "Se debe indicar en Parámetros\Contabilidad la cuenta de metálico"
+            Exit Function
+        End If
+        strNombreCuenta = "METÁLICO"
+    End If
+    strCuenta = Nz(DLookup("CuentaContabilidad", "tbFPago", "CodFPago = '" & strCodFPago & "'"), "")
+    strNombreCuenta = UCase(Nz(DLookup("[Descripcion]", "tbFPago", "CodFPago = '" & strCodFPago & "'"), ""))
+    If strCuenta = "" Then
+        MsgBox "Se debe indicar la cuenta de la forma de pago: " & strNombreCuenta
+        Exit Function
+    End If
+    DimeCuentaFPago = strCuenta
+Salir_DimeCuentaFPago:
+    Exit Function
+Error_DimeCuentaFPago:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeCuentaFPago" & vbCrLf & Err.Description
+            Resume Salir_DimeCuentaFPago
+    End Select
+End Function
+
+
+Private Function DimeNumNumCorrAux(lngNC As Long, strNCAux As String, Optional strTable As String = "tbOI") As Integer
+'Devuelve el nº de orden de un NumCorrelativoAux en caso de existir varios para un mismo NumCorrelativo
+'(para poder pasar todo a numérico....)
+    Dim rs As Recordset, strSQL As String, i As Integer
+    strSQL = "SELECT * FROM " & strTable & " WHERE NumeroCorrelativo = " & lngNC & " ORDER BY NumeroCorrelativoAux"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        i = i + 1
+        If rs("NumeroCorrelativoAux") = strNCAux Then
+            DimeNumNumCorrAux = i
+            Exit Function
+        End If
+        rs.MoveNext
+    Wend
+End Function
+
+Private Sub EscribeFilePBS(strFile As String, j As Integer)
+    On Error GoTo Error_EscribeFilePBS
+    Dim i As Integer, rsC As Recordset
+    Dim strReg As String
+    Dim strSQL As String, rs As Recordset, curI As Currency, strI As String
+    Open strFile For Output As #1
+    Set rsC = CurrentDb.OpenRecordset("conASI-REG", dbOpenSnapshot)
+    While Not rsC.EOF
+        'Cabecera del Asiento
+        strReg = rsC("TipoRegistro") '"C"
+        strReg = strReg & rsC("TipoIVA")
+        strReg = strReg & Mid(rsC("ASI-FECHA"), 1, 2) & "/" & Mid(rsC("ASI-FECHA"), 3, 2) & "/" & Mid(rsC("ASI-FECHA"), 5, 4)
+        strReg = strReg & Llena(Nz(rsC("NumeroFactura"), ""), 8)
+        strReg = strReg & Left(rsC("ASI-DIARIO"), 1)
+        strReg = strReg & Llena(Nz(rsC("NumeroFactura2"), ""), 10)
+        strReg = strReg & rsC("CriterioCajaSN")
+        Print #1, strReg
+        j = j + 1
+        'Apuntes ASIENTO
+        strSQL = "SELECT * FROM [conAPU-REG]"
+        strSQL = strSQL & " WHERE [APU-ASIENTO] = '" & rsC("ASI-ASIENTO") & "'"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rs.EOF
+            strReg = rs("TipoRegistro")
+            strReg = strReg & Llena(rs("APU-SUBCUENTA"), 12)
+            curI = CCur(Left(rs("APU-IMPORTE"), 12)) * IIf(Right(rs("APU-IMPORTE"), 1) = "+", 1, -1) / 100
+            strI = Format(curI, "0.00")
+            strI = Replace(strI, ".", ",")
+            strReg = strReg & LlenaIzq(strI, 10)
+            strReg = strReg & rs("APU-DH")
+            strReg = strReg & Llena(rs("APU-CONCEPTO"), 5)
+            strReg = strReg & Llena(rs("APU-DESCRIPCION"), 35) 'COMENTARIO
+            strReg = strReg & Llena(Nz(rs("APU-CONTRAPARTIDA"), ""), 12)
+            Print #1, strReg
+            j = j + 1
+            rs.MoveNext
+        Wend
+        'Libro de IVA
+        strSQL = "SELECT * FROM [conIVA-REG]"
+        strSQL = strSQL & " WHERE [IVA-ASIENTO] = '" & rsC("ASI-ASIENTO") & "'"
+        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rs.EOF
+            strReg = rs("TipoRegistro")
+            strReg = strReg & rs("TipoLibroIVA")
+            curI = CCur(Left(rs("IVA-BASE"), 12)) * IIf(Right(rs("IVA-BASE"), 1) = "+", 1, -1) / 100
+            strI = Format(curI, "0.00")
+            strI = Replace(strI, ".", ",")
+            strReg = strReg & LlenaIzq(strI, 10)
+            strReg = strReg & Llena(rs("IVA-CODIGO"), 5)
+            curI = CCur(rs("IVA-PORCENTAJE")) / 100
+            strI = Format(curI, "00.00")
+            strI = Replace(strI, ".", ",")
+            strReg = strReg & strI
+            curI = CCur(Left(rs("IVA-CUOTA"), 12)) * IIf(Right(rs("IVA-CUOTA"), 1) = "+", 1, -1) / 100
+            strI = Format(curI, "0.00")
+            strI = Replace(strI, ".", ",")
+            strReg = strReg & LlenaIzq(strI, 10)
+            Print #1, strReg
+            j = j + 1
+            rs.MoveNext
+        Wend
+        rsC.MoveNext
+    Wend
+    'subcuentas
+    strSQL = "SELECT * FROM [conSUB-REG]"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        strReg = Nz(rs("TipoRegistro"), "S")
+        strReg = strReg & Llena(rs("SUB-CODIGO"), 12)
+        strReg = strReg & Llena(rs("SUB-NOMBRE"), 60)
+        strReg = strReg & Llena(rs("SUB-PAIS"), 2)
+        strReg = strReg & Llena(Nz(rs("SUB-DNI"), "-"), 15)
+        strReg = strReg & Llena(Nz(rs("SUB-DIRECCION"), ""), 60)
+        strReg = strReg & Llena(Nz(rs("SUB-CPOSTAL"), ""), 5)
+        strReg = strReg & Llena(Nz(rs("SUB-POBLACION"), ""), 60)
+        strReg = strReg & Llena(Nz(rs("SUB-PRO-NOMBRE"), ""), 30)
+        Print #1, strReg
+        j = j + 1
+        rs.MoveNext
+    Wend
+Salir_EscribeFilePBS:
+    Close 1
+    Exit Sub
+Error_EscribeFilePBS:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en EscribeFilePBS" & vbCrLf & Err.Description
+            Resume Salir_EscribeFilePBS
+    End Select
+        
+End Sub
+
+
+Public Function ImportarMovimientosCuentas()
+    Dim excelApp As Object
+    Dim excelWorkbook As Object
+    Dim excelSheet As Object
+    Dim sSQL As String, sFileExcel As String
+    Dim idCuenta As Long, y As Long, z As Long, sCuenta As String
+    
+        
+        
+    On Error GoTo HandleError
+    'Obtener idcuenta donde importar los datos
+    idCuenta = Nz(DameValorParam("UltimaIdCuentaImportarMovimientos"), 0)
+    idCuenta = Nz(BuscaAyuda("CUENT", idCuenta, 1), 0)
+    If idCuenta = 0 Then GoTo HandleExit
+    sCuenta = Nz(DLookup("NombreCuenta", "tbMisCuentas", "Id = " & idCuenta), "¿?")
+    
+    'Seleccionar excel
+    Dim sMsg As String, iR As Integer
+    sMsg = "La hoja Excel a seleccionar debe cumplir los siguientes requisitos:" & vbCrLf & _
+          "   1. Dentro del archivo Excel, la hoja donde se encuentran los datos debe llamarse Hoja1" & vbCrLf & _
+          "   2. Los datos deben ser 4 columnas en este orden: FechaOperacion, FechaValor, Concepto, Importe" & vbCrLf & _
+          "   3. El conjunto de datos a importar debe ser un rango con nombre: 'moves'"
+    iR = MsgBox(sMsg, vbInformation + vbOKCancel)
+    If iR = vbCancel Then GoTo HandleExit
+    
+    sFileExcel = Nz(DimeFichero(, "Excel de Movimientos en cuenta", "Excel", "*.xls*"), "")
+    If sFileExcel = "" Then GoTo HandleExit
+    
+    
+    ' Establecer la aplicación de Excel y abrir el libro
+    Set excelApp = CreateObject("Excel.Application")
+    Set excelWorkbook = excelApp.Workbooks.Open(sFileExcel)  ' Reemplaza con la ruta de tu archivo Excel
+    
+    ' Especificar la hoja de Excel (ajusta el nombre según sea necesario)
+    On Error Resume Next
+    Set excelSheet = excelWorkbook.Sheets("Hoja1")
+    If Err <> 0 Then
+        MsgBox "No se encontró la hoja llamada Hoja1", vbExclamation
+        GoTo HandleExit
+    End If
+    Dim rng As Excel.Range, row As Excel.Range
+    ' Iterar a través de los datos en el rango con nombre "Moves" en Excel
+    excelSheet.Activate
+    Set rng = excelSheet.Range("moves")
+    z = rng.Rows.Count
+    If Err <> 0 Then
+        MsgBox "No se encontró el rango moves en la Hoja1", vbExclamation
+        GoTo HandleExit
+    End If
+    On Error GoTo HandleError
+    Dim bInsert As Boolean
+    For Each row In excelSheet.Range("moves").Rows
+        ' Obtener los valores de cada columna en la fila actual
+        'idCuenta = ObtenerIdCuenta()  ' Debes implementar la lógica para asignar el IdCuenta desde tu código
+        y = y + 1
+        MensajeBusyBox "Importando movimientos de cuenta " & sCuenta & ": " & y & "/" & z
+        ' Construir la cadena SQL para insertar los datos en Access
+Berriz:
+        sSQL = "INSERT INTO tbCuentasMoves (IdCuenta, FechaOperacion, FechaValor, Concepto, Importe) " & _
+                 "VALUES (" & idCuenta & ", " & CLng(CDate(row.Cells(1, 1).value)) & ", " & CLng(CDate(row.Cells(1, 2).value)) & ", '" & row.Cells(1, 3).value & "', " & ComaPunto(row.Cells(1, 4).value) & ")"
+                 '"VALUES (" & idCuenta & ", #" & row.Cells(1, 1).value & "#, #" & row.Cells(1, 2).value & "#, '" & row.Cells(1, 3).value & "', " & ComaPunto(row.Cells(1, 4).value) & ")"
+        
+        ' Ejecutar la consulta SQL
+        bInsert = True
+        CurrentDb.Execute sSQL, dbFailOnError
+Salta:
+        
+        bInsert = False
+    Next
+    
+    ' Cerrar conexiones y liberar recursos
+'    rs.Close
+'    Set rs = Nothing
+    
+    MensajeBusyBox "Datos importados correctamente." & vbCrLf & y & "/" & z, "Datos importados", True
+    MensajeBusyBox "", "", True, True
+
+HandleExit:
+    On Error Resume Next
+    excelWorkbook.Close False
+    excelApp.Quit
+    Set excelSheet = Nothing
+    Set excelWorkbook = Nothing
+    Set excelApp = Nothing
+    
+    Exit Function
+HandleError:
+    If bInsert = True And Err = 3022 Then ' Duplicado de Fechas, concepto e importe
+        iR = MsgBox("Duplicado: " & row.Cells(1, 3).value & vbCrLf & "¿Añadir -@- al Concepto?" & vbCrLf & "Si se pulsa No se saltará el registro", vbYesNoCancel + vbExclamation)
+        If iR = vbCancel Then Resume HandleExit
+        If iR = vbNo Then Resume Salta
+        row.Cells(1, 3).value = row.Cells(1, 3).value & "-@-"
+        Resume Berriz
+    End If
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function DimeCuentaContable(sConcepto As String, Optional lIdCuenta As Long = 0) As Variant
+    'Dado un concepto de movimiento de cuenta debe devolver un nº de cuenta contable si lo puede reconocer o nulo en caso contrario
+    On Error GoTo HandleError
+    Dim rs As Recordset, sSQL As String, sR As String, iTCri As CriterioBusquedaCuenta, iTAA As AccionAyudaBusquedaCuenta, sT1 As String, sT2 As String
+    Dim sResult As String
+    sSQL = "SELECT * FROM tbCuentaCriterioBusca as B"
+    If lIdCuenta <> 0 Then
+        sSQL = sSQL & " INNER JOIN tbCuentasCriterios as CC ON B.Id = CC.IdCriterio" _
+                    & " WHERE CC.IdCuenta = " & lIdCuenta
+    End If
+    sSQL = sSQL & " ORDER BY Orden"
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        iTCri = DimeTipoCriterioBusqueda(rs("Criterio"))
+        iTAA = DimeAccionAyudaBusqueda(rs("Accionayuda"))
+        sT1 = rs("T1")
+        sT2 = Nz(rs("T2"), "")
+        sR = DimeCuentaContableCriterioB(sConcepto, iTCri, sT1, sT2, iTAA)
+        If sR <> "" Then
+            Select Case iTAA
+                Case Cuenta_T2
+                    sResult = sR
+                Case BuscaProveedor
+                    sResult = BuscaCuentaProveedor(sR, rs("B.Id"))
+                Case BuscaCliente
+                    sResult = BuscaCuentaCliente(sR, rs("B.Id"))
+            End Select
+        End If
+        If sResult <> "" Then
+            DimeCuentaContable = sResult
+            GoTo HandleExit
+        End If
+        rs.MoveNext
+    Wend
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function DimeTipoCriterioBusqueda(sCriterioB As String) As CriterioBusquedaCuenta
+    On Error GoTo HandleError
+    Dim iTCri As CriterioBusquedaCuenta
+    Select Case sCriterioB
+        Case "Empieza por": iTCri = EmpiezaPor
+        Case "Entre T1 y T2": iTCri = EntreT1yT2
+        Case "Contiene": iTCri = Contiene
+        Case Else: iTCri = 0
+    End Select
+    DimeTipoCriterioBusqueda = iTCri
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function DimeTxtTipoCriterioBusqueda(iTCri As CriterioBusquedaCuenta) As String
+    On Error GoTo HandleError
+    Dim sCri As String
+    Select Case iTCri
+        Case EmpiezaPor: sCri = "Empieza por"
+        Case EntreT1yT2: sCri = "Entre T1 y T2"
+        Case Contiene: sCri = "Contiene"
+        Case Else: sCri = "?"
+    End Select
+    DimeTxtTipoCriterioBusqueda = sCri
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function DimeAccionAyudaBusqueda(sAccionAyudaB As String) As CriterioBusquedaCuenta
+    On Error GoTo HandleError
+    Dim iTAA As AccionAyudaBusquedaCuenta
+    Select Case sAccionAyudaB
+        Case "Cuenta=T2": iTAA = Cuenta_T2
+        Case "BuscaProveedor": iTAA = BuscaProveedor
+        Case "BuscaCliente": iTAA = BuscaCliente
+        Case Else: iTAA = 0
+    End Select
+    DimeAccionAyudaBusqueda = iTAA
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function DimeTxtAccionAyudaBusqueda(iTAA As AccionAyudaBusquedaCuenta) As String
+    On Error GoTo HandleError
+    Dim sAA As String
+    Select Case iTAA
+        Case Cuenta_T2: sAA = "Cuenta=T2"
+        Case BuscaProveedor: sAA = "BuscaProveedor"
+        Case BuscaCliente: sAA = "BuscaCliente"
+        Case Else: sAA = "?"
+    End Select
+    DimeTxtAccionAyudaBusqueda = sAA
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Private Function DimeCuentaContableCriterioB(sConcepto As String, iTCri As CriterioBusquedaCuenta, sT1 As String, sT2 As String, iTAccionAyuda As AccionAyudaBusquedaCuenta) As String
+    On Error GoTo HandleError
+    Dim sCri As String, bOK As Boolean, sEncuentra As String
+    Select Case iTCri
+        Case EmpiezaPor
+            bOK = sConcepto Like sT1 & "*"
+        Case EntreT1yT2
+            sEncuentra = ObtenerTextoEntreCadenas(sConcepto, sT1, sT2)
+            bOK = sEncuentra <> ""
+        Case Contiene
+            bOK = sConcepto Like "*" & sT1 & "*"
+    End Select
+    If bOK = True Then
+        If iTCri = EmpiezaPor Or iTCri = Contiene Then ' en estos casos T2 DEBE SER el Nº de cuenta resultado
+            DimeCuentaContableCriterioB = sT2
+        Else ' EntreT1yT2
+            DimeCuentaContableCriterioB = sEncuentra
+        End If
+    End If
+    'En los casos de EmpiezaPor o Contiene devuelve el Nº de Cuenta
+    'En el caso de EntreT1yT2 devuelve lo encontrado, qu lo deberá gestionar el proceso que llama
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function BuscaCuentaProveedor(sEncuentra As String, lIdCriterioBusca As Long) As String
+    On Error GoTo HandleError
+    Dim sR As String, sSQL As String, lIdPro As Long
+    sR = Nz(DLookup("Cuenta", "tbCuentaCriterioEncuentra", "IdCuentaCriterioBusca = " & lIdCriterioBusca & " AND Encuentra = '" & sEncuentra & "'"), "")
+    If sR <> "" Then
+        BuscaCuentaProveedor = sR
+        GoTo HandleExit
+    End If
+    sSQL = "SELECT IdProveedor, NombreProveedor, NIF FROM tbProveedores WHERE NombreProveedor Like '*" & sEncuentra & "*' ORDER BY NombreProveedor"
+    CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = """ & sSQL & """, Predeterminada = True, Titulo = """ & sEncuentra & """ WHERE CodBusqueda = ""BPRO1"""
+    CurrentDb.Execute "UPDATE sysBusquedas SET Predeterminada = False, Titulo = """ & sEncuentra & """ WHERE CodBusqueda = ""BPRO2"""
+    lIdPro = Nz(BuscaAyuda("BPRO", , 1, , , , True, , , , , , , , , , , , "Selecciona " & sEncuentra), 0)
+    If lIdPro = 0 Then
+        MsgBox "No se indicó Proveedor para: " & sEncuentra, vbExclamation
+        GoTo HandleExit
+    End If
+    sR = Nz(DLookup("CuentaContabilidad", "tbProveedores", "IdProveedor = " & lIdPro), "")
+    If sR = "" Then
+        sR = Nz(myInputBox("Cuenta Contabilidad de " & sEncuentra, "Indique Cta. Contable para " & sEncuentra), "")
+        If sR = "" Then GoTo HandleExit
+        sSQL = "UPDATE tbProveedores SET CuentaContabilidad = " & ConComillas(sR) & " WHERE IdProveedor = " & lIdPro
+        CurrentDb.Execute sSQL, dbFailOnError
+    End If
+    BuscaCuentaProveedor = sR
+    sSQL = "INSERT INTO tbCuentaCriterioEncuentra (IdCuentaCriterioBusca, Encuentra, Cuenta)" _
+        & " VALUES(" & lIdCriterioBusca & ", " & ConComillas(sEncuentra) & ", " & ConComillas(sR) & ")"
+    CurrentDb.Execute sSQL, dbFailOnError
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+
+Private Function BuscaCuentaCliente(sEncuentra As String, lIdCriterioBusca As Long) As String
+    On Error GoTo HandleError
+    Dim sR As String, sSQL As String, lIdCli As Long
+    sR = Nz(DLookup("Cuenta", "tbCuentaCriterioEncuentra", "IdCuentaCriterioBusca = " & lIdCriterioBusca & " AND Encuentra = '" & sEncuentra & "'"), "")
+    If sR <> "" Then
+        BuscaCuentaCliente = sR
+        GoTo HandleExit
+    End If
+    sSQL = "SELECT IdCliente, Trim(NombreCli & ' ' & ApellidosCli) as Cliente, NIF FROM tbClientes WHERE Trim(NombreCli & ' ' & ApellidosCli) Like '*" & sEncuentra & "*' ORDER BY NombreCli, ApellidosCli"
+    CurrentDb.Execute "UPDATE sysBusquedas SET strSQL = """ & sSQL & """, Predeterminada = True, Titulo = """ & sEncuentra & """ WHERE CodBusqueda = ""BCLI1"""
+    CurrentDb.Execute "UPDATE sysBusquedas SET Predeterminada = False, Titulo = """ & sEncuentra & """ WHERE CodBusqueda = ""BCLI2"""
+    lIdCli = Nz(BuscaAyuda("BCLI", , 1, , , , True, , , , , , , , , , , , "Selecciona " & sEncuentra), 0)
+    If lIdCli = 0 Then
+        MsgBox "No se indicó Cliente para: " & sEncuentra, vbExclamation
+        GoTo HandleExit
+    End If
+    sR = Nz(DLookup("CuentaContabilidad", "tbClientes", "IdCliente = " & lIdCli), "")
+    If sR = "" Then
+        sR = Nz(myInputBox("Cuenta Contabilidad de " & sEncuentra, "Indique Cta. Contable para " & sEncuentra), "")
+        If sR = "" Then GoTo HandleExit
+        sSQL = "UPDATE tbClientes SET CuentaContabilidad = " & ConComillas(sR) & " WHERE IdCliente = " & lIdCli
+        CurrentDb.Execute sSQL, dbFailOnError
+    End If
+    BuscaCuentaCliente = sR
+    sSQL = "INSERT INTO tbCuentaCriterioEncuentra (IdCuentaCriterioBusca, Encuentra, Cuenta)" _
+        & " VALUES(" & lIdCriterioBusca & ", " & ConComillas(sEncuentra) & ", " & ConComillas(sR) & ")"
+    CurrentDb.Execute sSQL, dbFailOnError
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+
+Function ObtenerTextoEntreCadenas(ByVal Texto As String, ByVal cadenaInicio As String, ByVal cadenaFin As String) As String
+    On Error GoTo HandleError
+    Dim posInicio As Long, posFin As Long
+
+    ' Busca la posición de la cadena de inicio (T1)
+    posInicio = InStr(Texto, cadenaInicio)
+
+    ' Si se encuentra la cadena de inicio, busca la posición de la cadena de fin (T2)
+    If posInicio > 0 Then
+        If cadenaFin = "" Then
+            posFin = Len(Texto) + 1
+        Else
+            posFin = InStr(posInicio + Len(cadenaInicio), Texto, cadenaFin)
+        End If
+        
+        ' Si se encuentra la cadena de fin, devuelve el texto entre las dos cadenas
+        If posFin > 0 Then
+            ObtenerTextoEntreCadenas = Trim(Mid(Texto, posInicio + Len(cadenaInicio), posFin - posInicio - Len(cadenaInicio)))
+        End If
+    End If
+    
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function DimeIdMisCuentas(lIdCrBusqueda As Long) As String
+    'Dado el Id de un CuentaCriterioBusqueda devuelve los Ids de cuentas en los que se aplica, separados por coma
+    Dim sR As String, sSQL As String, rs As Recordset
+    sSQL = "SELECT IdCuenta FROM tbCuentasCriterios WHERE IdCriterio = " & lIdCrBusqueda
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        sR = sR & "-" & rs("IdCuenta")
+        rs.MoveNext
+    Wend
+    sR = sR & "-"
+    DimeIdMisCuentas = sR
+End Function

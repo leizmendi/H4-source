@@ -1,0 +1,55 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    Me.lblRecom.Visible = Me.Recomendado
+    If Me.Recomendado Then
+        Me.Descripcion.FontBold = True
+        Me.Descripcion.FontItalic = True
+        Me.PrecioU.FontBold = True
+        Me.PrecioU.FontItalic = True
+    Else
+        Me.Descripcion.FontBold = False
+        Me.Descripcion.FontItalic = False
+        Me.PrecioU.FontBold = False
+        Me.PrecioU.FontItalic = False
+    End If
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim sngAltoMax As Single
+    Me.lblEstableCimiento.Caption = DameValorParam("EstablecimientoNombre")
+    Me.lblNotaAlPie.Caption = DameValorParam("CartaNotaAlPie")
+    Me.lblPrecio.Caption = Format(DameValorParam("CartaPrecioMenu"), "Currency")
+    Me.txtFecha.Visible = DameValorParam("CartaFechaSN")
+    If DameValorParam("CartaSaltoPagina") = True Then
+        Me.EncabezadoDelGrupo0.ForceNewPage = 1
+    Else
+        Me.EncabezadoDelGrupo0.ForceNewPage = 0
+    End If
+    If DameValorParam("CartaLogoSN") = True Then
+        Dim strLogo As String
+        strLogo = Nz(DameValorParam("LogoUbicacion"), "")
+        If Dir(strLogo) <> "" Then
+            Me.LogoImagen.Picture = strLogo
+        Else
+            Me.LogoImagen.Picture = ""
+        End If
+        Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+        sngAltoMax = Nz(DameValorParam("FacturasLogoMaxAlto"), 0) * TC_CmToPoints
+        If sngAltoMax < Me.LogoImagen.Height Then
+            Me.LogoImagen.Width = Me.LogoImagen.Width * (sngAltoMax / Me.LogoImagen.Height)
+            Me.LogoImagen.Height = sngAltoMax
+        End If
+        Me.LogoImagen.Visible = True
+    Else
+        Me.LogoImagen.Visible = False
+    End If
+    
+End Sub

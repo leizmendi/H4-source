@@ -1,0 +1,312 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gstrTeclas As String
+    Dim gintVerLista As Integer
+
+Public Sub OuVasTu(KeyCode As Integer, Shift As Integer)
+    On Error Resume Next
+    Dim strBot As String
+    Dim ctl As Control
+    Set ctl = Screen.ActiveControl
+    Select Case KeyCode
+        Case vbKey1, vbKey2, vbKey3, vbKey4, vbKey5, vbKey6, vbKey7, vbKey8, vbKey9, vbKey0, vbKeyNumpad1, vbKeyNumpad2, vbKeyNumpad3, vbKeyNumpad4, vbKeyNumpad5, vbKeyNumpad6, vbKeyNumpad7, vbKeyNumpad8, vbKeyNumpad9, vbKeyNumpad0
+            Select Case KeyCode
+                Case vbKey1, vbKeyNumpad1
+                    Me.txtParcela = 1
+                Case vbKey2, vbKeyNumpad2
+                    Me.txtParcela = 2
+                Case vbKey3, vbKeyNumpad3
+                    Me.txtParcela = 3
+                Case vbKey4, vbKeyNumpad4
+                    Me.txtParcela = 4
+                Case vbKey5, vbKeyNumpad5
+                    Me.txtParcela = 5
+                Case vbKey6, vbKeyNumpad6
+                    Me.txtParcela = 6
+                Case vbKey7, vbKeyNumpad7
+                    Me.txtParcela = 7
+                Case vbKey8, vbKeyNumpad8
+                    Me.txtParcela = 8
+                Case vbKey9, vbKeyNumpad9
+                    Me.txtParcela = 9
+                Case vbKey0, vbKeyNumpad0
+                    Me.txtParcela = 0
+            End Select
+            Me.txtParcela.SetFocus
+            Me.txtParcela.SelStart = Len(Me.txtParcela)
+            Exit Sub
+        Case vbKeySpace, vbKeyReturn
+            Select Case ctl.ControlType
+                Case acCommandButton
+                    Exit Sub
+            End Select
+            KeyCode = 0
+            Call BotonClick
+            Exit Sub
+        Case vbKeyUp
+            strBot = DLookup("up", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case vbKeyDown
+            strBot = DLookup("down", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case vbKeyRight
+            strBot = DLookup("right", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case vbKeyLeft
+            strBot = DLookup("left", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case Else
+            Exit Sub
+    End Select
+    DoCmd.GoToControl strBot
+    'Me.txtParcela = Mid(strBot, 4)
+End Sub
+
+
+Private Sub btnOtrosCampistas_Click()
+    DoCmd.OpenForm "frmOtrosCampistas"
+End Sub
+
+Private Sub btnSituacionActual_Click()
+    DoCmd.OpenForm "frmSituacionActual"
+End Sub
+
+Private Sub Form_Activate()
+    On Error GoTo Error_Form_Activate
+    DoCmd.Maximize
+    Call LleganHoy
+    Call SeMarchanHoy
+    Call PintaBotones(Me)
+    'Call CentrarTodo
+    On Error Resume Next
+    DoCmd.GoToControl Nz(DameValorParam("PanelControlFocoXDefecto"), "txtTarjetaRFID")
+Salir_Form_Activate:
+    Exit Sub
+Error_Form_Activate:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Form_Activate" & vbCrLf & Err.Description
+            Resume Salir_Form_Activate
+    End Select
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call ControlTeclas(Me, KeyCode, Shift, gstrTeclas)
+End Sub
+
+Public Function MisBotones(strNombreBoton As String)
+    Select Case strNombreBoton
+        Case "btnIrAFicha"
+            Call AbrirFichaNum
+    End Select
+End Function
+
+Private Sub Form_Load()
+    DoCmd.Maximize
+    Me.Detalle.BackColor = Nz(DameValorParam("AplicacionColorPanel"), 255)
+    gstrTeclas = "|CTRL_0|#btnIrAFicha#¬"
+    Me.txt2.Caption = Nz(DameValorParam("EstablecimientoNombre"), "--")
+    Me.txt2.ForeColor = Nz(DameValorParam("AplicacionColorTextoEstablecimiento"), 0)
+    Me.LogoImagen.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+    Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+    Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+    Me.LogoImagen.Top = Me.txt2.Top + Me.txt2.Height
+'    Me.LogoImagen.Left = (Me.WindowWidth - Me.LogoImagen.Width) \ 2
+    If g_strPH = "" Then Call TipoAplicacion
+    Me.lblPH.Caption = "&" & g_strPH & ": "
+    Dim dbH As Double, dbW As Double
+    dbH = Me.LogoImagen.Height / TC_CmToPoints
+    'si el logo es más alto que 3,2 cm. ajustarlo
+    If dbH > 3.2 Then
+        Me.LogoImagen.Height = 3.2 * TC_CmToPoints
+        Me.LogoImagen.Width = Me.LogoImagen.Width * 3.2 / dbH
+    End If
+    Me.LogoImagen.Left = (Me.btn_5.Left - Me.LogoImagen.Width \ 2)
+    'Call Form_Activate
+    Carga_Btns
+End Sub
+
+
+Private Sub Form_Resize()
+    Me.btnSalir.Left = Me.WindowWidth - Me.btnSalir.Width * 2
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    CompruebaCierrePrograma Me.Name
+End Sub
+
+Private Sub lstPersonasAcampadas_Click()
+    If Me.lstPersonasAcampadas.ListIndex = -1 Then Exit Sub
+    Me.txtParcela = Me.lstPersonasAcampadas
+    Me.txtPersonasAcampadas = Me.lstPersonasAcampadas.Column(0)
+    
+End Sub
+
+Private Sub lstPersonasAcampadas_DblClick(Cancel As Integer)
+    Me.txtParcela.SetFocus
+    Call txtParcela_KeyDown(vbKeyReturn, 0)
+End Sub
+
+Private Sub lstPersonasAcampadas_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gintVerLista = True
+End Sub
+
+
+Private Sub txtParcela_KeyDown(KeyCode As Integer, Shift As Integer)
+    On Error GoTo Error_txtParcela_KeyDown
+    If KeyCode = vbKeyReturn Then
+        DoCmd.GoToControl "btn" & Me.txtParcela.text
+        Call BotonClick
+    End If
+Salir_txtParcela_KeyDown:
+    Exit Sub
+Error_txtParcela_KeyDown:
+    Select Case Err
+        Case 2109 'No existe el control
+            MsgBox "No existe la parcela " & Me.txtParcela.text
+            KeyCode = 0
+            Resume Salir_txtParcela_KeyDown
+        Case Else
+            MsgBox "error nº " & Err & " en txtParcela_KeyDown"
+            Resume Salir_txtParcela_KeyDown
+    End Select
+End Sub
+
+Public Sub CentrarTodo()
+    Me.txt2.Top = 1 * TC_CmToPoints
+    Me.txt2.Left = 0
+    Me.txt2.Width = Me.WindowWidth
+    Me.LogoImagen.Top = Me.txt2.Top + Me.txt2.Height
+    Me.LogoImagen.Left = (Me.WindowWidth - Me.LogoImagen.Width) \ 2
+    Me.cdrCentrar.Top = Me.LogoImagen.Top + Me.LogoImagen.Height + 100
+    Me.txtParcela.Top = Me.cdrCentrar.Top + Me.cdrCentrar.Height + 100
+    Me.lblPH.Top = Me.txtParcela.Top
+    Me.txtParcela.Left = Me.LogoImagen.Left
+    Me.txtParcela.Width = Me.LogoImagen.Width
+    Me.lblPH.Left = Me.txtParcela.Left - Me.lblPH.Width
+    Dim lngMaxLeft As Long, lngMinLeft As Long, lngAnchoTotal As Long, lngIniLeft As Long, lngAnchoBtn As Long
+    Dim ctl As Control, lngMinTop As Long, lngIniTop As Long
+    lngMinLeft = 99999: lngMinTop = 99999
+    For Each ctl In Me.Controls
+        If ctl.Name Like "btn*" And ctl.ControlType = acTextBox Then
+            If lngAnchoBtn = 0 Then lngAnchoBtn = ctl.Width
+            If ctl.Left < lngMinLeft Then lngMinLeft = ctl.Left
+            If ctl.Left > lngMaxLeft Then lngMaxLeft = ctl.Left
+            If ctl.Top < lngMinTop Then lngMinTop = ctl.Top
+        End If
+    Next ctl
+    If lngMinLeft = 99999 Then lngMinLeft = 0
+    If lngMaxLeft = 0 Then lngMaxLeft = 1000
+    If lngMinTop = 99999 Then lngMinTop = 0
+    If lngAnchoBtn = 0 Then lngAnchoBtn = 1000
+    lngAnchoTotal = lngMaxLeft + lngAnchoBtn - lngMinLeft
+    lngIniLeft = (Me.WindowWidth - lngAnchoTotal) \ 2
+    lngIniTop = Me.lblPH.Top + Me.lblPH.Height + 175
+    For Each ctl In Me.Controls
+        If ctl.Name Like "btn*" And ctl.ControlType = acTextBox Then
+            ctl.Left = ctl.Left - lngMinLeft + lngIniLeft
+            ctl.Top = ctl.Top - lngMinTop + lngIniTop
+        End If
+    Next ctl
+    Dim lngL As Long, lngT As Long
+    lngL = (lngAnchoTotal - Me.cdrCentrar.Width) \ 2
+    If lngL < 0 Then lngL = 0
+    Me.cdrCentrar.Left = lngL
+    Dim i As Integer
+    For i = 2 To 7
+        Me("btn_" & i).Left = Me("btn_" & i).Left + Me.cdrCentrar.Left
+        Me("btn_" & i).Top = Me("btn_" & i).Top + Me.cdrCentrar.Top
+    Next i
+    'Me.btnSalir.Left = Me.txt2.Left + Me.txt2.Width
+End Sub
+
+Public Sub Carga_Btns()
+    Dim i As Integer, lngIdComando As Long, strPic As String, strCTT As String
+    For i = 2 To 7
+        strPic = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_imagen"), "")
+        If Dir(strPic) <> "" Then Me("btn_" & i).Picture = strPic
+        Me("btn_" & i).Enabled = Nz(DameValorParam("AplicacionMenuVer_Btn_" & i), False)
+        If Me("btn_" & i).Enabled Then
+            lngIdComando = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_comando"), 0)
+            Me("btn_" & i).OnClick = "=AccionMenu(" & lngIdComando & ",2)"
+            strCTT = Nz(DLookup("Leyenda", "sysMenus2", "IdComando = " & lngIdComando), "")
+            Me("btn_" & i).ControlTipText = strCTT
+            If lngIdComando = 51 Then 'Abrir-Cerrar Caja
+                If IsCajaOpen > 0 Then
+                    Me("btn_" & i).ControlTipText = "Cerrar Caja"
+                Else
+                    Me("btn_" & i).ControlTipText = "Abrir Caja"
+                End If
+            End If
+        Else
+            Me("btn_" & i).ControlTipText = ""
+        End If
+    Next i
+End Sub
+
+Private Sub txtPersonasAcampadas_Change()
+    Dim strSQL As String
+    strSQL = "SELECT [auxPersonasAcampadas].[Nombre_Persona], [auxPersonasAcampadas].[NombreParcela]"
+    strSQL = strSQL & " FROM [auxPersonasAcampadas]"
+    strSQL = strSQL & " WHERE True"
+    strSQL = strSQL & " AND Nombre_Persona Like '*" & ConAcentos(Me.txtPersonasAcampadas.text) & "*'"
+    strSQL = strSQL & " ORDER BY [Nombre_Persona], [NombreParcela];"
+    Me.lstPersonasAcampadas.RowSource = strSQL
+    Me.lstPersonasAcampadas.Visible = True
+End Sub
+
+Private Sub txtPersonasAcampadas_Enter()
+    Dim strSQL As String
+    Me.lstPersonasAcampadas.Visible = False
+    gintVerLista = False
+    CurrentDb.Execute "DELETE * FROM auxPersonasAcampadas", dbFailOnError
+    strSQL = "INSERT INTO auxPersonasAcampadas ( NombreParcela, Nombre_Persona )"
+    strSQL = strSQL & " SELECT tbParcelas.NombreParcela, IIf(Len('' & [Nombre] & [Apellido1] & [Apellido2])=0,Trim([NombreCliente] & ' ' & [ApellidosCliente]),Trim([Nombre] & ' ' & [Apellido1] & ' ' & [Apellido2])) AS Nombre_Persona"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN (tbFichasCab LEFT JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab) ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab;"
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+End Sub
+
+Private Sub txtPersonasAcampadas_Exit(Cancel As Integer)
+'    If Not gintVerLista Then Me.lstPersonasAcampadas.Visible = False
+End Sub
+
+Private Sub txtPersonasAcampadas_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyDown And Me.lstPersonasAcampadas.Visible Then
+        gintVerLista = True
+        'DoCmd.GoToControl "lstPersonasAcampadas"
+        Me.lstPersonasAcampadas.SetFocus
+    End If
+End Sub
+
+
+
+Public Function QuitaListaPersonas()
+    If Me.ActiveControl.Name <> "lstPersonasAcampadas" Then
+        Me.lstPersonasAcampadas.Visible = False
+        gintVerLista = False
+    End If
+End Function
+
+Private Sub txtTarjetaRFID_AfterUpdate()
+    On Error GoTo Error_txtTarjetaRFID_AfterUpdate
+    Dim lngIdFichaCab As Long
+    lngIdFichaCab = Nz(DLookup("IdfichaCab", "tbTagsRFID", "SerialNumber = " & ConComillas(Me.txtTarjetaRFID)), 0)
+    If lngIdFichaCab <> 0 Then
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFichaCab
+    Else
+        If Nz(Me.txtTarjetaRFID, "") <> "" Then MsgBox "No se encontró Ficha asociada a la tarjeta: " & Me.txtTarjetaRFID, vbExclamation
+    End If
+    Me.txtTarjetaRFID = ""
+    On Error Resume Next
+Salir_txtTarjetaRFID_AfterUpdate:
+    Exit Sub
+Error_txtTarjetaRFID_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en txtTarjetaRFID_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_txtTarjetaRFID_AfterUpdate
+    End Select
+End Sub

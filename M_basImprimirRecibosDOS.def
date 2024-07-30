@@ -1,0 +1,251 @@
+Option Compare Database
+Option Explicit
+
+Dim FILERECIBO  As String '= "c:\recibo.txt"
+Dim strPathPrintTeam As String
+Dim strPathPrintPort As String
+Dim strError As String
+Dim strEntidad As String
+Dim strLocalidad As String
+Dim intMargSup As Integer
+Dim intMargIzdo As Integer
+Dim intLinDet As Integer
+Dim intNumCop As Integer
+Dim intLetraCN As Integer
+Dim glngIdRecibo As Long
+Dim strgLinea As String
+Dim strMargen As String
+Dim intgCambiaAcentos As Integer
+Dim gintBloc As Integer
+
+Public Function ImprimirReciboDOS(lngIdCajaDet As Long, Optional intPag As Integer) As Integer
+    On Error GoTo Error_ImprimirReciboDOS
+    FILERECIBO = DirectorioDe(CurrentDb.Name) & "recibo.txt"
+    gintBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    ParametrosIniRecibo
+    If ImprimirCabeceraRecibo(lngIdCajaDet, intPag) = False Then
+        ImprimirReciboDOS = False
+        Close
+        Exit Function
+    End If
+    If ImprimirDetalleRecibo(lngIdCajaDet) = False Then
+        ImprimirReciboDOS = False
+        Close
+        Exit Function
+    End If
+    If ImprimirPieRecibo() = False Then
+        ImprimirReciboDOS = False
+        Close
+        Exit Function
+    End If
+    Print #1, seSaltPg;
+    Close
+    ImprimirDOS FILERECIBO, strPathPrintTeam & strPathPrintPort
+
+Salir_ImprimirReciboDOS:
+    Exit Function
+Error_ImprimirReciboDOS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirReciboDOS"
+    End Select
+    Resume Salir_ImprimirReciboDOS
+End Function
+
+Private Sub ParametrosIniRecibo()
+    Dim strImpresoraRecibos  As String
+    On Error GoTo Error_ParametrosIniRecibo
+    strEntidad = Nz(DameValorParam("RecibosEntidadEmisora"), "")
+    strLocalidad = Nz(DameValorParam("RecibosLocalidadExpedicion"), "")
+    intMargSup = Nz(DameValorParam("RecibosMargenSup"), 3)
+    intMargIzdo = Nz(DameValorParam("RecibosMargenIzdo"), 3)
+    intLinDet = Nz(DameValorParam("RecibosNumLineasTexto"), 15)
+    intNumCop = Nz(DameValorParam("RecibosNumCopias"), 1)
+    intLetraCN = Nz(DameValorParam("RecibosLetraCN"), 1)
+    strImpresoraRecibos = Nz(DameValorParam("RecibosImpresora"), "")
+    intgCambiaAcentos = DLookup("CambiarAcentos", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'")
+    CargarCodigosEscape strImpresoraRecibos, gintBloc
+    strPathPrintTeam = DLookup("NombrePuesto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'")
+    If strPathPrintTeam = Nz(DameValorParam("PuestoNombre"), "") Then
+        strPathPrintTeam = "c:\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'"), 1, True)
+    Else
+        strPathPrintTeam = "\\" & strPathPrintTeam & "\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'"), 2, True)
+    End If
+    
+'    Open strPathPrintTeam & strPathPrintPort For Output As #1
+    Open FILERECIBO For Output As #1
+    If intLetraCN = 1 Then
+        Print #1, seCOMPRI
+    Else
+        Print #1, seNORMAL
+    End If
+Salir_ParametrosIniRecibo:
+    Exit Sub
+Error_ParametrosIniRecibo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ParametrosIniRecibo"
+            
+    End Select
+    
+    Resume Salir_ParametrosIniRecibo
+End Sub
+
+Private Function ImprimirCabeceraRecibo(lngIdCajaDet As Long, Optional intPag As Integer) As Integer
+    Dim rs As Recordset
+    Dim i As Integer
+    
+    On Error GoTo Error_ImprimirCabeceraRecibo
+    Set rs = CurrentDb.OpenRecordset("tbCajaDet")
+    rs.FindFirst "IdCajaDet = " & lngIdCajaDet
+    If rs.NoMatch Then
+        MsgBox "No existe la Pago nº: " & lngIdCajaDet
+        ImprimirCabeceraRecibo = False
+        Exit Function
+    End If
+    If intMargSup > 0 Then
+        For i = 1 To intMargSup
+            Print #1,
+        Next i
+    End If
+    If intMargIzdo > 0 Then
+        strMargen = space(intMargIzdo)
+    Else
+        strMargen = ""
+    End If
+    strgLinea = strMargen & seSubrayON & " R e c i b o " & seSubrayOFF & LlenaIzq(IIf(intPag > 0, "Pag. " & intPag, " "), 30)
+    ImprimeLinea
+    Select Case rs("Origen")
+        Case "T"
+            strgLinea = strMargen & "Nº de Tique: " & Llena(rs("IdFrom"), 5)
+        Case "F"
+            strgLinea = strMargen & "Nº de Factura: " & Nz(DLookup("[Serie] & [NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & rs("IdFrom")), "?")
+        Case "C"
+            strgLinea = strMargen & "Pago de Caja"
+        Case "E"
+            strgLinea = strMargen & "Nº de Ficha de Estancia: " & Llena(rs("IdFrom"), 5)
+        Case "R"
+            strgLinea = strMargen & "Factura recibida: " & Nz(DLookup("NumeroDeFactura", "tbFacturasRecibidas", "IdFacturaRecibida = " & rs("IdFrom")), "")
+    End Select
+    ImprimeLinea
+    ImprimirCabeceraRecibo = True
+Salir_ImprimirCabeceraRecibo:
+    Exit Function
+Error_ImprimirCabeceraRecibo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraRecibo"
+            
+    End Select
+    'Resume Salir_ImprimirCabeceraRecibo
+    Resume Next
+End Function
+
+
+
+Private Function ImprimirDetalleRecibo(lngIdCajaDet As Long)
+    Dim rs As Recordset
+    Dim i As Integer, intPag As Integer, j As Integer, k As Integer
+    Dim strSQL As String
+    Dim intPtsEuros  As Integer
+    Dim strCantidad As String
+    Dim strTexto As String
+    Dim c_ANCHO As Integer
+    c_ANCHO = 80
+    On Error GoTo Error_ImprimirDetalleRecibo
+    
+    intPtsEuros = 2
+    strSQL = "SELECT tbCajaDet.*, tbCajaDet_Concepto.Concepto, tbCajaDet_Concepto.NombrePersona"
+    strSQL = strSQL & " FROM tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet=tbCajaDet_Concepto.IdCajaDet"
+    strSQL = strSQL & " WHERE (((tbCajaDet.IdCajaDet) = " & lngIdCajaDet & "))"
+
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then
+        MsgBox "No se encuentra el pago nº " & lngIdCajaDet
+        ImprimirDetalleRecibo = False
+        Exit Function
+    End If
+    intPag = 1
+    While Not rs.EOF
+        i = i + k + 4
+        strCantidad = Format(rs("Cantidad"), "#,##0.00") & " €"
+        strTexto = strEntidad & ", " & IIf(rs("Cantidad") > 0, "He recibido de ", "He entregado a ") & rs("NombrePersona") & " la cantidad de " & strCantidad & " (" & abcednumPtsEuros(rs("Cantidad"), intPtsEuros) & ") en concepto de " & UCase(rs("Concepto"))
+        k = Len(strTexto) \ 64
+        If i + k + 4 >= intLinDet Then
+            strgLinea = strMargen & LlenaIzq("Sigue...............", 64)
+            ImprimeLinea
+            Print #1, seSaltPg
+            intPag = intPag + 1
+            ImprimirCabeceraRecibo lngIdCajaDet, intPag
+            i = 0
+        End If
+        strgLinea = strMargen & LlenaChar("_", c_ANCHO)
+        ImprimeLinea
+        strgLinea = strMargen & Llena("Nº de Recibo: " & rs("IdCajaDet"), 23) & Llena(Format(rs("Fecha"), "dd/mm/yyyy"), 15) & "Importe: " & LlenaIzqChar(strCantidad, c_ANCHO - 47, ".")
+        ImprimeLinea
+Bucle:
+        j = c_ANCHO
+        If Len(strTexto) > j Then
+            PrimerEspacioDcha strTexto, 1, j
+            strgLinea = strMargen & Mid(strTexto, 1, j) & LlenaChar("=", c_ANCHO - j - 1)
+            ImprimeLinea
+            strTexto = Mid(strTexto, j + 1)
+            GoTo Bucle
+        Else
+            strgLinea = strMargen & strTexto & LlenaChar("=", c_ANCHO - Len(strTexto) - 1)
+            ImprimeLinea
+        End If
+        
+'        For j = 0 To k
+'            strgLinea = strMargen & Mid(strTexto, 64 * j + 1, 64)
+'            ImprimeLinea
+'        Next j
+        rs.MoveNext
+    Wend
+FinRecibo:
+'    While i <= intLinDet
+'        Print #1, seReturn;
+'        i = i + 1
+'    Wend
+    ImprimirDetalleRecibo = True
+    
+Salir_ImprimirDetalleRecibo:
+    Exit Function
+Error_ImprimirDetalleRecibo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirDetalleRecibo"
+            
+    End Select
+    
+    Resume Salir_ImprimirDetalleRecibo
+
+End Function
+Private Function ImprimirPieRecibo() As Integer
+    On Error GoTo Error_ImprimirPieRecibo
+    Print #1, seRemarcON;
+    Print #1,
+    strgLinea = strMargen & "En " & strLocalidad & ", a " & Format(Date, "d"" de ""mmmm"" de ""yyyy")
+    ImprimeLinea
+    Print #1, seRemarcOFF;
+    ImprimirPieRecibo = True
+Salir_ImprimirPieRecibo:
+    Exit Function
+Error_ImprimirPieRecibo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirPieRecibo"
+            
+    End Select
+    
+    Resume Salir_ImprimirPieRecibo
+End Function
+Private Sub ImprimeLinea()
+    If intgCambiaAcentos = True And gintBloc = False Then
+        Print #1, CambiaAcentos(strgLinea)
+    Else
+        Print #1, strgLinea
+    End If
+End Sub

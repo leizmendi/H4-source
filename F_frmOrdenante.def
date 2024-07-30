@@ -1,0 +1,13 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    Dim strCuenta As String
+    strCuenta = Me.ENTIDAD & "-" & Me.OFICINA & "-" & Me.DIGCONT & "-" & Me.NumCuenta
+    Cancel = Not CompruebaDC(strCuenta, True)
+End Sub

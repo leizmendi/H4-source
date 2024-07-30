@@ -1,0 +1,18 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    If DCount("IdParcela", "tbGruposPlaning_Parcelas", "IdGrupoPlaning = " & Nz(Me.IdGrupoPlaning, 0)) >= 15 Then
+        MsgBox "No se pueden incluir más de 15 " & g_strPHs & " en cada Grupo"
+        Cancel = True
+    End If
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+End Sub

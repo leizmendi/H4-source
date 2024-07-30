@@ -1,0 +1,383 @@
+Option Compare Database
+Option Explicit
+
+Dim FILEFACTURA As String '= "C:\Factura.txt"
+Dim strPathPrintTeam As String
+Dim strPathPrintPort As String
+Dim strError As String
+Dim intCabecera As Integer
+Dim intMargSup As Integer
+Dim intMargIzdo As Integer
+Dim intLinDet As Integer
+Dim intNumCop As Integer
+Dim intLetraCN As Integer
+Dim gstrNumFac As String
+Dim strgLinea As String
+Dim strMargen As String
+Dim intgCambiaAcentos As Integer
+Dim gintBloc As Integer
+
+Public Function ImprimirFacturaDOS(lngIdFac As Long, Optional intPag As Integer, Optional intBloc As Integer = 88) As Integer
+    Const pp = "POPO"
+    FILEFACTURA = DirectorioDe(CurrentDb.Name) & "Factura.txt"
+    'Dim strNumFac As String
+    If intBloc = 88 Then
+        gintBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
+    Else
+        gintBloc = intBloc
+    End If
+    On Error GoTo Error_ImprimirFacturaDOS
+    ParametrosIniFac
+    gstrNumFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFac), "")
+    If ImprimirCabeceraFac(lngIdFac, intPag) = False Then
+        ImprimirFacturaDOS = False
+        Close
+        Exit Function
+    End If
+    If ImprimirDetalleFac(lngIdFac) = False Then
+        ImprimirFacturaDOS = False
+        Close
+        Exit Function
+    End If
+    If ImprimirPieFac(lngIdFac) = False Then
+        ImprimirFacturaDOS = False
+        Close
+        Exit Function
+    End If
+    Close
+    ImprimirDOS FILEFACTURA, strPathPrintTeam & strPathPrintPort, intBloc
+
+Salir_ImprimirFacturaDOS:
+    Exit Function
+Error_ImprimirFacturaDOS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirFacturaDOS"
+            
+    End Select
+    
+    Resume Salir_ImprimirFacturaDOS
+    
+End Function
+
+Private Sub ParametrosIniFac()
+    Dim strImpresoraFacturas  As String
+    On Error GoTo Error_ParametrosIniFac
+    intCabecera = Nz(DameValorParam("FacturasCabeceraSN"), True)
+    intMargSup = Nz(DameValorParam("FacturasMargenSup"), 3)
+    intMargIzdo = Nz(DameValorParam("FacturasMargenIzdo"), 3)
+    intLinDet = Nz(DameValorParam("FacturasLineasDetalle"), 0)
+    intNumCop = Nz(DameValorParam("FacturasNumCopias"), 1)
+    intLetraCN = Nz(DameValorParam("FacturasLetraCN"), 1)
+    strImpresoraFacturas = Nz(DameValorParam("FacturasImpresora"), "")
+    intgCambiaAcentos = DLookup("CambiarAcentos", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'")
+    CargarCodigosEscape strImpresoraFacturas, gintBloc
+    strPathPrintTeam = DLookup("NombrePuesto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'")
+    If strPathPrintTeam = Nz(DameValorParam("PuestoNombre"), "") Then
+        strPathPrintTeam = "c:\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'"), 1, True)
+    Else
+        strPathPrintTeam = "\\" & strPathPrintTeam & "\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'"), 2, True)
+    End If
+'    Open strPathPrintTeam & strPathPrintPort For Output As #1
+    Open FILEFACTURA For Output As #1
+    'Print #1, seInicia;
+    'Print #1, seLongEnLin & 66;
+    If gintBloc = True Then GoTo Salir_ParametrosIniFac
+    If intLetraCN = 1 Then
+        Print #1, seCOMPRI;
+        Print #1, seELITE;
+    Else
+        Print #1, seNORMAL;
+        Print #1, seELITE;
+    End If
+Salir_ParametrosIniFac:
+    Exit Sub
+Error_ParametrosIniFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ParametrosIniFac"
+            
+    End Select
+    
+    Resume Salir_ParametrosIniFac
+End Sub
+
+Private Function ImprimirCabeceraFac(lngIdFac As Long, Optional intPag As Integer) As Integer
+    Dim rs As Recordset
+    Dim i As Integer
+    Dim strMiCab As String
+    On Error GoTo Error_ImprimirCabeceraFac
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFacturasCab WHERE IdFactura = " & lngIdFac)
+    If rs.EOF Then
+        MsgBox "No existe la factura IdFactura= " & lngIdFac
+        ImprimirCabeceraFac = False
+        Exit Function
+    End If
+    
+    If NzCero(DameValorParam("FacturasCabeceraSN")) = True Then
+        strMiCab = Nz(DameValorParam("FacturasCabecera"), "")
+    Else
+        strMiCab = ""
+    End If
+    
+    If intMargSup > 0 Then
+        For i = 1 To intMargSup
+            Print #1, seReturn;
+        Next i
+    End If
+    If intMargIzdo > 0 Then
+        strMargen = space(intMargIzdo)
+    Else
+        strMargen = ""
+    End If
+    strgLinea = strMargen & seSubrayON & "  F A C T U R A  " & seSubrayOFF & LlenaIzq(IIf(intPag > 0, "Pág. " & intPag, " "), 25)
+    ImprimeLinea
+    'strglinea=strMargen & "==============="
+    strgLinea = strMargen & Llena("Nº   : " & rs("Serie") & "" & rs("NumeroDeFactura"), 35) '& seSubrayON & Centra("C L I E N T E", 39) & seSubrayOFF
+    ImprimeLinea
+    strgLinea = strMargen & Llena("Fecha: " & Format(rs("FechaFactura"), "dd/mm/yyyy"), 35) '& Llena(ExtraeLin(rs("DireccionCliente"), 1), 39)
+    ImprimeLinea
+    For i = 2 To 3
+        strgLinea = strMargen & Llena(ExtraeLin(strMiCab, i - 1), 35) '& Llena(ExtraeLin(rs("DireccionCliente"), i), 39)
+        ImprimeLinea
+    Next i
+    strgLinea = strMargen & Llena(ExtraeLin(strMiCab, 3), 35) '& Llena(ExtraeLin(rs("DireccionCliente"), 4), 39) & " " & ExtraeLin(rs("DireccionCliente"), 5)
+    ImprimeLinea
+    strgLinea = strMargen & Llena(ExtraeLin(strMiCab, 4), 35) '& "N.I.F.: " & rs("NIF")
+    ImprimeLinea
+    Print #1, seReturn;
+    'strgLinea = strMargen & "________" & " " & "________" & " " & LlenaChar("_N C E P T O ", 31) & " " & "____" & " " & "_________" & " " & "__________"
+    strgLinea = strMargen & LlenaChar("_N C E P T O ", 31) & " " & "__________"
+    ImprimeLinea
+    'strgLinea = strMargen & "De Fecha" & " " & "A  Fecha" & " " & Llena(" C O N C E P T O ", 31) & " " & "Dias" & " " & "Precio U." & " " & " Importe "
+    strgLinea = strMargen & Llena(" C O N C E P T O ", 31) & " " & " Importe "
+    ImprimeLinea
+    'strgLinea = strMargen & "Sarrera " & " " & "Irteera " & " " & Llena(" K O N T Z E P T U A", 31) & " " & "Egun" & " " & "Prezioa  " & " " & " Guztira "
+    strgLinea = strMargen & Llena(" K O N T Z E P T U A", 31) & " " & " Guztira "
+    ImprimeLinea
+    If rs("IvaIncluidoDetalle") = True Then
+        'strgLinea = strMargen & "________" & " " & "________" & " " & LlenaChar("_N C E P T O ", 31) & " " & "____" & " " & seSubrayON & " iva inc." & seSubrayOFF & " " & "__________"
+        strgLinea = strMargen & LlenaChar("_N C E P T O ", 31) & " " & "__________"
+        ImprimeLinea
+    Else
+        'strgLinea = strMargen & "________" & " " & "________" & " " & LlenaChar("_N C E P T O ", 31) & " " & "____" & " " & "_________" & " " & "__________"
+        strgLinea = strMargen & LlenaChar("_N C E P T O ", 31) & " " & "__________"
+        ImprimeLinea
+    End If
+    ImprimirCabeceraFac = True
+Salir_ImprimirCabeceraFac:
+    Exit Function
+Error_ImprimirCabeceraFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirCabeceraFac"
+            
+    End Select
+    
+    Resume Salir_ImprimirCabeceraFac
+End Function
+
+
+Private Function ImprimirDetalleFac(lngIdFac As Long)
+    Dim rs As Recordset
+    Dim i As Integer, intPag As Integer, j As Integer
+    Dim strSQL As String, strDias As String
+    Dim strMiCab As String
+    Dim strNF As String
+    Dim intPtsEuros  As Integer
+    On Error GoTo Error_ImprimirDetalleFac
+
+    strSQL = "SELECT tbFacturasDet.*, IIf(IsDate([FechaFin]) And IsDate([FechaInicio]),CLng([FechaFin])-CLng([FechaInicio]),1) AS Dias, CCur([Cantidad]*[PrecioUnitario]*[Dias]) AS TotalLinea"
+    strSQL = strSQL & " FROM tbFacturasDet"
+    strSQL = strSQL & " WHERE (((tbFacturasDet.IdFactura) = " & lngIdFac & "))"
+    strSQL = strSQL & " ORDER BY tbFacturasDet.IdDetalle"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    rs.MoveLast
+    rs.MoveFirst
+    intPag = 1
+    While Not rs.EOF
+        i = i + 1
+        j = j + 1
+        If intLinDet > 0 Then
+            If i >= intLinDet And rs.RecordCount > j Then
+                strgLinea = strMargen & LlenaIzq("Sigue...............", 64)
+                ImprimeLinea
+                strNF = DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFac)
+                strgLinea = seSaltPg
+                ImprimeLinea
+                intPag = intPag + 1
+                ImprimirCabeceraFac lngIdFac, intPag
+                i = 0
+            End If
+        End If
+        If IsDate(rs("FechaFin")) Then
+            strDias = CStr(rs("Dias"))
+        Else
+            strDias = "-"
+        End If
+        'strgLinea = strMargen & Llena(Format(rs("FechaInicio"), "dd/mm/yy"), 8) & " " & Llena(Format(rs("FechaFin"), "dd/mm/yy"), 8) & " " & Llena(rs("Cantidad") & " " & rs("Concepto"), 31) & " " & LlenaIzq(strDias, 3) & LlenaIzq(Format(rs("PrecioUnitario"), "#,##0.00"), 10) & LlenaIzq(Format(rs("TotalLinea"), "#,##0.00"), 10)
+        strgLinea = strMargen & Llena(rs("Cantidad") & " " & rs("Concepto"), 31) & " " & LlenaIzq(Format(rs("TotalLinea"), "#,##0.00"), 10)
+        ImprimeLinea
+        rs.MoveNext
+    Wend
+    If intLinDet > 0 Then
+        While i <= intLinDet
+            Print #1, seReturn;
+            i = i + 1
+        Wend
+    End If
+    ImprimirDetalleFac = True
+    
+Salir_ImprimirDetalleFac:
+    Exit Function
+Error_ImprimirDetalleFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirDetalleFac"
+            
+    End Select
+    
+    Resume Salir_ImprimirDetalleFac
+    Resume Next
+
+End Function
+
+Private Function ImprimirPieFac(lngIdFac As Long) As Integer
+    Dim rs As Recordset
+    Dim rs2 As Recordset
+    Dim i As Integer
+    Dim strIVA As String, strSalud As String
+    On Error GoTo Error_ImprimirPieFac
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFacturasCab WHERE IdFactura = " & lngIdFac)
+    If rs.EOF Then
+        MsgBox "No existe la factura IdFactura: " & lngIdFac
+        ImprimirPieFac = False
+        Exit Function
+    End If
+    strSalud = Nz(DameValorParam("FacturasSaludoYConsejos"), "Eskerrik asko")
+    For i = 1 To LineasDeStr(strSalud)
+        strgLinea = strMargen & Centra(ExtraeLin(strSalud, i), 42)
+        ImprimeLinea
+    Next i
+    'strgLinea = strMargen & LlenaChar("_", 74)
+    strgLinea = strMargen & LlenaChar("_", 42)
+    ImprimeLinea
+    Set rs2 = CurrentDb.OpenRecordset("qryCuentaIVAs")
+    rs2.FindFirst "IdFactura = " & lngIdFac
+    If Not rs.NoMatch Then
+        If rs2("CuentaDeIVA") > 1 Then
+            'strIVA = LlenaIzq(Desgl_IVAFac(lngIdFac), 43) & " IVA/BEZ: " & Llena(" ", 6)
+            strIVA = LlenaIzq(Desgl_IVAFac(lngIdFac), 10) & " IVA/BEZ: " & Llena(" ", 6)
+        Else
+            strIVA = Format(rs2("PrimeroDeIVA"), "percent")
+            'strIVA = LlenaIzq(" IVA/BEZ: ", 53) & Llena(strIVA, 6)
+            strIVA = LlenaIzq(" IVA/BEZ: ", 21) & Llena(strIVA, 6)
+        End If
+    End If
+    'strgLinea = strMargen & LlenaIzq("Base/Dena:", 52) & LlenaIzq(Format(rs("TotalBase"), "#,##0.00") & " €", 22)
+    strgLinea = strMargen & LlenaIzq("Base/Dena:", 20) & LlenaIzq(Format(rs("TotalBase"), "#,##0.00") & " €", 22)
+    ImprimeLinea
+    strgLinea = strMargen & strIVA & LlenaIzq(Format(rs("TotalIVA"), "#,##0.00") & " €", 15)
+    ImprimeLinea
+    Print #1, seRemarcON;
+    'strgLinea = strMargen & Llena(Nz(rs("Observaciones"), ""), 45) & (" TOTAL:") & LlenaIzq(Format((rs("TotalBase") + rs("TotalIVA")), "#,##0.00") & " €", 22)
+    strgLinea = strMargen & LlenaIzq("TOTAL:", 20) & LlenaIzq(Format((rs("TotalBase") + rs("TotalIVA")), "#,##0.00") & " €", 22)
+    ImprimeLinea
+    strgLinea = strMargen & Llena(Nz(rs("Observaciones"), ""), 42)
+    ImprimeLinea
+    Print #1, seRemarcOFF;
+    Dim curAdelanto As Currency
+    If Nz(DameValorParam("FacturasVerAdelantos"), True) = True Then
+        curAdelanto = TFAdelanto(rs("IdFactura"), rs("FechaFactura"))
+        If curAdelanto > 0 Then
+            'strgLinea = strMargen & "Adelantado: " & Format(curAdelanto, "#,##0.00") & " €" & " Pendiente: " & Format(rs("TotalBase") + rs("TotalIVA") - curAdelanto, "#,##0.00") & " €"
+            strgLinea = strMargen & "Adelantado: " & Format(curAdelanto, "#,##0.00") & " €" & " Pendiente: " & Format(rs("TotalBase") + rs("TotalIVA") - curAdelanto, "#,##0.00") & " €"
+            ImprimeLinea
+        End If
+    End If
+    Print #1, seSaltPg;
+    ImprimirPieFac = True
+Salir_ImprimirPieFac:
+    Exit Function
+Error_ImprimirPieFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirPieFac"
+    End Select
+    Resume Salir_ImprimirPieFac
+    Resume Next
+End Function
+
+Private Function DesgloseIVAFac(strNF As String) As String
+    Dim rs As Recordset
+    Dim strRes As String
+    Dim intPtsEuros As Integer
+    On Error GoTo Error_DesgloseIVAFac
+    Set rs = CurrentDb.OpenRecordset("qryFacturasTotalesTiposIVA")
+    rs.FindFirst "NumeroDeFactura = '" & strNF & "'"
+    intPtsEuros = NzCero(DLookup("PtsEuros", "tbFacturasCab", "NumeroDeFactura = '" & strNF & "'"))
+    If rs.NoMatch Then
+        DesgloseIVAFac = ""
+        Exit Function
+    End If
+    While rs("NumeroDeFactura") = strNF
+        If intPtsEuros = 2 Then
+            strRes = strRes & ", " & Format(rs("IVA") * 100, "0") & " % s/" & Format(rs("TotalTipoIVA"), "#,##0.00")
+        Else
+            strRes = strRes & ", " & Format(rs("IVA") * 100, "0") & " % s/" & Format(rs("TotalTipoIVA"), "#,##0")
+        End If
+        rs.MoveNext
+        If rs.EOF Then GoTo Sigue
+        
+    Wend
+Sigue:
+    strRes = Right(strRes, Len(strRes) - 2)
+    DesgloseIVAFac = strRes
+Salir_DesgloseIVAFac:
+    Exit Function
+Error_DesgloseIVAFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En DesgloseIVAFac"
+    End Select
+    Resume Salir_DesgloseIVAFac
+    
+End Function
+
+Private Function Desgl_IVAFac(lngIdFac As Long) As String
+    Dim rs As Recordset
+    Dim strRes As String
+    On Error GoTo Error_Desgl_IVAFac
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM qryFacturasTotalesTiposIVA WHERE IdFactura = " & lngIdFac)
+    If rs.EOF Then
+        Desgl_IVAFac = ""
+        Exit Function
+    End If
+    While Not rs.EOF
+        strRes = strRes & ", " & Format(rs("IVA") * 100, "0") & " % s/" & Format(rs("TotalTipoIVA"), "#,##0.00")
+        rs.MoveNext
+    Wend
+Sigue:
+    strRes = Right(strRes, Len(strRes) - 2)
+    Desgl_IVAFac = strRes
+Salir_Desgl_IVAFac:
+    Exit Function
+Error_Desgl_IVAFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En Desgl_IVAFac"
+    End Select
+    Resume Salir_Desgl_IVAFac
+    
+End Function
+
+
+Private Sub ImprimeLinea()
+    If intgCambiaAcentos = True And gintBloc = False Then
+        Print #1, CambiaAcentos(strgLinea)
+    Else
+        Print #1, strgLinea
+    End If
+End Sub

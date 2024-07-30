@@ -1,0 +1,30 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAsig_Click()
+    DoCmd.RunCommand acCmdSaveRecord
+    Dim strXML As String
+    PonXML strXML, "IdGrupoPlaning", Nz(Me.IdGrupoPlaning, 0)
+    DoCmd.OpenForm "frmAsignarParcelasAGrupo", , , , , acDialog, strXML
+    Me.lstParcelas.Requery
+End Sub
+
+Private Sub Form_Current()
+    Dim strSQL As String
+    strSQL = "SELECT tbParcelas.NombreParcela"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela=tbGruposPlaning_Parcelas.IdParcela"
+    strSQL = strSQL & " WHERE tbGruposPlaning_Parcelas.IdGrupoPlaning=" & Nz(Me.IdGrupoPlaning, 0)
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+    Me.lstParcelas.RowSource = strSQL
+End Sub
+
+Private Sub Form_Load()
+    Me.lblGruposPH.Caption = "Grupos de " & g_strPHs & " para Planning"
+    Me.lblPHs.Caption = g_strPHs
+    Me.Caption = Me.lblGruposPH.Caption
+End Sub

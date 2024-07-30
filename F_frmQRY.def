@@ -1,0 +1,25 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub Form_Load()
+    Dim strXML As String, strSubform As String
+    
+    strXML = Nz(Me.OpenArgs, "")
+    strSubform = Nz(DimeXML(strXML, "ObjetoOrigen"), "frmActualizarPreciosFijos")
+    Me.subfrm.SourceObject = strSubform
+    Me.lblSubform.Caption = Nz(DimeXML(strXML, "Titulo"), "-")
+    Me.Caption = Me.lblSubform.Caption
+End Sub

@@ -1,0 +1,27 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim frm As Form, strTit As String
+    If IsOpenForm("frmDeclaracionAnualOperacionesConTercerasPersonas") Then
+        Set frm = Forms("frmDeclaracionAnualOperacionesConTercerasPersonas")
+    Else
+        If IsOpenForm("frmMaestros") Then
+            If Forms("frmMaestros")("subfrm").SourceObject = "frmDeclaracionAnualOperacionesConTercerasPersonas" Then
+                Set frm = Forms("frmMaestros")("subfrm").Form
+            Else
+                strTit = "¿?"
+            End If
+        Else
+            strTit = "¿?"
+        End If
+    End If
+    If strTit = "" Then strTit = frm("lblTit").Caption
+    Me.txtSubTitulo.Caption = strTit
+            
+End Sub

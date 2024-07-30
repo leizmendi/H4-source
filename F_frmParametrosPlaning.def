@@ -1,0 +1,78 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnColor_Click()
+    Dim lngColor As Long
+    Me.Section(0).BackColor = adhChooseColor(Me.Section(0).BackColor)
+    'lngColor = adhChooseColor(Forms![frmMenu].Section(0).BackColor)
+End Sub
+
+Private Sub btnParamH_Click()
+    DoCmd.OpenForm "frmParametrosPlaningH"
+End Sub
+
+Private Sub Form_Load()
+    On Error GoTo HandleError
+    CargarParam Me
+    Call PlanningPreferido_AfterUpdate
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "_WB") > 0 Then ctl.Visible = g_SincroWB
+    Next ctl
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub PlaningGSoloParcelasControlReservas_AfterUpdate()
+    On Error GoTo HandleError
+    PonValorParam "PlaningGSoloParcelasControlReservas", Nz(Me.PlaningGSoloParcelasControlReservas, False), 2
+    Dim strSQL As String
+    strSQL = "SELECT tbParcelasTipo.TipoParcela, tbParcelasTipo.CatINE, tbParcelas.*"
+    strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+    If Me.PlaningGSoloParcelasControlReservas = True Then strSQL = strSQL & " WHERE (((tbParcelas.ControlReservas)=True) AND ((tbParcelasTipo.ControlReservas)=True))"
+    strSQL = strSQL & " ORDER BY tbParcelasTipo.CatINE, tbParcelasTipo.IdTipoParcela, tbParcelas.Orden;"
+    CurrentDb.QueryDefs("qryParcelasPlaning").SQL = strSQL
+    
+    strSQL = "SELECT tbParcelasTipo.IdTipoParcela, tbParcelasTipo.TipoParcela, tbParcelas.NombreParcela, tbParcelasTipo.TypeCode"
+    strSQL = strSQL & " FROM tbParcelasTipo LEFT JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+    If Me.PlaningGSoloParcelasControlReservas = True Then strSQL = strSQL & " WHERE (((tbParcelas.ControlReservas)=True) AND ((tbParcelasTipo.ControlReservas)=True))"
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+    CurrentDb.QueryDefs("qryParcelasPlaningSinTipo").SQL = strSQL
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub PlanningPreferido_AfterUpdate()
+    Dim ctl As Control, str1 As String
+    Select Case Me.PlanningPreferido
+        Case "frmPlaning": str1 = "M"
+        Case "frmPlaningH": str1 = "H"
+        Case "frmPlaningG": str1 = "G"
+        Case Else: str1 = "xx"
+    End Select
+        
+        
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "_planing") > 0 Then
+            ctl.Enabled = InStr(ctl.Tag, "_planing" & str1) > 0
+        End If
+    Next ctl
+End Sub

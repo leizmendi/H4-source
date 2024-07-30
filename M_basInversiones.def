@@ -1,0 +1,84 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function Amortizar(curBaseImput As Currency, ByVal datFechaCompra As Date, curPorcentajeAnual As Currency, Optional datIniPer As Date, Optional datFinPer As Date) As Currency
+'Devuelve el valor imputable al periodo
+    On Error GoTo Error_Amortizar
+    Amortizar = curBaseImput * curPorcentajeAnual * (PeriodoUso(datFechaCompra, curPorcentajeAnual, datIniPer, datFinPer) / 365)
+Salir_Amortizar:
+    Exit Function
+Error_Amortizar:
+    Select Case Err
+        Case Else
+            MsgBox "Error mº " & Err & " en Amortizar" & vbCrLf & Err.Description
+            Resume Salir_Amortizar
+    End Select
+End Function
+
+Public Function PeriodoUso(datFechaCompra As Date, curPorcentajeAnual As Currency, Optional datIniPer As Date, Optional datFinPer As Date) As Long
+'Devuelve el periodo de uso imputable al periodo
+    On Error GoTo Error_PeriodoUso
+    Dim datFinAmort As Date, datIni As Date, datFin As Date
+    Dim frm As Form
+    If curPorcentajeAnual = 0 Then
+        MsgBox "Se encontró % anual de amortización = 0 en Inversión de fecha de compra: " & Format(datFechaCompra, "dd/mm/yyyy") & vbCrLf & "Se aplicará 100% de amortización anual"
+        curPorcentajeAnual = 1
+    End If
+    'datFinAmort = datFechaCompra + (1 / curPorcentajeAnual) * 365
+    datFinAmort = FechaFinAmortizacion(datFechaCompra, curPorcentajeAnual)
+    If IsOpenForm("frmListadosInversiones") Then
+        Set frm = Forms("frmListadosInversiones")
+    ElseIf IsOpenForm("frmMaestros") Then
+        If Forms("frmMaestros")("subfrm").SourceObject = "frmListadosInversiones" Then
+            Set frm = Forms("frmMaestros")("subfrm").Form
+        End If
+    End If
+    'If IsMissing(datIniPer) Then
+    If datIniPer = 0 Then
+        datIniPer = frm("txtDesde")
+    End If
+    'If IsMissing(datFinPer) Then
+    If datFinPer = 0 Then
+        datFinPer = frm("txtHasta")
+    End If
+    
+    If datFechaCompra < datIniPer Then
+        datIni = datIniPer
+    Else
+        datIni = datFechaCompra
+    End If
+    If datFinAmort > datFinPer Then
+        datFin = datFinPer
+    Else
+        datFin = datFinAmort
+    End If
+    PeriodoUso = datFin - datIni + 1
+    If PeriodoUso < 0 Then PeriodoUso = 0
+Salir_PeriodoUso:
+    Exit Function
+Error_PeriodoUso:
+    Select Case Err
+        Case Else
+            MsgBox "Error mº " & Err & " en PeriodoUso" & vbCrLf & Err.Description
+            Resume Salir_PeriodoUso
+    End Select
+End Function
+
+Public Function FechaFinAmortizacion(datIniAmort As Date, curPorcentajeAnual As Currency, Optional datFinAmortizacion As Date = 0) As Date
+    Dim datFinAmort  As Date, intAñoIni As Integer, intAñoFin As Integer, i As Integer
+    If curPorcentajeAnual = 0 Then curPorcentajeAnual = 1
+    datFinAmort = datIniAmort + (1 / curPorcentajeAnual) * 365
+    intAñoIni = Year(datIniAmort)
+    intAñoFin = Year(datFinAmort)
+    For i = intAñoIni To intAñoFin
+        If EsBisiesto(i) Then
+            If Format(datIniAmort, "yyyy/mm/dd") < Format(i, "0000") & "/02/29" _
+            And Format(datFinAmort, "yyyy/mm/dd") > Format(i, "0000") & "/02/29" Then
+                datFinAmort = datFinAmort + 1
+            End If
+        End If
+    Next i
+    If datFinAmortizacion > 0 Then If datFinAmortizacion < datFinAmort Then datFinAmort = datFinAmortizacion
+    FechaFinAmortizacion = datFinAmort
+End Function

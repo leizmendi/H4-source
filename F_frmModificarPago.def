@@ -1,0 +1,40 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+Option Compare Database
+Option Explicit
+    Dim glngIdCaja As Long
+    Dim glngIdFichaCab As Long
+    Dim glngIdFactura As Long
+    Dim gintLlamaBtnAsignarAFicha As Integer
+    Dim gstrOpenArgs As String
+    Dim gstrTeclas As String
+    Dim gintEsFacturaRecibida As Integer
+
+Private Sub btnAceptar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+
+Private Sub btnSalir_Click()
+    SendKeys "{ESC}"
+    SendKeys "{ESC}"
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Load()
+    'Traducir Me
+End Sub
+
+Private Sub txtImporte_AfterUpdate()
+    Me.txtImporte = Redondea(Me.txtImporte, 2)
+End Sub
+
+Private Sub txtNombrePersona_AfterUpdate()
+    Me.txtNombrePersona = RecDerTop(Me.txtNombrePersona, 0, 50)
+End Sub

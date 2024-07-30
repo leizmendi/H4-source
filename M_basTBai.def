@@ -1,0 +1,784 @@
+Option Compare Database
+Option Explicit
+
+Enum TBai_TEnvio
+    FacturaAlta = 1
+    FacturaBaja = 2
+    ZuzenduAlta = 3
+    ZuzenduBaja = 4
+    Osatu = 5
+    QFactura = 6
+    QAzkena = 7
+    ID_TBai = 8
+    QR_TBai = 9
+End Enum
+
+Public Function Tipo_TBaiEnvio(iTipo As TBai_TEnvio) As String
+    Dim sR As String
+    Select Case iTipo
+        Case FacturaAlta: sR = "Factura Alta"
+        Case FacturaBaja: sR = "Factura Baja"
+        Case ZuzenduAlta: sR = "Zuzendu Alta"
+        Case ZuzenduBaja: sR = "Zuzendu Baja"
+        Case Osatu: sR = "Osatu"
+        Case QFactura: sR = "Q Factura"
+        Case QAzkena: sR = "Q Azkena"
+        Case ID_TBai: sR = "ID TBai"
+        Case QR_TBai: sR = "QR TBai"
+    End Select
+    Tipo_TBaiEnvio = sR
+End Function
+
+Public Function TBaiSN() As Boolean
+    TBaiSN = Nz(DameValorParam("TBaiSN"), False)
+End Function
+
+Public Function TBai_FacturaAlta(lIdFactura As Long) As Boolean
+    On Error GoTo HandleError
+    Dim sXml As String, sFile As String, sBuscaElemento As String, sValor As String, sEVs As String, vEVs As Variant, i As Integer
+    sFile = Nz(DameValorParam("TBaiFileXML_ModeloAlta"), "")
+    If sFile = "" Then
+        MsgBox "Se debe indicar Fichero XML modelo para alta de facturas TBai", vbExclamation
+        GoTo HandleExit
+    End If
+    sXml = LeeFichero(sFile)
+Emisor:
+    sEVs = "EmisorNIF,TBaiEmisorNIF,EmisorApellidosNombreRazonSocial,TBaiEmisorApellidosNombreRazonSocial"
+    vEVs = Split(sEVs, ",")
+    For i = 0 To UBound(vEVs) - 1 Step 2
+        sBuscaElemento = vEVs(i): sValor = Nz(DameValorParam(CStr(vEVs(i + 1))), "")
+        If sValor = "" Then
+            MsgBox "Falta de definir en parámetros el elemento: " & vEVs(i + 1), vbExclamation
+            GoTo HandleExit
+        End If
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+    Next i
+Destinatario:
+    Dim sDestNIF As String, sDestCodPais As String, sDestIDType As String, sDestID As String, sNombre As String, sDireccion As String, sCodPostal As String
+    If DestinatarioFactura(lIdFactura, sDestNIF, sDestCodPais, sDestIDType, sDestID, sNombre, sDireccion, sCodPostal) = True Then
+        If sDestNIF <> "" Then
+            sXml = EliminaElementoXML(sXml, "//Sujetos/Destinatarios/IDDestinatario/IDOtro")
+            sEVs = "DestinatarioNIF," & sDestNIF & ",DestinatarioApellidosNombreRazonSocial," & sNombre & ",DestinatarioCodigoPostal," & sCodPostal & ",DestinatarioDireccion," & sDireccion
+            vEVs = Split(sEVs, ",")
+        Else
+            sXml = EliminaElementoXML(sXml, "//IDDestinatario/NIF")
+            sEVs = "DestinatarioCodigoPais," & sDestCodPais & ",DestinatarioIDType," & sDestIDType & ",DestinatarioID," & sDestID & ",DestinatarioApellidosNombreRazonSocial," & sNombre & ",DestinatarioCodigoPostal," & sCodPostal & ",DestinatarioDireccion," & sDireccion
+            vEVs = Split(sEVs, ",")
+        End If
+        sBuscaElemento = "FacturaSimplificada": sValor = "N"
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+        For i = 0 To UBound(vEVs) - 1 Step 2
+            sBuscaElemento = vEVs(i): sValor = SpNz(CStr(vEVs(i + 1)), "-")
+            sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+        Next i
+    Else
+        sXml = EliminaElementoXML(sXml, "//Destinatarios")
+        sBuscaElemento = "FacturaSimplificada": sValor = "S"
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+    End If
+CabeceraFactura:
+    Dim sSerieFactura As String, sNumFactura As String, sFechaFactura As String, sHoraFactura As String
+    If CabeceraFactura(lIdFactura, sSerieFactura, sNumFactura, sFechaFactura, sHoraFactura) = True Then
+        sEVs = "SerieFactura," & sSerieFactura & ",NumFactura," & sNumFactura & ",FechaExpedicionFactura," & sFechaFactura & ",HoraExpedicionFactura," & sHoraFactura
+        vEVs = Split(sEVs, ",")
+    Else
+        MsgBox "No se procesó CabeceraFactura", vbExclamation
+        GoTo HandleExit
+    End If
+    For i = 0 To UBound(vEVs) - 1 Step 2
+        'sBuscaElemento = vEVs(i): sValor = SpNz(CStr(vEVs(i + 1)), "-")
+        sBuscaElemento = vEVs(i): sValor = Nz(CStr(vEVs(i + 1)), "")
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+    Next i
+DatosFactura:
+    Dim sFechaOperacion As String, sDescripcionFactura As String, cImporteTotalFactura As Currency
+    If DatosFactura(lIdFactura, sFechaOperacion, sDescripcionFactura, cImporteTotalFactura) = True Then
+        sEVs = "FechaOperacion," & sFechaOperacion & ",DescripcionFactura," & sDescripcionFactura & ",ImporteTotalFactura," & ComaPunto(cImporteTotalFactura)
+        vEVs = Split(sEVs, ",")
+    Else
+        MsgBox "No se procesó DatosFactura", vbExclamation
+        GoTo HandleExit
+    End If
+    For i = 0 To UBound(vEVs) - 1 Step 2
+        sBuscaElemento = vEVs(i): sValor = SpNz(CStr(vEVs(i + 1)), "-")
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+    Next i
+DetalleFactura:
+    Dim vDetalle As Variant, j As Integer
+    Dim xDoc As DOMDocument, xElem As IXMLDOMElement, xElem2 As IXMLDOMElement, xNode As IXMLDOMNode
+    If DetalleFactura(lIdFactura, vDetalle) = True Then
+        sEVs = "DescripcionDetalle,Cantidad,ImporteUnitario,Descuento,ImporteTotal"
+        vEVs = Split(sEVs, ",")
+    Else
+        MsgBox "No se procesó DatosFactura", vbExclamation
+        GoTo HandleExit
+    End If
+    sXml = EliminaElementoXML(sXml, "//Factura/DatosFactura/DetallesFactura/IDDetalleFactura")
+    Set xDoc = New DOMDocument
+    xDoc.LoadXML sXml
+    
+    
+    For j = 0 To UBound(vDetalle) - 1 Step 5
+        Set xElem = xDoc.createElement("IDDetalleFactura")
+        Set xNode = xDoc.SelectSingleNode("//Factura/DatosFactura/DetallesFactura")
+        xNode.appendChild xElem
+        Set xNode = xElem 'xDoc.SelectSingleNode("//Factura/DatosFactura/DetallesFactura/IdDetalleFactura")
+        For i = 0 To 4
+            sBuscaElemento = vEVs(i): sValor = SpNz(CStr(vDetalle(j + i)), "-")
+            Set xElem2 = xDoc.createElement(sBuscaElemento)
+            xElem2.Text = sValor
+            xNode.appendChild xElem2
+            'sXML = Replace(sXML, "|@" & sBuscaElemento & "@|", sValor)
+            'sXML = AñadeElementoXML(sXML, "//Factura/DatosFactura/DetallesFactura/IDDetalleFactura", sBuscaElemento, sValor)
+        Next i
+    Next j
+    sXml = xDoc.XML
+DesgloseIVA:
+    If DesgloseIVA(lIdFactura, vDetalle) = True Then
+        sEVs = "BaseImponible,TipoImpositivo,CuotaImpuesto"
+        vEVs = Split(sEVs, ",")
+    Else
+        MsgBox "No se procesó DesgloseIVA", vbExclamation
+        GoTo HandleExit
+    End If
+    Dim sNodeDesgloseIVA As String
+    If sDestCodPais = "ES" Then
+        sXml = EliminaElementoXML(sXml, "//Factura/TipoDesglose/DesgloseTipoOperacion")
+        sXml = EliminaElementoXML(sXml, "//Factura/TipoDesglose/DesgloseFactura/Sujeta/NoExenta/DetalleNoExenta/DesgloseIVA/DetalleIVA")
+        sNodeDesgloseIVA = "//Factura/TipoDesglose/DesgloseFactura/Sujeta/NoExenta/DetalleNoExenta/DesgloseIVA"
+    Else
+        sXml = EliminaElementoXML(sXml, "//Factura/TipoDesglose/DesgloseFactura")
+        sXml = EliminaElementoXML(sXml, "//Factura/TipoDesglose/DesgloseTipoOperacion/PrestacionServicios/Sujeta/NoExenta/DetalleNoExenta/DesgloseIVA/DetalleIVA")
+        sNodeDesgloseIVA = "//Factura/TipoDesglose/DesgloseTipoOperacion/PrestacionServicios/Sujeta/NoExenta/DetalleNoExenta/DesgloseIVA"
+    End If
+    Set xDoc = New DOMDocument
+    xDoc.LoadXML sXml
+    
+    For j = 0 To UBound(vDetalle) - 1 Step 3
+        Set xElem = xDoc.createElement("DetalleIVA")
+        Set xNode = xDoc.SelectSingleNode(sNodeDesgloseIVA)
+        xNode.appendChild xElem
+        Set xNode = xElem
+        For i = 0 To 2
+            sBuscaElemento = vEVs(i): sValor = SpNz(CStr(vDetalle(j + i)), "-")
+            Set xElem2 = xDoc.createElement(sBuscaElemento)
+            xElem2.Text = sValor
+            xNode.appendChild xElem2
+            'sXML = Replace(sXML, "|@" & sBuscaElemento & "@|", sValor)
+            'sXML = AñadeElementoXML(sXML, "//Factura/DatosFactura/DetallesFactura/IDDetalleFactura", sBuscaElemento, sValor)
+        Next i
+    Next j
+    sXml = xDoc.XML
+
+EncadenamientoFacturaAnterior:
+    Dim sEncadena As String, sSerieFAnt As String, sNumFAnt As String, sFechaExpedicionFAnt As String, sSignatureValueFirmaFAnt As String, sX As String
+    Dim lIdTBaiCadena As Long
+    sEncadena = Dime_TBai_Anterior(lIdFactura, lIdTBaiCadena)
+    If sEncadena = "Error" Then
+        TBai_FacturaAlta = False
+        GoTo HandleExit
+    ElseIf sEncadena = "" Then
+        sXml = EliminaElementoXML(sXml, "//HuellaTBAI/EncadenamientoFacturaAnterior")
+    Else
+        sEVs = "SerieFacturaAnterior,NumFacturaAnterior,FechaExpedicionFacturaAnterior,SignatureValueFirmaFacturaAnterior"
+        vEVs = Split(sEVs, ",")
+        For i = 0 To UBound(vEVs)
+            sXml = Replace(sXml, "|@" & vEVs(i) & "@|", Nz(DimeXML(sEncadena, CStr(vEVs(i))), ""))
+        Next i
+    End If
+    Dim sSignatureValue As String
+    'Esto debe ir después de generarse el registro en tbTBai'''''''''''''''''''''''''''''''''''''''''''''''''
+    'PonXML sX, "SerieFacturaAnterior", sSerieFactura                                                       '
+    'PonXML sX, "NumFacturaAnterior", sNumFactura                                                           '
+    'PonXML sX, "FechaExpedicionFacturaAnterior", sFechaFactura                                             '
+    'PonXML sX, "SignatureValueFirmaFacturaAnterior", sSignatureValue                                       '
+    'PonValorParam "EncadenamientoFacturaAnterior", sX, 12                                                  '
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Software:
+    sXml = Replace(sXml, "|@LicenciaTBAI@|", Nz(DameValorParam("TBaiSoftwareLicenciaTBAI"), ""))
+    sXml = Replace(sXml, "|@SoftwareEntidadDesarrolladoraNIF@|", Nz(DameValorParam("TBaiSoftwareEmpresaNIF"), ""))
+    sXml = Replace(sXml, "|@SoftwareNombre@|", Nz(DameValorParam("TBaiSoftwareNombre"), ""))
+    sXml = Replace(sXml, "|@SoftwareVersion@|", Nz(DameValorParam("TBaiSoftwareVersion"), ""))
+
+Signature:
+    Dim sCSalida As String, sTBaiId As String ', sCQR As String, sFileQR As String
+    sCSalida = GetCarpetaTbaiSalida(False)
+    If sCSalida = "" Then
+        MsgBox "Se debe indicar Carpeta de Salida para TBai en parámetros", vbExclamation
+        GoTo HandleExit
+    End If
+    If Dir(sCSalida, vbDirectory) = "" Then MkDir sCSalida
+    'sCQR = DameValorParam("AplicacionCarpetaDatos") & "facs\QR"
+    'If Dir(sCQR, vbDirectory) = "" Then MkDir sCQR
+    sFile = sCSalida & "\" & NombreFicheroValido(sSerieFactura & sNumFactura & ".xml")
+    'sFileQR = sCQR & "\" & NombreFicheroValido(sSerieFactura & sNumFactura & "QR") & ".gif"
+    EscribirFicheroTexto sFile, sXml, True, "UTF-8"
+    
+    Dim sFileSigned As String, sSignV100 As String, sSQL As String, sQR As String
+    sFileSigned = FirmaXML(sFile)
+    If sFileSigned = "" Then
+        MsgBox "Error al firmar el documento", vbExclamation, "Error en FirmaXML"
+        GoTo HandleExit
+    End If
+    Kill sFile
+    sSignV100 = Left(xmlsqGetText(sFileSigned, "//ds:SignatureValue", 0), 100)
+QR:
+    sTBaiId = "TBAI-" & _
+          LlenaIzqChar(DameValorParam("TBaiEmisorNIF"), 9, "0") & "-" & _
+          Left(sFechaFactura, 2) & Mid(sFechaFactura, 4, 2) & Mid(sFechaFactura, 9, 2) & "-" & _
+          Left(sSignV100, 13) & "-"
+    sTBaiId = sTBaiId & TBai_CRC(sTBaiId)
+    If TBai_GeneraQR(sTBaiId, sSerieFactura, sNumFactura, cImporteTotalFactura) = True Then
+        'OpenFile sFileQR
+    End If
+TBaiCadena:
+    sSQL = "UPDATE tbFacturas_TBaiCadena" & _
+           " SET SignatureV100 = """ & sSignV100 & """" & _
+           ", TBai_Id = """ & sTBaiId & """" & _
+           ", FileXML = """ & Mid(sFileSigned, InStrRev(sFileSigned, "\") + 1) & """" & _
+           " WHERE IdFactura = " & lIdFactura
+    CurrentDb.Execute sSQL, dbFailOnError
+    TBai_GeneraEnvio lIdTBaiCadena
+    TBai_FacturaAlta = True
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TBai_FacturaBaja(lIdFactura As Long) As Boolean
+    On Error GoTo HandleError
+    Dim sXml As String, sFile As String, sBuscaElemento As String, sValor As String, sEVs As String, vEVs As Variant, i As Integer, iR As Integer
+    If AnularFactura(lIdFactura) = False Then
+        iR = MsgBox("No se pudo anular correctamente la factura " & DLookup("[Serie] & '-' & [NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lIdFactura) & vbCrLf & _
+                "¿Seguir con la baja de la factura en TicketBai?", vbOKCancel + vbQuestion)
+        If iR = vbCancel Then GoTo HandleExit
+    End If
+    sFile = Nz(DameValorParam("TBaiFileXML_ModeloBaja"), "")
+    If sFile = "" Then
+        MsgBox "Se debe indicar Fichero XML modelo para baja de facturas TBai", vbExclamation
+        GoTo HandleExit
+    End If
+    sXml = LeeFichero(sFile)
+Emisor:
+    sEVs = "EmisorNIF,TBaiEmisorNIF,EmisorApellidosNombreRazonSocial,TBaiEmisorApellidosNombreRazonSocial"
+    vEVs = Split(sEVs, ",")
+    For i = 0 To UBound(vEVs) - 1 Step 2
+        sBuscaElemento = vEVs(i): sValor = Nz(DameValorParam(CStr(vEVs(i + 1))), "")
+        If sValor = "" Then
+            MsgBox "Falta de definir en parámetros el elemento: " & vEVs(i + 1), vbExclamation
+            GoTo HandleExit
+        End If
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+    Next i
+CabeceraFactura:
+    Dim sSerieFactura As String, sNumFactura As String, sFechaFactura As String, sHoraFactura As String
+    If CabeceraFactura(lIdFactura, sSerieFactura, sNumFactura, sFechaFactura, sHoraFactura) = True Then
+        sEVs = "SerieFactura," & sSerieFactura & ",NumFactura," & sNumFactura & ",FechaExpedicionFactura," & sFechaFactura '& ",HoraExpedicionFactura," & sHoraFactura
+        vEVs = Split(sEVs, ",")
+    Else
+        MsgBox "No se procesó CabeceraFactura", vbExclamation
+        GoTo HandleExit
+    End If
+    For i = 0 To UBound(vEVs) - 1 Step 2
+        sBuscaElemento = vEVs(i): sValor = SpNz(CStr(vEVs(i + 1)), "-")
+        sXml = Replace(sXml, "|@" & sBuscaElemento & "@|", sValor)
+    Next i
+Software:
+    sXml = Replace(sXml, "|@LicenciaTBAI@|", Nz(DameValorParam("TBaiSoftwareLicenciaTBAI"), ""))
+    sXml = Replace(sXml, "|@SoftwareEntidadDesarrolladoraNIF@|", Nz(DameValorParam("TBaiSoftwareEmpresaNIF"), ""))
+    sXml = Replace(sXml, "|@SoftwareNombre@|", Nz(DameValorParam("TBaiSoftwareNombre"), ""))
+    sXml = Replace(sXml, "|@SoftwareVersion@|", Nz(DameValorParam("TBaiSoftwareVersion"), ""))
+
+Signature:
+    Dim sCSalida As String
+    sCSalida = GetCarpetaTbaiSalida(False)
+    If sCSalida = "" Then
+        MsgBox "Se debe indicar Carpeta de Salida para TBai en parámetros", vbExclamation
+        GoTo HandleExit
+    End If
+    If Dir(sCSalida, vbDirectory) = "" Then MkDir sCSalida
+    sFile = sCSalida & "\BAJA_" & NombreFicheroValido(sSerieFactura & sNumFactura & ".xml")
+    EscribirFicheroTexto sFile, sXml, True, "UTF-8"
+    
+    Dim sFileSigned As String, sSignV100 As String, sSQL As String
+    sFileSigned = FirmaXML(sFile)
+    If sFileSigned = "" Then GoTo HandleExit
+    Kill sFile
+TBaiCadena:
+    Dim lIdTBaiCadena As Long, lLast As Long, sTBaiId As String
+    sFileSigned = Mid(sFileSigned, InStrRev(sFileSigned, "\") + 1)
+    lLast = Nz(DMin("Last", "tbFacturas_TBaiCadena", "Last<0"), 0) - 1
+    sTBaiId = Nz(DLookup("TBai_Id ", "tbFacturas_TBaiCadena", "IdFactura = " & lIdFactura & " AND Not BajaSN"), "")
+    sSQL = "INSERT INTO tbFacturas_TBaiCadena(IdFactura, BajaSN, FileXML, IdFacturaAnterior, Last, TBai_Id)" & _
+           " VALUES (" & lIdFactura & ", True, " & ConComillas(sFileSigned) & ", 0," & lLast & "," & IIf(sTBaiId = "", "Null", ConComillas(sTBaiId)) & ")"
+    CurrentDb.Execute sSQL, dbFailOnError
+    lIdTBaiCadena = Nz(DLookup("IdTBaiCadena", "tbFacturas_TBaiCadena", "IdFactura = " & lIdFactura & " AND BajaSN=True"), 0)
+
+    TBai_GeneraEnvio lIdTBaiCadena
+    
+    
+    
+    TBai_FacturaBaja = True
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    
+    Resume HandleExit
+End Function
+
+Private Function FirmaXML(sFileXML As String) As String
+    On Error GoTo HandleError
+    Dim i As Integer
+    'WaitShell """C:\Users\Lorenzo\Desktop\Ticket BAI\DI Management Services\diXadesE.exe"" """ & sFileXML & """ """ & Nz(DameValorParam("TBaiCertificadoDigitalEmisorFile"), "") & """ " & EncryptString(Environ("COMPUTERNAME"), DameValorParam("TBaiCertificadoDigitalEmisorPassword"), 2), vbMaximizedFocus
+    'i = InStrRev(sFileXML, ".")
+    'FirmaXML = Left(sFileXML, i - 1) & "-signed" & Mid(sFileXML, i)
+    
+    Dim sTemplate_xades_bai As String, sFileCert As String, sPass As String
+    sTemplate_xades_bai = Nz(DameValorParam("TBaiFileXML_ModeloXades"), "")
+    sFileCert = Nz(DameValorParam("TBaiCertificadoDigitalEmisorFile"), "")
+    sPass = DameValorParam("TBaiCertificadoDigitalEmisorPassword")
+    FirmaXML = XadesE(sFileXML, sFileCert, Trim(EncryptString(Environ("COMPUTERNAME"), sPass, 2)), sTemplate_xades_bai)
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TBai_Envio(iTipo As TBai_TEnvio, sFileXML As String) As String
+    'Solicitud a TBai API, devuelve la respuesta del servidor
+    On Error GoTo HandleError
+    Dim sUrl As String
+    Select Case iTipo
+        Case TBai_TEnvio.FacturaAlta: sUrl = Nz(DameValorParam("TBaiAPI_Alta"), "")
+        Case TBai_TEnvio.FacturaBaja: sUrl = Nz(DameValorParam("TBaiAPI_Baja"), "")
+        Case TBai_TEnvio.ZuzenduAlta: sUrl = Nz(DameValorParam("TBaiAPI_ZuzenduAlta"), "")
+        Case TBai_TEnvio.ZuzenduBaja: sUrl = Nz(DameValorParam("TBaiAPI_ZuzenduBaja"), "")
+        Case TBai_TEnvio.Osatu: sUrl = Nz(DameValorParam("TBaiAPI_Osatu"), "")
+        Case TBai_TEnvio.QFactura: sUrl = Nz(DameValorParam("TBaiAPI_ConsultaFacturas"), "")
+        Case TBai_TEnvio.QAzkena: sUrl = Nz(DameValorParam("TBaiAPI_ConsultaUltima"), "")
+        Case TBai_TEnvio.ID_TBai: sUrl = Nz(DameValorParam("TBaiAPI_IdentificativoTBai"), "")
+        Case TBai_TEnvio.QR_TBai: sUrl = Nz(DameValorParam("TBaiAPI_ConsultaQR"), "")
+    End Select
+    If sUrl = "" Then
+        MsgBox "Falta indicar en parámetros TicketBai"
+        
+    End If
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function DestinatarioFactura(lIdFactura As Long _
+                                     , ByRef sDestNIF As String _
+                                     , ByRef sDestCodPais As String _
+                                     , ByRef sDestIDType As String _
+                                     , ByRef sDestID As String _
+                                     , ByRef sNombre As String _
+                                     , ByRef sDireccion As String _
+                                     , ByRef sCodPostal As String) As Boolean
+    On Error GoTo HandleError
+    Dim rsF As Recordset, rsC As Recordset, sSQL As String, sPais As String
+    sSQL = "SELECT tbFacturasCab.NIF, CodCliente" & _
+           " FROM tbFacturasCab" & _
+           " WHERE tbFacturasCab.IdFactura=" & lIdFactura
+    Set rsF = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If rsF.EOF Then
+        MsgBox "No se encontró Factura", vbExclamation
+        GoTo HandleExit
+    End If
+    If Nz(rsF("CodCliente"), "") = "" Then
+        'MsgBox "No se encontró destinatari de factura", vbExclamation
+        GoTo HandleExit
+    End If
+    sSQL = "SELECT tbClientes.Pais, Trim(NombreCli & ' ' & ApellidosCli) as RazonCliente, tbClientes.Direccion, tbClientes.Ciudad, tbClientes.CodPostal" & _
+           " FROM tbClientes" & _
+           " WHERE CodCliente = '" & rsF("CodCliente") & "'"
+    Set rsC = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    sPais = Nz(rsC("Pais"), "España")
+    If rsC.EOF Then
+        MsgBox "No se encontró destinatario de factura", vbExclamation
+        GoTo HandleExit
+    End If
+    
+    If sPais = "España" And Len(rsF("NIF")) = 9 Then
+        sDestNIF = rsF("NIF")
+        sDestCodPais = "ES" ' para saber si se utiliza la etiqueta DesgloseFactura o DesgloseTipoOperacion....
+    Else
+        sDestCodPais = Nz(DLookup("[ISO-3166-2]", "valPaises", "NombrePais like '" & ConAcentos(sPais) & "'"), "--")
+        sDestIDType = "03"
+        sDestID = rsF("NIF")
+    End If
+    sNombre = SpNz(rsC("RazonCliente"), "Cliente contado")
+    sDireccion = rsC("Direccion") & " " & SpNz(rsC("Ciudad"), "-")
+    sCodPostal = SpNz(rsC("CodPostal"), "-")
+    DestinatarioFactura = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    
+    Resume HandleExit
+End Function
+
+Private Function CabeceraFactura(lIdFactura As Long _
+                                , ByRef sSerieFactura As String _
+                                , ByRef sNumFactura As String _
+                                , ByRef sFechaFactura As String _
+                                , ByRef sHoraFactura As String) As Boolean
+    On Error GoTo HandleError
+    Dim rsF As Recordset, rsC As Recordset, sSQL As String, sPais As String
+    sSQL = "SELECT Serie, NumeroDeFactura, FechaFactura" & _
+           " FROM tbFacturasCab" & _
+           " WHERE tbFacturasCab.IdFactura=" & lIdFactura
+    Set rsF = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If rsF.EOF Then
+        MsgBox "No se encontró Factura", vbExclamation
+        GoTo HandleExit
+    End If
+    'sSerieFactura = SpNz(rsF("Serie"), "_")
+    sSerieFactura = Nz(rsF("Serie"), "")
+    sNumFactura = Replace(rsF("NumeroDeFactura"), "/", "_")
+    sFechaFactura = Format(rsF("FechaFactura"), "dd-mm-yyyy")
+    sHoraFactura = Format(Now, "hh:nn:ss")
+    
+    CabeceraFactura = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    
+    Resume HandleExit
+End Function
+
+Private Function DatosFactura(lIdFactura As Long _
+                            , ByRef sFechaOperacion As String _
+                            , ByRef sDescripcion As String _
+                            , ByRef curImporteTotalFactura As Currency) As Boolean
+    On Error GoTo HandleError
+    Dim rsF As Recordset, rsC As Recordset, sSQL As String, sPais As String
+    sSQL = "SELECT FechaFactura, TotalBase + TotalIVA as TotalImporteFactura" & _
+           " FROM tbFacturasCab" & _
+           " WHERE tbFacturasCab.IdFactura=" & lIdFactura
+    Set rsF = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If rsF.EOF Then
+        MsgBox "No se encontró Factura", vbExclamation
+        GoTo HandleExit
+    End If
+    sFechaOperacion = Format(rsF("FechaFactura"), "dd-mm-yyyy")
+    sDescripcion = OrigenDeFactura(lIdFactura)
+    If sDescripcion = "" Then sDescripcion = "Estancia"
+    curImporteTotalFactura = rsF("TotalImporteFactura")
+    
+    DatosFactura = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    
+    Resume HandleExit
+End Function
+
+Private Function DetalleFactura(lIdFactura As Long _
+                            , ByRef vDetalle As Variant) As Boolean
+    On Error GoTo HandleError
+    Dim sDetalle As String, sSQL As String, rsF As Recordset
+    sSQL = "SELECT tbFacturasDet.IdFactura, tbFacturasDet.Concepto" & _
+                    ", [Cantidad]*diasf([FechaInicio],[FechaFin]) AS Cant" & _
+                    ", IIf([IvaIncluidoDetalle],[PrecioUnitario]/(1+[IVA]),[PrecioUnitario]) AS ImporteUnitario" & _
+                    ", 0 as Dto" & _
+                    ", IIf([IvaIncluidoDetalle],[PrecioUnitario],[PrecioUnitario]*(1+[IVA]))*[Cant] AS ImporteLinea" & _
+           " FROM tbFacturasCab INNER JOIN tbFacturasDet ON tbFacturasCab.IdFactura = tbFacturasDet.IdFactura" & _
+           " WHERE tbFacturasDet.IdFactura = " & lIdFactura
+    Set rsF = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If rsF.EOF Then
+        MsgBox "No se encontró Detalle de Factura", vbExclamation
+        GoTo HandleExit
+    End If
+    While Not rsF.EOF
+        sDetalle = sDetalle & Replace(rsF("Concepto"), "|", ";") & "|"
+        sDetalle = sDetalle & ComaPunto(rsF("Cant")) & "|"
+        sDetalle = sDetalle & ComaPunto(Round(rsF("ImporteUnitario"), 4)) & "|"
+        sDetalle = sDetalle & ComaPunto(rsF("Dto")) & "|"
+        sDetalle = sDetalle & ComaPunto(Round(rsF("ImporteLinea"), 4)) & "|"
+        rsF.MoveNext
+    Wend
+    sDetalle = RecDerTop(sDetalle, 1, 0)
+    vDetalle = Split(sDetalle, "|")
+    DetalleFactura = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function DesgloseIVA(lIdFactura As Long _
+                            , ByRef vDetalle As Variant) As Boolean
+    On Error GoTo HandleError
+    Dim sDetalle As String, sSQL As String, rsF As Recordset
+    sSQL = "SELECT tbFacturasDet.IdFactura" & _
+                    ", Sum(IIf([IvaIncluidoDetalle],[PrecioUnitario]/(1+[IVA]),[PrecioUnitario])*[Cantidad]*diasf([FechaInicio],[FechaFin])) AS BaseImponible" & _
+                    ", tbFacturasDet.IVA AS TipoImpositivo" & _
+                    ", Sum(IIf([IvaIncluidoDetalle],[PrecioUnitario]/(1+[IVA]),[PrecioUnitario])*[Cantidad]*diasf([FechaInicio],[FechaFin])*[IVA]) AS CuotaImpuesto" & _
+           " FROM tbFacturasCab INNER JOIN tbFacturasDet ON tbFacturasCab.IdFactura = tbFacturasDet.IdFactura" & _
+           " WHERE tbFacturasDet.IdFactura = " & lIdFactura & _
+           " GROUP BY tbFacturasDet.IdFactura, tbFacturasDet.IVA;"
+    
+    Set rsF = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If rsF.EOF Then
+        MsgBox "No se encontró Desglose de IVA", vbExclamation
+        GoTo HandleExit
+    End If
+    While Not rsF.EOF
+        sDetalle = sDetalle & ComaPunto(Round(rsF("BaseImponible"), 2)) & "|"
+        sDetalle = sDetalle & ComaPunto(rsF("TipoImpositivo") * 100) & "|"
+        sDetalle = sDetalle & ComaPunto(Round(rsF("CuotaImpuesto"), 2)) & "|"
+        rsF.MoveNext
+    Wend
+    sDetalle = RecDerTop(sDetalle, 1, 0)
+    vDetalle = Split(sDetalle, "|")
+    DesgloseIVA = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Private Function Dime_TBai_Anterior(lIdFactura As Long _
+                            , ByRef lIdTBaiCadena As Long) As String
+    On Error GoTo HandleError
+    Dim lLast As Long, lIdFAnterior As Long, sR As String, sSigV100 As String, sSQL As String
+    lIdFAnterior = Nz(DLookup("IdFacturaAnterior", "tbFacturas_TBaiCadena", "IdFactura = " & lIdFactura), -1)
+    If lIdFAnterior = -1 Then
+        lLast = Nz(DMax("Last", "tbFacturas_TBaiCadena"), 0)
+        lIdFAnterior = Nz(DLookup("IdFactura", "tbFacturas_TBaiCadena", "Last = " & lLast), 0)
+        sSQL = "INSERT INTO tbFacturas_TBaiCadena(IdFactura, IdFacturaAnterior, Last)" & _
+               " VALUES (" & lIdFactura & ", " & lIdFAnterior & ", " & lLast + 1 & ")"
+        CurrentDb.Execute sSQL, dbFailOnError
+    Else
+        MsgBox "Se encontró registro en tbFacturas_TBaiCadena con mismo IdFactura", vbExclamation, "Error en Dime_TBai_Anterior"
+        Dime_TBai_Anterior = "Error"
+        GoTo HandleExit
+    End If
+    lIdTBaiCadena = Nz(DLookup("IdTBaiCadena", "tbFacturas_TBaiCadena", "IdFactura = " & lIdFactura), 0)
+    If lIdFAnterior <> 0 Then
+        PonXML sR, "SerieFacturaAnterior", Nz(DLookup("Serie", "tbFacturasCab", "IdFactura = " & lIdFAnterior), "")
+        PonXML sR, "NumFacturaAnterior", Replace(Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lIdFAnterior), "0"), "/", "_")
+        PonXML sR, "FechaExpedicionFacturaAnterior", Format(DLookup("FechaFactura", "tbFacturasCab", "IdFactura = " & lIdFAnterior), "dd-mm-yyyy")
+        sSigV100 = Nz(DLookup("SignatureV100", "tbFacturas_TBaiCadena", "IdFactura = " & lIdFAnterior), 0)
+        PonXML sR, "SignatureValueFirmaFacturaAnterior", sSigV100
+    End If
+    Dime_TBai_Anterior = sR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TBai_CRC(data As String) As String
+' Declare variables
+    Dim crc_tabla As Variant, crc As Byte
+    Dim i As Integer
+    Dim j As Integer
+    Dim dataB() As Byte
+    dataB = data
+    crc_tabla = Array(&H0, &H7, &HE, &H9, &H1C, &H1B, &H12, &H15, &H38, &H3F, &H36, &H31, &H24, &H23, &H2A, &H2D, _
+              &H70, &H77, &H7E, &H79, &H6C, &H6B, &H62, &H65, &H48, &H4F, &H46, &H41, &H54, &H53, &H5A, &H5D, _
+              &HE0, &HE7, &HEE, &HE9, &HFC, &HFB, &HF2, &HF5, &HD8, &HDF, &HD6, &HD1, &HC4, &HC3, &HCA, &HCD, _
+              &H90, &H97, &H9E, &H99, &H8C, &H8B, &H82, &H85, &HA8, &HAF, &HA6, &HA1, &HB4, &HB3, &HBA, &HBD, _
+              &HC7, &HC0, &HC9, &HCE, &HDB, &HDC, &HD5, &HD2, &HFF, &HF8, &HF1, &HF6, &HE3, &HE4, &HED, &HEA, _
+              &HB7, &HB0, &HB9, &HBE, &HAB, &HAC, &HA5, &HA2, &H8F, &H88, &H81, &H86, &H93, &H94, &H9D, &H9A, _
+              &H27, &H20, &H29, &H2E, &H3B, &H3C, &H35, &H32, &H1F, &H18, &H11, &H16, &H3, &H4, &HD, &HA, _
+              &H57, &H50, &H59, &H5E, &H4B, &H4C, &H45, &H42, &H6F, &H68, &H61, &H66, &H73, &H74, &H7D, &H7A, _
+              &H89, &H8E, &H87, &H80, &H95, &H92, &H9B, &H9C, &HB1, &HB6, &HBF, &HB8, &HAD, &HAA, &HA3, &HA4, _
+              &HF9, &HFE, &HF7, &HF0, &HE5, &HE2, &HEB, &HEC, &HC1, &HC6, &HCF, &HC8, &HDD, &HDA, &HD3, &HD4, _
+              &H69, &H6E, &H67, &H60, &H75, &H72, &H7B, &H7C, &H51, &H56, &H5F, &H58, &H4D, &H4A, &H43, &H44, _
+              &H19, &H1E, &H17, &H10, &H5, &H2, &HB, &HC, &H21, &H26, &H2F, &H28, &H3D, &H3A, &H33, &H34, _
+              &H4E, &H49, &H40, &H47, &H52, &H55, &H5C, &H5B, &H76, &H71, &H78, &H7F, &H6A, &H6D, &H64, &H63, _
+              &H3E, &H39, &H30, &H37, &H22, &H25, &H2C, &H2B, &H6, &H1, &H8, &HF, &H1A, &H1D, &H14, &H13, _
+              &HAE, &HA9, &HA0, &HA7, &HB2, &HB5, &HBC, &HBB, &H96, &H91, &H98, &H9F, &H8A, &H8D, &H84, &H83, _
+              &HDE, &HD9, &HD0, &HD7, &HC2, &HC5, &HCC, &HCB, &HE6, &HE1, &HE8, &HEF, &HFA, &HFD, &HF4, &HF3)
+    
+    
+    ' Calculate the crc
+    crc = 0
+    For i = 0 To UBound(dataB) - 1 Step 2
+        crc = crc_tabla((crc Xor dataB(i)) And &HFF)
+    Next i
+    
+    ' Display the crc
+    'MsgBox Hex(crc)
+    TBai_CRC = Format(CInt(crc), "000")
+End Function
+
+Public Function TBai_GeneraQR(sIdTBaiQR As String, _
+                              sSerie As String, _
+                              sNumFactura As String, _
+                              cImporte As Currency) As Boolean
+    On Error GoTo HandleError
+    Dim sUrl As String, sCRC As String, sFileQR As String
+    sUrl = Nz(DameValorParam("TBaiAPI_ConsultaQR"), "")
+    If sUrl = "" Then
+        MsgBox "Se debe indicar en parámetros la url de la consulta QR", vbExclamation
+        GoTo HandleExit
+    End If
+    sUrl = Left(sUrl, InStr(sUrl, "?") - 1)
+    sUrl = sUrl & "?id=" & sIdTBaiQR
+    sUrl = sUrl & "&s=" & sSerie
+    sUrl = sUrl & "&nf=" & sNumFactura
+    sUrl = sUrl & "&i=" & ComaPunto(CStr(Round(cImporte, 2)))
+    sCRC = TBai_CRC(sUrl)
+    sUrl = sUrl & "&cr=" & sCRC
+    sFileQR = GetCarpetaQR() & NombreFicheroValido(sSerie & sNumFactura) & ".gif"
+    qrcodeCreateImage sFileQR, sUrl
+    TBai_GeneraQR = Dir(sFileQR & ".gif") <> ""
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function TBai_GeneraEnvio(lIdTBaiCadena As Long) As Boolean
+    On Error GoTo HandleError
+    Dim iTipo As TBai_TEnvio, sEndPoint As String, sRequestFileXML As String, sSQL As String, bBaja As Boolean, iZuzendu As Integer
+    '1: Alta, 2: Baja, 3: Zuzendu Alta, 4: Zuzendu Baja
+    bBaja = Nz(DLookup("BajaSN", "tbFacturas_TbaiCadena", "IdTBaiCadena = " & lIdTBaiCadena), False)
+    iZuzendu = Nz(DLookup("Zuzendu", "tbFacturas_TbaiCadena", "IdTBaiCadena = " & lIdTBaiCadena), 0)
+    iTipo = IIf(bBaja = False, 1, 2)
+    iTipo = iTipo + IIf(iZuzendu = 0, 0, 2)
+    Select Case iTipo
+        Case TBai_TEnvio.FacturaAlta: sEndPoint = DameValorParam("TBaiAPI_Alta")
+        Case TBai_TEnvio.FacturaBaja: sEndPoint = DameValorParam("TBaiAPI_Baja")
+        Case TBai_TEnvio.ZuzenduAlta: sEndPoint = DameValorParam("TBaiAPI_ZuzenduAlta")
+        Case TBai_TEnvio.FacturaBaja: sEndPoint = DameValorParam("TBaiAPI_ZuzenduBaja")
+        Case Else
+            MsgBox "No se reconoce el Tipo de envío", vbExclamation, "Error en TNai_GeneraEnvio"
+            GoTo HandleExit
+    End Select
+    sRequestFileXML = DLookup("FileXML", "tbFacturas_TbaiCadena", "IdTBaiCadena = " & lIdTBaiCadena)
+    sSQL = "INSERT INTO tbTBai_Envios(IdTBaiCadena,TipoTBai,EndPoint,RequestFileXML)" & _
+           " VALUES(" & lIdTBaiCadena & "," & iTipo & "," & ConComillas(sEndPoint) & "," & ConComillas(sRequestFileXML) & ")"
+    CurrentDb.Execute sSQL, dbFailOnError
+    TBai_GeneraEnvio = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TBai_PonLogo(lIdFactura As Long)
+    'Al ir a imprimir una factura se debe llamar esta función para que su asigne le QR correspondiente a la Tira de Logos
+    On Error GoTo HandleError
+    'If Nz(DameValorParam("TBaiSN"), False) = False Then GoTo HandleExit
+    Dim sFileQR As String, sTBai_Id As String, sSQL As String
+    sFileQR = GetFileQR(lIdFactura, GetCarpetaImagenes)
+    sTBai_Id = Nz(DLookup("TBai_Id", "tbFacturas_TBaiCadena", "IdFactura = " & lIdFactura), "")
+    sSQL = "UPDATE tbLogotipos" & _
+           " SET imgLogo = '" & sFileQR & "'" & _
+           " , lblCaption = " & IIf(sTBai_Id = "", "Null", "'" & sTBai_Id & "'") & _
+           " WHERE Logo = 'TBai_QR'"
+    CurrentDb.Execute sSQL, dbFailOnError
+
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TBai_EnvioSend(lIdTBai_Envio As Long) As Boolean
+    On Error GoTo HandleError
+    Dim rs As Recordset, HttpRequest As WinHttp.WinHttpRequest 'Object
+    Dim sUrl As String, sBody As String, sCertificadoEnAlmacen As String
+    Dim sResponse As String, bR As Boolean
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbTBAI_Envios WHERE IdTBai_Envio = " & lIdTBai_Envio, dbOpenDynaset)
+    If rs.EOF Then
+        MsgBox "No se encontró registro de TBai_Envios", vbExclamation, "Error en TBai_EnvioSend"
+        GoTo HandleExit
+    End If
+    sUrl = rs("EndPoint")
+    sCertificadoEnAlmacen = DameValorParam("TBaiCertificadoDigitalEnAlmacen")
+    sBody = ReadUTF8File(GetCarpetaTbaiSalida(True) & rs("RequestFileXML"))
+    Set HttpRequest = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest")
+    ' Configura la solicitud
+    HttpRequest.Open "POST", sUrl, False
+    'HttpRequest.setRequestHeader "Accept", "*/*"
+    'HttpRequest.setRequestHeader "Accept-Encoding", "gzip, deflate, br"
+    'HttpRequest.setRequestHeader "Connection", "keep-alive"
+    HttpRequest.setRequestHeader "Content-Type", "application/xml;charset=UTF-8"
+    HttpRequest.SetClientCertificate sCertificadoEnAlmacen
+    If sBody Like "ï»¿*" Then sBody = Mid(sBody, 4)
+    HttpRequest.Send sBody
+    sResponse = HttpRequest.responseText
+    rs.Edit
+    rs("Response") = sResponse
+    rs("FechaEnvio") = Now()
+    rs("CSV") = DimeXML(sResponse, "CSV")
+    If Nz(rs("CSV"), "") <> "" Then
+        rs("EnviadoSN") = True
+        bR = True
+    End If
+    On Error Resume Next
+    rs("IP_Envio") = GetMyPublicIP
+    On Error GoTo HandleError
+    rs.Update
+    TBai_EnvioSend = bR
+    If bR Then
+        FileCopy GetCarpetaTbaiSalida(True) & rs("RequestFileXML"), GetCarpetaTbaiEnviadas(True) & rs("RequestFileXML")
+        Kill GetCarpetaTbaiSalida(True) & rs("RequestFileXML")
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Sub TBai_EnviosPendientesSend(Optional iCant As Integer = 0)
+    On Error GoTo HandleError
+    Dim iOK As Integer, iErr As Integer, rs As Recordset, sSQL As String, y As Integer, z As Integer
+    sSQL = "SELECT" & IIf(iCant > 0, " TOP " & iCant, "") & " IdTBai_Envio" & _
+           " FROM tbTBai_Envios" & _
+           " WHERE Not EnviadoSN" & _
+           " ORDER BY IdTBai_Envio"
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Enviando Fichero TicketBAI: " & y & "/" & z
+        If TBai_EnvioSend(rs("IdTBai_Envio")) = True Then
+            iOK = iOK + 1
+        Else
+            iErr = iErr + 1
+        End If
+        rs.MoveNext
+    Wend
+    SysCmd acSysCmdSetStatus, "Enviando Fichero/s TicketBAI: OK->" & iOK & IIf(iErr > 0, ", Error->" & iErr, "")
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

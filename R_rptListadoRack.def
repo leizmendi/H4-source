@@ -1,0 +1,126 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim glngColor As Long
+Private Sub Detalle_Print(Cancel As Integer, PrintCount As Integer)
+    If PrintCount > 1 Then Exit Sub
+    If glngColor = 16777215 Then
+        glngColor = 15263976
+    Else
+        glngColor = 16777215
+    End If
+    Me.Section(0).BackColor = glngColor
+End Sub
+
+Private Sub EncabezadoDelInforme_Format(Cancel As Integer, FormatCount As Integer)
+    Me.txtCabecera.Visible = Nz(DameValorParam("ListadosES_VerCabeceraHotelSN"), True)
+End Sub
+
+Private Sub PieDelInforme_Format(Cancel As Integer, FormatCount As Integer)
+    Me.lblTotal_ph.Caption = "Total " & g_strPHs & ": "
+    Me.subrptPaises_ES.Visible = Nz(DameValorParam("ListadosES_VerResumenPaisesSN"), True)
+    Me.subrptTiposParcelas_R.Visible = Nz(DameValorParam("ListadosES_VerResumenTiposHSN"), True)
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros para la fecha indicada"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    'Establecer el origen del registro del informe................
+    Dim frm As Form
+    Me.lblPH.Caption = g_strPH
+    If Not IsOpenForm("frmListadoOcupacion") Then
+        If IsOpenForm("frmMaestros") Then
+            If Forms("frmMaestros")("subfrm").SourceObject = "frmListadoOcupacion" Then
+                Set frm = Forms("frmMaestros")("subfrm").Form
+                GoTo Segi
+            End If
+        End If
+        MsgBox "Debe estar abierto frmListadoOcupacion"
+        Cancel = True
+        Exit Sub
+    Else
+        Set frm = Forms("frmListadoOcupacion")
+    End If
+Segi:
+    If frm("mrcOES") = 2 Then
+        Me.lblTitulo.Caption = "Listado de Entradas"
+        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+        Me.Notas.Visible = True
+        Me.lblNotas.Visible = True
+        'Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,1)"
+        'Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaLlegada = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#')"
+    ElseIf frm("mrcOES") = 3 Then
+        Me.lblTitulo.Caption = "Listado de Salidas"
+        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+        Me.Notas.Visible = False
+        'Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,2)"
+        'Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaSalida = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#')"
+    ElseIf frm("mrcOES") = 4 Then
+        Me.lblTitulo.Caption = "Listado de Reservas"
+        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+        Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,3)"
+        Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaLlegada = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "# AND EstadoFicha = 1')"
+    ElseIf frm("mrcOES") = 6 Then
+        Me.lblTitulo.Caption = "Listado de Situación"
+        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+        Me.Notas.Visible = True
+        Me.lblNotas.Visible = True
+        'Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,2)"
+        'Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaSalida = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#')"
+    End If
+    Me.RecordSource = frm("lblSQL").Caption
+    
+    Dim qdf As QueryDef, strSQL As String
+    'Establecer el origen del registro del subinforme de Nacionalidades..........
+    Select Case frm("mrcOES")
+        Case 2
+            strSQL = "SELECT tbFichasCab.PaisCliente AS País, Sum([PlazasOcupadas]) AS Pax"
+            strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+            strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio) = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#))"
+            strSQL = strSQL & " GROUP BY tbFichasCab.PaisCliente;"
+        Case 3
+            strSQL = "SELECT tbFichasCab.PaisCliente AS País, Sum([PlazasOcupadas]) AS Pax"
+            strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+            strSQL = strSQL & " WHERE ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#))"
+            strSQL = strSQL & " GROUP BY tbFichasCab.PaisCliente;"
+        Case 4
+            strSQL = "SELECT tbFichasCab.PaisCliente AS País, Sum([PlazasOcupadas]) AS Pax"
+            strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+            strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio) = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#) AND EstadoFicha = 1)"
+            strSQL = strSQL & " GROUP BY tbFichasCab.PaisCliente;"
+        Case Else
+            strSQL = "SELECT * FROM tb1" 'para que no de error
+    End Select
+    Set qdf = CurrentDb.QueryDefs("qryPaises_ES")
+    qdf.SQL = strSQL
+    qdf.Close
+    'Establecer el origen del registro del subinforme de Tipos de parcelas..........
+    strSQL = "SELECT tbParcelasTipo.TipoParcela, Sum(tbFichasDet.Cantidad) AS SumaDeCantidad"
+    strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela"
+    Select Case frm("mrcOES")
+        Case 2
+            strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio) = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#))"
+        Case 3
+            strSQL = strSQL & " WHERE ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#))"
+        Case 4
+            strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio) = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#))"
+            strSQL = strSQL & " AND (EstadoFicha = 1)"
+        Case 6
+            strSQL = strSQL & " WHERE tbFichasDet.FechaInicio <= #" & Format(CDate(frm("txtDesde")), "mm/dd/yyyy") & "# And IIf(IsNull([FechaFin]), [FechaSalida], [FechaFin]) > #" & Format(CDate(frm("txtDesde")), "mm/dd/yyyy") & "#"
+    End Select
+    strSQL = strSQL & " GROUP BY tbParcelasTipo.TipoParcela" ', tbFichasCab.EstadoFicha"
+    If frm("mrcOES") = 4 Then
+        strSQL = strSQL & " HAVING (((tbFichasCab.EstadoFicha)=1));"
+    End If
+    Set qdf = CurrentDb.QueryDefs("qryTiposParcelas_R")
+    qdf.SQL = strSQL
+    qdf.Close
+    
+End Sub

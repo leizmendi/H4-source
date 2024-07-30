@@ -1,0 +1,234 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gintEsPagoCaja As Integer
+Private Sub altCP_AfterUpdate()
+    If Me.altCP = True Then
+        Me.altCP.Caption = "Pago"
+    Else
+        Me.altCP.Caption = "Cobro"
+    End If
+End Sub
+
+Private Sub btnAyudaConcepto_Click()
+    Me.txtConcepto = Nz(BuscaAyuda("CON0", Me.txtConcepto, 2), "")
+End Sub
+
+Private Sub btnAyudaNombre_Click()
+    Me.txtNombrePersona = Nz(BuscaAyuda("NOM", Me.txtNombrePersona, 2), "")
+End Sub
+
+Private Sub btnCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnNuevoConcepto_Click()
+    DoCmd.OpenForm "frmHD", , , , , acDialog, "frmConceptosPago//"
+'    Dim intR As Integer
+'    intR = MsgBox("¿Añadir " & Me.txtConcepto & " a la tabla de Conceptos de Pago?", vbQuestion + vbOKCancel)
+'    If intR = vbCancel Then Exit Sub
+'    On Error Resume Next
+'    CurrentDb.Execute "INSERT INTO tbConceptosPago ( ConceptoPago )SELECT " & ConComillas(Me.txtConcepto) & " AS Expr1;", dbFailOnError
+
+End Sub
+
+Private Sub btnOK_Click()
+    If gintEsPagoCaja = True Then
+        If Len(Me.txtConcepto) > 0 Then
+        Else
+            MsgBox "Se debe introducir el concepto de pago"
+            'Call lblConcepto_Click
+            Call btnAyudaConcepto_Click
+            Exit Sub
+        End If
+    End If
+    Me.Visible = False
+End Sub
+
+Private Sub btnTeclado_Click()
+    Dim ctl As Control, strTitulo As String, vValor As Variant, intTXT_NUM As Integer
+    On Error GoTo Error_btnTeclado_Click
+    Set ctl = Screen.PreviousControl
+    If InStr(ctl.Tag, "Teclado") = 0 Then Exit Sub
+    If InStr(ctl.Tag, "TXT") > 0 Then
+        strTitulo = "Introduzca texto"
+        intTXT_NUM = 1
+    ElseIf InStr(ctl.Tag, "NUM") > 0 Then
+        strTitulo = "Introduzca valor"
+        intTXT_NUM = 2
+    Else
+        Exit Sub
+    End If
+    ctl.value = DimeTeclado(intTXT_NUM, strTitulo, ctl.value)
+    ctl.SetFocus
+Salir_btnTeclado_Click:
+    Exit Sub
+Error_btnTeclado_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnTeclado_Click" & vbCrLf & Err.Description
+            Resume Salir_btnTeclado_Click
+    End Select
+End Sub
+
+Private Sub casGenerarFactura_AfterUpdate()
+    If Me.casGenerarFactura = True Then
+'        MsgBox "¡¡¡Cuidado de no facturar pagos correspondientes a Bar - Restaurnte pues se duplicarían en contabilidad!!!", vbExclamation, "ATENCIÓN"
+        Dim intNP As Integer, lngIdFichaCab As Long
+        If IsOpenForm("frmFichas") Then
+            Dim frm As Form
+            Set frm = Forms("frmFichas")
+            lngIdFichaCab = Nz(frm("IdFichaCab"), 0)
+            Select Case frm.EstadoFicha
+                Case 10 'fijos
+                    intNP = DCount("IdCajaDet", "tbCajaDet", "Origen = 'E' AND IdFrom = " & lngIdFichaCab) + 1
+                    Me.txtConcepto = "Est. temp. " & Format(Date, "yyyy") & ", pago nº " & intNP
+                Case 1
+                    Me.txtConcepto = "Señal Reserva F." & lngIdFichaCab & ", del " & Format(CDate(frm.FechaLlegada), "dd/mm/yy") & " al " & Format(CDate(frm.FechaSalida), "dd/mm/yy")
+                    
+            End Select
+        End If
+    End If
+End Sub
+
+Private Sub cmbFPago_GotFocus()
+    Me.cmbFPago.Dropdown
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim intR As Integer
+    Dim strXML As String, v As Variant, lngIdCajaDet As Long
+    Dim curImporte As Currency, curEntrega As Currency, curDevolucion As Currency
+    Dim strOrigen As String, intFact As Integer, strX_1 As String
+    Me.casGenerarFactura.Visible = False
+    strXML = Nz(Me.OpenArgs, "")
+    v = DimeXML(strXML, "IdCajaDet")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), "?? Pago")
+    If Not IsNumeric(v) Then GoTo Ini
+    lngIdCajaDet = CLng(v)
+    g_lngIdCajaCab = Nz(DLookup("IdCajaCab", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), 0)
+    Me.txtImporte = Nz(DLookup("Cantidad", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), 0)
+    Me.txtEntrega = Nz(DLookup("Entrega", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), 0)
+    Me.txtDevolucion = Nz(DLookup("Devolucion", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), 0)
+    gintEsPagoCaja = Nz(DLookup("Origen", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), False) = "P"
+    Me.cmbFPago = Nz(DLookup("CodFPago", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), 0)
+    Me.txtNombrePersona = Nz(DLookup("NombrePersona", "tbCajaDet_Concepto", "IdCajadet = " & lngIdCajaDet), "")
+    Me.txtConcepto = Nz(DLookup("Concepto", "tbCajaDet_Concepto", "IdCajadet = " & lngIdCajaDet), "")
+    Me.txtFecha = Format(Nz(DLookup("Fecha", "tbCajaDet", "IdCajadet = " & lngIdCajaDet), Date), "dd/mm/yyyy")
+    GoTo Ini2
+Ini:
+    g_lngIdCajaCab = IsCajaOpen
+    If g_lngIdCajaCab = 0 Then
+        intR = MsgBox("La caja se encuentra cerrada, se debe abrir para realizar operaciones de Cobro o Pago", vbOKCancel + vbInformation)
+        If intR = vbCancel Then
+            Cancel = True
+            Exit Sub
+        End If
+        AbrirCaja
+        GoTo Ini
+    End If
+    strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), "Introducir Pago")
+    curImporte = Nz(DimeXML(strXML, "Importe"), 0)
+    strX_1 = Nz(DimeXML(strXML, "X_1"), "")
+    Me.lbl_1.Visible = strX_1 = "True"
+    If Nz(DimeXML(strXML, "PagoCaja"), "-") = "True" Then
+        gintEsPagoCaja = True
+    Else
+        gintEsPagoCaja = False
+    End If
+    Me.cmbFPago = Nz(DimeXML(strXML, "FormaPago"), "")
+    If Me.cmbFPago = "" Then
+        Me.cmbFPago = Nz(DLookup("CodFPago", "tbFPago", "Predeterminada = True"), "")
+    End If
+    Me.txtImporte = curImporte
+    Me.txtEntrega = curImporte
+    Me.txtFecha = Date
+    If Format(Now, "hh:nn") <= Nz(DameValorParam("TicketsHoraCambioDia"), "04:00") Then
+            Me.txtFecha = Date - 1
+    End If
+    Me.txtNombrePersona = Nz(DimeXML(strXML, "NombrePersona"), 0)
+    Me.txtConcepto = Nz(DimeXML(strXML, "Concepto"), 0)
+    If Nz(DimeXML(strXML, "casGenerarFactura"), "") = "Visible" Then
+        Me.casGenerarFactura.Visible = True
+        If Nz(DimeXML(strXML, "GenerarFacturaSN"), "N") = "S" Then
+            Me.casGenerarFactura = True
+        End If
+    End If
+Ini2:
+    If curImporte = 0 Then
+        Me.txtImporte.SetFocus
+    Else
+        Me.txtEntrega.SetFocus
+    End If
+End Sub
+
+Private Sub lblConcepto_Click()
+    Me.txtConcepto = Nz(DimeTeclado(1, "Teclee Concepto", Me.txtConcepto), Me.txtConcepto)
+'    Call txtConcepto_AfterUpdate
+    Me.txtConcepto.SetFocus
+End Sub
+
+Private Sub lblEntrega_Click()
+    Me.txtEntrega = Nz(DimeTeclado(2, "Teclee entrega", Me.txtEntrega), Me.txtEntrega)
+    If IsNumeric(Me.txtEntrega) Then Me.txtEntrega = Redondea(CCur(Me.txtEntrega), 2)
+    Call txtEntrega_AfterUpdate
+    Me.txtEntrega.SetFocus
+End Sub
+
+Private Sub lblFecha_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtFecha, 1)
+    If IsDate(varFecha) Then
+        Me.txtFecha = varFecha
+    End If
+End Sub
+
+Private Sub lblImporte_Click()
+    Me.txtImporte = Nz(DimeTeclado(2, "Teclee importe", Me.txtImporte), Me.txtImporte)
+    If IsNumeric(Me.txtImporte) Then Me.txtImporte = Redondea(CCur(Me.txtImporte), 2)
+    Call txtImporte_AfterUpdate
+    Me.txtImporte.SetFocus
+End Sub
+
+Private Sub lblNombre_Click()
+    Me.txtNombrePersona = Nz(DimeTeclado(1, "Teclee Nombre", Me.txtNombrePersona), Me.txtNombrePersona)
+'    Call txtNombrePersona_AfterUpdate
+    Me.txtNombrePersona.SetFocus
+End Sub
+
+Private Sub txtEntrega_AfterUpdate()
+    If Me.txtImporte = 0 Then
+        Me.txtImporte = Me.txtEntrega
+        Me.txtDevolucion = 0
+    ElseIf Me.txtEntrega >= Me.txtImporte Then
+        Me.txtDevolucion = Me.txtImporte - Me.txtEntrega
+    Else
+        Me.txtImporte = Me.txtEntrega
+        Me.txtDevolucion = 0
+    End If
+End Sub
+
+Private Sub txtFecha_AfterUpdate()
+    Me.txtFecha = Format(Me.txtFecha, "dd/mm/yyyy")
+End Sub
+
+Private Sub txtFecha_BeforeUpdate(Cancel As Integer)
+    Dim v As Variant
+    On Error Resume Next
+    v = CDate(Me.txtFecha)
+    If Not IsDate(v) Then
+        MsgBox "Debe ser una fecha"
+        Cancel = True
+        Exit Sub
+    End If
+End Sub
+
+Private Sub txtImporte_AfterUpdate()
+    Me.txtEntrega = Me.txtImporte
+    Call txtEntrega_AfterUpdate
+End Sub

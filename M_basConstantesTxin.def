@@ -1,0 +1,16 @@
+Option Compare Database
+Option Explicit
+
+Global Const TC_CmToPoints As Integer = 568 ' factor Centímetros-->Puntos
+Global g_strPH As String
+Global g_strPHs As String
+Global g_strPH_s As String
+
+Global Const G_lngColorFijos As Long = 16763904 'Azul
+Global Const G_lngColorReservas As Long = 8454016 'Verde
+Global Const G_lngColorActuales As Long = 8454143 'Amarillo 8421631 'Rojo-Rosa
+Global Const G_lngColorFacturaPreparada As Long = 8421631 'Rojo-Rosa 4227327 'Naranja
+Global Const G_lngColorPagadoConCliente As Long = vbWhite
+Global Const G_lngColorLimpieza As Long = 16744448 'Azul 12615935 'Rosa 8454143 'Amarillo
+Global Const G_lngColorCancelada As Long = 32000    'RGB(66, 33, 0) 'marrón
+Global Const G_lngColorAntigua As Long = 9868950

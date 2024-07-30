@@ -1,0 +1,48 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+'    If Me.Detalle.BackColor = 16777215 Then
+'        Me.Detalle.BackColor = 10092543
+'    Else
+'        Me.Detalle.BackColor = 16777215
+'    End If
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros para la fecha indicada"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim frm As Form
+    On Error Resume Next
+    If Not IsOpenForm("frmParteG") Then
+        MsgBox "Debe estar abierto frmParteG"
+        Cancel = True
+    Else
+        Me.lblTitulo2.Caption = UCase(Format(Forms("frmParteG").txtDesde, "long date"))
+    End If
+    Dim sngAltoMax As Single
+    If DameValorParam("FichasLogoSN") = True Then
+        Me.LogoImagen.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+        Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+        sngAltoMax = Nz(DameValorParam("InformesLogoMaxAlto"), 3) * TC_CmToPoints
+        If sngAltoMax < Me.LogoImagen.Height Then
+            Me.LogoImagen.Width = Me.LogoImagen.Width * (sngAltoMax / Me.LogoImagen.Height)
+            Me.LogoImagen.Height = sngAltoMax
+        End If
+        Me.LogoImagen.Left = Me.lblTitulo.Left + (Me.lblTitulo.Width - Me.LogoImagen.Width)
+        Me.LogoImagen.Top = Me.txtCabeceraListado.Top
+        Me.LogoImagen.Visible = True
+    Else
+        Me.LogoImagen.Visible = False
+    End If
+    
+End Sub

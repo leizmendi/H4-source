@@ -1,0 +1,563 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim strSQLdev As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim rs As Recordset, rsSelect As Recordset
+    Dim i As Integer
+'La selección sobre el trimestre o entre fechas se hace en el procedimiento ActualizarFacturacionXClientesAux
+'la selección sobre Cliente-Concepto y Contabilizado se hace en este procedimiento
+    On Error GoTo Error_btnAceptar_Click
+    DoCmd.Hourglass True
+    ActualizarRegistroVentasAux
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    ActualizarRegistroComprasAux
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    strTitulo = Me.lblTitulo.Caption
+    Dim strXML As String
+    PonXML strXML, "Titulo", strTitulo
+    PonXML strXML, "EncabezadoTrimestre", IIf(Me.mrcTrimestre < 5, "SI", "NO")
+    PonXML strXML, "Serie", Nz(Me.txtSerie, "")
+Presentar:
+    Dim strQRY1 As String, strOtros1 As String, strQRY2 As String, strOtros2 As String, strFile As String
+    If Me.mrcPantImp = 1 Then
+        DoCmd.OpenReport "rptLibroIVA", acViewPreview, , , , strXML
+    ElseIf Me.mrcPantImp = 2 Then
+        DoCmd.OpenReport "rptLibroIVA", , , , , strXML
+    Else
+        strQRY1 = "qryRegistroVentas_"
+        strOtros1 = "11111111111,1210153020121006101020,11111333331,15111886881,00000110110"
+        strQRY2 = "qryRegistroCompras"
+        strOtros2 = "11111111111,1206103015201205100610,12111111333,11111118868,00000001101"
+        If Me.mrcPantImp = 3 Then
+            If Me.LibroIVAD_verResumenTiposIVA Then ImprimirSQL_DOS1 strQRY1, strTitulo, strOtros1, , , True
+            If Me.LibroIVAS_verResumenTiposIVA Then ImprimirSQL_DOS1 strQRY2, strTitulo, strOtros2, , , True
+        Else
+            If Me.LibroIVAD_verResumenTiposIVA Then
+                strFile = DameValorParam("AplicacionCarpetaListados") & NombreCampoValido(strTitulo & "_Ventas", True, True)
+                ExportarSQL_Excel strQRY1, strFile, , strOtros1
+            End If
+            If Me.LibroIVAS_verResumenTiposIVA Then
+                strFile = DameValorParam("AplicacionCarpetaListados") & NombreCampoValido(strTitulo & "_Compras", True, True)
+                ExportarSQL_Excel strQRY2, strFile, , strOtros2
+            End If
+
+        End If
+    End If
+            
+Exit_btnAceptar_click:
+    DoCmd.Hourglass False
+    Close
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+
+Private Sub btnFacturasPDF_Click()
+    On Error GoTo HandleError
+    DoCmd.Hourglass True
+    ActualizarRegistroVentasAux
+    DoCmd.Hourglass False
+    Dim strSQL As String, rs As Recordset, y As Long, z As Long, k As Long, lngIdFactura As Long
+    strSQL = "SELECT qryRegistroVentas.NumFactura" & _
+             " FROM qryRegistroVentas"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        lngIdFactura = Nz(DLookup("IdFactura", "tbFacturasCab", "Serie & NumeroDeFactura = '" & rs("NumFactura") & "'"), 0)
+        If lngIdFactura <> 0 Then
+            y = y + 1
+            ImprimirFactura lngIdFactura, 4
+            EsperaSegundos 3
+        Else
+            k = k + 1
+        End If
+        rs.MoveNext
+        SysCmd acSysCmdSetStatus, "Generando PDF de facturas " & y & "/" & z & IIf(k > 0, ", errores: " & k, "")
+    Wend
+    SysCmd acSysCmdClearStatus
+    MsgBox "Se generaron " & y & " facturas en la carpeta predeterminada: " & DameValorParam("AplicacionCarpetaDatos") & "facs", vbInformation
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub cmbIdProcedencia_AfterUpdate()
+    Call ActualizaTitulos
+End Sub
+
+Private Sub cmbMes_AfterUpdate()
+    Call ActualizaTitulos
+End Sub
+
+Private Sub cmbMes_Click()
+    Me.cmbMes = Nz(Me.cmbMes, 0)
+    If Me.cmbMes = 0 Then
+        Me.txtDesde = CDate(Me.txtAño & "/01/01")
+        Me.txtHasta = CDate(Me.txtAño & "/12/31")
+    Else 'If Me.cmbMes = 12 Then
+        Me.txtDesde = CDate(Me.txtAño & "/" & Me.cmbMes & "/" & "01")
+        Me.txtHasta = CDate(Me.txtAño & "/" & Me.cmbMes & "/" & CStr(DiasDelMes(CInt(Me.cmbMes), CInt(Me.txtAño))))
+'
+'        Me.txtDesde = CDate(Me.txtAño & "/" & Format(Me.cmbMes, "00") & "/01")
+'        Me.txtHasta = CDate(Me.txtAño & "/12/31")
+'    Else
+'        Me.txtDesde = CDate(Me.txtAño & "/" & Format(Me.cmbMes, "00") & "/01")
+'        Me.txtHasta = CDate(Me.txtAño & "/" & Format(CInt(Me.cmbMes) + 1, "00") & "/01") - 1
+    End If
+    Call ActualizaTitulos
+End Sub
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    MascaraFechasForm Me
+    Call ActualizaTitulos
+    Call mrcPantImp_AfterUpdate
+    Me.txtSerie.Visible = g_Multiempresa
+End Sub
+
+Private Sub ActualizaTitulos()
+    Dim strTitulo As String
+    Dim strSQLdev As String
+    Dim strTit As String
+    
+    strTitulo = "LIBRO DE IVA."
+    If Me.mrcTREF = 2 Then ' entre fechas
+        strTitulo = strTitulo & " Facturas entre fechas, Desde: " & Me.txtDesde & " Hasta: " & Me.txtHasta
+        strTit = "Facturas entre fechas, Desde: " & Me.txtDesde & " Hasta: " & Me.txtHasta
+    ElseIf Me.mrcTREF = 3 Then ' por mes
+        strTitulo = strTitulo & " Facturas del Año: " & Me.txtAño & ", Mes: " & Me.cmbMes.Column(1)
+        strTit = "Facturas del Año: " & Me.txtAño & ", Mes: " & Me.cmbMes.Column(1)
+    ElseIf Me.mrcTrimestre = 5 Then
+        strTitulo = strTitulo & " Año: " & Me.txtAño
+        strTit = "Año: " & Me.txtAño
+    Else
+        strTitulo = strTitulo & " Trimestre: " & Me.mrcTrimestre & " / " & Me.txtAño
+        strTit = "Trimestre: " & Me.mrcTrimestre & " / " & Me.txtAño
+    End If
+    If Nz(Me.txtSerie, "") <> "" Then
+        strTitulo = strTitulo & " Serie: " & Me.txtSerie
+        strTit = strTit & " Serie: " & Me.txtSerie
+    End If
+    If Me.cmbIdProcedencia.ListIndex <> -1 Then
+        If Me.cmbIdProcedencia <> 0 Then
+            strTitulo = strTitulo & " Procedencia: " & Me.cmbIdProcedencia.Column(1)
+            strTit = strTit & " Procedencia: " & Me.cmbIdProcedencia.Column(1)
+        End If
+    End If
+        
+    Me.lblTit.Caption = strTit
+    Me.lblTitulo.Caption = strTitulo
+End Sub
+
+
+Private Sub mrcPantImp_AfterUpdate()
+    Dim intEnable As Integer
+    intEnable = Me.mrcPantImp <= 2
+    Me.LibroIVAD_verResumenFPago.Enabled = intEnable
+    Me.LibroIVAD_verFacturasPPago.Enabled = intEnable
+    Me.LibroIVAS_verResumenGI.Enabled = intEnable
+End Sub
+
+Private Sub mrcTREF_Click()
+    Dim ctl As Control
+    Dim intTRver As Integer, strTag As String
+    Select Case Me.mrcTREF
+        Case 1
+            strTag = "TR"
+            Me.txtAño.Top = Me.op1.Top
+            Me.lblAño.Top = Me.op1.Top
+            Call mrcTrimestre_AfterUpdate
+        Case 2
+            strTag = "EF"
+            Call ActualizaTitulos
+        Case 3
+            strTag = "MES"
+            Me.txtAño.Top = Me.op3.Top
+            Me.lblAño.Top = Me.op3.Top
+            Call cmbMes_Click
+    End Select
+    For Each ctl In Me.Controls
+        Select Case ctl.Tag
+            Case ""
+            Case Else
+                If InStr(ctl.Tag, "Param") > 0 Then
+                ElseIf InStr(ctl.Tag, strTag) > 0 Then
+                    ctl.Visible = True
+                Else
+                    ctl.Visible = False
+                End If
+        End Select
+    Next ctl
+End Sub
+
+Private Sub mrcTrimestre_AfterUpdate()
+    Select Case mrcTrimestre.value
+        Case 1
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/03/31")
+        Case 2
+            Me.txtDesde = CDate(Me.txtAño & "/04/01")
+            Me.txtHasta = CDate(Me.txtAño & "/06/30")
+        Case 3
+            Me.txtDesde = CDate(Me.txtAño & "/07/01")
+            Me.txtHasta = CDate(Me.txtAño & "/09/30")
+        Case 4
+            Me.txtDesde = CDate(Me.txtAño & "/10/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+        Case 5
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+    End Select
+    Call ActualizaTitulos
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    Call mrcTrimestre_AfterUpdate
+    Call ActualizaTitulos
+End Sub
+
+
+
+Public Sub ActualizarRegistroVentasAux()
+    Dim i As Integer, intPas As Integer
+    Dim rs As Recordset, rsAux As Recordset, rs2 As Recordset
+    Dim strSQL As String, stSQ As String, rsSQ As Recordset
+    Dim strNumFac As String
+    Dim lngIdFichaCab As Long, j As Integer, y As Integer, z As Integer
+    Dim intIVAincOI As Integer, strCodCliente As String
+    On Error GoTo Error_ActualizarRegistroVentasAux
+    intIVAincOI = Nz(DameValorParam("IVAIncluidoEnOtrosIngresos"), True)
+    strSQL = "DELETE * FROM tbauxQryRegistroVentas"
+    CurrentDb.Execute strSQL
+    Set rsAux = CurrentDb.OpenRecordset("tbauxQryRegistroVentas")
+    'strSQL = "SELECT *"
+    'strSQL = strSQL & " FROM tbFacturasCab"
+    strSQL = "SELECT DISTINCT tbFacturasCab.*, tbProcedencias.Procedencia"
+    strSQL = strSQL & " FROM (tbFacturasCab LEFT JOIN tbFichasCab ON tbFacturasCab.IdFactura = tbFichasCab.IdFactura) LEFT JOIN tbProcedencias ON tbFichasCab.IdProcedencia = tbProcedencias.IdProcedencia"
+    
+    
+    strSQL = strSQL & " WHERE tbFacturasCab.FechaFactura Between #" & Format(Me![txtDesde], "mm/dd/yyyy") & "# And #" & Format(Me![txtHasta], "mm/dd/yyyy") & "#"
+    If Nz(Me.txtSerie, "") <> "" Then strSQL = strSQL & " AND Serie = '" & Me.txtSerie & "'"
+    If Me.cmbIdProcedencia <> 0 Then strSQL = strSQL & " AND tbFichasCab.IdProcedencia = " & Me.cmbIdProcedencia
+    
+    strSQL = strSQL & " ORDER BY [NumeroDeFactura]"
+Bucle3:
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        z = rs.RecordCount
+    End If
+    While Not rs.EOF
+        If strNumFac = rs("Serie") & rs("NumeroDeFactura") Then 'puede haber registros duplicados si dos fichas con diferente procedencia apuntan a la misma factura....
+            GoTo SiguienteFactura
+        End If
+        strNumFac = rs("Serie") & rs("NumeroDeFactura")
+        If DLookup("Agencia", "tbClientes", "CodCliente = " & ConComillas(Nz(rs("CodCliente"), ""))) = True Then
+            strCodCliente = rs("CodCliente")
+        Else
+            strCodCliente = "---"
+        End If
+        If Not IsNull(rs("IVA_Cab")) Then 'And Not IsNull(rs("RecEq")) Then
+            rsAux.AddNew
+            rsAux("NumFactura") = strNumFac
+            rsAux("Fecha") = rs("FechaFactura")
+            rsAux("NIF") = rs("NIF")
+            rsAux("Cliente") = RecDerTop(ExtraeLin(rs("DireccionCliente"), 1), 0, 50)
+            rsAux("Concepto") = "-" 'RecDerTop(Nz(rs("ConceptoFactura"), ""), 0, 50)
+            i = 1
+            rsAux("linea1") = i
+            rsAux("Base") = rs("TotalBase")
+            rsAux("IVA") = rs("IVA_Cab")
+            rsAux("RecEq") = 0 'rs("RecEq")
+            rsAux("CodCliente") = strCodCliente
+            rsAux("Procedencia") = rs("Procedencia")
+            rsAux.Update
+        Else
+            strSQL = "SELECT tbFacturasDet.IdFactura, tbFacturasDet.IVA, Sum(([Cantidad]*[PrecioUnitario]*(IIf(IsNull([tbFacturasDet]![FechaInicio]) Or IsNull([tbFacturasDet]![FechaFin]),1,[tbFacturasDet]![FechaFin]-[tbFacturasDet]![FechaInicio])))/(1+IIf([IvaIncluidoDetalle],[tbFacturasDet]![IVA],0))) AS Base"
+            strSQL = strSQL & " FROM tbFacturasCab INNER JOIN tbFacturasDet ON tbFacturasCab.IdFactura = tbFacturasDet.IdFactura"
+            strSQL = strSQL & " GROUP BY tbFacturasDet.IdFactura, tbFacturasDet.IVA"
+            strSQL = strSQL & " HAVING (((tbFacturasDet.IdFactura)=" & rs("IdFactura") & "));"
+            i = 0
+            Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If rs2.EOF Then
+                rsAux.AddNew
+                rsAux("NumFactura") = strNumFac
+                rsAux("Fecha") = rs("FechaFactura")
+                rsAux("NIF") = rs("NIF")
+                rsAux("Cliente") = RecDerTop(ExtraeLin(rs("DireccionCliente"), 1), 0, 50)
+                rsAux("Concepto") = "-" 'RecDerTop(rs("ConceptoFactura"), 0, 50)
+                i = i + 1
+                rsAux("linea1") = i
+                rsAux("Base") = 0
+                rsAux("IVA") = 0
+                rsAux("RecEq") = 0
+                rsAux("CodCliente") = strCodCliente
+                rsAux("Procedencia") = rs("Procedencia")
+                rsAux.Update
+            End If
+            While Not rs2.EOF
+                i = i + 1
+                rsAux.AddNew
+                rsAux("NumFactura") = strNumFac
+                rsAux("Fecha") = rs("FechaFactura")
+                rsAux("linea1") = i
+                If i = 1 Then
+                    rsAux("NIF") = rs("NIF")
+                    rsAux("Cliente") = RecDerTop(ExtraeLin(rs("DireccionCliente"), 1), 0, 50)
+                    rsAux("Concepto") = "-" 'RecDerTop(rs("ConceptoFactura"), 0, 50)
+                End If
+                rsAux("Base") = rs2("Base")
+                rsAux("IVA") = rs2("IVA")
+                rsAux("RecEq") = 0 'rs2("RecEq")
+                rsAux("CodCliente") = strCodCliente
+                rsAux("Procedencia") = rs("Procedencia")
+                rsAux.Update
+                rs2.MoveNext
+            Wend
+        End If
+        'Generar registros de Pagos
+        'If strCodCliente <> "---" Then GoTo SiguienteFactura
+        strSQL = "SELECT tbCajaDet.CodFPago, Sum(tbCajaDet.Cantidad) AS SumaDeCantidad"
+        strSQL = strSQL & " FROM tbCajaDet"
+        strSQL = strSQL & " GROUP BY  tbCajaDet.CodFPago, tbCajaDet.IdFrom, tbCajaDet.Origen"
+        strSQL = strSQL & " HAVING (tbCajaDet.IdFrom=" & rs("IdFactura") & " AND Origen = 'F')"
+        stSQ = "SELECT IdFichaCab FROM tbFichasCab"
+        stSQ = stSQ & " WHERE IdFactura = " & rs("IdFactura")
+        Set rsSQ = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+        stSQ = ""
+        While Not rsSQ.EOF
+            stSQ = stSQ & " OR (tbCajaDet.IdFrom=" & rsSQ("IdFichaCab") & " AND Origen = 'E')"
+            rsSQ.MoveNext
+        Wend
+        strSQL = strSQL & stSQ
+        Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+        While Not rs2.EOF
+            rsAux.AddNew
+            rsAux("NumFactura") = strNumFac
+            rsAux("FormaPago") = rs2("CodFPago")
+            rsAux("Pagado") = rs2("SumaDeCantidad")
+            rsAux("SoloFP") = True
+            i = i + 1
+            rsAux("linea1") = i
+            rsAux("CodCliente") = strCodCliente
+            rsAux("Procedencia") = rs("Procedencia")
+            rsAux.Update
+            rs2.MoveNext
+        Wend
+SiguienteFactura:
+        rs.MoveNext
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Facturas: " & y & " / " & z
+    Wend
+    SysCmd acSysCmdClearStatus
+    strCodCliente = "---"
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbOI"
+    strSQL = strSQL & " WHERE tbOI.Fecha Between #" & Format(Me![txtDesde], "mm/dd/yyyy") & "# And #" & Format(Me![txtHasta], "mm/dd/yyyy") & "#"
+    strSQL = strSQL & " ORDER BY [NumeroCorrelativo], [NumeroCorrelativoAux]"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        z = rs.RecordCount
+    End If
+    While Not rs.EOF
+        strNumFac = "O.I.: " & Format(rs("NumeroCorrelativo"), "0000") & rs("NumeroCorrelativoAux")
+        rsAux.AddNew
+        rsAux("NumFactura") = strNumFac
+        rsAux("Fecha") = rs("Fecha")
+        rsAux("NIF") = "-"
+        rsAux("Cliente") = "-"
+        rsAux("Concepto") = Nz(DLookup("DescripcionGrupo", "tbGruposDeIngresos", "CodNombreGrupo = " & ConComillas(rs("CodGrupoIngresos"))), "-") 'RecDerTop(Nz(rs("ConceptoFactura"), ""), 0, 50)
+        i = 1
+        rsAux("linea1") = i
+        rsAux("Base") = rs("Importe1") + rs("Importe2") + rs("Importe3") + rs("Importe4")
+        rsAux("IVA") = rs("IVA")
+        rsAux("RecEq") = 0 'rs("RecEq")
+        If intIVAincOI = True Then
+            rsAux("Base") = rsAux("Base") / (1 + rsAux("IVA") + rsAux("RecEq"))
+        End If
+        rsAux("CodCliente") = strCodCliente
+        rsAux.Update
+        For j = 1 To 4
+            If rs("Importe" & j) > 0 Then
+                rsAux.AddNew
+                rsAux("NumFactura") = strNumFac
+                i = i + 1
+                rsAux("linea1") = i
+                rsAux("Pagado") = rs("Importe" & j)
+                rsAux("FormaPago") = Nz(DLookup("CodFPago", "tbFPago", "Berezi = " & j), "-")
+                rsAux("SoloFP") = True
+                rsAux("CodCliente") = strCodCliente
+                rsAux.Update
+            End If
+        Next j
+        y = y + 1
+        rs.MoveNext
+        SysCmd acSysCmdSetStatus, "Otros Ingresos: " & y & " / " & z
+    Wend
+Salir_ActualizarRegistroVentasAux:
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+Error_ActualizarRegistroVentasAux:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ActualizarRegistroVentasAux"
+    End Select
+    Resume Salir_ActualizarRegistroVentasAux
+    Resume Next
+End Sub
+
+
+Public Sub ActualizarRegistroComprasAux()
+    Dim i As Integer, intPas As Integer
+    Dim rs As Recordset, rsAux As Recordset, rs2 As Recordset
+    Dim strSQL As String
+    Dim strNumAnt As String
+    On Error GoTo Error_ActualizarRegistroComprasAux
+    strSQL = "DELETE * FROM tbauxQryRegistroCompras"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("tbauxQryRegistroCompras")
+    'strSQL = "SELECT 'FR/' & Format([tbFacturasRecibidas]![NumeroCorrelativo],'00000') & [tbFacturasRecibidas]![NumeroCorrelativoAux] AS NDF, tbFacturasRecibidas.FechaFactura, tbFacturasRecibidas.Proveedor AS Proveedor, tbFacturasRecibidas.Concepto AS Concepto, tbFacturasRecibidas.GrupoDeGastos AS GrupoDeGastos, tbFacturasRecibidas.NIF, tbFacturasRecibidas.Imputable, IIf(IsNull([Base]),0,[Base]) AS BaseI, IIf(IsNull([IVA]),0,[IVA]) AS IVAI, IIf(IsNull([RecEq]),0,[RecEq]) AS RecEqI, Trimestre, Inversion"
+    strSQL = "SELECT *"
+    'strSQL = strSQL & " FROM tbFacturasRecibidas LEFT JOIN tbFacturasRecibidasDet ON tbFacturasRecibidas.IdFacturaRecibida = tbFacturasRecibidasDet.IdFacturaRecibida"
+    strSQL = strSQL & " FROM tbFacturasRecibidas"
+    If Me.mrcTREF = 2 Or Me.mrcTREF = 3 Then
+        strSQL = strSQL & " WHERE tbFacturasRecibidas.FechaFactura Between #" & Format(Me![txtDesde], "mm/dd/yyyy") & "# And #" & Format(Me![txtHasta], "mm/dd/yyyy") & "#"
+    ElseIf Me.mrcTrimestre = 5 Then
+        strSQL = strSQL & " WHERE tbFacturasRecibidas.Trimestre Like '" & Me.txtAño & "/*'"
+    ElseIf Me.mrcTrimestre < 5 Then
+        strSQL = strSQL & " WHERE tbFacturasRecibidas.Trimestre = '" & Me.txtAño & "/" & Me.mrcTrimestre & "'"
+    End If
+    strSQL = strSQL & " ORDER BY NumeroCorrelativo, NumeroCorrelativoAux"
+Bucle3:
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+        If Not IsNull(rs("IVA_Cab")) And Not IsNull(rs("RecEq_Cab")) Then
+            rsAux.AddNew
+            rsAux("NumRegistro") = rs("NumeroCorrelativo") & rs("NumeroCorrelativoAux")
+            rsAux("Fecha") = rs("FechaFactura")
+            rsAux("Proveedor") = rs("Proveedor")
+            rsAux("Concepto") = rs("Concepto")
+            rsAux("GrupoDeGastos") = "-" 'rs("GrupoDeGastos")
+            rsAux("NIF") = rs("NIF")
+            rsAux("Imputable") = 1 'rs("Imputable") 'Imputable
+            rsAux("Trimestre") = rs("Trimestre")
+            rsAux("Inversion") = False 'rs("Inversion")
+            rsAux("linea1") = 1
+            rsAux("Base") = rs("TotalBase") ' * rs("Imputable")
+            rsAux("IVA") = rs("IVA_Cab")
+            rsAux("RecEq") = rs("RecEq_Cab")
+            rsAux.Update
+        Else
+            strSQL = "SELECT tbFacturasRecibidasDet.IdFacturaRecibida, Sum(tbFacturasRecibidasDet.Base) AS SumaDeBase, tbFacturasRecibidasDet.IVA, tbFacturasRecibidasDet.RecEq"
+            strSQL = strSQL & " FROM tbFacturasRecibidasDet"
+            strSQL = strSQL & " GROUP BY tbFacturasRecibidasDet.IdFacturaRecibida, tbFacturasRecibidasDet.IVA, tbFacturasRecibidasDet.RecEq"
+            strSQL = strSQL & " HAVING (((tbFacturasRecibidasDet.IdFacturaRecibida) = " & rs("IdFacturaRecibida") & "))"
+            strSQL = strSQL & " ORDER BY tbFacturasRecibidasDet.IVA DESC;"
+            Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If rs2.EOF Then
+'                rsAux.AddNew
+'                rsAux("Trimestre") = rs("Trimestre")
+'                rsAux("NumRegistro") = rs("NumeroCorrelativo") & rs("NumeroCorrelativoAux")
+'                rsAux("linea1") = 1
+'                rsAux("Fecha") = rs("FechaFactura")
+'                rsAux("Proveedor") = rs("Proveedor")
+'                rsAux("Concepto") = rs("Concepto")
+'                rsAux("NIF") = rs("NIF")
+'                rsAux("Imputable") = rs("Imputable") 'Imputable
+'                rsAux("Inversion") = rs("Inversion")
+'                rsAux("Base") = 0
+'                rsAux("IVA") = 0
+'                rsAux("RecEq") = 0
+'                rsAux("GrupoDeGastos") = "-" 'rs("GrupoDeGastos")
+'                rsAux.Update
+            End If
+            i = 0
+            While Not rs2.EOF
+                i = i + 1
+                rsAux.AddNew
+                rsAux("Trimestre") = rs("Trimestre")
+                rsAux("Fecha") = rs("FechaFactura")
+                rsAux("NumRegistro") = rs("NumeroCorrelativo") & rs("NumeroCorrelativoAux")
+                If i = 1 Then
+                    rsAux("Proveedor") = rs("Proveedor")
+                    rsAux("Concepto") = rs("Concepto")
+                    rsAux("NIF") = rs("NIF")
+                    rsAux("Imputable") = 1 'rs("Imputable") 'Imputable
+                    rsAux("Inversion") = False 'rs("Inversion")
+                End If
+                rsAux("GrupoDeGastos") = "-" 'rs("GrupoDeGastos")
+                rsAux("linea1") = i
+                rsAux("Base") = rs2("SumaDeBase") ' * rs("Imputable")
+                rsAux("IVA") = rs2("IVA")
+                rsAux("RecEq") = rs2("RecEq")
+                rsAux.Update
+                rs2.MoveNext
+            Wend
+        End If
+        rs.MoveNext
+    Wend
+Salir_ActualizarRegistroComprasAux:
+    Exit Sub
+Error_ActualizarRegistroComprasAux:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ActualizarRegistroComprasAux"
+    End Select
+    Resume Salir_ActualizarRegistroComprasAux
+End Sub
+
+
+Private Sub txtDesde_AfterUpdate()
+    Call ActualizaTitulos
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call ActualizaTitulos
+End Sub
+
+Private Sub txtSerie_AfterUpdate()
+    Call ActualizaTitulos
+End Sub
+Function EsperaSegundos(iSeg As Integer) As Boolean
+    Dim dt As Date
+    dt = Now()
+    While DateDiff("s", dt, Now) < iSeg
+    Wend
+End Function

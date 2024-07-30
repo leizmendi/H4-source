@@ -1,0 +1,529 @@
+Option Compare Database
+Option Explicit
+
+Sub RunProcedure(frm As Form, lngIdProcedimiento As Long, Optional intPaso As Integer = 0, Optional intCancel As Integer)
+    Select Case lngIdProcedimiento
+        Case 1
+            InicializarAño frm, , intPaso, intCancel
+        Case 2
+            MsgBox " N o t h i n g ", vbExclamation
+    End Select
+End Sub
+
+Public Sub InicializarAño(frm As Form, Optional intAño As Integer = 0, Optional intPaso As Integer = 0, Optional intCancel As Integer)
+    Dim strC As String, i As Integer, j As Integer, intR As Integer, intA As Integer, strA As String, strZ As String
+    Dim strData As String, strRecA As String, strDatZ As String, strRecZ As String
+    Dim strSQL As String, rs As Recordset, strR As String, intCopiaOK As Integer
+    Dim intAñoCopiar As Integer
+    Static intCopia As Integer
+    On Error GoTo Error_InicializarAño
+    If intAño = 0 Then intAño = Year(Date)
+    intA = intAño Mod 100
+    strA = Format(intA, "00")
+    intA = intA - 1
+    If intA = -1 Then intA = 99
+    strZ = Format(intA, "00")
+Copia_0:
+    If intPaso = 0 Then
+        intCopia = False
+        intR = MsgBox("¿Generar Año " & intAño & "?" & vbCrLf & "Se copiaran los datos del año " & intAño - 1, vbOKCancel + vbExclamation)
+        If intR <> vbOK Then Exit Sub
+        strC = Nz(DameValorParam("AplicacionCarpetaDatos"), "")
+        If strC = "" Then
+            strR = "No se ha indicado carpeta de datos en parámetros"
+        Else
+            intCopiaOK = 1
+        End If
+        strData = strC & "H4dat_" & strA & ".mdb"
+        strRecA = strC & "H4rec_" & strA & ".mdb"
+        strDatZ = strC & "H4dat_" & strZ & ".mdb"
+        strRecZ = strC & "H4rec_" & strZ & ".mdb"
+        If Dir(strData) <> "" Then
+            strR = strR & vbCrLf & "Se encontró el fichero: " & strData & vbCrLf & "Debe borrarse y el procedimiento lo copiará del " & strDatZ
+        Else
+            FileCopy strDatZ, strData
+            intCopiaOK = intCopiaOK + 1
+        End If
+        If Dir(strRecA) <> "" Then
+            strR = strR & vbCrLf & "Se encontró el fichero: " & strRecA & vbCrLf & "Debe borrarse y el procedimiento lo copiará del " & strRecZ
+        Else
+            FileCopy strRecZ, strRecA
+            intCopiaOK = intCopiaOK + 1
+        End If
+        If intCopiaOK = 3 Then
+            strSQL = "UPDATE 1myConexionTablas SET FicheroDeConexion = " & ConComillas("H4dat_" & strA & ".mdb")
+            strSQL = strSQL & " WHERE FicheroDeConexion = " & ConComillas("H4dat_" & strZ & ".mdb")
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSQL = "UPDATE 1myConexionTablas SET FicheroDeConexion = " & ConComillas("H4rec_" & strA & ".mdb")
+            strSQL = strSQL & " WHERE FicheroDeConexion = " & ConComillas("H4rec_" & strZ & ".mdb")
+            CurrentDb.Execute strSQL, dbFailOnError
+            If ReconectarTablasYaVinculadas() = False Then
+                strR = strR & vbCrLf & "No se pudo revincular tablas"
+                'Exit Sub
+            Else
+                strR = strR & vbCrLf & "Se revincularon tablas OK"
+                intCopia = True
+            End If
+        End If
+        If Left(strR, 2) = vbCrLf Then strR = Mid(strR, 3)
+        strR = Replace(strR, vbCrLf, ". ")
+        
+        strSQL = "UPDATE sysProcedimientosPasos"
+        strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+        strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 0"
+        CurrentDb.Execute strSQL, dbFailOnError
+    Else
+        If Not intCopia Then
+            MsgBox strR, vbExclamation
+            intR = MsgBox("ATENCIÓN. Si no se ha generado el fichero del nuevo año, los cambios se realizaran sobre la base de datos actualmente conectada:" & vbCrLf & _
+                        DLookup("[DirectorioDeconexion] & [FicheroDeConexion]", "1myConexionTablas", "NombreTabla = 'tbFichasCab'") & vbCrLf & _
+                        DLookup("[DirectorioDeconexion] & [FicheroDeConexion]", "1myConexionTablas", "NombreTabla = 'tbRecibos'"), vbOKCancel + vbExclamation)
+            If intR = vbCancel Then Exit Sub
+            intCopia = True
+        End If
+    End If
+    Select Case intPaso
+        Case 1
+Facturas_1:
+            frm.lstPasos = 1
+            strSQL = "SELECT * FROM tbFacturasCab"
+            strSQL = strSQL & " WHERE Year(FechaFactura)=" & intAño - 1
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " facturas emitidas el año " & intAño - 1 & "?", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron facturas emitidas"
+            Else
+                strSQL = "DELETE * FROM tbFacturasCab"
+                strSQL = strSQL & " WHERE Year(FechaFactura)=" & intAño - 1
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " facturas emitidas el año " & intAño - 1 & " borradas"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 1"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 2
+PartesPolicia_2:
+            frm.lstPasos = 2
+            strSQL = "SELECT * FROM tbPartesPolicia"
+            strSQL = strSQL & " WHERE Year(FechaLlegada)<=" & intAño - 1
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " entradas de viajero anteriores al año " & intAño & "?", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron entradas de viajero"
+            Else
+                strSQL = "DELETE * FROM tbPartesPolicia"
+                strSQL = strSQL & " WHERE Year(FechaLlegada)<=" & intAño
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " entradas de viajero anteriores al año " & intAño & " borradas"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 2"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 3
+FichasEstancia_3:
+            frm.lstPasos = 3
+            strSQL = "SELECT * FROM tbFichasCab"
+            strSQL = strSQL & " WHERE Year(FechaLlegada)<=" & intAño - 1
+            'strSQL = strSQL & " AND EstadoFicha<>1 AND EstadoFicha<>10"
+            strSQL = strSQL & " AND EstadoFicha<>10"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " fichas de estancia anteriores al año " & intAño & "?" & vbCrLf & "No se borrarán fijos ni reservas", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron fichas de estancia"
+            Else
+                strSQL = "DELETE * FROM tbFichasCab"
+                strSQL = strSQL & " WHERE Year(FechaLlegada)<=" & intAño - 1
+                'strSQL = strSQL & " AND EstadoFicha<>1 AND EstadoFicha<>10"
+                strSQL = strSQL & " AND EstadoFicha<>10"
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " fichas de estancia anteriores al año " & intAño & " borradas"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 3"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 4
+OtrosIngresos_4:
+            frm.lstPasos = 4
+            strSQL = "SELECT * FROM tbOI"
+            strSQL = strSQL & " WHERE Year(Fecha)<=" & intAño - 1
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " registros de Otros Ingresos anteriores al año " & intAño & "?", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron registros de Otros Ingresos"
+            Else
+                strSQL = "DELETE * FROM tbOI"
+                strSQL = strSQL & " WHERE Year(Fecha)<=" & intAño
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " registros de Otros Ingresos anteriores al año " & intAño & " borrados"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 4"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 5
+OtrosIngresos_Rte_5:
+            frm.lstPasos = 5
+            strSQL = "SELECT * FROM tbOI_Rte"
+            strSQL = strSQL & " WHERE Year(Fecha)<=" & intAño - 1
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " registros de Otros Ingresos Rte. anteriores al año " & intAño & "?", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron registros de Otros Ingresos Rte."
+            Else
+                strSQL = "DELETE * FROM tbOI_Rte"
+                strSQL = strSQL & " WHERE Year(Fecha)<=" & intAño
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " registros de Otros Ingresos Rte. anteriores al año " & intAño & " borrados"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 5"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 6
+FacturasRecibidas_6:
+            frm.lstPasos = 6
+            strSQL = "SELECT * FROM tbFacturasRecibidas"
+            strSQL = strSQL & " WHERE Trimestre<'" & intAño & "'"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " facturas recibidas anteriores al año " & intAño & "?", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron registros de facturas recibidas"
+            Else
+                strSQL = "DELETE * FROM tbFacturasRecibidas"
+                strSQL = strSQL & " WHERE Trimestre<'" & intAño & "'"
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " facturas recibidas anteriores al año " & intAño & " borradas"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 6"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 7
+EnlaceContable_7:
+            frm.lstPasos = 7
+            strSQL = "SELECT * FROM tbEnlaceContable"
+            strSQL = strSQL & " WHERE Year(FechaEnlace)<" & intAño
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If Not rs.EOF Then rs.MoveLast
+            i = rs.RecordCount
+            intR = MsgBox("¿Borrar " & i & " registros de enlace contable anteriores al año " & intAño & "?", vbYesNoCancel + vbQuestion)
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se borraron registros de enlace contable"
+            Else
+                strSQL = "DELETE * FROM tbEnlaceContable"
+                strSQL = strSQL & " WHERE Year(FechaEnlace)<" & intAño
+                CurrentDb.Execute strSQL, dbFailOnError
+                strR = i & " registros de enlace contalbe anteriores al año " & intAño & " borrados"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 7"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 8
+CopiaFijos_8:
+            frm.lstPasos = 8
+            intR = MsgBox("¿Realizar copia de fichas de Fijos del año anterior?", vbYesNoCancel + vbQuestion)
+            i = 0
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se realizó copia de fichas de fijos"
+            Else
+                intAñoCopiar = Year(Date) - 1
+                intAñoCopiar = Nz(myinputbox("Introduzca año a copiar", "Año a copiar: ", CStr(intAñoCopiar), "0000"), 0)
+                If intAñoCopiar = 0 Then
+                    MsgBox "Se canceló", vbInformation
+                    Exit Sub
+                End If
+                strSQL = "SELECT tbFichasCab.IdFichaCab"
+                strSQL = strSQL & " FROM tbFichasCab"
+                strSQL = strSQL & " WHERE Year(tbFichasCab.FechaLlegada) = " & intAñoCopiar
+                strSQL = strSQL & " AND tbFichasCab.EstadoFicha=10"
+                Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                While Not rs.EOF
+                    CopiaFichaFijo rs("IdFichaCab"), intAñoCopiar + 1
+                    rs.MoveNext
+                    i = i + 1
+                Wend
+                strR = i & " Fichas de fijos copiadas"
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 8"
+            CurrentDb.Execute strSQL, dbFailOnError
+                
+        Case 9
+DeudaPendiente_9:
+            frm.lstPasos = 9
+            Dim lngIdSD_Pendiente As Long
+            lngIdSD_Pendiente = Nz(DameValorParam("FijosIdSDPendienteAñoAnterior"), 0)
+            If lngIdSD_Pendiente = 0 Then
+                MsgBox "Se debe indicar en Parámetros/Fichas el Código del servicio correspondiente a Pendiente del año anterior", vbExclamation
+                Exit Sub
+            End If
+            intR = MsgBox("¿Revisar Deuda Pendiente en fichas de fijos?" & vbCrLf & "Se introducirá un nuevo registro en el detalle por la deuda pendiente", vbYesNoCancel + vbQuestion)
+            i = 0
+            If intR = vbCancel Then
+                intCancel = True
+                Exit Sub
+            End If
+            If intR = vbNo Then
+                strR = "No se revisaron deudas pendientes"
+            Else
+                Dim iTipoIVA As Integer, curIVA As Currency
+                iTipoIVA = Nz(DameValorParam("IVATipoEnFacturasYFichas"), 0)
+                curIVA = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & iTipoIVA), 0)
+                strSQL = "SELECT tbFichasCab.IdFichaCab, [TotalBase]+[TotalIVA] AS TotalImporte, Sum(qryCajaDet_E.Cantidad) AS TotalPagado, [TotalImporte]-[TotalPagado] AS Pendiente"
+                strSQL = strSQL & " FROM (tbFichasCab INNER JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab) INNER JOIN qryCajaDet_E ON tbFichasCab.IdFichaCab = qryCajaDet_E.IdFrom"
+                strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+                strSQL = strSQL & " GROUP BY tbFichasCab.IdFichaCab, [TotalBase]+[TotalIVA];"
+                Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                    While Not rs.EOF
+                    If rs("Pendiente") <> 0 Then
+                        strSQL = "INSERT INTO tbFichasDet (IdFichaCab, IdSD, Concepto, Cantidad, PrecioUnitario, IVA)"
+                        strSQL = strSQL & " SELECT " & rs("IdFichaCab") & " AS Id, " & lngIdSD_Pendiente & " as IdSD, 'Pendiente año " & intAño - 1 & "' AS Conc"
+                        strSQL = strSQL & ", 1 as Cant, " & ComaPunto(rs("Pendiente")) & " AS Pre, " & ComaPunto(curIVA) & " AS IVA"
+                        CurrentDb.Execute strSQL, dbFailOnError
+                        i = i + 1
+                    End If
+                    rs.MoveNext
+                Wend
+                strR = "Se añadieron " & i & " registros de deudas pendientes"
+                intR = MsgBox("¿Borrar pagos en fichas de fijos?", vbYesNo + vbQuestion + vbDefaultButton1)
+                If intR = vbYes Then
+                    strSQL = "DELETE qryCajaDet_E.*"
+                    strSQL = strSQL & " FROM qryCajaDet_E INNER JOIN tbFichasCab ON qryCajaDet_E.IdFrom = tbFichasCab.IdFichaCab"
+                    strSQL = strSQL & " WHERE EstadoFicha = 10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+                    CurrentDb.Execute strSQL, dbFailOnError
+                    strR = strR & ". Se borraron pagos de fijos"
+                End If
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 9"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 10
+FechasFijos_10:
+            frm.lstPasos = 10
+            Dim dtD As Date, dtH As Date
+            MsgBox "Introduzca Fecha de inicio fijos" & vbCrLf & "Cancelar para no modificar", vbInformation
+            dtD = CDate("01/01/" & intAño)
+            dtD = Nz(adhDoCalendar(dtD), 0)
+            MsgBox "Introduzca Fecha de fin fijos" & vbCrLf & "Cancelar para no modificar", vbInformation
+            dtH = CDate("31/12/" & intAño)
+            dtH = Nz(adhDoCalendar(dtH), 0)
+            If dtD = 0 And dtH = 0 Then
+                strR = "No se han modificado fechas de fijos"
+            Else
+                strSQL = "SELECT tbFichasDet.*"
+                strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+                strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+                strSQL = strSQL & " AND (((tbFichasDet.Parcela) Is Not Null));"
+                Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                If Not rs.EOF Then rs.MoveLast
+                i = rs.RecordCount
+                strR = i & " fechas de fijos modificados"
+                strSQL = " UPDATE tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab "
+                strSQL = strSQL & " SET"
+                If dtD <> 0 Then strSQL = strSQL & " tbFichasCab.FechaLlegada = " & CLng(dtD) & ", tbFichasDet.FechaInicio = " & CLng(dtD) & ", "
+                If dtH <> 0 Then strSQL = strSQL & " tbFichasCab.FechaSalida = " & CLng(dtH) & ", tbFichasDet.FechaFin = " & CLng(dtH) & ", "
+                strSQL = RecDerTop(strSQL, 2, 0)
+                strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+                strSQL = strSQL & " AND tbFichasDet.Parcela Is Not Null"
+                CurrentDb.Execute strSQL, dbFailOnError
+            End If
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 10"
+            CurrentDb.Execute strSQL, dbFailOnError
+            'frm.lstPasos.Requery
+        Case 11
+PreciosFijos_11:
+            frm.lstPasos = 11
+            CurrentDb.Execute "DELETE * FROM auxActualizarPreciosFijos", dbFailOnError
+            strSQL = "INSERT INTO auxActualizarPreciosFijos ( EstadoFicha, IdSD, Concepto, PrecioUnitario, NuevoPrecio, CuentaDeIdSD, BorrarSN)"
+            strSQL = strSQL & " SELECT DISTINCT tbFichasCab.EstadoFicha, tbFichasDet.IdSD, tbFichasDet.Concepto, tbFichasDet.PrecioUnitario, tbFichasDet.PrecioUnitario as Nuevo, Count(tbFichasDet.IdSD) AS CuentaDeIdSD, "
+            strSQL = strSQL & " Iif(tbFichasDet.Concepto Not Like 'Elect*' And tbFichasDet.Concepto Not Like 'Pendi*' AND (tbFichasDet.PrecioUnitario<>0 OR tbFichasDet.Concepto Like 'Parcela*'),False,True) as BorrarSN"
+            strSQL = strSQL & " FROM tbFichasCab INNER JOIN (tbFichasDet INNER JOIN tbServiciosDiarios ON tbFichasDet.IdSD = tbServiciosDiarios.IdSD) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+            strSQL = strSQL & " GROUP BY tbFichasCab.EstadoFicha, tbFichasDet.IdSD, tbFichasDet.Concepto, tbFichasDet.PrecioUnitario"
+            strSQL = strSQL & " HAVING tbFichasCab.EstadoFicha=10"
+            'strSQL = strSQL & " AND ((tbFichasDet.Concepto) Not Like 'Elect*' And (tbFichasDet.Concepto) Not Like 'Pendi*') AND ((tbFichasDet.PrecioUnitario)<>0));"
+            CurrentDb.Execute strSQL, dbFailOnError
+            DoCmd.OpenForm "frmQRY", , , , , acDialog
+            i = 0: j = 0
+            If IsOpenForm("frmQRY") Then
+                DoCmd.Close acForm, "frmQRY"
+                strSQL = "SELECT * FROM auxActualizarPreciosFijos"
+                'strSQL = strSQL & " WHERE Not IsNull(NuevoPrecio)"
+                Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                While Not rs.EOF
+                    If rs("BorrarSN") = True Then
+                        strSQL = "DELETE tbFichasDet.* FROM tbFichasDet INNER JOIN tbFichasCab ON tbFichasDet.IdFichaCab = tbFichasCab.IdFichaCab"
+                        strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+                        strSQL = strSQL & " AND IdSD = " & rs("IdSD")
+                        strSQL = strSQL & " AND Concepto = " & ConComillas(rs("Concepto"))
+                        strSQL = strSQL & " AND PrecioUnitario = " & ComaPunto(rs("PrecioUnitario"))
+                        CurrentDb.Execute strSQL, dbFailOnError
+                        j = j + rs("CuentaDeIdSD")
+                    Else
+                        strSQL = "UPDATE tbFichasDet INNER JOIN tbFichasCab ON tbFichasDet.IdFichaCab = tbFichasCab.IdFichaCab"
+                        strSQL = strSQL & " SET PrecioUnitario = " & ComaPunto(rs("NuevoPrecio"))
+                        strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+                        strSQL = strSQL & " AND IdSD = " & rs("IdSD")
+                        strSQL = strSQL & " AND Concepto = " & ConComillas(rs("Concepto"))
+                        strSQL = strSQL & " AND PrecioUnitario = " & ComaPunto(rs("PrecioUnitario"))
+                        CurrentDb.Execute strSQL, dbFailOnError
+                        i = i + rs("CuentaDeIdSD")
+                    End If
+                    
+                    rs.MoveNext
+                Wend
+            End If
+            strR = i & " precios de detalle de fichas de fijos modificados"
+            strR = strR & vbCrLf & j & " registros de detalle de fichas eliminados"
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 11"
+            CurrentDb.Execute strSQL, dbFailOnError
+            strSQL = "SELECT IdFichaCab FROM tbFichasCab WHERE EstadoFicha = 10"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            While Not rs.EOF
+                DoEvents
+                G_RecalculaTotales rs("IdFichaCab"), False
+                rs.MoveNext
+            Wend
+            'frm.lstPasos.Requery
+        Case 12
+ReconectarFijos_12:
+            frm.lstPasos = 12
+            intR = MsgBox("¿Pasar Fijos de años anteriores a estado de ficha Antigua" & vbCrLf & "y conectar nuevas fichas a panel?", vbOKCancel)
+            If intR = vbCancel Then GoTo Salir_InicializarAño
+            strSQL = "UPDATE tbFichasCab SET EstadoFicha = 5"
+            strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab < " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+            CurrentDb.Execute strSQL, dbFailOnError
+            i = CurrentDb.RecordsAffected
+            strR = i & " Fichas de fijos pasadas a Antiguas"
+            strSQL = "UPDATE tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela"
+            strSQL = strSQL & " SET tbParcelas.IdFicha = [tbFichasCab]![IdFichaCab]"
+            strSQL = strSQL & " WHERE tbFichasCab.EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
+            CurrentDb.Execute strSQL, dbFailOnError
+            i = CurrentDb.RecordsAffected
+            strR = strR & i & " Parcelas enlazadas a Panel"
+            strSQL = "UPDATE sysProcedimientosPasos"
+            strSQL = strSQL & " SET Resultado= " & ConComillas(strR)
+            strSQL = strSQL & " WHERE IdProcedimiento=1 AND Paso = 12"
+            CurrentDb.Execute strSQL, dbFailOnError
+
+    End Select
+Salir_InicializarAño:
+    Exit Sub
+Error_InicializarAño:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en InicializarAño" & vbCrLf & Err.Description
+            Resume Salir_InicializarAño
+    End Select
+
+End Sub
+
+
+Function CopiaFichaFijo(lngIdFicha As Long, intNuevoAño As Integer) As Integer
+    On Error GoTo HandleError
+    Dim lngNuevaFicha As Long
+    Dim strSQL As String
+    lngNuevaFicha = CLng(Right(CStr(intNuevoAño), 2) & Format(CLng(Right(CStr(lngIdFicha), 4)), "0000"))
+    If lngNuevaFicha = lngIdFicha Then
+        MsgBox "No se puede copiar, el nuevo nº es igual al de origen", vbExclamation
+        Exit Function
+    End If
+    
+    strSQL = "INSERT INTO tbFichasCab ( IdFichaCab, FechaReserva, FechaLlegada, FechaSalida, MatriculaVehiculo, ModeloVehiculo, TipoDocumento, FechaExpedicion, SexoCliente, DNICliente, NombreCliente, ApellidosCliente, DireccionCliente, TelefonoCliente, LocalidadCliente, CPCliente, ProvinciaCliente, PaisCliente, EstadoFicha, Notas, IvaIncluido, Adultos, Niños, EMail, DescripcionCliente, TarjetaCodigoSeguridad, NumeroTarjeta, CaducaTarjeta, TitularTarjeta, IdIdioma )"
+    strSQL = strSQL & " SELECT " & lngNuevaFicha & " AS IdFichaCab, tbFichasCab.FechaReserva, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.MatriculaVehiculo, tbFichasCab.ModeloVehiculo, tbFichasCab.TipoDocumento, tbFichasCab.FechaExpedicion, tbFichasCab.SexoCliente, tbFichasCab.DNICliente, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbFichasCab.DireccionCliente, tbFichasCab.TelefonoCliente, tbFichasCab.LocalidadCliente, tbFichasCab.CPCliente, tbFichasCab.ProvinciaCliente, tbFichasCab.PaisCliente, tbFichasCab.EstadoFicha, tbFichasCab.Notas, tbFichasCab.IvaIncluido, tbFichasCab.Adultos, tbFichasCab.Niños, tbFichasCab.EMail, tbFichasCab.DescripcionCliente, tbFichasCab.TarjetaCodigoSeguridad, tbFichasCab.NumeroTarjeta, tbFichasCab.CaducaTarjeta, tbFichasCab.TitularTarjeta, tbFichasCab.IdIdioma"
+    strSQL = strSQL & " From tbFichasCab"
+    strSQL = strSQL & " WHERE tbFichasCab.IdFichaCab=" & lngIdFicha
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+    strSQL = "INSERT INTO tbFichasDet ( IdFichaCab, IdSD, Concepto, PrecioUnitario, Cantidad, FechaInicio, FechaFin, IVA, Parcela, IdTipoParcela, PlazasOcupadas, DtoSN, FacturarSN, TipoCuenta, IdFichaCabDestino, Fecha_H )"
+    strSQL = strSQL & " SELECT " & lngNuevaFicha & " AS IdFichaCab, tbFichasDet.IdSD, tbFichasDet.Concepto, tbFichasDet.PrecioUnitario, tbFichasDet.Cantidad, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, tbFichasDet.IVA, tbFichasDet.Parcela, tbFichasDet.IdTipoParcela, tbFichasDet.PlazasOcupadas, tbFichasDet.DtoSN, tbFichasDet.FacturarSN, tbFichasDet.TipoCuenta, tbFichasDet.IdFichaCabDestino, tbFichasDet.Fecha_H"
+    strSQL = strSQL & " From tbFichasDet"
+    strSQL = strSQL & " WHERE tbFichasDet.IdFichaCab=" & lngIdFicha
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+    strSQL = "INSERT INTO tbCajaDet ( IdFrom, IdCajaCab, Fecha, Cantidad, CodFPago, Origen, Entrega, Devolucion, IdFParcial )"
+    strSQL = strSQL & " SELECT " & lngNuevaFicha & " AS IdFrom, tbCajaDet.IdCajaCab, tbCajaDet.Fecha" & _
+                      ", tbCajaDet.Cantidad, tbCajaDet.CodFPago, tbCajaDet.Origen, tbCajaDet.Entrega" & _
+                      ", tbCajaDet.Devolucion, tbCajaDet.IdFParcial"
+    strSQL = strSQL & " From tbCajaDet"
+    strSQL = strSQL & " WHERE tbCajaDet.IdFrom=" & lngIdFicha & " AND tbCajaDet.Origen='E'"
+    CurrentDb.Execute strSQL, dbFailOnError
+
+    strSQL = "INSERT INTO tbFichasCab_Totales ( IdFichaCab, TotalBase, TotalRecEq, TotalIVA, IVA_G, RecEq_G )"
+    strSQL = strSQL & " SELECT " & lngNuevaFicha & " AS Expr1, tbFichasCab_Totales.TotalBase, tbFichasCab_Totales.TotalRecEq, tbFichasCab_Totales.TotalIVA, tbFichasCab_Totales.IVA_G, tbFichasCab_Totales.RecEq_G"
+    strSQL = strSQL & " From tbFichasCab_Totales"
+    strSQL = strSQL & " WHERE (((tbFichasCab_Totales.IdFichaCab)=" & lngIdFicha & "));"
+    CurrentDb.Execute strSQL, dbFailOnError
+
+    strSQL = "UPDATE tbContadoresElectricidad"
+    strSQL = strSQL & " SET IdFichaCab = " & lngNuevaFicha
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFicha
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

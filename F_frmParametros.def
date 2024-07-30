@@ -1,0 +1,28 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Load()
+    Me.lstParam = Nz(DameValorParam(Me.Name & "_lstParam"), "frmParametrosEstablecimiento")
+    Call lstParam_AfterUpdate
+'    BloqueoFormulario Me, True
+End Sub
+
+Private Sub lstParam_AfterUpdate()
+    Dim intCancel As Integer
+    If Me.subfrm.SourceObject <> "" Then
+        ComprobarParam Me.subfrm.Form, intCancel
+        If intCancel = True Then
+            Me.lstParam = Me.subfrm.SourceObject
+            Exit Sub
+        End If
+    End If
+    Me.subfrm.SourceObject = Me.lstParam
+    Me.lblSubfrm.Caption = Me.lstParam.Column(1)
+    Me.Caption = "Parámetros " & Me.lblSubfrm.Caption
+    PonValorParam Me.Name & "_lstParam", Me.lstParam
+End Sub

@@ -1,0 +1,47 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAdd_Click()
+    Dim rs As Recordset, lngIdFichaCab As Long
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset)
+    rs.AddNew
+    lngIdFichaCab = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    rs("IdFichaCab") = lngIdFichaCab
+    rs.Update
+    AbrirFichaNum lngIdFichaCab
+    Me.Visible = False
+End Sub
+
+Private Sub btnEdit_Click()
+    If Me.lstActuales.ListIndex = -1 Then Exit Sub
+    Call AbrirFichaNum(Me.lstActuales)
+    Me.Visible = False
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, ""
+End Sub
+
+Private Sub Form_Load()
+    'Me.mrcTS = Nz(DameValorParam(Me.Name & "_mrcTS"), 2)
+    'Call mrcTS_AfterUpdate
+End Sub
+
+Private Sub lstActuales_DblClick(Cancel As Integer)
+    Call btnEdit_Click
+End Sub
+
+Private Sub lstActuales_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        Call btnEdit_Click
+    End If
+End Sub

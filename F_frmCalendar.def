@@ -1,0 +1,589 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+' From Access 97 Developer's Handbook
+' by Litwin, Getz, and Gilbert (Sybex)
+' Copyright 1997.  All rights reserved.
+
+Option Compare Database
+Option Explicit
+    
+' They didn't seem to make this one a constant.
+Const acSunken = 2
+
+' Color to show weekend days.
+Const adhcColorWeekend = 255
+Const adhcColorWeekday = 0
+
+' Interesting months
+Const adhcFebruary = 2
+Const adhcMarch = 3
+
+'Const adhcSun = "Su"
+'Const adhcMon = "Mo"
+'Const adhcTue = "Tu"
+'Const adhcWed = "We"
+'Const adhcThu = "Th"
+'Const adhcFri = "Fr"
+'Const adhcSat = "Sa"
+Const adhcSun = "Do"
+Const adhcMon = "Lu"
+Const adhcTue = "Ma"
+Const adhcWed = "Mi"
+Const adhcThu = "Ju"
+Const adhcFri = "Vi"
+Const adhcSat = "Sa"
+
+' Constants used to control movement on the form.
+' These constants match the interval values
+' needed by DateAdd().
+Const adhcDayStr = "d"
+Const adhcMonthStr = "m"
+Const adhcYearStr = "yyyy"
+Const adhcWeekStr = "ww"
+
+Const adhcMoveForward = 0
+Const adhcMoveBackward = -1
+
+' Module-Public variables.
+Dim mdatStartDate As Date
+
+' Set the first displayed day of the week.  In the
+' US, this is Sunday (1).  In other countries,
+' use the appropriate number (1 == Sunday, 7 == Saturday).
+Dim mintFirstDay As Integer
+Dim mastrDays(1 To 7) As String
+Dim mintStartDOW As Integer
+
+' Store away today's date.
+Dim mintYearToday As Integer
+Dim mintMonthToday As Integer
+Dim mintDayToday As Integer
+
+' An array to hold the lengths of the months,
+' all stored in a single variant.
+Dim mvarMonthLen As Variant
+Dim mstrSelected As String
+
+
+Private Function Base7(wValue As Integer) As Integer
+    ' Convert a number, up to 48 decimal, into base 7.
+    Base7 = (wValue \ 7) & (wValue Mod 7)
+End Function
+
+Private Sub ChangeDate(strMoveUnit As String, intDirection As Integer)
+    ' Called from Click event of the next/previous month/year buttons.
+    Dim intMonth As Integer
+    Dim intYear As Integer
+    Dim intDay As Integer
+    Dim varDate As Variant
+    Dim varOldDate As Variant
+    Dim intInc As Integer
+    Dim rstrInterval As String
+
+    On Error GoTo ChangeDateError
+
+    ' Get the current values from the form.
+    intYear = Me!Year
+    intMonth = Me!Month
+    intDay = Me!Day
+
+    intInc = IIf(intDirection = adhcMoveForward, 1, -1)
+    varOldDate = DateSerial(intYear, intMonth, intDay)
+    varDate = DateAdd(strMoveUnit, intInc, varOldDate)
+    
+
+    If (intDirection = adhcMoveBackward And varDate > varOldDate) Then
+        ' This should only happen when you go backward from
+        ' 1/1/100 to 12/31/1999.  Just a quirk of Access' date
+        ' handling!
+        Exit Sub
+    End If
+
+    intMonth = DatePart(adhcMonthStr, varDate)
+    intYear = DatePart(adhcYearStr, varDate)
+    Me!Day = DatePart(adhcDayStr, varDate)
+
+    ' If the month and year haven't changed, then just
+    ' move to the selected day.  It's a lot faster.
+    If Me!Month = intMonth And Me!Year = intYear Then
+        HandleIndent "lbl" & Day2Button((Me!Day), mintStartDOW)
+    Else
+        ' Set the values on the form and then display the new calendar.
+        Me!Month = intMonth
+        Me!Year = intYear
+        Call SetDisplayDate
+        Call DisplayCal
+    End If
+
+ChangeDateExit:
+    Exit Sub
+
+ChangeDateError:
+    Resume ChangeDateExit
+End Sub
+
+Private Sub btnAceptar_Click()
+    CloseForm True
+End Sub
+
+Private Sub btnCancelar_Click()
+    CloseForm False
+End Sub
+
+Private Sub cmdNextMonth_Click()
+    Call NextMonth
+End Sub
+
+Private Sub CmdNextMonth_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleKeys KeyCode, Shift
+End Sub
+
+Private Sub cmdNextYear_Click()
+    Call NextYear
+End Sub
+
+Private Sub CmdNextYear_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleKeys KeyCode, Shift
+End Sub
+
+Private Sub CmdPreviousMonth_Click()
+    Call PreviousMonth
+End Sub
+
+Private Sub CmdPreviousMonth_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleKeys KeyCode, Shift
+End Sub
+
+Private Sub CmdPreviousYear_Click()
+    Call PreviousYear
+End Sub
+
+Private Sub CmdPreviousYear_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleKeys KeyCode, Shift
+End Sub
+
+Private Function Day2Button(wDay As Integer, intStartDay As Integer)
+    Day2Button = Base7(wDay + intStartDay - 2 + 7) + 1
+End Function
+
+Private Function DaysInMonth(varMonthNumber As Variant) As Integer
+    ' Get the number of days in the passed-in month.
+    ' If the month isn't February, we know its length.
+    If varMonthNumber <> adhcFebruary Then
+        DaysInMonth = mvarMonthLen(varMonthNumber)
+    Else
+        ' Since Access knows the leap year stuff, let's let IT do the work here!
+        ' Get the last day of the month of February for the currently displayed year.
+        DaysInMonth = DatePart(adhcDayStr, DateSerial(Me!Year, adhcMarch, 1) - 1)
+    End If
+End Function
+
+Private Sub DisplayCal()
+    ' Actually display the calendar.
+    Static fInHere As Boolean
+
+    ' Let's make sure we don't end up in here recursively!
+    If fInHere Then Exit Sub
+    fInHere = True
+
+    ' Figure out the starting day of week for the given month.
+    mintStartDOW = FirstDOM((Me!Month), (Me!Year))
+
+    ' Finally, really display the calendar.
+    ShowDate mintStartDOW
+    Me.Repaint
+    fInHere = False
+End Sub
+
+Private Sub FillInStartValues()
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    mdatStartDate = CVDate(Nz(DimeXML(strXML, "Fecha"), Date))
+    'If Not IsDate(Me.OpenArgs) Then
+    '    mdatStartDate = Date
+    'Else
+    '    mdatStartDate = CVDate(Me.OpenArgs)
+    'End If
+    'If IsNull(mdatStartDate) Then
+    '    mdatStartDate = Date
+    'End If
+    Me.Caption = SpNz(DimeXML(strXML, "Titulo"), "Seleccione fecha")
+    Call SetUpPublics
+End Sub
+Private Sub SetUpPublics()
+    ' Store away the start date values (varStartDate is Public).
+    Me!Month = DatePart(adhcMonthStr, mdatStartDate)
+    Me!Year = DatePart(adhcYearStr, mdatStartDate)
+    Me!Day = DatePart(adhcDayStr, mdatStartDate)
+    
+    Call SetDisplayDate
+End Sub
+Private Function FirstDOM(intMonth As Integer, intYear As Integer) As Integer
+    ' Calculate the first day of the month in question.
+    FirstDOM = DatePart("w", DateSerial(intYear, intMonth, 1), mintFirstDay)
+End Function
+
+Private Sub FixDaysInMonth(intStartDay As Integer)
+    ' Turn on and off buttons in the currently displayed month.
+    Dim intRow As Integer
+    Dim intCol As Integer
+    Dim intNumDays As Integer
+    Dim intCount As Integer
+    Dim strTemp As String
+
+
+    intNumDays = DaysInMonth(Me!Month)
+    ' If the chosen date is past the last day in this month,
+    ' then just select the last day of this month.
+    If Me!Day > intNumDays Then
+        Me!Day = intNumDays
+    End If
+
+    intCount = 0
+    For intRow = 1 To 6
+        For intCol = 1 To 7
+            If (intRow = 1) And (intCol < intStartDay) Then
+                Me("lbl1" & intCol).Visible = False
+            Else
+                intCount = intCount + 1
+                strTemp = "lbl" & intRow & intCol
+                With Me(strTemp)
+                    If intCount <= intNumDays Then
+                        If Not .Visible Then
+                            .Visible = True
+                        End If
+                        .Caption = intCount
+                    Else
+                        If .Visible Then
+                            .Visible = False
+                        End If
+                    End If
+                End With
+            End If
+        Next intCol
+    Next intRow
+End Sub
+
+Private Sub FixUpDisplay()
+
+    ' Set the labels for the days of the week correctly,
+    ' and set up the colors for the weekend days.
+
+    Dim intCol As Integer
+    Dim intRow As Integer
+    Dim intLogicalDay As Integer
+    Dim intDiff As Integer
+    Dim ctl As Control
+    Dim lngForeColor As Long
+    
+    intDiff = mintFirstDay - 1
+
+    For intCol = 1 To 7
+        intLogicalDay = ((intCol + intDiff - 1) Mod 7) + 1
+        lngForeColor = IIf(((intLogicalDay - 1) Mod 6) = 0, adhcColorWeekend, adhcColorWeekday)
+        With Me("lblDay" & intCol)
+            .Caption = mastrDays(intLogicalDay)
+            .ForeColor = lngForeColor
+        End With
+        For intRow = 1 To 6
+            Me("lbl" & intRow & intCol).ForeColor = lngForeColor
+        Next intRow
+    Next intCol
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    HandleKeys KeyCode, Shift
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    'Ver si es subformulario de Libro de Reservas
+    On Error Resume Next
+    Me.btnAceptar.Visible = True
+    Me.btnCancelar.Visible = True
+    If Parent.Name = "frmLibroReservas" Then
+        If Err = 0 Then
+            Me.btnAceptar.Visible = False
+            Me.btnCancelar.Visible = False
+        End If
+    End If
+    ' Initialize the array of month lengths.
+    mvarMonthLen = Array(0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+    ' Initialize the array of day names.
+    mastrDays(1) = adhcSun
+    mastrDays(2) = adhcMon
+    mastrDays(3) = adhcTue
+    mastrDays(4) = adhcWed
+    mastrDays(5) = adhcThu
+    mastrDays(6) = adhcFri
+    mastrDays(7) = adhcSat
+
+    ' Get today's date stored away, so we can get back here if necessary.
+    mintDayToday = DatePart(adhcDayStr, Date)
+    mintYearToday = DatePart(adhcYearStr, Date)
+    mintMonthToday = DatePart(adhcMonthStr, Date)
+
+    mintFirstDay = 2
+    
+    ' Fill in the start values (as passed in from caller).
+    FillInStartValues
+
+    ' Fix up the calendar display.
+    FixUpDisplay
+
+    ' Display the Calendar (which gets its month/year from the form)
+    DisplayCal
+Salir_Form_Open:
+    Exit Sub
+Error_Form_Open:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_Open" & vbCrLf & Err.Description
+            Resume Salir_Form_Open
+    End Select
+
+End Sub
+
+Private Function GetMonthName(intMonth As Integer) As String
+    ' The year in the following expression is arbitrary.
+    GetMonthName = Format(DateSerial(1995, intMonth, 1), "mmmm")
+End Function
+
+Private Sub HandleIndent(strNewSelect As String)
+    If Len(mstrSelected) > 0 Then
+        If mstrSelected <> strNewSelect Then
+            Me(mstrSelected).SpecialEffect = acNormal
+        End If
+    End If
+    mstrSelected = strNewSelect
+    Me(mstrSelected).SpecialEffect = acSunken
+    Me!Day = Me(mstrSelected).Caption
+    If Me.btnAceptar.Visible = False Then
+        Parent.txtFecha = CDate(CStr(Me.Year & "/" & Me.Month & "/" & Me.Day))
+        Call Parent.CargaListas
+    End If
+    If Me.btnAceptar.Visible = False Then
+        Parent.txtFecha = CDate(CStr(Me.Year & "/" & Me.Month & "/" & Me.Day))
+        Call Parent.CargaListas
+    End If
+End Sub
+
+Private Sub HandleKeys(KeyCode As Integer, Shift As Integer)
+
+    ' Key Mappings:
+    '
+    ' Leftarrow = Previous Day
+    ' Shift-Leftarrow = Previous Year
+    ' Rightarrow = Next Day
+    ' Shift-Rightarrow = Next Year
+    ' Uparrow = Previous week
+    ' Shift-Uparrow = Previous Month
+    ' Dnarrow = Next Week
+    ' Shift-Dnarrow = Next Month
+    ' PgUp = Previous Month
+    ' Shift-PgUp = Previous Year
+    ' PgDn = Next Month
+    ' Shift-PgDn = Next Year
+    ' Home = Move to Today
+    ' Shift-Home = Move to today in selected year.
+
+    Dim ShiftDown As Boolean
+
+    ShiftDown = ((Shift And SHIFT_MASK) > 0)
+
+    Select Case KeyCode
+        Case vbKeyEscape
+            CloseForm HideIt:=False
+        Case vbKeyReturn
+            CloseForm HideIt:=True
+        Case vbKeyHome
+            If ShiftDown Then
+                ' Use the selected year.
+                MoveToToday False
+            Else
+                ' Use the actual current year.
+                MoveToToday True
+            End If
+        Case vbKeyPageUp
+            If ShiftDown Then
+                Call PreviousYear
+            Else
+                Call PreviousMonth
+            End If
+        Case vbKeyPageDown
+            If ShiftDown Then
+                Call NextYear
+            Else
+                Call NextMonth
+            End If
+        Case vbKeyRight
+            If ShiftDown Then
+                ' Move to next year
+                Call NextYear
+            Else
+                Call NextDay
+            End If
+        Case vbKeyLeft
+            If ShiftDown Then
+                ' Move to previous year
+                Call PreviousYear
+            Else
+                Call PreviousDay
+            End If
+        Case vbKeyUp
+            If ShiftDown Then
+                ' Move to previous month
+                Call PreviousMonth
+            Else
+                Call PreviousWeek
+            End If
+        Case vbKeyDown
+            If ShiftDown Then
+                ' Move to next month
+                Call NextMonth
+            Else
+                Call NextWeek
+            End If
+    End Select
+    ' Tell Access to disregard the key press.
+    KeyCode = 0
+End Sub
+
+Private Function HandleSelected(strName As String)
+    HandleIndent strName
+End Function
+
+Private Sub MoveToToday(fUseCurrentYear As Boolean)
+    ' Month and year get filled in from the form.
+
+    ' Go to the stored current date.
+    Me!Month = mintMonthToday
+    If fUseCurrentYear Then
+        Me!Year = mintYearToday
+    End If
+    Me!Day = mintDayToday
+    
+    SetDisplayDate
+
+    ' Actually display the calendar.
+    DisplayCal
+End Sub
+
+Private Sub ShowDate(intStartDay As Integer)
+    Dim newSelected As String
+
+    ' Fix up the visible day buttons.
+    FixDaysInMonth intStartDay
+
+    ' Set the right button as depressed when the month is displayed.
+    newSelected = "lbl" & Day2Button((Me!Day), intStartDay)
+    HandleIndent newSelected
+    DoCmd.RepaintObject
+End Sub
+
+Private Sub SetDisplayDate()
+    ' Set the display values, based on the hidden controls
+    ' on the form.
+    Me!txtMonth = GetMonthName((Me!Month))
+    Me!txtYear = Me!Year
+End Sub
+
+Private Function LoadedAsSubForm()
+    Dim strName As String
+    On Error Resume Next
+    ' This action will trigger a runtime
+    ' error if the form isn't loaded as a subform.
+    strName = Me.Parent.Name
+    LoadedAsSubForm = (Err = 0)
+End Function
+
+Private Sub RedisplayCalendar()
+    Call SetUpPublics
+    Call FixUpDisplay
+    Call DisplayCal
+End Sub
+
+Private Function SelectDate(strName As String)
+    HandleIndent strName
+    CloseForm HideIt:=True
+End Function
+
+Private Sub CloseForm(HideIt As Boolean)
+    If Not LoadedAsSubForm() Then
+        If HideIt Then
+            Me.Visible = False
+        Else
+            DoCmd.Close
+        End If
+    End If
+End Sub
+
+Property Let FirstDay(intNewStartDay As Integer)
+    ' Set the first day of the week.
+    
+    ' Fix up errant values.
+    If intNewStartDay < 0 Or intNewStartDay > 7 Then
+        intNewStartDay = 1
+    End If
+    mintFirstDay = intNewStartDay
+    RedisplayCalendar
+End Property
+
+Property Let value(datNewDate As Date)
+    mdatStartDate = datNewDate
+    RedisplayCalendar
+End Property
+
+Property Get value() As Date
+    value = DateSerial(Me!Year, Me!Month, Me!Day)
+End Property
+
+Property Get FirstDay() As Integer
+    FirstDay = mintFirstDay
+End Property
+
+Public Sub Today()
+    Call MoveToToday(True)
+End Sub
+
+Public Sub NextDay()
+    ChangeDate adhcDayStr, adhcMoveForward
+End Sub
+
+Public Sub NextMonth()
+    ChangeDate adhcMonthStr, adhcMoveForward
+End Sub
+
+Public Sub NextYear()
+    ChangeDate adhcYearStr, adhcMoveForward
+End Sub
+
+Public Sub NextWeek()
+    ChangeDate adhcWeekStr, adhcMoveForward
+End Sub
+
+Public Sub PreviousDay()
+    ChangeDate adhcDayStr, adhcMoveBackward
+End Sub
+
+Public Sub PreviousMonth()
+    ChangeDate adhcMonthStr, adhcMoveBackward
+End Sub
+
+Public Sub PreviousYear()
+    ChangeDate adhcYearStr, adhcMoveBackward
+End Sub
+
+Public Sub PreviousWeek()
+    ChangeDate adhcWeekStr, adhcMoveBackward
+End Sub

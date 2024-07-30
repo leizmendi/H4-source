@@ -1,0 +1,335 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gstrTeclas As String
+
+Private Sub btnCerrar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnCli_Click()
+    Me.cmbCliente = Nz(BuscaAyuda("AG0", Me.cmbCliente, 1), Me.cmbCliente)
+    Call cmbCliente_AfterUpdate
+End Sub
+
+Private Sub btnEdit_Click()
+    If Me.cmbCliente.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un cliente", vbExclamation
+        Exit Sub
+    Else
+        DoCmd.OpenForm "frmClientes", , , "IdCliente = " & Me.cmbCliente
+    End If
+End Sub
+
+Private Sub btnGenerar_Click()
+    Dim lngIdAntCli As Long, lngIdAntFac As Long, varItem As Variant
+    Dim lngIdPriFac As Long, lngIdAntFac2 As Long
+    Dim i As Integer, datFF As Date, j As Integer
+    Dim intResp As Integer
+    Dim intDetalleSN As Integer, intFacturasAgrupadas As Integer
+    On Error GoTo Error_btnGenerar_Click
+    Me.lstAlbaranes.Selected(0) = False
+    Me.lstAlbaranes.Selected(-1) = False
+    i = 0
+    For Each varItem In Me.lstAlbaranes.ItemsSelected
+        i = i + 1
+    Next varItem
+    If i = 0 Then
+        MsgBox "No se ha seleccionado ninguna ficha"
+        Exit Sub
+    End If
+    intResp = MsgBox("¿Generar facturas de las fichas (" & i & ") seleccionadas?", vbQuestion + vbOKCancel)
+    If intResp = vbCancel Then Exit Sub
+    'If Not IsDate(Me.txtFechaFactura) Then
+    '    MsgBox "Se debe introducir una fecha de factura válida"
+    '    Me.txtFechaFactura.SetFocus
+    '    Exit Sub
+    'End If
+    'datFF = CDate(Me.txtFechaFactura)
+    i = 0: j = 0
+    DoCmd.Hourglass True
+    For Each varItem In Me.lstAlbaranes.ItemsSelected
+        If Me.lstAlbaranes.Column(1, varItem) <> lngIdAntCli Then
+            If Me.lstAlbaranes.Column(1, varItem) = "" Then
+                intDetalleSN = True
+                intFacturasAgrupadas = False
+                lngIdAntCli = 0
+            Else
+                intDetalleSN = Nz(DLookup("DetalleEnFacturas", "tbClientes", "IdCliente = " & Me.lstAlbaranes.Column(1, varItem)), True)
+                intFacturasAgrupadas = Nz(DLookup("FacturasAgrupadas", "tbClientes", "IdCliente = " & Me.lstAlbaranes.Column(1, varItem)), True)
+                lngIdAntCli = Me.lstAlbaranes.Column(1, varItem)
+            End If
+            lngIdAntFac = FacturarFicha(Me.lstAlbaranes.Column(0, varItem), intDetalleSN)
+            If lngIdPriFac = 0 Then lngIdPriFac = lngIdAntFac
+        ElseIf intFacturasAgrupadas = False Then
+            lngIdAntFac = FacturarFicha(Me.lstAlbaranes.Column(0, varItem), intDetalleSN)
+        Else
+            lngIdAntFac = FacturarFicha(Me.lstAlbaranes.Column(0, varItem), intDetalleSN, True, lngIdAntFac)
+        End If
+        
+        If lngIdAntFac2 <> lngIdAntFac Then
+            i = i + 1
+            lngIdAntFac2 = lngIdAntFac
+        End If
+        j = j + 1
+    Next varItem
+    DoCmd.Hourglass False
+    Dim iRow As Long, vIt As Variant
+    For Each vIt In Me.lstAlbaranes.ItemsSelected
+        Me.lstAlbaranes.Selected(vIt) = False
+    Next vIt
+    'For iRow = 1 To Me.lstAlbaranes.ListCount
+    '    Me.lstAlbaranes.Selected(iRow) = False
+    'Next iRow
+    Me.lstAlbaranes.Requery
+    If i = 0 Then
+        MsgBox "No se generaron facturas", vbExclamation
+    Else
+        intResp = MsgBox("Se generaron " & i & " factura/s desde " & j & " ficha/s, ¿Desea " & IIf(Me.mrcPantImp = 1, "verlas", "imprimirlas") & " ahora?", vbQuestion + vbOKCancel)
+        If intResp = vbOK Then
+            If Me.mrcPantImp = 1 Then
+                DoCmd.OpenForm "frmFacturas", , , "IdFactura >= " & lngIdPriFac
+            Else
+                ImprimirFacturas "IdFacturaCab >= " & lngIdPriFac
+            End If
+        End If
+    End If
+Salir_btnGenerar_Click:
+    Exit Sub
+Error_btnGenerar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en btnGenerar_Click" & vbCrLf & Err.Description
+            Resume Salir_btnGenerar_Click
+    End Select
+End Sub
+
+Private Sub btnIrAAlbaran_Click()
+    Dim strW As String, vIt As Variant
+    For Each vIt In Me.lstAlbaranes.ItemsSelected
+        strW = strW & "IdFichaCab = " & Me.lstAlbaranes.ItemData(vIt) & " OR "
+    Next vIt
+    If Len(strW) > 4 Then
+        strW = RecDerTop(strW, 4, 0)
+        DoCmd.OpenForm "frmFichas", , , strW
+    End If
+    
+'    If Me.lstAlbaranes.ListIndex = -1 Then Exit Sub
+'    DoCmd.OpenForm "frmALbaranes", , , "IdAlbaranCab = " & Me.lstAlbaranes
+End Sub
+
+Private Sub btnListado_Click()
+    If Me.mrcPantImp = 2 Then
+        DoCmd.OpenReport "rptAlbaranes", acViewPreview
+    Else
+        Dim qdf As QueryDef
+        Set qdf = CurrentDb.QueryDefs("x")
+        'qdf.SQL = Me.lblSQL.Caption
+        qdf.SQL = Me.lstAlbaranes.RowSource
+        qdf.Close
+        DoCmd.OpenQuery "x", acViewNormal, acReadOnly
+    End If
+End Sub
+
+Private Sub casIncluirReservas_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub cmbCliente_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, gstrTeclas
+End Sub
+
+Private Sub Form_Load()
+    gstrTeclas = "|CTRL_0|#lstAlbaranes#"
+    gstrTeclas = gstrTeclas & "|CTRL_1|#mrcFecha#"
+    gstrTeclas = gstrTeclas & "|CTRL_2|#mrcCliVen#"
+    gstrTeclas = gstrTeclas & "|CTRL_3|#mrcPantImp#"
+    gstrTeclas = gstrTeclas & "|CTRL_G|#btnGenerar#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_F|#txtFechaFactura#"
+    gstrTeclas = gstrTeclas & "|CTRL_C|#btnCerrar#¬"
+    Call AfterUpdateSeleccion
+End Sub
+
+
+Private Sub lstAlbaranes_DblClick(Cancel As Integer)
+    Call btnIrAAlbaran_Click
+End Sub
+
+Private Sub lstAlbaranes_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        Call btnIrAAlbaran_Click
+        KeyCode = 0
+    End If
+End Sub
+
+
+Private Sub mrcCliVen_AfterUpdate()
+    If Me.mrcCliVen = 1 Then
+        Me.cmbCliente.Visible = False
+        Me.txtCli.Visible = False
+        Me.btnCli.Visible = False
+        Me.btnEdit.Visible = False
+    Else
+        Dim strSQL As String
+        Select Case Me.mrcCliVen
+            Case 2
+                Me.lblCmbCli.Caption = "Cliente"
+                strSQL = "SELECT tbClientes.IdCliente, tbClientes.CodCliente, [NombreCli] & ' ' & [ApellidosCli] AS Cliente"
+                strSQL = strSQL & " FROM tbClientes"
+                strSQL = strSQL & " WHERE (((tbClientes.Agencia)=True));"
+                Me.btnCli.Visible = True
+            Case 3
+                Me.lblCmbCli.Caption = "Vendedor/a"
+                strSQL = "SELECT tbVendedores.CodVendedor, tbVendedores.CodVendedor, [Nombre] & ' ' & [Apellidos] AS Vendedor"
+                strSQL = strSQL & " FROM tbVendedores;"
+                Me.btnCli.Visible = False
+        End Select
+        Me.cmbCliente.RowSource = strSQL
+        Me.cmbCliente.Visible = True
+        Me.txtCli.Visible = True
+        Me.btnCli.Visible = True
+        Me.btnEdit.Visible = True
+    End If
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub mrcFactuPen_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub mrcFecha_AfterUpdate()
+    If Me.mrcFecha = 1 Then
+        Me.txtDesde.Enabled = False
+        Me.txtHasta.Enabled = False
+    Else
+        Me.txtDesde.Enabled = True
+        Me.txtHasta.Enabled = True
+    End If
+    Call AfterUpdateSeleccion
+End Sub
+
+Public Sub AfterUpdateSeleccion()
+    Dim strSQL As String, strSeleccion As String
+    Dim strSQL2 As String
+    strSQL = "SELECT tbFichasCab.IdFichaCab, IIf(IsNull([tbClientes].[IdCliente]),[tbClientes_1]![IdCliente],[tbClientes]![IdCliente]) AS IdCli, tbFichasCab.IdFichaCab AS [Nº Ficha], tbFichasCab.FechaSalida AS [Fecha Salida], IIf(IsNull([tbClientes].[IdCliente]),[Cliente_1],[Cliente_0]) AS Cliente, [tbClientes_1].[CodCliente] & '-' & [tbClientes_1].[NombreCli] & ' ' & [tbClientes_1].[ApellidosCli] AS Cliente_1, [tbClientes].[CodCliente] & '-' & [tbClientes].[NombreCli] & ' ' & [tbClientes].[ApellidosCli] AS Cliente_0, LlenaIzq(Format(tbFichasCab_Totales.TotalBase + tbFichasCab_Totales.TotalIVA + tbFichasCab_Totales.TotalRecEq,'Currency'),12) AS [Total Importe]"
+    strSQL = strSQL & " FROM (((tbFichasCab LEFT JOIN tbFacturasCab ON tbFichasCab.IdFactura=tbFacturasCab.IdFactura)LEFT JOIN tbClientes ON tbFichasCab.IdAgencia = tbClientes.IdCliente) INNER JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab) LEFT JOIN tbClientes AS tbClientes_1 ON tbFichasCab.DNICliente = tbClientes_1.NIF"
+
+    'strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.IdAgencia, tbFichasCab.IdFichaCab AS [Nº Ficha], tbFichasCab.FechaSalida AS [Fecha Salida], [tbClientes].[CodCliente] & '-' & [tbClientes].[NombreCli] & ' ' & [tbClientes].[ApellidosCli] AS [Cliente-Envío], LlenaIzq(Format(tbFichasCab_Totales.TotalBase, 'currency'),12) AS [Total Base]"
+    'strSQL = strSQL & " FROM (tbFichasCab INNER JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab) LEFT JOIN tbClientes ON tbFichasCab.IdAgencia = tbClientes.IdCliente"
+    strSQL = strSQL & " WHERE True"
+    
+    strSQL2 = "SELECT *"
+    strSQL2 = strSQL2 & " FROM tbFichasCab LEFT JOIN tbFacturasCab ON tbFichasCab.IdFactura=tbFacturasCab.IdFactura"
+    strSQL2 = strSQL2 & " WHERE True"
+    strSeleccion = "Todas las Fichas"
+    Select Case Me.mrcFichas
+        Case 1
+            strSQL = strSQL & " And (tbFichasCab.IdFactura = -1 OR (tbFichasCab.IdFactura = 0 AND Nz(tbFichasCab.IdAgencia,0)>0))"
+            strSQL2 = strSQL2 & " And (tbFichasCab.IdFactura = -1 OR (tbFichasCab.IdFactura = 0 AND Nz(tbFichasCab.IdAgencia,0)>0))"
+            strSeleccion = strSeleccion & " Pendientes de facturar y/o Agencias."
+        Case 2
+            strSQL = strSQL & " And (tbFacturasCab.IdFactura Is Null)"
+            strSQL2 = strSQL2 & " And (tbFacturasCab.IdFactura Is Null)"
+            strSeleccion = strSeleccion & " No facturadas."
+    End Select
+    If Me.casIncluirReservas = False Then
+        strSQL = strSQL & " And EstadoFicha>1"
+        strSQL2 = strSQL2 & " And EstadoFicha>1"
+    Else
+        strSeleccion = strSeleccion & " Incluidas reservas."
+    End If
+    
+    If Me.mrcFecha = 2 Then
+        If IsDate(Me.txtDesde) Then
+            strSQL = strSQL & " AND tbFichasCab.FechaSalida >= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            strSQL2 = strSQL2 & " AND tbFichasCab.FechaSalida >= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+        End If
+        If IsDate(Me.txtHasta) Then
+            strSQL = strSQL & " AND tbFichasCab.FechaSalida <= #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#"
+            strSQL2 = strSQL2 & " AND tbFichasCab.FechaSalida <= #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#"
+        End If
+        strSeleccion = strSeleccion & " Con fecha de salida entre el " & Nz(Me.txtDesde, "-") & " y el " & Nz(Me.txtHasta, "-")
+    End If
+    Select Case Me.mrcCliVen
+        Case 2
+            If Me.cmbCliente.ListIndex = -1 Then
+            Else
+                strSQL = strSQL & " AND tbFichasCab.IdAgencia = " & Me.cmbCliente
+                strSQL2 = strSQL2 & " AND tbFichasCab.IdAgencia = " & Me.cmbCliente
+                strSeleccion = strSeleccion & " Del cliente: " & Me.txtCli
+            End If
+        'Case 3
+        '    If Me.cmbCliente.ListIndex = -1 Then
+        '    Else
+        '        strSQL = strSQL & " AND tbAlbaranesCab.CodVendedor = '" & Me.cmbCliente & "'"
+        '        strSQL2 = strSQL2 & " AND tbAlbaranesCab.CodVendedor = '" & Me.cmbCliente & "'"
+        '        strSeleccion = strSeleccion & " Del vendedor/a: " & Me.txtCli
+        '    End If
+    End Select
+    strSQL = strSQL & " ORDER BY IIf(IsNull([tbClientes].[CodCliente]),[tbClientes_1]![CodCliente],[tbClientes]![IdCliente]), tbFichasCab.IdFichaCab;"
+    'strSQL = strSQL & " ORDER BY CodCliente, tbFichasCab.IdFichaCab;"
+    Me.lstAlbaranes.RowSource = strSQL
+    CurrentDb.QueryDefs("qryFichasPendientesFacturar").SQL = strSQL
+    Me.txtTotal = DSum("[Total Importe]", "qryFichasPendientesFacturar")
+    Me.lblSeleccion.Caption = strSeleccion
+    Me.lblSQL.Caption = strSQL2
+    Me.Albaranes_Etiqueta.Caption = "Fichas pendientes de facturar (" & Me.lstAlbaranes.ListCount & ")"
+    Dim iRow As Long
+    'For iRow = 1 To Me.lstAlbaranes.ListCount
+    '    Me.lstAlbaranes.Selected(iRow) = True
+    'Next iRow
+
+End Sub
+
+Private Sub mrcFichas_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+'        If Not Me.AllowEdits Then Exit Sub
+        Dim v As Variant
+        v = adhDoCalendar(CDate(Nz(Me.txtDesde, Date)))
+        If IsDate(v) Then
+            Me.txtDesde = Format(v, "dd/mm/yyyy")
+            txtDesde_AfterUpdate
+        End If
+    End If
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub txtHasta_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyF4 Then
+'        If Not Me.AllowEdits Then Exit Sub
+        Dim v As Variant
+        v = adhDoCalendar(CDate(Nz(Me.txtHasta, Date)))
+        If IsDate(v) Then
+            Me.txtHasta = Format(v, "dd/mm/yyyy")
+            txtHasta_AfterUpdate
+        End If
+    End If
+End Sub
+Public Sub MisBotones(strBoton As String)
+    Select Case strBoton
+        Case "btnGenerar"
+            Call btnGenerar_Click
+        Case "btnCerrar"
+            Call btnCerrar_Click
+    End Select
+            
+End Sub

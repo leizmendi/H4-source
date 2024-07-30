@@ -1,0 +1,31 @@
+Option Compare Database
+Option Explicit
+
+Public Sub CentrarTodoFRM_OLD(frm As Form, Optional strCtlMarco As String = "cdrCentrar")
+    'On Error Resume Next
+    Dim lngDL As Long, lngDT As Long, lngL0 As Long, lngT0 As Long, ctl As Control
+    Dim lngDH As Long, lngH0 As Long
+    lngL0 = frm(strCtlMarco).Left: lngT0 = frm(strCtlMarco).Top: lngH0 = frm(strCtlMarco).Height
+    DoCmd.Maximize
+    If frm.WindowWidth > frm.Width Then frm.Width = frm.WindowWidth
+    If frm.WindowHeight > frm.Detalle.Height Then frm.Detalle.Height = frm.WindowHeight
+    frm(strCtlMarco).Left = (frm.WindowWidth - frm(strCtlMarco).Width) \ 2: lngDL = frm(strCtlMarco).Left - lngL0
+    frm(strCtlMarco).Height = frm.Detalle.Height - 2000
+    lngDH = frm(strCtlMarco).Height - lngH0
+    'frm(strCtlMarco).Top = (frm.WindowHeight - frm(strCtlMarco).Height) \ 2
+    lngDT = 0 'frm(strCtlMarco).Top - lngT0
+    For Each ctl In frm.Section(0).Controls
+        If ctl.Name <> strCtlMarco Then
+            ctl.Left = IIf(ctl.Left + lngDL < 0, 0, ctl.Left + lngDL)
+            ctl.Top = IIf(ctl.Top + lngDT < 0, 0, ctl.Top + lngDT)
+        End If
+    Next ctl
+    On Error Resume Next
+    For Each ctl In frm.EncabezadoDelFormulario.Controls
+        If ctl.Name <> strCtlMarco Then
+            ctl.Left = ctl.Left + lngDL
+            'ctl.Top = ctl.Top + lngDT
+        End If
+    Next ctl
+    
+End Sub

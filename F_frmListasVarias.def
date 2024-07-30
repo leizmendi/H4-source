@@ -1,0 +1,121 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim strNom As String, strArg As String
+    Dim intTipo  As Integer, intCE As Integer
+    Dim strMSG As String
+    On Error GoTo Error_btnAceptar_Click
+    Me.Lista0.SetFocus
+    If Me.Lista0.ListIndex = -1 Then Exit Sub
+    intCE = 1
+    strNom = Nz(Me.Lista0, "")
+    intTipo = Me.Lista0.Column(2)
+    strArg = Me.Lista0.Column(4)
+    intCE = 0
+    DoCmd.Close
+    Select Case intTipo
+        Case 0
+            DoCmd.OpenTable strNom
+        Case 1
+            DoCmd.OpenForm strNom
+        Case 11
+            DoCmd.OpenForm strNom, acFormDS
+        Case 111
+            DoCmd.OpenForm "frmHD", , , , , , strNom & "//"
+        Case 12
+            DoCmd.OpenForm strNom, , , , , acDialog
+        Case 13
+            DoCmd.OpenForm strNom, , , , , , strArg
+        Case 2
+            DoCmd.OpenQuery strNom, acViewNormal, acReadOnly
+        Case 3
+            DoCmd.OpenReport strNom
+        Case 31
+            DoCmd.OpenReport strNom, acViewPreview
+        Case 4
+            Abre_sysFormsGX CLng(strNom)
+            'DoCmd.RunMacro strNom
+        Case 99
+            MsgBox "Opción no implementada, por el momento"
+        Case 1001
+            Call btnEntradas_Click
+        Case 1002
+            Call btnReservasDelDia_Click
+        Case 1003
+            Call Abrir_Cerrar_Caja
+        Case 1004
+            Call ClientesActuales
+        Case 1005
+            Call Reservas
+        Case 1006
+            Call FichasAntiguas
+        Case 1007
+            Call ClientesFijos
+        Case 1008
+            Call OtrosCampistas
+        Case 1009     ' Pago a Caja
+            Call fNuevoPago("C", 0)
+        Case 1010     ' Planing
+            Call AbrirPlaning
+        Case 1011     ' Selecciónar Empresa
+            Call AbreEmpresa
+        Case 1012
+            Call AbrirPanel
+        Case 1013
+            Call SincroWuBook(True, strMSG)
+        Case 1014
+            Call VentaServicio
+        Case 1015
+            DoCmd.OpenForm Nz(DameValorParam("SituacionActualFormulario"), "frmSituacionActual")
+    End Select
+
+Salir_btnAceptar_Click:
+    
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 94
+            If intCE = 1 Then
+            Else
+                MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & " En btnAceptar_Click"
+            End If
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & " En btnAceptar_Click"
+    End Select
+    Resume Salir_btnAceptar_Click
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+
+Public Sub CargarLista(strOpenArgs)
+    Dim strSQL As String
+    If Len(strOpenArgs) > 6 Then
+        strSQL = "SELECT sysListasVarias.Referencia, sysListasVarias.Orden & '. ' & sysListasVarias.Leyenda AS LEY, sysListasVarias.TipoObjeto, sysListasVarias.NombreObjeto, sysListasVarias.Argumentos"
+        strSQL = strSQL & " FROM sysListasVarias"
+        strSQL = strSQL & " WHERE (((sysListasVarias.Referencia) = '" & Left(strOpenArgs, 5) & "'))"
+        strSQL = strSQL & " AND Nz(Desactivar, False) = False"
+        strSQL = strSQL & " ORDER BY sysListasVarias.Orden;"
+        Me.Lista0.RowSource = strSQL
+        Me.Caption = Right(strOpenArgs, Len(strOpenArgs) - 6)
+    End If
+End Sub
+
+Private Sub Form_Load()
+    'Traducir Me
+    CargarLista Me.OpenArgs
+End Sub
+
+Private Sub Lista0_DblClick(Cancel As Integer)
+    Call btnAceptar_Click
+End Sub

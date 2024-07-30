@@ -1,0 +1,175 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gstrTeclas As String, glngIdFichaCab As Long
+
+Private Sub btnDELETE_Click()
+    DoCmd.RunCommand acCmdDeleteRecord
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Cenas_KeyDown(KeyCode As Integer, Shift As Integer)
+    If EsNumerico_Insert(KeyCode) Then Call IntroSxDyN("Cenas")
+End Sub
+
+Private Sub Cenas_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call IntroSxDyN("Cenas")
+End Sub
+
+Private Sub Comidas_KeyDown(KeyCode As Integer, Shift As Integer)
+    If EsNumerico_Insert(KeyCode) Then Call IntroSxDyN("Comidas")
+End Sub
+
+Private Sub Comidas_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call IntroSxDyN("Comidas")
+End Sub
+
+Private Sub Desayunos_KeyDown(KeyCode As Integer, Shift As Integer)
+    If EsNumerico_Insert(KeyCode) Then Call IntroSxDyN("Desayunos")
+End Sub
+
+Private Sub Desayunos_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call IntroSxDyN("Desayunos")
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.IdFichaCab = CLng(Me.OpenArgs)
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call ControlTeclas(Me, KeyCode, Shift, gstrTeclas)
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+    gstrTeclas = "|ALT_S|#btnSalir#¬"
+    gstrTeclas = gstrTeclas & "|ALT_O|#btnDelete#¬"
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, rs As Recordset, strSer As String, strSQL As String
+    Dim lngAnchuraColumna As Long
+    strXML = Nz(Me.OpenArgs, "")
+    If strXML <> "" Then
+        glngIdFichaCab = DimeXML(strXML, "IdFichaCab")
+        Me.Caption = "Servicios / día, correspondientes a la ficha nº: " & glngIdFichaCab
+        Me.DatasheetFontWeight = 10
+        lngAnchuraColumna = 3000
+    Else
+        If IsOpenForm("frmFichas") Then
+            glngIdFichaCab = Forms("frmFichas")("IdFichaCab")
+            Me.Caption = "Servicios / día, correspondientes a la ficha nº: " & glngIdFichaCab
+        Else
+            MsgBox "Se deben pasar argumento: IdFichaCab"
+            Cancel = True
+        End If
+        Me.DatasheetFontWeight = 8
+        lngAnchuraColumna = 1000
+    End If
+    strSQL = "SELECT tbFichasDetServiciosXDia.*"
+    strSQL = strSQL & " FROM tbFichasDetServiciosXDia"
+    strSQL = strSQL & " WHERE tbFichasDetServiciosXDia.IdFichaCab=" & glngIdFichaCab
+    Me.RecordSource = strSQL
+    strSQL = "UPDATE sysAnchuras SET AnchuraColumna = " & lngAnchuraColumna
+    strSQL = strSQL & " WHERE Formulario = 'subfrmFichasDetServiciosXDia' AND OrdenColumna >=3"
+    CurrentDb.Execute strSQL, dbFailOnError
+    AjustarColumnas Me
+    'If lngAnchuraColumna = 1000 Then Parent.Repaint
+    Set rs = Me.RecordsetClone
+    rs.FindFirst "Fecha = " & CLng(Nz(DimeXML(strXML, "Fecha"), 0))
+    If Not rs.NoMatch Then Me.Bookmark = rs.Bookmark
+    strSer = Nz(DimeXML(strXML, "Servicio"), "")
+    If strSer <> "" Then DoCmd.GoToControl strSer
+    
+    'Me.Desayunos.SetFocus
+End Sub
+Public Function MisBotones(strNombreBoton As String)
+    Select Case strNombreBoton
+        Case "btnSalir"
+            Call btnSalir_Click
+        Case "btnDelete"
+            Call btnDELETE_Click
+    End Select
+End Function
+
+
+
+Private Sub Form_Unload(Cancel As Integer)
+    If IsOpenForm("frmFichas") Then Forms("frmFichas").Recalc
+    If IsOpenForm("frmParteG") Then Call Forms("frmParteG").CargaListas
+End Sub
+
+Public Function DimeSxDyN(strCtl As String) As String
+    Dim strR As String, strXML As String, strNotas As String
+    strR = Nz(DLookup(strCtl, "tbFichasDetServiciosXDia", "IdfichaCab = " & Me.IdFichaCab & " AND Fecha = " & CLng(Me.Fecha)), "0")
+    If strR = "0" Then strR = "-"
+    strXML = Nz(DLookup("Notas", "tbFichasDetServiciosXDia", "IdfichaCab = " & Me.IdFichaCab & " AND Fecha = " & CLng(Me.Fecha)), "")
+    strNotas = Nz(DimeXML(strXML, strCtl), "")
+    If strNotas <> "" Then strR = strR & " (" & strNotas & ")"
+    DimeSxDyN = strR
+End Function
+
+Public Function IntroSxDyN(strCtl As String) As String
+    Dim strR As String, strXML As String, strNotas As String
+    Dim intPax As Integer
+    On Error GoTo Error_IntroSxDyN
+    intPax = Nz(DLookup(strCtl, "tbFichasDetServiciosXDia", "IdfichaCab = " & Me.IdFichaCab & " AND Fecha = " & CLng(Me.Fecha)), 0)
+    strR = Nz(MyInputBox("Introduzca nº de servicios", "Nº de " & strCtl, CStr(intPax)), "")
+    If strR = "" Then Exit Function
+    If Not IsNumeric(strR) Then
+        MsgBox "Debe ser un número"
+        Exit Function
+    End If
+    intPax = CInt(strR)
+    strXML = Nz(DLookup("Notas", "tbFichasDetServiciosXDia", "IdfichaCab = " & Me.IdFichaCab & " AND Fecha = " & CLng(Me.Fecha)), "")
+    strNotas = Nz(DimeXML(strXML, strCtl), "")
+    strR = Nz(MyInputBox("Introduzca notas", "Notas de " & strCtl, strNotas), "")
+    PonXML strXML, strCtl, strR, , , True
+    Dim strSQL As String
+    strSQL = "UPDATE tbFichasDetServiciosXDia SET " & strCtl & " = " & intPax
+    strSQL = strSQL & ", Notas = " & ConComillas(strXML)
+    strSQL = strSQL & " WHERE IdFichaCab = " & Me.IdFichaCab & " AND Fecha = " & CLng(Me.Fecha)
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me(strCtl).Requery
+Salir_IntroSxDyN:
+    Exit Function
+Error_IntroSxDyN:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en IntroSxDyN" & vbCrLf & Err.Description
+            Resume Salir_IntroSxDyN
+    End Select
+End Function
+
+Private Sub Pernoctaciones_KeyDown(KeyCode As Integer, Shift As Integer)
+    If EsNumerico_Insert(KeyCode) Then Call IntroSxDyN("Pernoctaciones")
+End Sub
+
+Private Sub Pernoctaciones_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call IntroSxDyN("Pernoctaciones")
+End Sub
+
+Private Sub Picnic_KeyDown(KeyCode As Integer, Shift As Integer)
+    If EsNumerico_Insert(KeyCode) Then Call IntroSxDyN("Picnic")
+End Sub
+
+Public Function EsNumerico_Insert(KeyCode As Integer)
+    Select Case KeyCode
+        Case vbKeyInsert, vbKeyDelete, vbKey1, vbKey2, vbKey3, vbKey4, vbKey5, vbKey6, vbKey7, vbKey8, vbKey9, vbKey0
+            EsNumerico_Insert = True
+        Case vbKeyNumpad1, vbKeyNumpad2, vbKeyNumpad3, vbKeyNumpad4, vbKeyNumpad5, vbKeyNumpad6, vbKeyNumpad7, vbKeyNumpad8, vbKeyNumpad9, vbKeyNumpad0
+            EsNumerico_Insert = True
+    End Select
+End Function
+
+Private Sub Picnic_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    Call IntroSxDyN("Picnic")
+End Sub

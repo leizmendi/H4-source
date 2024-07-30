@@ -1,0 +1,2371 @@
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+
+Private ProviderKey As String
+Private userName As String
+Private Password As String
+Private lcode As String
+Private urlWebService As String 'https://wired.wubook.net/xrws/
+Private token As String
+
+
+Public Property Let providerKey_(value As String)
+    ProviderKey = value
+End Property
+
+Public Property Let userName_(value As String)
+    userName = value
+End Property
+
+Public Property Let password_(value As String)
+    Password = value
+End Property
+
+Public Property Let lcode_(value As String)
+    lcode = value
+End Property
+
+Public Property Let urlWebService_(value As String)
+    urlWebService = value
+End Property
+
+Public Property Get token_() As String
+    token_ = token
+End Property
+
+Public Function GetToken(Optional intMsg As Integer = False) As Integer
+    On Error GoTo Error_GetToken
+    If token <> "" Then
+        ReleaseToken intMsg
+        'utziToken
+    End If
+    If userName = "" Then CargaCredenciales
+    If userName = "" Then
+        MsgBox "Se debe indicar Usuario de Wubook en parámetros", vbExclamation
+        Exit Function
+    End If
+    If Password = "" Then
+        MsgBox "Se debe indicar Contraseña de Wubook en parámetros", vbExclamation
+        Exit Function
+    End If
+   Dim xDOM As DOMDocument
+   Dim xR As IXMLDOMElement, xPs As IXMLDOMElement, xP As IXMLDOMElement
+   Dim xE As IXMLDOMElement, xE2 As IXMLDOMElement, xT As IXMLDOMText
+   Dim xA As IXMLDOMAttribute
+   Dim strXML As String
+   
+   Set xDOM = New DOMDocument
+   '~~> Creates root element
+   Set xR = xDOM.createElement("MethodCall")
+   xDOM.appendChild xR
+   '~~> "MethodName"
+   Set xE = xDOM.createElement("MethodName")
+   xR.appendChild xE
+   Set xT = xDOM.createTextNode("acquire_token")
+   xE.appendChild xT
+   '~~> "Params"
+   Set xPs = xDOM.createElement("Params")
+   xR.appendChild xPs
+   '~~> "Param"
+   '~~> "User"
+   Set xP = xDOM.createElement("Param")
+   xPs.appendChild xP
+   strXML = "": PonXML strXML, "tipo", "string": PonXML strXML, "valor", userName
+   CreaValue xDOM, xP, strXML
+   '~~> "Password"
+   Set xP = xDOM.createElement("Param")
+   xPs.appendChild xP
+   strXML = "": PonXML strXML, "tipo", "string": PonXML strXML, "valor", Password
+   CreaValue xDOM, xP, strXML
+   '~~> "ProviderKey"
+   Set xP = xDOM.createElement("Param")
+   xPs.appendChild xP
+   strXML = "": PonXML strXML, "tipo", "string": PonXML strXML, "valor", ProviderKey
+   CreaValue xDOM, xP, strXML
+   'Dim vRespuesta, strXMLRPC As String, strResponse  As String
+   'strXMLRPC = "<?xml version='1.0'?>" & xDOM.XML
+                            Dim vParams(0 To 2), vRespuesta, strXMLRPC As String, strResponse  As String, param(1) As String
+
+'
+
+                            'PonXML vParams(0), "string", userName
+                            'PonXML vParams(1), "string", Password
+                            'PonXML vParams(2), "string", ProviderKey
+
+                            param(0) = "string": param(1) = userName
+                            vParams(0) = param
+                            param(0) = "string": param(1) = Password
+                            vParams(1) = param
+                            param(0) = "string": param(1) = ProviderKey
+                            vParams(2) = param
+                            strXMLRPC = DimeXMLRPC("acquire_token", vParams)
+    strResponse = Post(strXMLRPC)
+    'Debug.Print strResponse
+    'TestXML strResponse
+    If ResponseIsOK(strResponse, "GetToken", vRespuesta) Then
+        token = vRespuesta
+        If intMsg Then MsgBox "Token recibido: " & token, vbInformation
+        GetToken = True
+    Else
+        MsgBox "Error al conseguir Token:" & vbCrLf & vRespuesta, vbExclamation
+        token = ""
+        GetToken = False
+    End If
+Salir_GetToken:
+    Exit Function
+Error_GetToken:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GetToken" & vbCrLf & Err.Description
+            Resume Salir_GetToken
+    End Select
+
+End Function
+
+
+Private Function DimeXMLRPC(strMethodName As String, vParams() As Variant, Optional intGrabaEnvio As Integer = False) As String
+    On Error GoTo Error_DimeXMLRPC
+    
+    Dim xDoc As MSXML2.DOMDocument, root As IXMLDOMElement, elem As IXMLDOMElement, elemTxt As IXMLDOMText, elem3 As IXMLDOMElement, elemData As IXMLDOMElement
+    Dim strR As String, i As Integer, vArr As Variant, j As Integer
+    Set xDoc = New MSXML2.DOMDocument 'CreateObject("MSXML2.DOMDocument")
+    Set root = xDoc.createElement("methodCall")
+    xDoc.appendChild root
+    
+    'Add child to root
+    Set elem = xDoc.createElement("methodName")
+    root.appendChild elem
+    Set elemTxt = xDoc.createTextNode(strMethodName)
+    elem.appendChild elemTxt
+    
+    '<params>
+    Set elem = xDoc.createElement("params")
+    root.appendChild elem
+    For i = 0 To UBound(vParams)
+        Set elem = root.ChildNodes(1)
+        Set elem3 = xDoc.createElement("param")
+        elem.appendChild elem3
+        Set elem = elem3
+        XMLParam vParams(i), elem, xDoc
+        GoTo NextI
+                                        If vParams(i)(0) = "array" Then
+                                            Set elem3 = xDoc.createElement("array")
+                                            elem.appendChild elem3
+                                            Set elem = elem3
+                                            Set elem3 = xDoc.createElement("data")
+                                            elem.appendChild elem3
+                                            Set elemData = elem3
+                                            vArr = Split(vParams(i)(1), vParams(i)(2))
+                                            For j = 0 To (UBound(vArr) - 1) \ 2
+                                                Set elem3 = xDoc.createElement("value")
+                                                elemData.appendChild elem3
+                                                Set elem = elem3
+                                                Set elem3 = xDoc.createElement(vArr(j * 2))
+                                                elem.appendChild elem3
+                                                Set elem = elem3
+                                                Set elemTxt = xDoc.createTextNode(vArr(j * 2 + 1))
+                                                elem.appendChild elemTxt
+                                            Next j
+                                        ElseIf vParams(i)(0) = "struct" Then
+                                            
+                                        Else
+                                            Set elem3 = xDoc.createElement("value")
+                                            elem.appendChild elem3
+                                            If Nz(vParams(i)(0), "") <> "" Then
+                                                Set elem = elem3
+                                                Set elem3 = xDoc.createElement(vParams(i)(0))
+                                                elem.appendChild elem3
+                                            End If
+                                            Set elem = elem3
+                                            Set elemTxt = xDoc.createTextNode(vParams(i)(1))
+                                            elem.appendChild elemTxt
+                                        End If
+NextI:
+    Next i
+    DimeXMLRPC = "<?xml version='1.0'?>" & xDoc.XML
+    Dim FSO As New FileSystemObject, ts As TextStream
+    On Error Resume Next
+    FSO.CreateTextFile ("D:\_DOCS1_\__H4+\Envio.xml")
+    If Err = 0 Then 'intGrabaEnvio Then
+        Set ts = FSO.OpenTextFile("D:\_DOCS1_\__H4+\Envio.xml", ForAppending, True)
+        ts.Write "<?xml version='1.0'?>" & xDoc.XML
+        ts.Close
+    End If
+    
+Salir_DimeXMLRPC:
+    Exit Function
+Error_DimeXMLRPC:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeXMLRPC" & vbCrLf & Err.Description
+            
+            
+            Resume Salir_DimeXMLRPC
+    End Select
+End Function
+
+
+Private Function GetParam(strTipo As String, vValor As Variant) As Variant
+    On Error GoTo HandleError
+    Dim varData As Variant
+    varData = Array(strTipo, vValor)
+    GetParam = varData
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+
+End Function
+
+
+Private Sub XMLParam(param As Variant, xElem As IXMLDOMElement, xDoc As DOMDocument)
+    On Error GoTo HandleError
+    
+    Dim strPrint As String, i As Integer
+    Dim elem0 As IXMLDOMElement, elem1 As IXMLDOMElement, elem2 As IXMLDOMElement, elemTxt As IXMLDOMText
+    Dim elemStruct As IXMLDOMElement, elemMember As IXMLDOMElement
+    Select Case param(0)
+        Case "int", "string", "double"
+            'strPrint = "<value><" & param(0) & ">" & param(1) & "</" & param(0) & "></value>" & vbCrLf
+            Set elem1 = xDoc.createElement("value")
+            xElem.appendChild elem1
+            Set elem2 = xDoc.createElement(param(0))
+            elem1.appendChild elem2
+            Set elem1 = elem2
+            Set elemTxt = xDoc.createTextNode(param(1))
+            elem1.appendChild elemTxt
+            
+        Case "_array" ' Array sin Value previo
+            'strPrint = "<array><data>" & vbCrLf
+            Set elem1 = xDoc.createElement("array")
+            xElem.appendChild elem1
+            Set elem2 = xDoc.createElement("data")
+            elem1.appendChild elem2
+            Set elem1 = elem2
+            If UBound(param) > 0 Then
+                For i = LBound(param(1)) To UBound(param(1))
+                    'strPrint = strPrint & XMLParam(param(1)(i))
+                    XMLParam param(1)(i), elem1, xDoc
+                Next i
+            End If
+            'strPrint = strPrint & "</data></array>"
+        Case "array"
+            'strPrint = "<array><data>" & vbCrLf
+            Set elem0 = xDoc.createElement("value")
+            xElem.appendChild elem0
+            Set elem1 = xDoc.createElement("array")
+            elem0.appendChild elem1
+            Set elem2 = xDoc.createElement("data")
+            elem1.appendChild elem2
+            Set elem1 = elem2
+            If UBound(param) > 0 Then
+                For i = LBound(param(1)) To UBound(param(1))
+                    'strPrint = strPrint & XMLParam(param(1)(i))
+                    XMLParam param(1)(i), elem1, xDoc
+                Next i
+            End If
+            'strPrint = strPrint & "</data></array>"
+        Case "struct"
+            'strPrint = "<struct>"
+            Set elem0 = xDoc.createElement("value")
+            xElem.appendChild elem0
+            Set elemStruct = xDoc.createElement("struct")
+            elem0.appendChild elemStruct
+            If UBound(param) > 0 Then
+                For i = LBound(param(1)) To UBound(param(1))
+                    'strPrint = strPrint & "<member>" & vbCrLf
+                    'strPrint = strPrint & "<name>" & param(1)(i)(0) & "</name>" & vbCrLf
+                    'strPrint = strPrint & XMLParam(param(1)(i)(1))
+                    'strPrint = strPrint & "</member>" & vbCrLf
+                    Set elemMember = xDoc.createElement("member"):  elemStruct.appendChild elemMember
+                    Set elem2 = xDoc.createElement("name"):    elemMember.appendChild elem2
+                    On Error Resume Next
+                    Set elemTxt = xDoc.createTextNode(param(1)(i)(0))
+                    If Err = 13 Then GoTo NextI
+                    On Error GoTo HandleError
+                    elem2.appendChild elemTxt
+                    
+                    XMLParam param(1)(i)(1), elemMember, xDoc
+NextI:
+                    On Error GoTo HandleError
+                Next i
+            End If
+            'strPrint = strPrint & "</struct>"
+    End Select
+HandleExit:
+    Exit Sub
+HandleError:
+    Select Case Err
+        Case 3420 'el objeto no tiene valor
+            Resume Next
+        Case 13 'no coinciden los tipos
+            Resume Next
+        Case Else
+            MsgBox Err.Description
+'            Resume
+    
+    End Select
+
+    Resume HandleExit
+
+End Sub
+
+Private Function Post(ByVal strXMLRPC As String) As String
+    On Error GoTo Error_Post
+    'Dim oHTTP_old As xmlHttp
+    'Dim oHTTP_old2 As ServerXMLHTTP
+    Dim oHTTP As Object 'WinHttp.WinHttpRequest
+    Dim wiResponse As String
+    ' VBAProject References needed: "Microsoft XML"
+    ' wired URL: e.g. https://wired.wubook.net/xrws/
+    ' wired XMLRPC see: http://tdocs.wubook.net/wired/intro.html
+    'Set oHTTP = New xmlHttp
+    'Set oHTTP = New ServerXMLHTTP
+    'Set oHTTP = New WinHttp.WinHttpRequest
+    Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("POST", urlWebService, False)  ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Accept", "application/xml")
+    Call oHTTP.setRequestHeader("Content-Type", "application/xml")
+    Call oHTTP.setRequestHeader("User-Agent", "H4 - PMS. Abauntz Software")
+    'oHTTP.Option(9) = 2048
+    DoCmd.Hourglass True
+    
+    SysCmd acSysCmdSetStatus, "Comunicando " & urlWebService
+    Call oHTTP.Send(strXMLRPC)
+    'Debug.Print "Request:" & vbCrLf & strXMLRPC
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    Post = wiResponse
+    'Debug.Print "Response:" & vbCrLf & wiResponse
+Salir_Post:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Post:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Post" & vbCrLf & Err.Description
+            Resume Salir_Post
+    End Select
+End Function
+'-----------------------------------------------------------
+
+
+Public Function OkToken(Optional intMsg As Integer = False) As Integer
+    On Error GoTo Error_OkToken
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(0), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token
+    vParams(0) = param
+    
+    'PonXML vParams(0), "string", token
+    vParams(0) = param
+    strXMLRPC = DimeXMLRPC("is_token_valid", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "OkToken", vRespuesta) Then
+        If intMsg Then MsgBox "Token utilizado " & vRespuesta & IIf(vRespuesta > 1, " veces", " vez"), vbInformation
+        OkToken = True
+    Else
+        If intMsg Then MsgBox "Token no válido", vbExclamation
+        token = ""
+        OkToken = False
+    End If
+    
+Salir_OkToken:
+    Exit Function
+Error_OkToken:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en OkToken" & vbCrLf & Err.Description
+            Resume Salir_OkToken
+    End Select
+
+End Function
+
+Public Function ReleaseToken(Optional intMsg As Integer = False) As String
+    On Error GoTo Error_ReleaseToken
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(0), vRespuesta, param(1) As String
+    'vParams(0)(0) = "string": vParams(0)(1) = token
+    param(0) = "string": param(1) = token
+    vParams(0) = param
+    strXMLRPC = DimeXMLRPC("release_token", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "ReleaseToken", vRespuesta) Then
+        If intMsg Then MsgBox "Token liberado" & vbCrLf & vRespuesta, vbExclamation
+        token = ""
+        ReleaseToken = True
+    Else
+        If intMsg Then MsgBox "Error al liberar Token:" & vbCrLf & vRespuesta, vbExclamation
+        ReleaseToken = False
+    End If
+Salir_ReleaseToken:
+    Exit Function
+Error_ReleaseToken:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ReleaseToken" & vbCrLf & Err.Description
+            Resume Salir_ReleaseToken
+    End Select
+
+End Function
+
+
+Public Function ProviderInfo(Optional intMsg As Integer = False) As String
+    On Error GoTo Error_ProviderInfo
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(0), vRespuesta, param(1) As String
+    Dim strRespuesta As String
+    param(0) = "string": param(1) = token
+    vParams(0) = param
+    strXMLRPC = DimeXMLRPC("provider_info", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "ProviderInfo", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        ProviderInfo = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & strRespuesta, vbExclamation
+        ProviderInfo = False
+    End If
+Salir_ProviderInfo:
+    Exit Function
+Error_ProviderInfo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ProviderInfo" & vbCrLf & Err.Description
+            Resume Salir_ProviderInfo
+    End Select
+
+End Function
+
+Public Function FetchRooms(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchRooms
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(2), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "int": param(1) = 0: vParams(2) = param  'ancillary (descripción en otros idiomas)
+    strXMLRPC = DimeXMLRPC("fetch_rooms", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchRooms", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        FetchRooms = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchRooms = False
+    End If
+Salir_FetchRooms:
+    Exit Function
+Error_FetchRooms:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchRooms" & vbCrLf & Err.Description
+            Resume Salir_FetchRooms
+    End Select
+
+End Function
+
+Public Function FetchRoomsValues(dtDesde As Date, dtHasta As Date, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchRoomsValues
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(3), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "string": param(1) = Format(dtDesde, "dd/mm/yyyy"): vParams(2) = param
+    param(0) = "string": param(1) = Format(dtHasta, "dd/mm/yyyy"): vParams(3) = param
+    strXMLRPC = DimeXMLRPC("fetch_rooms_values", vParams)
+    strResponse = Post(strXMLRPC)
+    'If RespIsOK_FetchRooms(strResponse, vRespuesta) Then
+    If ResponseIsOK(strResponse, "FetchRoomsValues", vRespuesta) Then
+        'If intMSG Then MsgBox vRespuesta, vbInformation
+        FetchRoomsValues = True
+        CargawbRoomsValues vRespuesta, dtDesde, dtHasta
+        'strRespuesta = vRespuesta
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchRoomsValues = False
+    End If
+Salir_FetchRoomsValues:
+    Exit Function
+Error_FetchRoomsValues:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchRoomsValues" & vbCrLf & Err.Description
+            Resume Salir_FetchRoomsValues
+    End Select
+
+End Function
+
+Public Function FetchOpportunities(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchOpportunities
+    Dim strXMLRPC As String, strResponse As String
+    'fetch_opportunities(token, lcode[, dfrom, dto, ancillary= 0])
+    Dim vParams(2), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    'param(0) = "int": param(1) = 0: vParams(2) = param  'ancillary (descripción en otros idiomas)
+    strXMLRPC = DimeXMLRPC("fetch_opportunities", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchOpportunities", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        FetchOpportunities = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchOpportunities = False
+    End If
+Salir_FetchOpportunities:
+    Exit Function
+Error_FetchOpportunities:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchOpportunities" & vbCrLf & Err.Description
+            Resume Salir_FetchOpportunities
+    End Select
+
+End Function
+
+Public Function FetchSpecialOffers(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchSpecialOffers
+    Dim strXMLRPC As String, strResponse As String
+    'fetch_opportunities(token, lcode[, dfrom, dto, ancillary= 0])
+    Dim vParams(2), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    'param(0) = "int": param(1) = 0: vParams(2) = param  'ancillary (descripción en otros idiomas)
+    strXMLRPC = DimeXMLRPC("fetch_soffers", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchSpecialOffers", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        FetchSpecialOffers = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchSpecialOffers = False
+    End If
+Salir_FetchSpecialOffers:
+    Exit Function
+Error_FetchSpecialOffers:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchSpecialOffers" & vbCrLf & Err.Description
+            Resume Salir_FetchSpecialOffers
+    End Select
+
+End Function
+
+Public Function FetchCCard(rcode As Long, Optional pwd As String = "", Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchCCard
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(3), vRespuesta, param(1) As String
+    
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "int": param(1) = rcode: vParams(2) = param
+    If pwd = "" Then pwd = Nz(DameValorParam("WB_CCardPassword"), "")
+    param(0) = "string": param(1) = pwd: vParams(3) = param
+    strXMLRPC = DimeXMLRPC("fetch_ccard", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchCCard", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        FetchCCard = True
+    Else
+        If True Then MsgBox "Error al obtener información de tarjeta:" & vbCrLf & vRespuesta, vbExclamation
+        FetchCCard = False
+    End If
+Salir_FetchCCard:
+    Exit Function
+Error_FetchCCard:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchCCard" & vbCrLf & Err.Description
+            Resume Salir_FetchCCard
+    End Select
+
+End Function
+
+Public Function FetchPlanPrices(pid As Long, dtDesde As Date, dtHasta As Date, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchPlanPrices
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(4), vRespuesta, param(1) As String
+    
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "int": param(1) = pid: vParams(2) = param
+    param(0) = "string": param(1) = Format(dtDesde, "dd/mm/yyyy"): vParams(3) = param 'dfrom
+    param(0) = "string": param(1) = Format(dtHasta, "dd/mm/yyyy"): vParams(4) = param 'dto
+    strXMLRPC = DimeXMLRPC("fetch_plan_prices", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchPlanPrices", vRespuesta, , strRespuesta) Then
+        If False Then MsgBox strRespuesta, vbInformation
+        FetchPlanPrices = True
+        CargawbRoomsPrecios vRespuesta, pid, dtDesde, dtHasta
+ 
+    Else
+        If True Then MsgBox "Error al obtener precios:" & vbCrLf & vRespuesta, vbExclamation
+        FetchPlanPrices = False
+    End If
+Salir_FetchPlanPrices:
+    Exit Function
+Error_FetchPlanPrices:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchPlanPrices" & vbCrLf & Err.Description
+            Resume Salir_FetchPlanPrices
+    End Select
+
+End Function
+
+
+Public Function FetchRPlanValues(vRpids As Variant, dtDesde As Date, dtHasta As Date, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_FetchRPlanValues
+    Dim strXMLRPC As String, strResponse As String, vRPid As Variant, vValue As Variant, vData As Variant, i As Integer
+    
+    Dim vParams(4), vRespuesta, param(1) As Variant
+    
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "string": param(1) = Format(dtDesde, "dd/mm/yyyy"): vParams(2) = param 'dfrom
+    param(0) = "string": param(1) = Format(dtHasta, "dd/mm/yyyy"): vParams(3) = param 'dto
+'                        param(0) = "int": param(1) = vRPid: vRPid = param
+'                        param(0) = "value": param(1) = vRPid: vData = param
+    param(0) = "array": param(1) = vRpids: vParams(4) = param
+    strXMLRPC = DimeXMLRPC("rplan_get_rplan_values", vParams)
+        strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchRPlanValues", vRespuesta, , strRespuesta) Then
+        If False Then MsgBox strRespuesta, vbInformation
+        FetchRPlanValues = True
+        For i = 0 To UBound(vRpids)
+            CargawbRoomsRestricciones vRespuesta, CLng(vRpids(i)(1)), dtDesde, dtHasta
+        Next i
+    Else
+        If True Then MsgBox "Error al obtener restricciones:" & vbCrLf & vRespuesta, vbExclamation
+        FetchRPlanValues = False
+    End If
+Salir_FetchRPlanValues:
+    Exit Function
+Error_FetchRPlanValues:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchRPlanValues" & vbCrLf & Err.Description
+            Resume Salir_FetchRPlanValues
+    End Select
+
+End Function
+
+
+Public Function EnableCCsystem(Optional pwd As String = "", Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_EnableCCsystem
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(3), vRespuesta, param(1) As String
+    
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "string": param(1) = pwd: vParams(1) = param
+    strXMLRPC = DimeXMLRPC("enable_cc_system", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "EnableCCsystem", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        EnableCCsystem = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        EnableCCsystem = False
+    End If
+Salir_EnableCCsystem:
+    Exit Function
+Error_EnableCCsystem:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EnableCCsystem" & vbCrLf & Err.Description
+            Resume Salir_EnableCCsystem
+    End Select
+
+End Function
+
+Public Function UpdateAvail(dtDesde As Date, vRoomsDays, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_UpdateAvail
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(3) As Variant, vRespuesta As Variant, param(1) As Variant
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "string": param(1) = Format(dtDesde, "dd/mm/yyyy"): vParams(2) = param
+    param(0) = "array": param(1) = vRoomsDays: vParams(3) = param
+    strXMLRPC = DimeXMLRPC("update_avail", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "UpdateAvail", vRespuesta) Then
+        UpdateAvail = True
+        If intMsg Then MsgBox "Se actualizó disponibilidad correctamente" & vbCrLf & vRespuesta, vbInformation
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        UpdateAvail = False
+    End If
+Salir_UpdateAvail:
+    Exit Function
+Error_UpdateAvail:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en UpdateAvail" & vbCrLf & Err.Description
+            Resume Salir_UpdateAvail
+    End Select
+
+End Function
+
+Public Function ActualizaDisponibilidadWB(vIdRooms As Variant, dtD As Date, dtH As Date, intAvail As Integer, Optional intMsg As Integer = True)
+    On Error GoTo HandleError
+'            # We have an array, each element representing a room
+'            roomdays= [
+'              # The first room:
+'              {'id': 1, 'days': [{'avail': 1}, {}, {'no_ota': 0}],
+'              # The second room:
+'              {'id': 2, 'days': [{'price': 120}, {'closed': 1}, {}],
+'            ]
+    Dim vRoomsDays() As Variant, i As Integer
+    
+    Dim vV() As Variant, vM2(1) As Variant, vMemberDays As Variant, vM0() As Variant, vValue As Variant, vR As Variant
+    ReDim vRoomsDays(UBound(vIdRooms))
+    ReDim vDays(dtH - dtD)
+    ReDim vV(0)
+'                                            vQ = Array("string", Notas):                         vM(8) = Array("notes", vQ)
+'                                            WuBookCustomer = Array("struct", vM)
+    vValue = Array("int", intAvail): vV(0) = Array("avail", vValue)
+    vM0 = Array("struct", vV)
+    For i = 0 To UBound(vDays)
+        vDays(i) = vM0
+    Next i
+    
+    vMemberDays = Array("array", vDays):    vM2(1) = Array("days", vMemberDays)
+    For i = 0 To UBound(vIdRooms)
+        vValue = Array("int", vIdRooms(i))
+        vM2(0) = Array("id", vValue)
+        vM2(1) = Array("days", vMemberDays)
+        vRoomsDays(i) = Array("struct", vM2)
+    Next i
+    Dim strResp As String
+    If UpdateAvail(dtD, vRoomsDays, intMsg, strResp) = True Then
+        ActualizaDisponibilidadWB = True 'MsgBox("¿Ver disponibilidad en WuBook?", vbYesNo + vbQuestion)
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function UpdatePlanPrices(pid As Long, dtDesde As Date, vRoomsPrices, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_UpdatePlanPrices
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(4) As Variant, vRespuesta As Variant, param(1) As Variant
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "int": param(1) = pid: vParams(2) = param
+    param(0) = "string": param(1) = Format(dtDesde, "dd/mm/yyyy"): vParams(3) = param
+    param(0) = "struct": param(1) = vRoomsPrices: vParams(4) = param
+    strXMLRPC = DimeXMLRPC("update_plan_prices", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "UpdatePlanPrices", vRespuesta) Then
+        UpdatePlanPrices = True
+        If intMsg Then MsgBox "Se actualizó plan de precios correctamente" & vbCrLf & vRespuesta, vbInformation
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        UpdatePlanPrices = False
+    End If
+Salir_UpdatePlanPrices:
+    Exit Function
+Error_UpdatePlanPrices:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en UpdatePlanPrices" & vbCrLf & Err.Description
+            Resume Salir_UpdatePlanPrices
+    End Select
+
+End Function
+
+Private Function UpdatePlanRestrictions(rpid As Long, dtDesde As Date, vRoomsRestrictions, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_UpdatePlanRestrictions
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(4) As Variant, vRespuesta As Variant, param(1) As Variant
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    param(0) = "int": param(1) = rpid: vParams(2) = param
+    param(0) = "string": param(1) = Format(dtDesde, "dd/mm/yyyy"): vParams(3) = param
+    param(0) = "struct": param(1) = vRoomsRestrictions: vParams(4) = param
+    strXMLRPC = DimeXMLRPC("rplan_update_rplan_values", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "UpdatePlanRestrictions", vRespuesta) Then
+        UpdatePlanRestrictions = True
+        If intMsg Then MsgBox "Se actualizó plan de restricciones correctamente" & vbCrLf & vRespuesta, vbInformation
+    Else
+        If intMsg Then MsgBox "Error al actualizar plan de restricciones:" & vbCrLf & vRespuesta, vbExclamation
+        UpdatePlanRestrictions = False
+    End If
+Salir_UpdatePlanRestrictions:
+    Exit Function
+Error_UpdatePlanRestrictions:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en UpdatePlanRestrictions" & vbCrLf & Err.Description
+            Resume Salir_UpdatePlanRestrictions
+    End Select
+
+End Function
+
+Private Function CargawbRoomsValues(vResp As Variant, dtD As Date, dtH As Date, Optional intSoloPrecio As Integer = False) As Integer
+    On Error GoTo HandleError
+    Dim i As Integer, lngIdRoom As Long, vDays As Variant
+    For i = 0 To UBound(vResp)
+        lngIdRoom = vResp(i)(0)
+        vDays = vResp(i)(1)
+        If CargawbRoomValues(lngIdRoom, vDays, dtD, dtH, intSoloPrecio) = False Then
+            MsgBox "Error al cargar IdRoom = " & lngIdRoom, vbExclamation
+        End If
+    Next i
+    CargawbRoomsValues = True
+    'MsgBox "Se cargaron valores en días de " & i & " tipos de habitaciones-parcelas", vbInformation
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function CargawbRoomValues(lngIdRoom As Long, vDays As Variant, dtD As Date, dtH As Date, Optional intSoloPrecio As Integer = False) As Integer
+    On Error GoTo HandleError
+    Dim i As Integer, rs As Recordset, j As Integer, vday As Variant, lngwbTablaID As Long, strSQL As String
+    Set rs = CurrentDb.OpenRecordset("wbRoomsValues", dbOpenDynaset)
+    If UBound(vDays) <> dtH - dtD Then MsgBox "No se encontraron el nº de días esperados: " & dtH - dtD + 1 & "!=" & UBound(vDays) + 1, vbExclamation
+    For i = 0 To UBound(vDays)
+        rs.FindFirst "IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtD) + i
+        If rs.NoMatch Then
+            rs.AddNew
+            rs("IdRoom") = lngIdRoom
+            rs("Fecha") = dtD + i
+        Else
+            rs.Edit
+        End If
+        vday = vDays(i)
+        If intSoloPrecio = False Then
+            For j = 0 To UBound(vday)
+                'If vday(j)(0) Like "closed*" Then
+                '    rs(vday(j)(0)) = vday(j)(1) = 1
+                'Else
+                    rs(vday(j)(0)) = vday(j)(1)
+                'End If
+            Next j
+'            rs("price") = Null
+        Else
+            rs("price") = vday '(i)
+        End If
+        lngwbTablaID = Nz(DLookup("wbTablaID", "wbTabla", "IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtD + i)), 0)
+        If lngwbTablaID = 0 Then
+            strSQL = "INSERT INTO wbTabla (IdRoom, Fecha, price, min_stay, avail, max_stay, closed)"
+            strSQL = strSQL & " SELECT " & lngIdRoom & " AS IdR, " & CLng(dtD + i) & " AS F, " & ComaPunto(rs("price")) & " AS Precio, " & rs("min_stay") & " AS MinEst, " & Nz(rs("avail"), 0) & " AS avail, " & rs("max_stay") & " AS MaxEst, " & IIf(rs("closed"), "True", "False") & " as closed"
+        Else
+            strSQL = "UPDATE wbTabla SET price = " & ComaPunto(rs("price")) & ", min_stay = " & rs("min_stay") & ", avail = " & Nz(rs("avail"), 0) & ", max_stay = " & Nz(rs("max_stay"), 0) & ", closed = " & IIf(rs("closed"), "True", "False")
+            strSQL = strSQL & " WHERE wbTablaID = " & lngwbTablaID
+        End If
+        rs.Update
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next i
+    CargawbRoomValues = True
+HandleExit:
+    Exit Function
+HandleError:
+    'MsgBox Err.Description
+    Select Case Err
+        Case 3265: Resume Next
+        Case Else:
+            MsgBox "Error nº " & Err & " en CargawbRoomsValues" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+Public Function FetchNewBookings(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String, Optional ByRef vNumReservasAU As Variant, _
+                                 Optional dtFMin As Date, Optional dtFMax As Date) As Integer
+    On Error GoTo Error_FetchNewBookings
+    Dim strXMLRPC As String, strResponse As String
+        
+    Dim vParams(3), vRespuesta, param As Variant ', param(1) As String
+    param = Array("string", token): vParams(0) = param
+    param = Array("int", lcode): vParams(1) = param
+    param = Array("int", 1): vParams(2) = param 'ancillary
+    param = Array("int", 0): vParams(3) = param 'mark
+    strXMLRPC = DimeXMLRPC("fetch_new_bookings", vParams, True)
+    strResponse = Post(strXMLRPC)
+    dtFMin = Date + 1000: dtFMax = 0
+    If ResponseIsOK(strResponse, "FetchNewBookings", vRespuesta, vNumReservasAU, , dtFMin, dtFMax) Then
+        If intMsg Then MsgBox vRespuesta, vbInformation
+        FetchNewBookings = True
+        'strRespuesta = Nz(vRespuesta, "")
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchNewBookings = False
+    End If
+Salir_FetchNewBookings:
+    Exit Function
+Error_FetchNewBookings:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchNewBookings" & vbCrLf & Err.Description
+            Resume Salir_FetchNewBookings
+    End Select
+
+End Function
+
+Public Function FetchBooking(reservation_code As Long, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String, Optional ByRef vNumReservasAU As Variant, _
+                            Optional dtFMin As Date, Optional dtFMax As Date) As Integer
+    On Error GoTo Error_FetchBooking
+    Dim strXMLRPC As String, strResponse As String
+        
+    Dim vParams(2), vRespuesta, param As Variant ', param(1) As String
+    If token = "" Then
+        If Not Me.GetToken Then
+            MsgBox "No se consiguió conectar con Wubook. No se obtuvo Token", vbExclamation
+            Exit Function
+        End If
+    End If
+    param = Array("string", token): vParams(0) = param
+    param = Array("int", lcode): vParams(1) = param
+    param = Array("int", reservation_code): vParams(2) = param 'reservation_code
+    strXMLRPC = DimeXMLRPC("fetch_booking", vParams, True)
+    strResponse = Post(strXMLRPC)
+    dtFMin = Date + 1000: dtFMax = 0
+    If ResponseIsOK(strResponse, "FetchBooking", vRespuesta, vNumReservasAU, , dtFMin, dtFMax) Then
+        If intMsg Then MsgBox strResponse, vbInformation
+        FetchBooking = True
+        'strRespuesta = Nz(vRespuesta, "")
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchBooking = False
+    End If
+Salir_FetchBooking:
+    Exit Function
+Error_FetchBooking:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchBooking" & vbCrLf & Err.Description
+            Resume Salir_FetchBooking
+    End Select
+
+End Function
+
+Public Function MarkBooks(vMarks As Variant, Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    'strMarks es una lista de reservations_code separadas por coma para marcar
+    On Error GoTo Error_MarkBooks
+    Dim strXMLRPC As String, strResponse As String
+        
+    Dim vParams(2), vRespuesta, param As Variant
+    param = Array("string", token): vParams(0) = param
+    'param(0) = "string": param(1) = token: vParams(0) = param
+    param = Array("int", lcode): vParams(1) = param
+    'param(0) = "int": param(1) = lcode: vParams(1) = param
+    param = Array("array", vMarks): vParams(2) = param
+    'param(0) = "array": param(1) = vMarks: vParams(2) = param
+    'vMarks = Split(strMarks, ","): vParams(2) = vMarks
+    strXMLRPC = DimeXMLRPC("mark_bookings", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "MarkBooks", vRespuesta) Then
+        If intMsg Then MsgBox vRespuesta, vbInformation
+        MarkBooks = True
+        strRespuesta = vRespuesta
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        MarkBooks = False
+    End If
+Salir_MarkBooks:
+    Exit Function
+Error_MarkBooks:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en MarkBooks" & vbCrLf & Err.Description
+            Resume Salir_MarkBooks
+    End Select
+
+End Function
+
+Public Function GetOTAs(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_GetOTAs
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(1), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    strXMLRPC = DimeXMLRPC("get_otas", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "GetOTAs", vRespuesta, strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        GetOTAs = True
+        
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        GetOTAs = False
+    End If
+Salir_GetOTAs:
+    Exit Function
+Error_GetOTAs:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GetOTAs" & vbCrLf & Err.Description
+            Resume Salir_GetOTAs
+    End Select
+
+End Function
+
+Private Function ResponseIsOK(strRespuestaXML As String, strAskFunction As String, vRespuesta As Variant, Optional ByRef vNumReservasAU As Variant, Optional strRespuesta As String, _
+                     Optional ByRef dtFMin As Date, _
+                     Optional ByRef dtFMax As Date) As Integer
+    On Error GoTo Error_ResponseIsOK
+    Dim xDoc As Object, xNode As Object, i As Integer, strData As String, intR As Integer
+    Dim intPos As Integer, strStruct As String
+    Dim FSO As New FileSystemObject, ts As TextStream
+    Dim intRespCode As Integer
+    On Error Resume Next
+    FSO.CreateTextFile ("D:\_DOCS1_\__H4+\Respuesta.xml")
+    If Err = 0 Then
+        Set ts = FSO.OpenTextFile("D:\_DOCS1_\__H4+\Respuesta.xml", ForAppending, True)
+        ts.Write strRespuestaXML
+        ts.Close
+    End If
+    On Error GoTo Error_ResponseIsOK
+    intR = RespIsOK(strRespuestaXML, vRespuesta, strRespuesta, intRespCode)
+    Select Case strAskFunction
+        Case "GetToken"
+            If intR Then
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "OkToken"
+        Case "ReleaseToken"
+        Case "ProviderInfo", "GetOTAs"
+        Case "FetchRooms"
+            If intR Then
+                Carga_wbRooms strRespuestaXML
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "FetchRoomsValues"
+            If intR Then
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+            
+        Case "GetOTAs"
+            If intR Then
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "FetchNewBookings"
+            If intR Then
+                Carga_wbReservations strRespuestaXML, vNumReservasAU, , dtFMin, dtFMax
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "FetchCCard"
+            If intR Then
+                'Carga_wbReservations strRespuestaXML, vNumReservasAU
+            Else
+                'MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        
+        Case "FetchBooking"
+            If intR Then
+                Carga_wbReservations strRespuestaXML, vNumReservasAU, True, dtFMin, dtFMax
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "MarkBooks"
+            'If intR Then CurrentDb.Execute "UPDATE wbReservations SET MarkOK = True WHERE MarkSN = True And Not Nz(MarkOK,False)", dbFailOnError
+        Case "FetchOpportunities"
+            If intR Then
+                Carga_wbOpportunities strRespuestaXML
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+                
+        Case "FetchSpecialOffers"
+            If intR Then
+                Carga_wbSpecialOffers strRespuestaXML
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+            
+        Case "fetch_bookings_codes"
+            If intR Then
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "GetPricingPlans"
+            If intR Then
+                Carga_wbPricingPlans strRespuestaXML
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "GetRPlans"
+            If intR Then
+                Carga_wbRestrictionPlans strRespuestaXML
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        Case "FetchPlanPrices"
+            If intR Then
+                'CargawbRoomsPrecios strRespuestaXML
+            Else
+                MsgBox strRespuesta, vbInformation, strAskFunction
+            End If
+        
+    End Select
+    ResponseIsOK = intR
+Salir_ResponseIsOK:
+    Exit Function
+Error_ResponseIsOK:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ResponseIsOK" & vbCrLf & Err.Description
+            Resume Salir_ResponseIsOK
+    End Select
+End Function
+
+
+Public Function RespIsOK(ByVal strResponse As String, vRespuesta As Variant, Optional strRespuesta As String, Optional ByRef intRespCode As Integer) As Integer
+    On Error GoTo Error_RespIsOK
+    Dim xDoc As MSXML2.DOMDocument, xStruct As MSXML2.IXMLDOMNode, y As MSXML2.IXMLDOMNodeList
+    Dim i As Integer, intOK As Integer, intIndent As Integer
+    Set xDoc = New MSXML2.DOMDocument
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strResponse) Then
+        'intOK = xDoc.getElementsByTagName("int")(0).FirstChild.NodeValue = 0
+        intRespCode = DimeValue(xDoc.getElementsByTagName("value")(1), 0)
+        intOK = intRespCode = 0
+        strRespuesta = DimeValue(xDoc.getElementsByTagName("value")(2), intIndent)
+        vRespuesta = DimeVResp(xDoc.getElementsByTagName("value")(2))
+    Else
+       Dim xPE As MSXML2.IXMLDOMParseError
+       Set xPE = xDoc.parseError
+       strRespuesta = DimeError(xPE)
+    End If
+    RespIsOK = intOK
+Salir_RespIsOK:
+    Exit Function
+Error_RespIsOK:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en RespIsOK" & vbCrLf & Err.Description
+            Resume Salir_RespIsOK
+    End Select
+End Function
+
+Public Function DimeVResp(xElem As IXMLDOMElement) As Variant
+    'Devuelve Valor
+    On Error GoTo Error_DimeVResp
+    Dim i As Integer, n As IXMLDOMNode, vR As Variant
+    Select Case xElem.ChildNodes(0).nodeName
+        Case "string"
+            On Error Resume Next
+             vR = CStr(xElem.ChildNodes(0).ChildNodes(0).NodeValue)
+        Case "int", "string"
+            On Error Resume Next
+            vR = CLng(xElem.ChildNodes(0).ChildNodes(0).NodeValue)
+        Case "double"
+            On Error Resume Next
+            vR = CDbl(Replace(xElem.ChildNodes(0).ChildNodes(0).NodeValue, ".", ","))
+        Case "array"
+            vR = DimeVArray(xElem.ChildNodes(0))
+        Case "struct"
+            vR = DimeVStruct(xElem.ChildNodes(0))
+        
+    End Select
+    DimeVResp = vR
+Salir_DimeVResp:
+    Exit Function
+Error_DimeVResp:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeVResp" & vbCrLf & Err.Description
+            Resume Salir_DimeVResp
+    End Select
+
+End Function
+
+Public Function DimeVArray(xArray As IXMLDOMElement) As Variant
+    'Devuelve ·[Valor,Valor,Valor]·
+    On Error GoTo Error_DimeVArray
+    Dim i As Integer, n As IXMLDOMNode, vR() As Variant
+    If xArray.ChildNodes(0).ChildNodes.Length > 0 Then ReDim vR(xArray.ChildNodes(0).ChildNodes.Length - 1)
+    For Each n In xArray.ChildNodes(0).ChildNodes
+        vR(i) = DimeVResp(n)
+        i = i + 1
+    Next n
+    DimeVArray = vR
+Salir_DimeVArray:
+    Exit Function
+Error_DimeVArray:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeVArray" & vbCrLf & Err.Description
+            Resume Salir_DimeVArray
+    End Select
+
+End Function
+
+Public Function DimeVStruct(xStruct As IXMLDOMElement) As Variant
+    'Devuelve ·{Member
+    '           Member
+    '           ...
+    '           }·
+    On Error GoTo Error_DimeVStruct
+    Dim i As Integer, n As IXMLDOMNode, vR() As Variant
+    If xStruct.ChildNodes.Length > 0 Then ReDim vR(xStruct.ChildNodes.Length - 1)
+    For Each n In xStruct.ChildNodes
+        vR(i) = DimeVMember(n)
+        i = i + 1
+    Next n
+    DimeVStruct = vR
+Salir_DimeVStruct:
+    Exit Function
+Error_DimeVStruct:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeVStruct" & vbCrLf & Err.Description
+            Resume Salir_DimeVStruct
+    End Select
+
+End Function
+
+Public Function DimeVMember(xMember As IXMLDOMElement) As Variant
+    'Devuelve un array(1)=[KeyName, Valor]
+    On Error GoTo Error_DimeVMember
+    Dim vR(1) As Variant
+    vR(0) = xMember.ChildNodes(0).ChildNodes(0).NodeValue
+    On Error Resume Next
+    vR(1) = DimeVResp(xMember.ChildNodes(1))
+    DimeVMember = vR
+Salir_DimeVMember:
+    Exit Function
+Error_DimeVMember:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeVMember" & vbCrLf & Err.Description
+            Resume Salir_DimeVMember
+    End Select
+
+End Function
+
+Public Function DimeValue(xValue As IXMLDOMNode, Optional intIndent As Integer = 0) As String
+    'Devuelve Valor
+    On Error GoTo Error_DimeValue
+    Dim i As Integer, n As IXMLDOMNode, strR As String
+    strR = space(intIndent)
+    Select Case xValue.ChildNodes(0).nodeName
+        Case "int", "string"
+            On Error Resume Next
+            strR = strR & xValue.ChildNodes(0).ChildNodes(0).NodeValue
+        Case "double"
+            On Error Resume Next
+            strR = strR & Replace(xValue.ChildNodes(0).ChildNodes(0).NodeValue, ".", ",")
+        Case "array"
+            strR = strR & DimeArray(xValue.ChildNodes(0), intIndent)
+        Case "struct"
+            strR = strR & DimeStruct(xValue.ChildNodes(0), intIndent)
+        
+    End Select
+    DimeValue = strR
+Salir_DimeValue:
+    Exit Function
+Error_DimeValue:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeValue" & vbCrLf & Err.Description
+            Resume Salir_DimeValue
+    End Select
+
+End Function
+
+Public Function DimeName(xName As IXMLDOMNode, Optional intIndent As Integer = 0) As String
+    'Devuelve Valor
+    On Error GoTo Error_DimeName
+    Dim i As Integer, n As IXMLDOMNode, strR As String
+    strR = space(intIndent)
+    If xName.nodeName = "name" Then
+        strR = xName.ChildNodes(0).NodeValue
+    Else
+        MsgBox "No es un nodo NAME"
+    End If
+    DimeName = strR
+Salir_DimeName:
+    Exit Function
+Error_DimeName:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeName" & vbCrLf & Err.Description
+            Resume Salir_DimeName
+    End Select
+
+End Function
+
+Public Function DimeArray(xArray As IXMLDOMNode, intIndent As Integer) As String
+    'Devuelve ·[Valor,Valor,Valor]·
+    On Error GoTo Error_DimeArray
+    Dim i As Integer, n As IXMLDOMNode, strR As String
+    strR = space(intIndent) & "["
+    For Each n In xArray.ChildNodes(0).ChildNodes
+        strR = strR & DimeValue(n, 0) & ";"
+    Next n
+    If Right(strR, 1) = ";" Then strR = RecDerTop(strR, 1, 0)
+    strR = strR & "]"
+    DimeArray = strR
+Salir_DimeArray:
+    Exit Function
+Error_DimeArray:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeArray" & vbCrLf & Err.Description
+            Resume Salir_DimeArray
+    End Select
+
+End Function
+
+Public Function DimeStruct(xStruct As IXMLDOMNode, intIndent As Integer, Optional strSep As String = vbCrLf) As String
+    'Devuelve ·{Member
+    '           Member
+    '           ...
+    '           }·
+    On Error GoTo Error_DimeStruct
+    Dim i As Integer, n As IXMLDOMNode, strR As String
+    intIndent = intIndent
+    strR = vbCrLf & space(intIndent) & "{"
+    For Each n In xStruct.ChildNodes
+        strR = strR & DimeMember(n, intIndent) & strSep
+    Next n
+    strR = strR & "}"
+    DimeStruct = strR
+Salir_DimeStruct:
+    Exit Function
+Error_DimeStruct:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeStruct" & vbCrLf & Err.Description
+            Resume Salir_DimeStruct
+    End Select
+
+End Function
+
+Public Function DimeMember(xMember As IXMLDOMNode, intIndent As Integer) As String
+    'Devuelve ·|KeyName: Valor|·
+    On Error GoTo Error_DimeMember
+    Dim strR As String
+    strR = space(intIndent) & "<" & xMember.ChildNodes(0).ChildNodes(0).NodeValue & ": "
+    On Error Resume Next
+    strR = strR & DimeValue(xMember.ChildNodes(1), 0)
+    DimeMember = strR & ">"
+Salir_DimeMember:
+    Exit Function
+Error_DimeMember:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeMember" & vbCrLf & Err.Description
+            Resume Salir_DimeMember
+    End Select
+
+End Function
+
+Public Function DimeError(xPE As IXMLDOMParseError) As String
+    On Error GoTo Error_DimeError
+    Dim strErrText As String
+    With xPE
+      strErrText = "Your XML Document failed to load" & _
+        "due the following error." & vbCrLf & _
+        "Error #: " & .ErrorCode & ": " & xPE.Reason & _
+        "Line #: " & .Line & vbCrLf & _
+        "Line Position: " & .linepos & vbCrLf & _
+        "Position In File: " & .filepos & vbCrLf & _
+        "Source Text: " & .srcText & vbCrLf & _
+        "Document URL: " & .URL
+    End With
+    DimeError = strErrText
+Salir_DimeError:
+    Exit Function
+Error_DimeError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeError" & vbCrLf & Err.Description
+            Resume Salir_DimeError
+    End Select
+
+End Function
+
+Public Sub Carga_wbReservations(strRespuestaXML As String, Optional ByRef vNumReservasAddUpdate As Variant, Optional intMarksAreOk As Integer = False, _
+                     Optional ByRef dtFMin As Date, _
+                     Optional ByRef dtFMax As Date)
+
+    On Error GoTo Error_Carga_wbReservations
+    Dim xDoc As DOMDocument, xRes As IXMLDOMNode, xN As IXMLDOMNode
+    Dim intAUC As Integer, intReservasAUC(3) As Integer
+    Set xDoc = New MSXML2.DOMDocument
+    'CurrentDb.Execute "DELETE * FROM wbReservations", dbFailOnError
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strRespuestaXML) Then
+        Set xRes = xDoc.getElementsByTagName("data")(1)
+        For Each xN In xRes.ChildNodes
+            Add_Update_wbReservation xN, intAUC, , dtFMin, dtFMax
+            intReservasAUC(intAUC) = intReservasAUC(intAUC) + 1
+        Next xN
+    End If
+    vNumReservasAddUpdate = intReservasAUC
+Salir_Carga_wbReservations:
+    Exit Sub
+Error_Carga_wbReservations:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_wbReservations" & vbCrLf & Err.Description
+            Resume Salir_Carga_wbReservations
+    End Select
+
+End Sub
+
+Public Sub Add_Update_wbReservation(xN As IXMLDOMNode, _
+                     Optional ByRef intAddUpdateCancel As Integer, _
+                           Optional intMarksAreOk As Integer = False, _
+                     Optional ByRef dtFMin As Date, _
+                     Optional ByRef dtFMax As Date)
+    On Error GoTo Error_Add_Update_wbReservation
+    Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
+    Dim rs As Recordset, strName As String, vValue As Variant, strSQL As String, lngReservation_code As Long
+    strSQL = "SELECT * FROM wbReservations WHERE date_arrival >= " & CLng(Date - 7)
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    Set xStr = xN.ChildNodes(0)
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        If strName = "reservation_code" Then
+            vValue = Replace(DimeValue(xMem.ChildNodes(1)), vbCrLf, "")
+            lngReservation_code = vValue
+            Exit For
+        End If
+    Next xMem
+    If strName <> "reservation_code" Then
+        MsgBox "No se encontró miembro key-value con key = 'reservation_code'", vbExclamation
+        Exit Sub
+    End If
+    rs.FindFirst "reservation_code = " & lngReservation_code 'vValue
+    If rs.NoMatch Then
+        rs.AddNew
+        intAddUpdateCancel = 1
+    Else
+        rs.Edit
+        intAddUpdateCancel = 2
+    End If
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        vValue = Replace(DimeValue(xMem.ChildNodes(1)), vbCrLf, "")
+        If vValue = "" Then vValue = Null
+        If strName = "currency" Then ' Nuevo nodo añadido después
+        Else
+            rs(strName) = vValue
+        End If
+    Next xMem
+    If rs("date_arrival") < dtFMin Then dtFMin = rs("date_arrival")
+    If rs("date_departure") > dtFMax Then dtFMax = rs("date_departure")
+    
+    Dim intReMark  As Integer, lngReservationCode As Long, strResp As String
+    Select Case rs("status")
+        Case 3, 5, 6
+            intReMark = True
+            lngReservationCode = rs("reservation_code")
+            intAddUpdateCancel = 3
+            'rs("date_received") = Date
+    End Select
+    If rs("cc_info") = 1 Then
+        If Me.FetchCCard(rs("reservation_code"), , , strResp) = True Then rs("cc_data") = strResp
+    End If
+    rs.Update
+    CambiaAcentosWbTablaRegistro "wbReservations", "reservation_code", lngReservation_code, False
+    If intReMark Then
+        CurrentDb.Execute "UPDATE wbReservations SET MarkSN=False, MarkOK=False WHERE reservation_code = " & lngReservationCode, dbFailOnError
+    End If
+    If intMarksAreOk Then
+        CurrentDb.Execute "UPDATE wbReservations SET MarkSN=True, MarkOK=True WHERE reservation_code = " & lngReservationCode, dbFailOnError
+    End If
+Salir_Add_Update_wbReservation:
+    Exit Sub
+Error_Add_Update_wbReservation:
+    Select Case Err
+        Case 3265
+            If Nz(DameValorParam("Wired_Ver_Errores_Add-Update_ReservationSN"), False) Then
+                MsgBox "Error nº " & Err & " en Add_Update_wbReservation" & vbCrLf & Err.Description & vbCrLf & "NAME: " & strName & vbCrLf & "VALUE: " & vValue
+            End If
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Add_Update_wbReservation" & vbCrLf & Err.Description
+            Resume Salir_Add_Update_wbReservation
+    End Select
+
+End Sub
+
+Public Sub Carga_wbRooms(strRespuestaXML As String)
+    On Error GoTo Error_Carga_wbRooms
+    Dim xDoc As DOMDocument, xRes As IXMLDOMNode, xN As IXMLDOMNode
+    Set xDoc = New MSXML2.DOMDocument
+    CurrentDb.Execute "DELETE * FROM wbRooms", dbFailOnError
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strRespuestaXML) Then
+        Set xRes = xDoc.getElementsByTagName("data")(1)
+        For Each xN In xRes.ChildNodes
+            Add_wbRoom xN
+        Next xN
+    End If
+      
+Salir_Carga_wbRooms:
+    Exit Sub
+Error_Carga_wbRooms:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_wbRooms" & vbCrLf & Err.Description
+            Resume Salir_Carga_wbRooms
+    End Select
+
+End Sub
+
+Public Sub Add_wbRoom(xN As IXMLDOMNode)
+    On Error GoTo Error_Add_wbRoom
+    Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
+    Dim rs As Recordset, strName As String, vValue As Variant
+    Set rs = CurrentDb.OpenRecordset("wbRooms", dbOpenDynaset)
+    rs.AddNew
+    Set xStr = xN.ChildNodes(0)
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        vValue = DimeValue(xMem.ChildNodes(1))
+        If vValue = "" Then vValue = Null
+        rs(strName) = vValue
+    Next xMem
+    rs.Update
+Salir_Add_wbRoom:
+    Exit Sub
+Error_Add_wbRoom:
+    Select Case Err
+        Case 3265
+            MsgBox "Error nº " & Err & " en Add_wbRoom" & vbCrLf & Err.Description & vbCrLf & "NAME: " & strName & vbCrLf & "VALUE: " & vValue
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Add_wbRoom" & vbCrLf & Err.Description
+            Resume Salir_Add_wbRoom
+    End Select
+
+End Sub
+
+Public Sub Carga_wbOpportunities(strRespuestaXML As String)
+    On Error GoTo Error_Carga_wbOpportunities
+    Dim xDoc As DOMDocument, xRes As IXMLDOMNode, xN As IXMLDOMNode
+    Set xDoc = New MSXML2.DOMDocument
+    CurrentDb.Execute "DELETE * FROM wbOpportunities", dbFailOnError
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strRespuestaXML) Then
+        Set xRes = xDoc.getElementsByTagName("data")(1)
+        For Each xN In xRes.ChildNodes
+            Add_wbOpportunity xN
+        Next xN
+    End If
+      
+Salir_Carga_wbOpportunities:
+    Exit Sub
+Error_Carga_wbOpportunities:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_wbOpportunities" & vbCrLf & Err.Description
+            Resume Salir_Carga_wbOpportunities
+    End Select
+
+End Sub
+
+Public Sub Add_wbOpportunity(xN As IXMLDOMNode)
+    On Error GoTo Error_Add_wbOpportunity
+    Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
+    Dim rs As Recordset, strName As String, vValue As Variant
+    Dim strCampo_XX As String, lngOid As Long
+    Set rs = CurrentDb.OpenRecordset("wbOpportunities", dbOpenDynaset)
+    rs.AddNew
+    Set xStr = xN.ChildNodes(0)
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        vValue = DimeValue(xMem.ChildNodes(1))
+        If strName = "oid" Then lngOid = vValue
+        If vValue = "" Then vValue = Null
+        strCampo_XX = ""
+        If strName = "name" Then
+            strName = "name_"
+        ElseIf strName Like "name_*" Or strName Like "descr_*" Then
+            strCampo_XX = strName
+            strName = "name_XX_descr_XX"
+        End If
+        If strCampo_XX = "" Then
+            rs(strName) = vValue
+        Else
+            rs(strName) = rs(strName) & "<" & strName & ": " & vValue & ">"
+        End If
+    Next xMem
+    rs.Update
+    If Nz(DameValorParam("CambiaAcentosWB"), True) Then CambiaAcentosWbTablaRegistro "wbOpportunities", "oid", lngOid, False
+Salir_Add_wbOpportunity:
+    Exit Sub
+Error_Add_wbOpportunity:
+    Select Case Err
+        Case 3265
+            MsgBox "Error nº " & Err & " en Add_wbOpportunity" & vbCrLf & Err.Description & vbCrLf & "NAME: " & strName & vbCrLf & "VALUE: " & vValue
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Add_wbOpportunity" & vbCrLf & Err.Description
+            Resume Salir_Add_wbOpportunity
+    End Select
+
+End Sub
+
+Public Sub Carga_wbSpecialOffers(strRespuestaXML As String)
+    On Error GoTo Error_Carga_wbSpecialOffers
+    Dim xDoc As DOMDocument, xRes As IXMLDOMNode, xN As IXMLDOMNode
+    Set xDoc = New MSXML2.DOMDocument
+    CurrentDb.Execute "DELETE * FROM wbSpecialOffers", dbFailOnError
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strRespuestaXML) Then
+        Set xRes = xDoc.getElementsByTagName("data")(1)
+        For Each xN In xRes.ChildNodes
+            Add_wbSpecialOffer xN
+        Next xN
+    End If
+      
+Salir_Carga_wbSpecialOffers:
+    Exit Sub
+Error_Carga_wbSpecialOffers:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_wbSpecialOffers" & vbCrLf & Err.Description
+            Resume Salir_Carga_wbSpecialOffers
+    End Select
+
+End Sub
+
+Public Sub Add_wbSpecialOffer(xN As IXMLDOMNode)
+    On Error GoTo Error_Add_wbSpecialOffer
+    Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
+    Dim rs As Recordset, strName As String, vValue As Variant
+    Dim strCampo_XX As String, lngSid As Long
+    Set rs = CurrentDb.OpenRecordset("wbSpecialOffers", dbOpenDynaset)
+    rs.AddNew
+    Set xStr = xN.ChildNodes(0)
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        vValue = DimeValue(xMem.ChildNodes(1))
+        If strName = "sid" Then lngSid = vValue
+        If vValue = "" Then vValue = Null
+        strCampo_XX = ""
+        If strName = "name" Then
+            strName = "name_"
+        ElseIf strName Like "name_*" Or strName Like "descr_*" Then
+            strCampo_XX = strName
+            strName = "name_XX_descr_XX"
+        End If
+        If strCampo_XX = "" Then
+            'If strName = "dvalue" Then
+            '    rs(strName) = vValue
+            'Else
+                rs(strName) = vValue
+            'End If
+        Else
+            rs(strName) = rs(strName) & "<" & strName & ": " & vValue & ">"
+        End If
+    Next xMem
+    rs.Update
+    If Nz(DameValorParam("CambiaAcentosWB"), True) Then CambiaAcentosWbTablaRegistro "wbSpecialOffers", "sid", lngSid, False
+Salir_Add_wbSpecialOffer:
+    Exit Sub
+Error_Add_wbSpecialOffer:
+    Select Case Err
+        Case 3265
+            MsgBox "Error nº " & Err & " en Add_wbSpecialOffer" & vbCrLf & Err.Description & vbCrLf & "NAME: " & strName & vbCrLf & "VALUE: " & vValue
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Add_wbSpecialOffer" & vbCrLf & Err.Description
+            Resume Salir_Add_wbSpecialOffer
+    End Select
+
+End Sub
+
+Public Function CargaCredenciales(Optional intMsg As Integer = True) As Integer
+    On Error GoTo HandleError
+    Dim strMSG As String
+    ProviderKey = Nz(DameValorParam("WiredProviderKey"), "")
+    If ProviderKey = "" Then strMSG = strMSG & "Falta ProviderKey - Wubook" & vbCrLf
+    userName = Nz(DameValorParam("WiredUser"), "")
+    If userName = "" Then strMSG = strMSG & "Falta UserName - Wubook" & vbCrLf
+    Password = Nz(DameValorParam("WiredPassword"), "")
+    If Password = "" Then strMSG = strMSG & "Falta Password - Wubook" & vbCrLf
+    lcode = Nz(DameValorParam("WiredHotelCode"), "")
+    If lcode = "" Then strMSG = strMSG & "Falta Código de establecimiento - Wubook" & vbCrLf
+    urlWebService = Nz(DameValorParam("WiredUrlWebServices"), "")
+    If urlWebService = "" Then strMSG = strMSG & "Falta URL del Web Service - Wubook" & vbCrLf
+    If strMSG <> "" Then
+        If intMsg Then
+            strMSG = RecDerTop(strMSG, 2, 0)
+            MsgBox strMSG, vbExclamation
+        End If
+        CargaCredenciales = False
+    Else
+        CargaCredenciales = True
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Sub Carga_wbPricingPlans(strRespuestaXML As String)
+    On Error GoTo Error_Carga_wbPricingPlans
+    Dim xDoc As DOMDocument, xRes As IXMLDOMNode, xN As IXMLDOMNode
+    Set xDoc = New MSXML2.DOMDocument
+    CurrentDb.Execute "DELETE * FROM wbPricingPlans", dbFailOnError
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strRespuestaXML) Then
+        Set xRes = xDoc.getElementsByTagName("data")(1)
+        For Each xN In xRes.ChildNodes
+            Add_wbPricingPlan xN
+        Next xN
+    End If
+      
+Salir_Carga_wbPricingPlans:
+    Exit Sub
+Error_Carga_wbPricingPlans:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_wbPricingPlans" & vbCrLf & Err.Description
+            Resume Salir_Carga_wbPricingPlans
+    End Select
+
+End Sub
+
+Public Sub Add_wbPricingPlan(xN As IXMLDOMNode)
+    On Error GoTo Error_Add_wbPricingPlan
+    Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
+    Dim rs As Recordset, strName As String, vValue As Variant
+    Set rs = CurrentDb.OpenRecordset("wbPricingPlans", dbOpenDynaset)
+    rs.AddNew
+    Set xStr = xN.ChildNodes(0)
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        vValue = DimeValue(xMem.ChildNodes(1))
+        If vValue = "" Then vValue = Null
+        If strName = "name" Then strName = "name_plan"
+        rs(strName) = vValue
+    Next xMem
+    rs.Update
+Salir_Add_wbPricingPlan:
+    Exit Sub
+Error_Add_wbPricingPlan:
+    Select Case Err
+        Case 3265
+            MsgBox "Error nº " & Err & " en Add_wbPricingPlan" & vbCrLf & Err.Description & vbCrLf & "NAME: " & strName & vbCrLf & "VALUE: " & vValue
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Add_wbPricingPlan" & vbCrLf & Err.Description
+            Resume Salir_Add_wbPricingPlan
+    End Select
+
+End Sub
+
+Public Sub Carga_wbRestrictionPlans(strRespuestaXML As String)
+    On Error GoTo Error_Carga_wbRestrictionPlans
+    Dim xDoc As DOMDocument, xRes As IXMLDOMNode, xN As IXMLDOMNode
+    Set xDoc = New MSXML2.DOMDocument
+    CurrentDb.Execute "DELETE * FROM wbRestrictionPlans", dbFailOnError
+    xDoc.validateOnParse = False
+    If xDoc.LoadXML(strRespuestaXML) Then
+        Set xRes = xDoc.getElementsByTagName("data")(1)
+        For Each xN In xRes.ChildNodes
+            Add_wbRestrictionPlan xN
+        Next xN
+    End If
+      
+Salir_Carga_wbRestrictionPlans:
+    Exit Sub
+Error_Carga_wbRestrictionPlans:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_wbRestrictionPlans" & vbCrLf & Err.Description
+            Resume Salir_Carga_wbRestrictionPlans
+    End Select
+
+End Sub
+
+Public Sub Add_wbRestrictionPlan(xN As IXMLDOMNode)
+    On Error GoTo Error_Add_wbRestrictionPlan
+    Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
+    Dim rs As Recordset, strName As String, vValue As Variant
+    Set rs = CurrentDb.OpenRecordset("wbRestrictionPlans", dbOpenDynaset)
+    rs.AddNew
+    Set xStr = xN.ChildNodes(0)
+    For Each xMem In xStr.ChildNodes
+        strName = DimeName(xMem.ChildNodes(0))
+        vValue = DimeValue(xMem.ChildNodes(1))
+        If vValue = "" Then vValue = Null
+        If strName = "name" Then strName = "name_rplan"
+        rs(strName) = vValue
+    Next xMem
+    rs.Update
+Salir_Add_wbRestrictionPlan:
+    Exit Sub
+Error_Add_wbRestrictionPlan:
+    Select Case Err
+        Case 3265
+            MsgBox "Error nº " & Err & " en Add_wbRestrictionPlan" & vbCrLf & Err.Description & vbCrLf & "NAME: " & strName & vbCrLf & "VALUE: " & vValue
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Add_wbRestrictionPlan" & vbCrLf & Err.Description
+            Resume Salir_Add_wbRestrictionPlan
+    End Select
+
+End Sub
+
+
+Public Function NewReservation(lngIdFichaCab As Long, Optional intMsg As Integer = True, Optional strRespuesta As String, _
+                                Optional intIgnoreRestr As Integer = False, _
+                                Optional intIgnoreAvail As Integer = False) As Long
+'Purpose    : Enviar la información de una Ficha de estancia en H4 como nueva reserva a Wubook
+'Author     : Lorenzo Eizmendi
+'Description:
+'Date       : 19mar.18
+    DoCmd.Hourglass True
+    On Error GoTo HandleError
+    Dim cF As cFichaCab
+    Set cF = New cFichaCab
+    If cF.FindFirst("IdFichaCab = " & lngIdFichaCab) = False Then
+        DoCmd.Hourglass False
+        MsgBox "No se encontró Ficha Nº " & lngIdFichaCab, vbExclamation
+        GoTo HandleExit
+    End If
+        
+    Dim strXMLRPC As String, strResponse As String
+    'new_reservation(token, lcode, dfrom, dto,
+    '                rooms, customer, amount[, origin= 'xml',
+    '                ccard= 0, ancillary= 0, guests= 0, ignore_restrs= 0, ignore_avail= 0])
+    Dim vParams(12), vRespuesta, param As Variant, vMarks As Variant
+    If token = "" Then
+        If Not Me.GetToken Then
+            MsgBox "No se consiguió conectar con Wubook. No se obtuvo Token", vbExclamation
+            Exit Function
+        End If
+    End If
+    
+    param = Array("string", token):                                 vParams(0) = param 'token
+    param = Array("int", lcode):                                    vParams(1) = param 'lcode
+    param = Array("string", Format(cF.FechaLlegada, "dd/mm/yyyy")): vParams(2) = param 'dfrom
+    param = Array("string", Format(cF.FechaSalida, "dd/mm/yyyy")):  vParams(3) = param 'dto
+    param = cF.WuBookRooms:                                         vParams(4) = param 'rooms
+    param = cF.WuBookCustomer:                                      vParams(5) = param 'customer
+    param = Array("double", ComaPunto(cF.WuBookAmount)):            vParams(6) = param 'amount
+    param = Array("string", "xml"):                                 vParams(7) = param 'origin
+    param = Array("int", 0):                                        vParams(8) = param 'ccard
+    param = Array("int", 0):                                        vParams(9) = param 'ancillary
+    param = Array("int", 0):                                        vParams(10) = param 'guests
+    param = Array("int", IIf(intIgnoreRestr, 1, 0)):                vParams(11) = param 'ignore_restrs
+    param = Array("int", IIf(intIgnoreAvail, 1, 0)):                vParams(12) = param 'ignore_avail
+    
+    
+    strXMLRPC = DimeXMLRPC("new_reservation", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "new_reservation", vRespuesta) Then
+        If intMsg Then MsgBox vRespuesta, vbInformation
+        NewReservation = vRespuesta
+        strRespuesta = vRespuesta
+    Else
+        If intMsg Then MsgBox "Error al enviar reserva:" & vbCrLf & vRespuesta, vbExclamation
+        strRespuesta = vRespuesta
+        NewReservation = 0
+    End If
+HandleExit:
+    DoCmd.Hourglass False
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Sub CreaValue(xDOM As DOMDocument, xN As IXMLDOMNode, strValorXML As String)
+    On Error GoTo HandleError
+    Dim xE As IXMLDOMNode, xE2 As IXMLDOMNode, xE3 As IXMLDOMNode, xT As IXMLDOMText
+    Set xE = xDOM.createElement("value")
+    xN.appendChild xE
+    Set xE2 = xDOM.createElement(DimeXML(strValorXML, "tipo"))
+    xE.appendChild xE2
+    Set xT = xDOM.createTextNode(DimeXML(strValorXML, "valor"))
+    xE2.appendChild xT
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+
+Public Function CancelReservation(lngIdFichaCab As Long, Optional intMsg As Integer = True, Optional strRespuesta As String, _
+                                Optional strReason As String = "-") As Long
+'Purpose    : Cancelar reserva en Wubook
+'Author     : Lorenzo Eizmendi
+'Description:
+'Date       : 10 may 18
+    DoCmd.Hourglass True
+    On Error GoTo HandleError
+    Dim cF As cFichaCab
+    Set cF = New cFichaCab
+    If cF.FindFirst("IdFichaCab = " & lngIdFichaCab) = False Then
+        DoCmd.Hourglass False
+        MsgBox "No se encontró Ficha Nº " & lngIdFichaCab, vbExclamation
+        GoTo HandleExit
+    End If
+        
+    Dim strXMLRPC As String, strResponse As String
+    ' cancel_reservation(token, lcode, rcode[, reason])
+    Dim vParams(3), vRespuesta, param As Variant, vMarks As Variant
+    If token = "" Then
+        If Not Me.GetToken Then
+            MsgBox "No se consiguió conectar con Wubook. No se obtuvo Token", vbExclamation
+            Exit Function
+        End If
+    End If
+    
+    param = Array("string", token):                                 vParams(0) = param 'token
+    param = Array("int", lcode):                                    vParams(1) = param 'lcode
+    param = Array("int", cF.WuBookID):                              vParams(2) = param 'reservation code
+    param = Array("string", strReason):                             vParams(3) = param 'reason
+    
+    strXMLRPC = DimeXMLRPC("cancel_reservation", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "cancel_reservation", vRespuesta) Then
+        If intMsg Then MsgBox vRespuesta, vbInformation
+        CancelReservation = True
+        strRespuesta = vRespuesta
+    Else
+        If intMsg Then MsgBox "Error al cancelar reserva:" & vbCrLf & vRespuesta, vbExclamation
+        CancelReservation = False
+    End If
+HandleExit:
+    DoCmd.Hourglass False
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function FetchBookingsCodes(dtFrom As Date, dtTo As Date, vReservationCodes As Variant) As Integer
+'fetch_bookings_codes(token, lcode, dfrom, dto[, oncreated= 1])
+    On Error GoTo Error_FetchBookingsCodes
+    Dim strXMLRPC As String, strResponse As String, i As Integer, strRcodes As String
+        
+    Dim vParams(3), vRespuesta As Variant, param As Variant ', param(1) As String
+    param = Array("string", token): vParams(0) = param
+    param = Array("int", lcode): vParams(1) = param
+    param = Array("string", Format(dtFrom, "dd/mm/yyyy")): vParams(2) = param 'dfrom
+    param = Array("string", Format(dtTo, "dd/mm/yyyy")): vParams(3) = param 'dto
+    'param = Array("int", 0): vParams(3) = param 'mark
+    strXMLRPC = DimeXMLRPC("fetch_bookings_codes", vParams, True)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "FetchBookingsCodes", vRespuesta) Then
+        'If intMSG Then MsgBox vRespuesta, vbInformation
+        For i = 0 To UBound(vRespuesta)
+            strRcodes = strRcodes & vRespuesta(i)(0)(1) & ";"
+        Next i
+        strRcodes = RecDerTop(strRcodes, 1, 0)
+        vReservationCodes = Split(strRcodes, ";")
+        FetchBookingsCodes = True
+    Else
+        'If intMSG Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        FetchBookingsCodes = False
+    End If
+Salir_FetchBookingsCodes:
+    Exit Function
+Error_FetchBookingsCodes:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FetchBookingsCodes" & vbCrLf & Err.Description
+            Resume Salir_FetchBookingsCodes
+    End Select
+
+End Function
+
+Public Function GetPricingPlans(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_GetPricingPlans
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(1), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    strXMLRPC = DimeXMLRPC("get_pricing_plans", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "GetPricingPlans", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        GetPricingPlans = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        GetPricingPlans = False
+    End If
+Salir_GetPricingPlans:
+    Exit Function
+Error_GetPricingPlans:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GetPricingPlans" & vbCrLf & Err.Description
+            Resume Salir_GetPricingPlans
+    End Select
+
+End Function
+
+Public Function GetRPlans(Optional intMsg As Integer = False, Optional ByRef strRespuesta As String) As Integer
+    On Error GoTo Error_GetRPlans
+    Dim strXMLRPC As String, strResponse As String
+    
+    Dim vParams(1), vRespuesta, param(1) As String
+    param(0) = "string": param(1) = token: vParams(0) = param
+    param(0) = "int": param(1) = lcode: vParams(1) = param
+    strXMLRPC = DimeXMLRPC("rplan_rplans", vParams)
+    strResponse = Post(strXMLRPC)
+    If ResponseIsOK(strResponse, "GetRPlans", vRespuesta, , strRespuesta) Then
+        If intMsg Then MsgBox strRespuesta, vbInformation
+        GetRPlans = True
+    Else
+        If intMsg Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation
+        GetRPlans = False
+    End If
+Salir_GetRPlans:
+    Exit Function
+Error_GetRPlans:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GetRPlans" & vbCrLf & Err.Description
+            Resume Salir_GetRPlans
+    End Select
+
+End Function
+
+Private Function CargawbRoomsPrecios(vResp As Variant, pid As Long, dtD As Date, dtH As Date) As Integer
+    On Error GoTo HandleError
+    Dim i As Integer, lngIdRoom As Long, vPrices As Variant
+    For i = 0 To UBound(vResp)
+        lngIdRoom = vResp(i)(0)
+        vPrices = vResp(i)(1)
+        If CargawbRoomPrecios(lngIdRoom, vPrices, pid, dtD, dtH) = False Then
+            MsgBox "Error al cargar IdRoom = " & lngIdRoom, vbExclamation
+        End If
+    Next i
+    CargawbRoomsPrecios = True
+    'MsgBox "Se cargaron valores en días de " & i & " tipos de habitaciones-parcelas", vbInformation
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function CargawbRoomPrecios(lngIdRoom As Long, vPrices As Variant, pid As Long, dtD As Date, dtH As Date) As Integer
+    On Error GoTo HandleError
+    Dim i As Integer, rsT As Recordset, rsP As Recordset, j As Integer, vPrecio As Variant, lngIdwbT As Long
+    Set rsT = CurrentDb.OpenRecordset("wbTabla", dbOpenDynaset)
+    Set rsP = CurrentDb.OpenRecordset("wbTabla_Precios", dbOpenDynaset)
+    If UBound(vPrices) <> dtH - dtD Then MsgBox "No se encontraron el nº de días esperados: " & dtH - dtD + 1 & "!=" & UBound(vPrices) + 1, vbExclamation
+    For i = 0 To UBound(vPrices)
+        vPrecio = vPrices(i)
+        rsT.FindFirst "IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtD) + i
+        If rsT.NoMatch Then
+            rsT.AddNew
+            rsT("IdRoom") = lngIdRoom
+            rsT("Fecha") = dtD + i
+        Else
+            rsT.Edit
+        End If
+        If pid = 0 Then
+            rsT("price") = vPrecio
+            rsT.Update
+        Else
+            lngIdwbT = rsT("wbTablaID")
+            rsT.Update
+        
+            rsP.FindFirst "wbTablaID = " & lngIdwbT & " AND IdPricingPlan = " & pid
+            If rsP.NoMatch Then
+                rsP.AddNew
+                rsP("wbTablaID") = lngIdwbT
+                rsP("IdPricingPlan") = pid
+            Else
+                rsP.Edit
+            End If
+            rsP("price") = vPrecio '(i)
+            rsP.Update
+        End If
+    Next i
+    CargawbRoomPrecios = True
+HandleExit:
+    Exit Function
+HandleError:
+    'MsgBox Err.Description
+    Select Case Err
+        Case 3265: Resume Next
+        Case Else:
+            MsgBox "Error nº " & Err & " en CargawbRoomsPrecios" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+
+Private Function UpdatePricesWb_old(pid As Long, dtDesde As Date, dtHasta As Date, Optional intDiarioTemporadas As Integer = 1, Optional intPregunta As Integer = True) As Integer
+    On Error GoTo HandleError
+    Dim intR As Integer, strParityPlan As String
+    If intPregunta Then
+        If pid = 0 Then
+            strParityPlan = "Precios Wubook"
+        Else
+            strParityPlan = Nz(DLookup("name_plan", "wbPricingPlans", "pid = " & pid), "?")
+        End If
+        intR = MsgBox("¿Actualizar Plan de Precios: " & UCase(strParityPlan) & " en Wubook entre las fechas: " & Format(dtDesde, "dd/mm/yyyy") & " al " & Format(dtHasta, "dd/mm/yyyy") & " según tabla de precios " & IIf(intDiarioTemporadas = 1, "diarios?", "y temporadas de H4?"), vbOKCancel + vbQuestion)
+    Else
+        intR = vbOK
+    End If
+    If intR = vbCancel Then GoTo HandleExit
+    Dim dt As Date, dtD As Date, dtH As Date, dt_h As Date
+    Dim vRoomsPrices() As Variant, i As Integer, j As Integer, curPre As Currency
+    Dim vrd(1) As Variant, vPrices() As Variant
+    Dim vValue(1) As Variant, vMember(1) As Variant, vStruct As Variant, vMembers() As Variant
+    Dim intDias As Integer
+    dtD = dtDesde
+    dtH = dtHasta
+    intDias = dtH - dtD
+    ReDim vPrices(intDias)
+    'ReDim vMembers(0)
+    Set rs = CurrentDb.OpenRecordset("wbRooms", dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        ReDim vMembers(rs.RecordCount - 1)
+    End If
+    While Not rs.EOF
+        dt_h = dtD - 1
+        For dt = dtD To dtH
+            If dt > dt_h Then curPre = DimePrecioIdRoom_PlanPrice(rs("Id"), pid, dt, dt_h)
+            If curPre < 0 Then curPre = 0
+            vValue(0) = "int"
+            vValue(1) = curPre
+            vPrices(dt - dtD) = vValue
+        Next dt
+        vValue(0) = "array"
+        vValue(1) = vPrices
+        'vValue = Array("array", vprices)
+        vMember(0) = rs("id")
+        vMember(1) = vValue
+        'vMembers(j) = vMember
+        vMembers(j) = vMember
+        rs.MoveNext
+        j = j + 1
+    Wend
+    
+    vRoomsPrices = vMembers
+    Dim strResp As String
+    
+    If Me.UpdatePlanPrices(pid, dtDesde, vRoomsPrices, True, strResp) = True Then
+        intR = vbYes 'MsgBox("¿Ver plan de precios en WuBook?", vbYesNo + vbQuestion)
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function UpdatePricesWb(vIdRooms As Variant, pid As Long, dtDesde As Date, dtHasta As Date, curPrice As Currency, Optional intMsg As Integer = True) As Integer
+    On Error GoTo HandleError
+    Dim intR As Integer, strParityPlan As String
+    Dim dt As Date, dtD As Date, dtH As Date, dt_h As Date
+    Dim vRoomsPrices() As Variant, i As Integer, j As Integer, curPre As Currency
+    Dim vrd(1) As Variant, vPrices() As Variant
+    Dim vValue(1) As Variant, vMember(1) As Variant, vStruct As Variant, vMembers() As Variant
+    Dim intDias As Integer
+    Dim lngIdRoom As Long
+    dtD = dtDesde
+    dtH = dtHasta
+    intDias = dtH - dtD
+    ReDim vPrices(intDias)
+    ReDim vMembers(UBound(vIdRooms))
+    For j = 0 To UBound(vIdRooms)
+        For dt = dtD To dtH
+            vValue(0) = "double"
+            vValue(1) = ComaPunto(CStr(curPrice)) 'curPre
+            vPrices(dt - dtD) = vValue
+        Next dt
+        vValue(0) = "array"
+        vValue(1) = vPrices
+        lngIdRoom = vIdRooms(j)
+        vMember(0) = lngIdRoom 'rs("id")
+        vMember(1) = vValue
+        vMembers(j) = vMember
+    Next j
+    
+    vRoomsPrices = vMembers
+    Dim strResp As String
+    
+    If Me.UpdatePlanPrices(pid, dtDesde, vRoomsPrices, intMsg, strResp) = True Then
+        UpdatePricesWb = True
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Private Function CargawbRoomsRestricciones(vResp As Variant, rpid As Long, dtD As Date, dtH As Date) As Integer
+    On Error GoTo HandleError
+    Dim i As Integer, lngIdRoom As Long, vRestricciones As Variant
+    If rpid = vResp(0)(0) Then
+        For i = 0 To UBound(vResp(0)(1))
+            lngIdRoom = vResp(0)(1)(i)(0)
+            vRestricciones = vResp(0)(1)(i)(1)
+            If CargawbRoomRestricciones(lngIdRoom, vRestricciones, rpid, dtD, dtH) = False Then
+                MsgBox "Error al cargar IdRoom = " & lngIdRoom, vbExclamation
+            End If
+        Next i
+    End If
+        
+    CargawbRoomsRestricciones = True
+    'MsgBox "Se cargaron valores en días de " & i & " tipos de habitaciones-parcelas", vbInformation
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Private Function CargawbRoomRestricciones(lngIdRoom As Long, vRestricciones As Variant, rpid As Long, dtD As Date, dtH As Date) As Integer
+    On Error GoTo HandleError
+    Dim i As Integer, rsT As Recordset, rsR As Recordset, j As Integer, vCampo As Variant, lngIdwbT As Long
+    Dim iCont As Integer, strCampo As String
+    Set rsT = CurrentDb.OpenRecordset("wbTabla", dbOpenDynaset)
+    Set rsR = CurrentDb.OpenRecordset("wbTabla_Restricciones", dbOpenDynaset)
+    If UBound(vRestricciones) <> dtH - dtD Then MsgBox "No se encontraron el nº de días esperados: " & dtH - dtD + 1 & "!=" & UBound(vRestricciones) + 1, vbExclamation
+    For i = 0 To UBound(vRestricciones)
+        rsT.FindFirst "IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtD) + i
+        If rsT.NoMatch Then
+            rsT.AddNew
+            rsT("IdRoom") = lngIdRoom
+            rsT("Fecha") = dtD + i
+        Else
+            rsT.Edit
+        End If
+        If rpid > 0 Then
+            lngIdwbT = rsT("wbTablaID")
+            rsT.Update
+        
+            rsR.FindFirst "wbTablaID = " & lngIdwbT & " AND IdRestrictionPlan = " & rpid
+            If rsR.NoMatch Then
+                rsR.AddNew
+                rsR("wbTablaID") = lngIdwbT
+                rsR("IdRestrictionPlan") = rpid
+            Else
+                rsR.Edit
+            End If
+        End If
+        iCont = 0
+        For j = 0 To UBound(vRestricciones(i))
+            strCampo = vRestricciones(i)(j)(0)
+            If strCampo = "min_stay" Or strCampo = "max_stay" Then
+                vCampo = vRestricciones(i)(j)(1)
+                If rpid = 0 Then
+                    rsT(strCampo) = vCampo
+                Else
+                    rsR(strCampo) = vCampo '(i)
+                End If
+                iCont = iCont + 1
+                If iCont >= 2 Then Exit For
+            End If
+        Next j
+        If rpid = 0 Then
+            rsT.Update
+        Else
+            rsR.Update
+        End If
+    Next i
+    CargawbRoomRestricciones = True
+HandleExit:
+    Exit Function
+HandleError:
+    'MsgBox Err.Description
+    Select Case Err
+        Case 3265: Resume Next
+        Case Else:
+            MsgBox "Error nº " & Err & " en CargawbRoomsRestricciones" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+Public Function UpdateRestrictionsWb(vIdRooms As Variant, prid As Long, dtDesde As Date, dtHasta As Date, Optional strCampo As String = "min_stay", Optional intNuevoValor As Integer = 0, Optional intMsg As Integer = True) As Integer
+    On Error GoTo HandleError
+    Dim intR As Integer, strParityPlan As String
+    Dim dt As Date, dtD As Date, dtH As Date, dt_h As Date
+    Dim i As Integer, j As Integer, curPre As Currency
+    Dim vrd(1) As Variant
+    Dim vValue(1) As Variant, vMember(1) As Variant, vMembers() As Variant, vStruct As Variant, vRoomMembers() As Variant, vRestrictionArray() As Variant
+    Dim intDias As Integer
+    dtD = dtDesde
+    dtH = dtHasta
+    intDias = dtH - dtD
+    ReDim vMembers(0)
+    ReDim vRestrictionArray(intDias)
+    ReDim vRoomMembers(UBound(vIdRooms))
+    For j = 0 To UBound(vIdRooms)
+        For dt = dtD To dtH
+            vValue(0) = "int"
+            vValue(1) = intNuevoValor
+            vMember(0) = strCampo
+            vMember(1) = vValue
+            'vMember(2)="closed"
+            'vMember(3)=0
+            vMembers(0) = vMember
+            vValue(0) = "struct"
+            vValue(1) = vMembers
+            vRestrictionArray(dt - dtD) = vValue
+            
+        Next dt
+        vValue(0) = "array"
+        vValue(1) = vRestrictionArray
+        vMember(0) = vIdRooms(j)
+        vMember(1) = vValue
+        vRoomMembers(j) = vMember
+    Next j
+    
+    Dim strResp As String
+    
+    If UpdatePlanRestrictions(prid, dtDesde, vRoomMembers, intMsg, strResp) = True Then
+        intR = vbYes 'MsgBox("¿Ver plan de precios en WuBook?", vbYesNo + vbQuestion)
+    End If
+    UpdateRestrictionsWb = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Private Sub Class_Terminate()
+    On Error Resume Next
+    If Me.OkToken Then Me.ReleaseToken
+End Sub

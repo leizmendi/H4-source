@@ -1,0 +1,779 @@
+Option Compare Database
+Option Explicit
+
+    Type DatosID
+        TipoDocumento As String
+        DNICliente As String
+        SexoCliente As String
+        FechaExpedicion As Date
+        NombreCliente As String
+        ApellidosCliente As String
+        DireccionCliente As String
+        LocalidadCliente As String
+        ProvinciaCliente As String
+        CPCliente As String
+        PaisCliente As String
+        FechaNacimiento As Date
+    End Type
+
+
+Public Function DimeCampoICAR(strResult As String, strNombreCampo As String, Optional intBuscarRepeticion As Integer = False) As Variant
+    On Error GoTo Error_DimeCampoICAR
+    Dim i As Integer, j As Integer
+    DimeCampoICAR = Null
+VerCampo:
+    i = InStr(strResult, "|" & strNombreCampo & ": ")
+    If i = 0 Then
+        If strNombreCampo = "ID_NUMBER" Then
+            strNombreCampo = "DOC_NUMBER"
+            GoTo VerCampo
+        End If
+        GoTo Salir_DimeCampoICAR
+    End If
+    i = i + 1 + Len(strNombreCampo) + 2
+    j = InStr(i, strResult, " # ")
+    If j = 0 Then j = InStr(i, strResult, vbCrLf)
+    If j = 0 Then GoTo Salir_DimeCampoICAR
+    If intBuscarRepeticion Then 'para buscar una 2ª aparicion del campo, por ej. SURNAME
+        Dim strR As String
+        strR = Mid(strResult, j + 1)
+        DimeCampoICAR = Trim(Mid(strResult, i, j - i) & " " & DimeCampoICAR(strR, strNombreCampo, False))
+    Else
+        DimeCampoICAR = Mid(strResult, i, j - i)
+    End If
+Salir_DimeCampoICAR:
+    Exit Function
+Error_DimeCampoICAR:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DimeCampoICAR" & vbCrLf & Err.Description
+            Resume Salir_DimeCampoICAR
+    End Select
+End Function
+
+Public Function DimePaisOACI(strClaveOACI As String) As String
+    On Error GoTo Error_DimePaisOACI
+    Dim strPais As String
+    DimePaisOACI = ""
+    strPais = Nz(DLookup("NombrePais", "valPaises", "ClaveOACI Like '" & strClaveOACI & "|*'"), "")
+    If strPais = "" Then strPais = Nz(DLookup("NombrePais", "valPaises", "ClaveOACI Like '*|" & strClaveOACI & "|*'"), "Otros Paises")
+
+    DimePaisOACI = strPais
+Salir_DimePaisOACI:
+    Exit Function
+Error_DimePaisOACI:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DimePaisOACI" & vbCrLf & Err.Description
+            Resume Salir_DimePaisOACI
+    End Select
+End Function
+
+
+Public Function QuitarFormatoNifClientes()
+    On Error GoTo Error_QuitarFormatoNifClientes
+    Dim rs As Recordset, z As Long, y As Long
+    Set rs = CurrentDb.OpenRecordset("tbClientes", dbOpenDynaset)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        rs.Edit
+        rs("NIF") = Replace(Nz(rs("NIF"), ""), ".", "")
+        rs("NIF") = Replace(Nz(rs("NIF"), ""), "-", "")
+        rs("NIF") = Replace(Nz(rs("NIF"), ""), " ", "")
+        If rs("NIF") = "" Then rs("NIF") = Null
+        rs.Update
+Siguiente:
+        y = y + 1
+        rs.MoveNext
+        SysCmd acSysCmdSetStatus, "Quitando formato a NIF " & y & "/" & z
+    Wend
+Salir_QuitarFormatoNifClientes:
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_QuitarFormatoNifClientes:
+    Select Case Err
+        Case 3022
+            Resume Siguiente
+        Case Else
+            MsgBox "Error nº " & Err & " en QuitarFormatoNifClientes" & vbCrLf & Err.Description
+            Resume Salir_QuitarFormatoNifClientes
+    End Select
+End Function
+
+Public Sub Lee_ICAR_txtOutPut_frmFichas(strResult As String)
+    On Error GoTo HandleError
+    Dim strDNICliente  As String
+    Dim edad As Integer
+    Dim i As Integer
+    Dim permanente As String
+    Dim frm As Form
+    Set frm = Forms("frmFichas")
+    'strResult = Nz(Forms("frmICAR")("txtOutput"), "")
+    If strResult = "" Then Exit Sub
+    'MsgBox strResult
+    strResult = "|" & Replace(strResult, vbCrLf, "# |")
+    'MsgBox strResult
+    'DoCmd.Close acForm, "frmICAR"
+    Dim intR As Integer
+    'frm.txtOutput = ""
+    If Len(frm.DNICliente) > 1 Then
+        intR = MsgBox("¿Añadir los datos existentes del cliente? Pulsando NO se sustituyen los datos", vbQuestion + vbYesNoCancel + vbDefaultButton1)
+        If intR = vbCancel Then Exit Sub
+        If intR = vbNo Then
+            Dim ctl As Control
+            For Each ctl In frm.Controls
+                If InStr(ctl.Tag, "scan") > 0 Then
+                    ctl.value = Null
+                End If
+            Next ctl
+        End If
+    Else
+        intR = vbYes
+    End If
+    Select Case Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")
+        Case "ESP"
+            Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+                Case "IDENTITY"
+                    frm.TipoDocumento = "D"
+                Case "PASSPORT"
+                    frm.TipoDocumento = "P"
+                Case "DRIVER_LICENSE"
+                    frm.TipoDocumento = "C"
+                Case "RESIDENT_CARD"
+                    frm.TipoDocumento = "N"
+                Case Else
+                    frm.TipoDocumento = "P"
+            End Select
+        Case Else
+            Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+                Case "IDENTITY"
+                    frm.TipoDocumento = "I"
+                Case "PASSPORT"
+                    frm.TipoDocumento = "P"
+                Case "DRIVER_LICENSE"
+                    frm.TipoDocumento = "I"
+                Case "RESIDENT_CARD"
+                    frm.TipoDocumento = "X"
+                Case Else
+                    frm.TipoDocumento = "I"
+            End Select
+    End Select
+    If intR = vbNo Then
+        frm.DNICliente = Nz(DimeCampoICAR(strResult, "ID_NUMBER"), "-")
+        frm.SexoCliente = Nz(DimeCampoICAR(strResult, "SEX"), frm.SexoCliente)
+        frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+        frm.NombreCliente = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+        frm.ApellidosCliente = Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+        frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), "")
+        If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            frm.ProvinciaCliente = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
+            frm.CPCliente = Nz(DimeCampoICAR(strResult, "ZIP"), "")
+            If frm.FechaExpedicion = "01/01/2001" Then
+                On Error Resume Next
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                permanente = Nz(DimeCampoICAR(strResult, "EXPIRY"))
+                If permanente = "PERMANENT" Then
+                    frm.FechaExpedicion = "01/01/1999"
+                End If
+                If frm.FechaExpedicion = "01/01/1999" Then
+                    frm.FechaExpedicion = Nz(MyInputBox("Introducir Fecha de expedición", "Fecha de expedición: ", frm.FechaExpedicion), frm.FechaExpedicion)
+                Else
+                    frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                End If
+                On Error GoTo HandleError
+            End If
+        Else
+            frm.LocalidadCliente = Trim(DimeCampoICAR(strResult, "CITY_ADDRESS") & " " & DimeCampoICAR(strResult, "STATE_ADDRESS") & " " & DimeCampoICAR(strResult, "ZIP"))
+            frm.ProvinciaCliente = Null
+            frm.CPCliente = Null
+        End If
+        If frm.DNICliente = "-" Then
+            frm.DNICliente = Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), "-")
+        End If
+        frm.PaisCliente = DimePaisOACI(Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-"))
+        'Call PonIdi
+        frm.FechaNacimiento = (DimeCampoICAR(strResult, "BIRTHDATE"))
+    Else
+        If frm.TipoDocumento = "P" Then
+            frm.DNICliente = IIf(Nz(frm.DNICliente, "") = "" Or Nz(frm.DNICliente, "") = "-", Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), "-"), frm.DNICliente)
+        Else
+            frm.DNICliente = IIf(Nz(frm.DNICliente, "") = "" Or Nz(frm.DNICliente, "") = "-", Nz(DimeCampoICAR(strResult, "ID_NUMBER"), "-"), frm.DNICliente)
+        End If
+        'Call Comprobar_Datos
+        frm.SexoCliente = Nz(DimeCampoICAR(strResult, "SEX"), frm.SexoCliente)
+        If Nz(frm.FechaExpedicion, "") = "" Then
+            frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+        Else
+            If Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE")) <> "" And frm.FechaExpedicion <> Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE")) Then
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+            End If
+        End If
+        If Nz(DimeCampoICAR(strResult, "NAME"), "") = "" Then
+        Else
+            If Nz(frm.NombreCliente, "") = "" Or frm.NombreCliente <> Nz(DimeCampoICAR(strResult, "NAME"), "") Then
+                frm.NombreCliente = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+            Else
+                If Nz(DimeCampoICAR(strResult, "NAME")) <> "" And frm.NombreCliente <> Nz(DimeCampoICAR(strResult, "NAME")) Then
+                    frm.NombreCliente = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+                End If
+            End If
+        End If
+        If Nz(DimeCampoICAR(strResult, "SURNAME"), "") = "" Then
+        Else
+            If Nz(frm.ApellidosCliente, "") = "" Or frm.ApellidosCliente <> Nz(DimeCampoICAR(strResult, "SURNAME"), "") Then
+                frm.ApellidosCliente = Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+            Else
+                If Nz(DimeCampoICAR(strResult, "SURNAME")) <> "" And frm.ApellidosCliente <> Nz(DimeCampoICAR(strResult, "SURNAME")) Then
+                    frm.ApellidosCliente = Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+                End If
+            End If
+        End If
+        If Nz(frm.DireccionCliente, "") = "" Then
+            frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), "")
+            If Nz(frm.DireccionCliente, "") = "" Then
+            frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "ADDRESS"), "")
+            End If
+        Else
+            If Nz(DimeCampoICAR(strResult, "STREET_ADDRESS")) <> "" And frm.DireccionCliente <> Nz(DimeCampoICAR(strResult, "STREET_ADDRESS")) Then
+                frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), "")
+            End If
+        End If
+        frm.CPCliente = Nz(DimeCampoICAR(strResult, "ZIP"), "")
+        If Nz(frm.FechaNacimiento, "") = "" Then
+            frm.FechaNacimiento = Nz(DimeCampoICAR(strResult, "BIRTHDATE"), "")
+        Else
+            If Nz(DimeCampoICAR(strResult, "BIRTHDATE")) <> "" And frm.FechaNacimiento <> Nz(DimeCampoICAR(strResult, "BIRTHDATE")) Then
+                frm.FechaNacimiento = Nz(DimeCampoICAR(strResult, "BIRTHDATE"), "")
+            End If
+        End If
+        i = 0
+            While frm.FechaNacimiento > Date And i < 5
+                frm.FechaNacimiento = DateAdd("yyyy", -100, frm.FechaNacimiento)
+                i = i + 1
+            Wend
+        
+        If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+            If Nz(frm.LocalidadCliente, "") = "" Then
+                frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+                If Nz(frm.LocalidadCliente, "") = "" Then
+                    frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+                End If
+            Else
+                If Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) <> "" And frm.LocalidadCliente <> Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) Then
+                    frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+                End If
+            End If
+            Dim sPro1 As String, sPro2 As String
+            sPro1 = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
+
+            'If True Then 'sPro1 <> "" And frm.DireccionCliente <> sPro1 Then
+            sPro2 = Trim(Nz(DimeCampoICAR(strResult, "STATE_ADDRESS", True), ""))
+            If Len(sPro1) <= Len(sPro2) Then
+                frm.ProvinciaCliente = sPro1
+            Else
+                frm.ProvinciaCliente = Trim(Mid(sPro2, Len(sPro1) + 1))
+                frm.LocalidadCliente = frm.LocalidadCliente & " " & sPro1
+            End If
+            'End If
+            frm.CPCliente = IIf(Nz(frm.CPCliente, "") = "", Nz(DimeCampoICAR(strResult, "ZIP"), ""), frm.CPCliente)
+            permanente = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+            If permanente = "PERMANENT" Then
+                frm.FechaExpedicion = Nz(MyInputBox("Introducir Fecha de expedición", "Fecha de expedición: ", frm.FechaExpedicion, "00/00/0000;0;_"), frm.FechaExpedicion)
+            Else
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                edad = DateDiff("yyyy", frm.FechaNacimiento, frm.FechaExpedicion) - 5
+                'IIf ((DateDiff("yyyy", frm.FechaNacimiento, frm.FechaExpedicion) - 5) < 30), frm.FechaExpedicion = (DateAdd("yyyy", -5, frm.FechaExpedicion)), frm.FechaExpedicion = (DateAdd("yyyy", -10, frm.FechaExpedicion))
+                    If edad < 30 Then
+                        frm.FechaExpedicion = DateAdd("yyyy", -5, frm.FechaExpedicion)
+                    Else
+                        frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                    End If
+            End If
+            i = 0
+            While frm.FechaExpedicion > Date And i < 5
+                frm.FechaExpedicion = DateAdd("yyyy", -5, frm.FechaExpedicion)
+                i = i + 1
+            Wend
+                
+        If Nz(frm.LocalidadCliente, "") = "" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+        Else
+            If Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) <> "" And frm.LocalidadCliente <> Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) Then
+                frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            End If
+        End If
+'            If Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) <> "" And (Nz(frm.LocalidadCliente, "") Or frm.LocalidadCliente <> Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"))) Then
+ '               frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+  '          End If
+            'frm.ProvinciaCliente = Null
+            'frm.CPCliente = Null
+        End If
+        If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") <> "ESP" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+        End If
+        frm.PaisCliente = IIf(Nz(frm.PaisCliente, "") = "", DimePaisOACI(Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")), frm.PaisCliente)
+        'Call PonIdi
+    End If
+    
+            If frm.FechaExpedicion = "01/01/2001" Then
+            If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "D" Then
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                frm.FechaExpedicion = DateAdd("d", 1, frm.FechaExpedicion)
+            Else
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+            End If
+                
+        End If
+    
+    If Nz(DameValorParam("ICAR_GuardarImagenSN"), True) = True Then
+        Dim strDefaultPath As String
+        strDefaultPath = DirectorioDe(CurrentDb.Name) & Nz(DameValorParam("ICAR_CarpetaImagenes"), "icar\")
+        FileCopy strDefaultPath & Nz(DameValorParam("ICAR_RESULT_DOCIMAGEPATH"), "docTmp.jpg"), strDefaultPath & "F" & frm.IdFichaCab & "_doc.jpg"
+    End If
+    
+    If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") <> "ESP" Then
+    Select Case Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")
+        Case "FRA"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Francés'"), 4)
+        Case "CHE"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Francés'"), 4)
+        Case "BEL"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Francés'"), 4)
+        Case "GBR"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Inglés'"), 4)
+        Case "NLD"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Holandes'"), 4)
+        Case "D"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Alemán'"), 4)
+        Case "DEU"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Alemán'"), 4)
+        Case "ITA"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Italiano'"), 4)
+        Case "KOR"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Coreano'"), 4)
+        Case "CHN"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Chino'"), 4)
+        Case "JPN"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Japonés'"), 4)
+        Case "PRT"
+        frm.IdIdioma = Nz(DLookup("IdIdioma", "tbIdiomas", "Idioma= 'Portugués'"), 4)
+        Case Else
+        frm.IdIdioma = 4
+    End Select
+        TraducirFicha frm.IdFichaCab, frm.IdIdioma
+    End If
+        frm.lstDetalle.Requery
+        frm.Form.Requery
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Public Sub Lee_ICAR_txtOutPut_frmOnddoak(strResult As String)
+    On Error GoTo HandleError
+    Dim strDNICliente  As String
+    Dim edad As Integer
+    Dim i As Integer
+    Dim permanente As String
+    Dim strNombreCompleto As String
+    Dim frm As Form
+    Set frm = Forms("frmOnddoak")
+    'strResult = Nz(Forms("frmICAR")("txtOutput"), "")
+    If strResult = "" Then Exit Sub
+    'MsgBox strResult
+    strResult = "|" & Replace(strResult, vbCrLf, "# |")
+    'MsgBox strResult
+    'DoCmd.Close acForm, "frmICAR"
+    Dim intR As Integer
+    'frm.txtOutput = ""
+    
+        frm.DNI = Nz(DimeCampoICAR(strResult, "ID_NUMBER"), "-")
+        strNombreCompleto = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+        strNombreCompleto = strNombreCompleto + " " + Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+        frm.Titular = strNombreCompleto
+        frm.Localidad = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+        frm.Provincia = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Public Sub Lee_ICAR_txtOutPut_frmPartesPolicia(strResult As String)
+    On Error GoTo HandleError
+    Dim i As Integer
+    Dim strDNICliente  As String
+    Dim edad As Integer
+    Dim permanente As String
+    Dim frm As Form
+    Set frm = Forms("frmPartesPolicia")
+    strResult = Nz(Forms("frmICAR")("txtOutput"), "")
+    If strResult = "" Then Exit Sub
+    'MsgBox strResult
+    strResult = "|" & Replace(strResult, vbCrLf, "# |")
+    'MsgBox strResult
+    'DoCmd.Close acForm, "frmICAR"
+    Dim intR As Integer
+    'frm.txtOutput = ""
+    Select Case Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")
+        Case "ESP"
+            If (DimeCampoICAR(strResult, "TYPE")) = "IDENTITY" Then
+                frm.DocIdEspaña = Nz(DimeCampoICAR(strResult, "ID_NUMBER"), frm.DocIdEspaña)
+                frm.DocIdExtranjeros = Null
+            Else
+                frm.DocIdEspaña = Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), frm.DocIdEspaña)
+                frm.DocIdExtranjeros = Null
+            End If
+        Case Else
+            frm.DocIdEspaña = Null
+            frm.DocIdExtranjeros = Nz(DimeCampoICAR(strResult, "ID_NUMBER"), frm.DocIdExtranjeros)
+    End Select
+    Select Case Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")
+        Case "ESP"
+            Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+                Case "IDENTITY"
+                    frm.TipoDocId = "D"
+                Case "PASSPORT"
+                    frm.TipoDocId = "P"
+                    frm.DocIdExtranjeros = Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), frm.DocIdExtranjeros)
+                Case "DRIVER_LICENSE"
+                    frm.TipoDocId = "C"
+                Case "RESIDENT_CARD"
+                    frm.TipoDocId = "N"
+                    'en caso de tarjeta de extranjeros, se debe pasar como documentación extranjera
+                    'para que no de error en la trasmisión por internet
+                    frm.DocIdEspaña = Null
+                    frm.DocIdExtranjeros = Nz(DimeCampoICAR(strResult, "ID_NUMBER"), "-")
+                Case Else
+                    frm.TipoDocId = "P"
+            End Select
+        Case Else
+            Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+                Case "IDENTITY"
+                    frm.TipoDocId = "I"
+                Case "PASSPORT"
+                    frm.TipoDocId = "P"
+                      frm.DocIdExtranjeros = Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), frm.DocIdExtranjeros)
+                Case "DRIVER_LICENSE"
+                    frm.TipoDocId = "I"
+                Case "RESIDENT_CARD"
+                    frm.TipoDocId = "X"
+                Case Else
+                    frm.TipoDocId = "I"
+            End Select
+    End Select
+            
+    frm.Sexo = Nz(DimeCampoICAR(strResult, "SEX"), frm.Sexo)
+    frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+EsFecha:
+    If IsDate(frm.FechaExpedicion) Then
+        If CDate(frm.FechaExpedicion) > Date Then
+            frm.FechaExpedicion = DateAdd("yyyy", -5, CDate(frm.FechaExpedicion))
+            GoTo EsFecha
+        End If
+    End If
+    
+    frm.Nombre = Replace(Replace(RecDerTop(Nz(DimeCampoICAR(strResult, "NAME"), frm.Nombre), 0, 30), ",", ""), "-", " ")
+    frm.Apellido1 = Nz(DimeCampoICAR(strResult, "SURNAME", True), frm.Apellido1)
+    frm.Apellido2 = ""
+    If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+    For i = Len(frm.Apellido1) To 1 Step -1
+        If Mid(frm.Apellido1, i, 1) = " " Then
+            frm.Apellido2 = RecDerTop(Trim(Mid(frm.Apellido1, i)), 0, 30)
+            frm.Apellido1 = RecDerTop(Trim(Mid(frm.Apellido1, 1, i)), 0, 30)
+            Exit For
+        End If
+    Next i
+    End If
+    frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), frm.DireccionCliente)
+    If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+        frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), frm.LocalidadCliente)
+        'nuevos DNIs---------------------------------------------
+        Dim sPro1 As String, sPro2 As String
+        sPro1 = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
+        sPro2 = Trim(Nz(DimeCampoICAR(strResult, "STATE_ADDRESS", True), ""))
+        If Len(sPro1) <= Len(sPro2) Then
+            frm.ProvinciaCliente = sPro1
+        Else
+            frm.ProvinciaCliente = Trim(Mid(sPro2, Len(sPro1) + 1))
+            frm.LocalidadCliente = frm.LocalidadCliente & " " & sPro1
+        End If
+        'FIN nuevos DNIs-----------------------------------------
+        
+        frm.ProvinciaCliente = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), frm.ProvinciaCliente)
+        frm.CPCliente = Nz(DimeCampoICAR(strResult, "ZIP"), frm.CPCliente)
+    Else
+        frm.LocalidadCliente = IIf(Trim(DimeCampoICAR(strResult, "CITY_ADDRESS") & " " & DimeCampoICAR(strResult, "STATE_ADDRESS") & " " & DimeCampoICAR(strResult, "ZIP")) = "", Null, Trim(DimeCampoICAR(strResult, "CITY_ADDRESS") & " " & DimeCampoICAR(strResult, "STATE_ADDRESS") & " " & DimeCampoICAR(strResult, "ZIP")))
+        frm.ProvinciaCliente = Null
+        frm.CPCliente = Null
+    End If
+    If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+        permanente = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+            If permanente = "PERMANENT" Then
+                frm.FechaExpedicion = Nz(MyInputBox("Introducir Fecha de expedición", "Fecha de expedición: ", frm.FechaExpedicion, "00/00/0000;0;_"), frm.FechaExpedicion)
+                
+            Else
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                edad = DateDiff("yyyy", Nz(DimeCampoICAR(strResult, "BIRTHDATE"), "-"), frm.FechaExpedicion) - 5
+                'IIf ((DateDiff("yyyy", frm.FechaNacimiento, frm.FechaExpedicion) - 5) < 30), frm.FechaExpedicion = (DateAdd("yyyy", -5, frm.FechaExpedicion)), frm.FechaExpedicion = (DateAdd("yyyy", -10, frm.FechaExpedicion))
+                    If edad < 30 Then
+                        frm.FechaExpedicion = DateAdd("yyyy", -5, frm.FechaExpedicion)
+                    Else
+                        frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                    End If
+            End If
+            i = 0
+            While frm.FechaExpedicion > Date And i < 5
+                frm.FechaExpedicion = DateAdd("yyyy", -5, frm.FechaExpedicion)
+                i = i + 1
+            Wend
+    Else
+        If frm.FechaExpedicion = "01/01/2001" Then
+            If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "D" Then
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                frm.FechaExpedicion = DateAdd("d", 1, frm.FechaExpedicion)
+            Else
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+            End If
+                
+        End If
+    End If
+    Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+        Case "RESIDENT_CARD"
+            frm.Pais = DimePaisOACI(Nz(DimeCampoICAR(strResult, "NATIONALITY"), frm.Pais))
+        Case Else
+            frm.Pais = DimePaisOACI(Nz(DimeCampoICAR(strResult, "EXPEDITOR"), frm.Pais))
+    End Select
+        
+    Dim strDDMMAAAA  As String
+    strDDMMAAAA = Nz(DimeCampoICAR(strResult, "BIRTHDATE"), "-")
+    If IsDate(strDDMMAAAA) Then
+        frm.FechaNacimientoDD = Format(CDate(strDDMMAAAA), "DD")
+        frm.FechaNacimientoMM = Format(CDate(strDDMMAAAA), "MM")
+        frm.FechaNacimientoAAAA = Format(CDate(strDDMMAAAA), "YYYY")
+        If CInt(frm.FechaNacimientoAAAA) > Year(Date) Then frm.FechaNacimientoAAAA = frm.FechaNacimientoAAAA - 100
+    Else
+        'frm.FechaNacimientoDD = Null
+        'frm.FechaNacimientoMM = Null
+        'frm.FechaNacimientoAAAA = Null
+    End If
+    If Nz(DameValorParam("ICAR_GuardarImagenSN"), True) = True Then
+        Dim strDefaultPath As String
+        strDefaultPath = DirectorioDe(CurrentDb.Name) & Nz(DameValorParam("ICAR_CarpetaImagenes"), "icar\")
+        FileCopy strDefaultPath & Nz(DameValorParam("ICAR_RESULT_DOCIMAGEPATH"), "docTmp.jpg"), strDefaultPath & "P" & frm.IdPartePolicia & "_doc.jpg"
+    End If
+        
+HandleExit:
+        Exit Sub
+HandleError:
+        MsgBox Err.Description
+        Resume HandleExit
+End Sub
+Public Function Lee_ICAR_txt_File(strFile As String) As String
+    Dim strDNICliente  As String
+    Dim edad As Integer
+    Dim strResult As String
+    strResult = LeerFicheroTexto(strFile)
+    If strResult = "" Then Exit Function
+    'MsgBox strResult
+    strResult = "|" & Replace(strResult, vbCrLf, "# |")
+    'MsgBox strResult
+    'DoCmd.Close acForm, "frmICAR"
+    Dim intR As Integer
+    Dim frm As DatosID
+    'frm.txtOutput = ""
+    Select Case Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")
+        Case "ESP"
+            Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+                Case "IDENTITY"
+                    frm.TipoDocumento = "D"
+                Case "PASSPORT"
+                    frm.TipoDocumento = "P"
+                Case "DRIVER_LICENSE"
+                    frm.TipoDocumento = "C"
+                Case "RESIDENT_CARD"
+                    frm.TipoDocumento = "N"
+                Case Else
+                    frm.TipoDocumento = "P"
+            End Select
+        Case Else
+            Select Case Nz(DimeCampoICAR(strResult, "TYPE"), "-")
+                Case "IDENTITY"
+                    frm.TipoDocumento = "I"
+                Case "PASSPORT"
+                    frm.TipoDocumento = "P"
+                Case "DRIVER_LICENSE"
+                    frm.TipoDocumento = "I"
+                Case "RESIDENT_CARD"
+                    frm.TipoDocumento = "X"
+                Case Else
+                    frm.TipoDocumento = "I"
+            End Select
+    End Select
+    If intR = vbNo Then
+        frm.DNICliente = Nz(DimeCampoICAR(strResult, "ID_NUMBER"), "-")
+        frm.SexoCliente = Nz(DimeCampoICAR(strResult, "SEX"), frm.SexoCliente)
+        frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+        frm.NombreCliente = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+        frm.ApellidosCliente = Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+        frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), "")
+        If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            frm.ProvinciaCliente = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
+            frm.CPCliente = Nz(DimeCampoICAR(strResult, "ZIP"), "")
+            If frm.FechaExpedicion = "01/01/2001" Then
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+            End If
+        Else
+            frm.LocalidadCliente = Trim(DimeCampoICAR(strResult, "CITY_ADDRESS") & " " & DimeCampoICAR(strResult, "STATE_ADDRESS") & " " & DimeCampoICAR(strResult, "ZIP"))
+            frm.ProvinciaCliente = Null
+            frm.CPCliente = Null
+        End If
+        If frm.DNICliente = "-" Then
+            frm.DNICliente = Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), "-")
+        End If
+        frm.PaisCliente = DimePaisOACI(Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-"))
+        'Call PonIdi
+        frm.FechaNacimiento = (DimeCampoICAR(strResult, "BIRTHDATE"))
+    Else
+        If frm.TipoDocumento = "P" Then
+            frm.DNICliente = IIf(Nz(frm.DNICliente, "") = "" Or Nz(frm.DNICliente, "") = "-", Nz(DimeCampoICAR(strResult, "DOC_NUMBER"), "-"), frm.DNICliente)
+        Else
+            frm.DNICliente = IIf(Nz(frm.DNICliente, "") = "" Or Nz(frm.DNICliente, "") = "-", Nz(DimeCampoICAR(strResult, "ID_NUMBER"), "-"), frm.DNICliente)
+        End If
+        'Call Comprobar_Datos
+        frm.SexoCliente = Nz(DimeCampoICAR(strResult, "SEX"), frm.SexoCliente)
+        If Nz(frm.FechaExpedicion, "") = "" Then
+            frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+        Else
+            If Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE")) <> "" And frm.FechaExpedicion <> Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE")) Then
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPEDITION_DATE"), "01/01/2001")
+            End If
+        End If
+        If Nz(DimeCampoICAR(strResult, "NAME"), "") = "" Then
+        Else
+            If Nz(frm.NombreCliente, "") = "" Or frm.NombreCliente <> Nz(DimeCampoICAR(strResult, "NAME"), "") Then
+                frm.NombreCliente = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+            Else
+                If Nz(DimeCampoICAR(strResult, "NAME")) <> "" And frm.NombreCliente <> Nz(DimeCampoICAR(strResult, "NAME")) Then
+                    frm.NombreCliente = Replace(Replace(Nz(DimeCampoICAR(strResult, "NAME"), ""), ",", ""), "-", " ")
+                End If
+            End If
+        End If
+        If Nz(DimeCampoICAR(strResult, "SURNAME"), "") = "" Then
+        Else
+            If Nz(frm.ApellidosCliente, "") = "" Or frm.ApellidosCliente <> Nz(DimeCampoICAR(strResult, "SURNAME"), "") Then
+                frm.ApellidosCliente = Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+            Else
+                If Nz(DimeCampoICAR(strResult, "SURNAME")) <> "" And frm.ApellidosCliente <> Nz(DimeCampoICAR(strResult, "SURNAME")) Then
+                    frm.ApellidosCliente = Nz(DimeCampoICAR(strResult, "SURNAME", True), "")
+                End If
+            End If
+        End If
+        If Nz(frm.DireccionCliente, "") = "" Then
+            frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), "")
+            If Nz(frm.DireccionCliente, "") = "" Then
+            frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "ADDRESS"), "")
+            End If
+        Else
+            If Nz(DimeCampoICAR(strResult, "STREET_ADDRESS")) <> "" And frm.DireccionCliente <> Nz(DimeCampoICAR(strResult, "STREET_ADDRESS")) Then
+                frm.DireccionCliente = Nz(DimeCampoICAR(strResult, "STREET_ADDRESS"), "")
+            End If
+        End If
+        frm.CPCliente = Nz(DimeCampoICAR(strResult, "ZIP"), "")
+        If Nz(frm.FechaNacimiento, "") = "" Then
+            frm.FechaNacimiento = Nz(DimeCampoICAR(strResult, "BIRTHDATE"), "")
+        Else
+            If Nz(DimeCampoICAR(strResult, "BIRTHDATE")) <> "" And frm.FechaNacimiento <> Nz(DimeCampoICAR(strResult, "BIRTHDATE")) Then
+                frm.FechaNacimiento = Nz(DimeCampoICAR(strResult, "BIRTHDATE"), "")
+            End If
+        End If
+        
+        
+        If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
+        If Nz(frm.LocalidadCliente, "") = "" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            If Nz(frm.LocalidadCliente, "") = "" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            End If
+        Else
+            If Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) <> "" And frm.LocalidadCliente <> Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) Then
+                frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            End If
+        End If
+
+            If Nz(DimeCampoICAR(strResult, "STATE_ADDRESS")) <> "" And frm.DireccionCliente <> Nz(DimeCampoICAR(strResult, "STATE_ADDRESS")) Then
+                frm.ProvinciaCliente = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
+            End If
+            frm.CPCliente = IIf(Nz(frm.CPCliente, "") = "", Nz(DimeCampoICAR(strResult, "ZIP"), ""), frm.CPCliente)
+            If frm.FechaExpedicion = "01/01/2001" Then
+                frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                edad = DateDiff("yyyy", frm.FechaNacimiento, frm.FechaExpedicion) - 5
+                'IIf ((DateDiff("yyyy", frm.FechaNacimiento, frm.FechaExpedicion) - 5) < 30), frm.FechaExpedicion = (DateAdd("yyyy", -5, frm.FechaExpedicion)), frm.FechaExpedicion = (DateAdd("yyyy", -10, frm.FechaExpedicion))
+                If edad < 30 Then
+                    frm.FechaExpedicion = DateAdd("yyyy", -5, frm.FechaExpedicion)
+                Else
+                    frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                End If
+            End If
+        Else
+        If Nz(frm.LocalidadCliente, "") = "" Then
+            frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+        Else
+            If Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) <> "" And frm.LocalidadCliente <> Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) Then
+                frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+            End If
+        End If
+'            If Nz(DimeCampoICAR(strResult, "CITY_ADDRESS")) <> "" And (Nz(frm.LocalidadCliente, "") Or frm.LocalidadCliente <> Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"))) Then
+ '               frm.LocalidadCliente = Nz(DimeCampoICAR(strResult, "CITY_ADDRESS"), "")
+  '          End If
+            'frm.ProvinciaCliente = Null
+            'frm.CPCliente = Null
+            If frm.FechaExpedicion = "01/01/2001" Then
+                If Nz(DimeCampoICAR(strResult, "EXPIRY")) = "" Then
+                Else
+                    If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "D" Or Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "FRA" Then
+                        frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                        frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                        frm.FechaExpedicion = DateAdd("d", 1, frm.FechaExpedicion)
+                    Else
+                        frm.FechaExpedicion = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
+                        frm.FechaExpedicion = DateAdd("yyyy", -10, frm.FechaExpedicion)
+                    End If
+                End If
+            End If
+        End If
+                        
+        frm.PaisCliente = IIf(Nz(frm.PaisCliente, "") = "", DimePaisOACI(Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-")), frm.PaisCliente)
+        'Call PonIdi
+    End If
+    
+    With frm
+        Debug.Print "TipoDocumento: " & .TipoDocumento
+        Debug.Print "DNICliente: " & .DNICliente
+        Debug.Print "SexoCliente: " & .SexoCliente
+        Debug.Print "FechaExpedicion: " & .FechaExpedicion
+        Debug.Print "NombreCliente: " & .NombreCliente
+        Debug.Print "ApellidosCliente: " & .ApellidosCliente
+        Debug.Print "DireccionCliente: " & .DireccionCliente
+        Debug.Print "LocalidadCliente: " & .LocalidadCliente
+        Debug.Print "ProvinciaCliente: " & .ProvinciaCliente
+        Debug.Print "CPCliente: " & .CPCliente
+        Debug.Print "PaisCliente: " & .PaisCliente
+        Debug.Print "FechaNacimiento: " & .FechaNacimiento
+    End With
+        
+End Function

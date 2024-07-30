@@ -1,0 +1,68 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ConComillas(strCad As String, Optional intSimples As Integer = False) As String
+' Devuelve la misma cadena delimitada con comillas--> de Lorenzo---> "Lorenzo"
+    On Error GoTo Error_ConComillas
+    Dim strComilla As String
+    If intSimples = False Then
+        strComilla = Chr(34)
+    Else
+        strComilla = "'"
+    End If
+    ConComillas = strComilla & strCad & strComilla
+Salir_ConComillas:
+    Exit Function
+Error_ConComillas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ConComillas" & vbCrLf & Err.Description
+            Resume Salir_ConComillas
+    End Select
+
+End Function
+Function ConAcentos(strX As Variant) As Variant
+Const VOCALES = "AÁÀÂÄaEÉÈÊËeIÍÌÎÏiOÓÒÔÖ0UÚÙÛÜu"
+Const z = 6 'posibilidades
+'las minúsculas no son más que para que cada letra tenga adjudicados seis lugares, para facilitar el cálclo posterior
+    If IsNull(strX) Then
+        ConAcentos = strX
+        Exit Function
+    End If
+    Dim i As Integer, intEsVocal As Integer, j As Integer, strResult As String
+    strResult = ""
+    For i = 1 To Len(strX)
+        intEsVocal = InStr(1, VOCALES, Mid(strX, i, 1), 1)
+        If intEsVocal > 0 Then
+            j = (intEsVocal - 1) \ z ' División entera, da 0 para las Aes, 1 para las Es....
+            strResult = strResult & "[" & Mid(VOCALES, (j * z) + 1, z) & "]"
+        Else
+            strResult = strResult & Mid(strX, i, 1)
+        End If
+    Next
+    ConAcentos = strResult
+End Function
+
+Function SinAcentos(strX As Variant) As Variant
+Const VOCALES = "ÁÀÂÄÉÈÊËÍÌÎÏÓÒÔÖÚÙÛÜ"
+Const VOCALES_SIN = "AEIOU"
+Const z = 4 'posibilidades
+'las minúsculas no son más que para que cada letra tenga adjudicados seis lugares, para facilitar el cálclo posterior
+    If IsNull(strX) Then
+        SinAcentos = strX
+        Exit Function
+    End If
+    Dim i As Integer, intEsVocal As Integer, j As Integer, strResult As String
+    strResult = ""
+    For i = 1 To Len(strX)
+        intEsVocal = InStr(1, VOCALES, Mid(strX, i, 1), 1)
+        If intEsVocal > 0 Then
+            j = (intEsVocal - 1) \ z ' División entera, da 0 para las Aes, 1 para las Es....
+            strResult = strResult & Mid(VOCALES_SIN, j + 1, 1)
+        Else
+            strResult = strResult & Mid(strX, i, 1)
+        End If
+    Next
+    SinAcentos = strResult
+End Function

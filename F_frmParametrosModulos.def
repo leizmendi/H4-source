@@ -1,0 +1,24 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If (Shift And acCtrlMask <> 0) And KeyCode = vbKeyF12 Then
+        Me.LicenciaHasta.Locked = False
+        Me.LicenciaHasta.BackColor = vbWhite
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+    CargaModulos
+End Sub

@@ -1,0 +1,195 @@
+Option Compare Database
+Option Explicit
+
+'Attribute VB_Name = "basXmlsq"
+' $Id: basXmlsq.bas $
+
+'/**
+' The VBA/VB6 interface to diXmlsq.dll.
+'
+' @author dai
+' @version 1.0.0
+'**/
+' $Date: 2021-07-17 14:11:00 $
+
+' ---------------------------- COPYRIGHT NOTICE -----------------------------
+' Copyright (C) 2020-21 David Ireland, DI Management Services Pty Limited.
+' <www.di-mgt.com.au> <www.cryptosys.net>. All rights reserved.
+' This code is provided 'as-is' without any express or implied warranty.
+' Free license is hereby granted to use this code as part of an application
+' provided this license notice is left intact. You are *not* licensed to
+' share any of this code in any form of mass distribution, including, but not
+' limited to, reposting on other web sites or in any source code repository.
+' ------------------------ END OF COPYRIGHT NOTICE --------------------------
+
+' The latest version of xmlsq may be obtained for free from
+' <https://www.cryptosys.net/xmlsq/>.
+' Refer to licence for conditions of use.
+
+
+' *****************************************
+' OPTION FLAGS (add with the 'Or' operator)
+' *****************************************
+
+''' Asciify the output as XML character references [default=UTF-8-encoded].
+Public Const XMLSQ_ASCIIFY As Long = &H1000
+''' Output nodeset in raw format [default=prettify with tabs and newlines].
+Public Const XMLSQ_RAW As Long = &H2000
+''' Trim trim leading and trailing whitespace (and collapse whitespace for an attribute value).
+Public Const XMLSQ_TRIM As Long = &H4000
+
+' ERROR CODES RETURNED BY xmlsqCount
+''' Error: File cannot be opened or is invalid XML.
+Public Const XMLSQ__ERR_BAD_FILEORXML As Long = -2
+''' Error: Invalid XPath query.
+Public Const XMLSQ__ERR_BAD_QUERY As Long = -3
+
+#If VBA7 Then
+' Declarations for 64-bit Office
+' (In VB6 these will appear red. Turn off "Auto Syntax Check" in Tools > Options to avoid annoying warnings)
+Private Declare PtrSafe Function XMLSQ_GetText Lib "diXmlsq.dll" (ByVal strOut As String, ByVal nOutChars As Long, ByVal xmlFile As String, ByVal query As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function XMLSQ_FullQuery Lib "diXmlsq.dll" (ByVal strOut As String, ByVal nOutChars As Long, ByVal xmlFile As String, ByVal query As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function XMLSQ_Count Lib "diXmlsq.dll" (ByVal xmlFile As String, ByVal query As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function XMLSQ_Gen_Version Lib "diXmlsq.dll" () As Long
+Private Declare PtrSafe Function XMLSQ_Gen_CompileTime Lib "diXmlsq.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare PtrSafe Function XMLSQ_Gen_ModuleName Lib "diXmlsq.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function XMLSQ_Gen_Platform Lib "diXmlsq.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+#Else
+' Declarations for VB6 and 32-bit Office
+Private Declare Function XMLSQ_GetText Lib "diXmlsq.dll" (ByVal strOut As String, ByVal nOutChars As Long, ByVal xmlFile As String, ByVal query As String, ByVal nOptions As Long) As Long
+Private Declare Function XMLSQ_FullQuery Lib "diXmlsq.dll" (ByVal strOut As String, ByVal nOutChars As Long, ByVal xmlFile As String, ByVal query As String, ByVal nOptions As Long) As Long
+Private Declare Function XMLSQ_Count Lib "diXmlsq.dll" (ByVal xmlFile As String, ByVal query As String, ByVal nOptions As Long) As Long
+Private Declare Function XMLSQ_Gen_Version Lib "diXmlsq.dll" () As Long
+Private Declare Function XMLSQ_Gen_CompileTime Lib "diXmlsq.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare Function XMLSQ_Gen_ModuleName Lib "diXmlsq.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal nOptions As Long) As Long
+Private Declare Function XMLSQ_Gen_Platform Lib "diXmlsq.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+#End If
+
+
+' *************************
+' PUBLIC WRAPPER FUNCTIONS
+' *************************
+
+'/**
+' Extract text from the first matching XML node.
+' @param szXmlFile Name of XML file or string containing XML data.
+' @param szQuery XPath 1.0 expression to select a node. This must evaluate to a node or node set.
+' @param nOptions Option flags. Add with the 'Or' operator.
+' @return Extracted text, or a string beginning with "**ERROR:" if an error occurred.
+'**/
+Public Function xmlsqGetText(szXmlFile As String, szQuery As String, Optional nOptions As Long = 0) As String
+    Dim nc As Long
+    Dim strOut As String
+    
+    nc = XMLSQ_GetText(0, 0, szXmlFile, szQuery, nOptions)
+    If nc = 0 Then
+        ' Return default empty string
+        Exit Function
+    End If
+    If nc < 0 Then
+        ' There was an error; error message will be output to buffer
+        nc = -nc
+    End If
+    strOut = String(nc, " ")
+    nc = XMLSQ_GetText(strOut, nc, szXmlFile, szQuery, nOptions)
+    xmlsqGetText = strOut
+End Function
+
+
+'/**
+' Execute full XPath 1.0 query.
+' @param szXmlFile Name of XML file or string containing XML data.
+' @param szQuery XPath 1.0 expression.
+' @param nOptions Option flags. Add with the 'Or' operator.
+' @return Result of XPath query as a string, or a string beginning with "**ERROR:" if an error occurred.
+'**/
+Public Function xmlsqFullQuery(szXmlFile As String, szQuery As String, Optional nOptions As Long = 0) As String
+    Dim nc As Long
+    Dim strOut As String
+    
+    nc = XMLSQ_FullQuery(0, 0, szXmlFile, szQuery, nOptions)
+    If nc = 0 Then
+        ' Return default empty string
+        Exit Function
+    End If
+    If nc < 0 Then
+        ' There was an error; error message will be output to buffer
+        nc = -nc
+    End If
+    strOut = String(nc, " ")
+    nc = XMLSQ_FullQuery(strOut, nc, szXmlFile, szQuery, nOptions)
+    xmlsqFullQuery = strOut
+End Function
+
+
+'/**
+' Compute the count for the XPath query.
+' @param szXmlFile Name of XML file or string containing XML data.
+' @param szQuery XPath 1.0 expression to select a node. This must evaluate to a node or node set.
+' @param nOptions For future use. Specify zero (0).
+' @return The integer value of `count(query)` or a negative error code.
+'**/
+Public Function xmlsqCount(szXmlFile As String, szQuery As String, Optional nOptions As Long = 0) As Long
+    xmlsqCount = XMLSQ_Count(szXmlFile, szQuery, nOptions)
+End Function
+
+
+' *******************************************************
+' WRAPPERS FOR DIAGNOSTIC FUNCTIONS THAT RETURN A STRING
+' *******************************************************
+
+'/**
+' Get version number of core DLL.
+' @return Version number as an integer in form `Major*10000 + Minor*100 + Release`. For example, version 2.10.3 would return 21003.
+'**/
+Public Function xmlsqGenVersion() As Long
+    xmlsqGenVersion = XMLSQ_Gen_Version()
+End Function
+
+'/**
+' Get date and time the core DLL module was last compiled.
+' @return String containing date and time.
+'**/
+Public Function xmlsqGenCompileTime() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = XMLSQ_Gen_CompileTime("", 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = XMLSQ_Gen_CompileTime(strOut, nc)
+    If nc > 0 Then
+        xmlsqGenCompileTime = strOut
+    End If
+End Function
+
+'/**
+' Get full path name of core DLL module.
+' @return String containing path name.
+'**/
+Public Function xmlsqGenModuleName() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = XMLSQ_Gen_ModuleName("", 0, 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = XMLSQ_Gen_ModuleName(strOut, nc, 0)
+    If nc > 0 Then
+        xmlsqGenModuleName = strOut
+    End If
+End Function
+
+'/**
+' Get platform for which the core DLL is compiled.
+' @return String containing `Win32` or `Win64`.
+'**/
+Public Function xmlsqGenPlatform() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = XMLSQ_Gen_Platform("", 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = XMLSQ_Gen_Platform(strOut, nc)
+    If nc > 0 Then
+        xmlsqGenPlatform = strOut
+    End If
+End Function

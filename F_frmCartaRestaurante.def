@@ -1,0 +1,113 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim rsg As Recordset
+
+Private Sub btnACategorias_Click()
+    DoCmd.OpenForm "frmHD", , , , , , "frmCategoriasCarta//"
+End Sub
+
+Private Sub btnAlProducto_Click()
+    DoCmd.OpenForm "frmHD", , , , , , "frmProductos//"
+'
+'    If Me.lstCategorias.ListIndex = -1 Then
+'        DoCmd.OpenForm "frmProductos", acFormDS
+'    Else
+'        DoCmd.OpenForm "frmProductos", acFormDS, , "tbProductosRestaurante.IdCategoria = " & Me.lstCategorias, , , Me.lstCategorias
+'    End If
+End Sub
+
+Private Sub CartaFechaSN_AfterUpdate()
+    PonValorParam "CartaFechaSN", Me.CartaFechaSN, 2
+End Sub
+
+Private Sub CartaLogoSN_AfterUpdate()
+    PonValorParam "CartaLogoSN", Me.CartaLogoSN, 2
+End Sub
+
+Private Sub CartaNotaAlPie_AfterUpdate()
+    PonValorParam "CartaNotaAlPie", Me.CartaNotaAlPie, 10
+End Sub
+
+Private Sub CartaPrecioMenu_AfterUpdate()
+    PonValorParam "CartaPrecioMenu", Me.CartaPrecioMenu, 5
+End Sub
+
+Private Sub casSaltoPag_AfterUpdate()
+    PonValorParam "CartaSaltoPagina", Me.casSaltoPag, 2
+End Sub
+
+Private Sub Form_Activate()
+    Me.lstCategorias.Requery
+    Me.lstProductos.Requery
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Select Case KeyCode
+        Case vbKeyF5
+            Call btnACategorias_Click
+        Case vbKeyF6
+            Call btnAlProducto_Click
+        Case vbKeyF7
+            Call btnCarta_Click
+    End Select
+End Sub
+
+Private Sub Form_Load()
+    Me.casSaltoPag = DameValorParam("CartaSaltoPagina")
+    Me.CartaLogoSN = DameValorParam("CartaLogoSN")
+    Me.CartaFechaSN = DameValorParam("CartaFechaSN")
+    Me.CartaNotaAlPie = DameValorParam("CartaNotaAlPie")
+    Me.CartaPrecioMenu = DameValorParam("CartaPrecioMenu")
+End Sub
+
+Private Sub lstCategorias_Click()
+    Me.lstProductos.Requery
+End Sub
+
+Private Sub lstCategorias_DblClick(Cancel As Integer)
+    Call btnACategorias_Click
+End Sub
+
+Private Sub lstCategorias_Enter()
+    Me.lstCategorias.Requery
+End Sub
+
+Private Sub lstCategorias_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        Call btnACategorias_Click
+    End If
+        
+End Sub
+
+Private Sub lstProductos_DblClick(Cancel As Integer)
+    Call btnAlProducto_Click
+End Sub
+
+
+Private Sub lstProductos_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        Call btnAlProducto_Click
+    End If
+End Sub
+Private Sub btnCarta_Click()
+On Error GoTo Err_btnCarta_Click
+
+    Dim stDocName As String
+
+    stDocName = "rptCarta"
+    DoCmd.OpenReport stDocName, acPreview
+
+Exit_btnCarta_Click:
+    Exit Sub
+
+Err_btnCarta_Click:
+    MsgBox Err.Description
+    Resume Exit_btnCarta_Click
+    
+End Sub

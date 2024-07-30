@@ -1,0 +1,286 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Explicit
+Option Compare Database   'Usar orden de base de datos en comparaciones de cadenas
+
+    Dim gstrTeclas As String
+    
+Private Sub btnListados_KeyDown(KeyCode As Integer, Shift As Integer)
+    OuVasTu KeyCode, Shift
+End Sub
+
+Private Sub btnListados_Click()
+    On Error GoTo Error_btnListados_Click
+    'AbrirfrmListasVarias "LISTA;Listados"
+    Dim strXML As String
+    PonXML strXML, "Tipo", 2
+    DoCmd.OpenForm "frmMaestros", , , , , , strXML
+    
+Salir_btnListados_Click:
+    Exit Sub
+Error_btnListados_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En btnListados_Click"
+    End Select
+    Resume Salir_btnListados_Click
+            
+End Sub
+
+
+Private Sub btnBackOffice_Click()
+    If DimePassword = True Then DoCmd.OpenForm "frmMaestros"
+End Sub
+
+Public Sub Form_Activate()
+    DoCmd.Maximize
+    
+'    Dim strDIr As String
+'    strDIr = DirectorioDe(CurrentDb.Name) & "sysim\"
+'    If IsCajaOpen > 0 Then
+'        Me.btnCaja.Caption = "Cerrar Caja"
+'    Else
+'        Me.btnCaja.Caption = "Abrir Caja"
+'    End If
+    Call Carga_Btns
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, gstrTeclas
+End Sub
+
+Public Sub Form_Load()
+    Dim Barra As Object
+    Dim i As Integer
+    Dim lngL As Long, lngT As Long
+    Const SNG_AnchoMax As Single = 9
+    Const SNG_AltoMax As Single = 3.5
+    On Error GoTo Error_Form_Load
+'    DoCmd.OpenForm "frmTime", , , , , acHidden
+    'For Each Barra In Application.CommandBars
+    '    Debug.Print Barra.Name
+    '    Barra.Visible = False
+    'Next
+    Application.CommandBars("Status Bar").Visible = True
+    Application.CommandBars("Ribbon").Visible = True
+    Me.Section(0).BackColor = Nz(DameValorParam("AplicacionColorMenu"), Me.Section(0).BackColor)
+    'Me.lblEstableCimiento.BackColor = 0 'Me.Section(0).BackColor + 255
+    Me.lblEstableCimiento.ForeColor = Nz(DameValorParam("AplicacionColorTextoEstablecimiento"), 0)
+    Application.CommandBars("Basica").Visible = True
+    Application.CommandBars("Basica").Left = 0
+    Application.SetOption "Show Status Bar", True
+    Me.lblEstableCimiento.Caption = Nz(DameValorParam("EstablecimientoNombre"), "--")
+    If DameValorParam("AplicacionLogoEnMenu") = True Then
+        Me.LogoImagen.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+        Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+        Dim dbH As Double, dbW As Double
+        dbW = Me.LogoImagen.Width / TC_CmToPoints
+        'si el logo es más ancho que el máximo ajustarlo
+        If dbW > SNG_AnchoMax Then
+            Me.LogoImagen.Width = SNG_AnchoMax * TC_CmToPoints
+            Me.LogoImagen.Height = Me.LogoImagen.Height * SNG_AnchoMax / dbW
+        End If
+        dbH = Me.LogoImagen.Height / TC_CmToPoints
+        If dbW > SNG_AltoMax Then
+            Me.LogoImagen.Height = SNG_AltoMax * TC_CmToPoints
+            Me.LogoImagen.Width = Me.LogoImagen.Width * SNG_AltoMax / dbH
+        End If
+        'Me.LogoImagen.Left = (Me.WindowWidth - Me.LogoImagen.Width) \ 2
+        lngL = Me.lblEstableCimiento.Left + (Me.lblEstableCimiento.Width - Me.LogoImagen.Width) \ 2
+        Me.LogoImagen.Left = IIf(lngL < 0, 0, lngL) 'Me.lblEstableCimiento.Left + (Me.lblEstableCimiento.Width - Me.LogoImagen.Width) \ 2
+        Me.LogoImagen.Visible = True
+    Else
+        Me.LogoImagen.Visible = False
+    End If
+    MenusABotones
+    Me.btnSelectEmpresa.Visible = g_Multiempresa
+    gstrTeclas = "|CTRL_1|#btn_1#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_2|#btn_3#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_3|#btn_4#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_4|#btn_5#¬"
+    gstrTeclas = gstrTeclas & "|CTRL_5|#btn_6#¬"
+    Call CentrarTodo
+    Call Carga_Btns
+    'If IsCajaOpen > 0 Then
+    '    Me.btnCaja.Caption = "Cerrar Caja"
+    'Else
+    '    Me.btnCaja.Caption = "Abrir Caja"
+    'End If
+Salir_Form_Load:
+    Exit Sub
+Error_Form_Load:
+    Select Case Err
+        Case -2147467259
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_Load" & vbCrLf & Err.Description
+            Resume Salir_Form_Load
+            Resume Next
+    End Select
+End Sub
+
+Private Sub Form_Resize()
+    On Error Resume Next
+    Me.btnSalir.Left = Me.WindowWidth - Me.btnSalir.Width * 2
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    CompruebaCierrePrograma Me.Name
+'ComprobarCopia
+End Sub
+
+Private Sub lblCreaTablaBotones_Click()
+    CreaTablaBotones Me
+End Sub
+
+Public Sub OuVasTu(KeyCode As Integer, Shift As Integer)
+    Dim strBot As String
+    Dim ctl As Control
+    Set ctl = Screen.ActiveControl
+    Select Case KeyCode
+        Case vbKeyUp
+            strBot = DLookup("up", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case vbKeyDown
+            strBot = DLookup("down", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case vbKeyRight
+            strBot = DLookup("right", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case vbKeyLeft
+            strBot = DLookup("left", "sysBotonesMenu", "NombreBoton = '" & ctl.Name & "' AND NombreFrm = '" & Me.Name & "'")
+        Case Else
+            Exit Sub
+    End Select
+    DoCmd.GoToControl strBot
+End Sub
+
+Public Function PonNegrita()
+    On Error Resume Next
+    Dim ctl As Control
+    Set ctl = Screen.ActiveControl
+    ctl.FontBold = True
+    fCmdButTextPic ctl, 10092543
+End Function
+Public Function PonNormal()
+    On Error Resume Next
+    Dim ctl As Control
+    Set ctl = Screen.ActiveControl
+    ctl.FontBold = False
+    fCmdButTextPic ctl, 16777215
+End Function
+
+
+Public Sub MenusABotones()
+    On Error GoTo Error_MenusABotones
+    Dim rs As Recordset, strSQL As String, i As Integer, j As Integer, strTit As String, str1 As String
+    strSQL = "SELECT sysMenus1.Descripcion, sysMenus1.ListasVarias, sysMenus1.Orden, sysMenus1.[Activado]"
+    strSQL = strSQL & " FROM sysMenus1"
+    strSQL = strSQL & " WHERE (((sysMenus1.Orden) > 0) And ((sysMenus1.[Activado]) = True))"
+    strSQL = strSQL & " ORDER BY sysMenus1.Orden;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        i = i + 1
+        If i > 14 Then
+            MsgBox "Más de 14 menús"
+            Exit Sub
+        End If
+        strTit = ""
+        For j = 1 To Len(rs("Descripcion"))
+            str1 = Mid(rs("Descripcion"), j, 1)
+            If str1 <> "&" Then strTit = strTit & str1
+        Next j
+        Me("btn" & i).Caption = strTit
+        Me("btn" & i).Tag = rs("ListasVarias") & ";" & strTit
+        Me("btn" & i).Visible = True
+        rs.MoveNext
+    Wend
+Salir_MenusABotones:
+    Exit Sub
+Error_MenusABotones:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en MenusABotones" & vbCrLf & Err.Description
+            Resume Salir_MenusABotones
+    End Select
+
+End Sub
+
+Public Function LlamaMenu()
+    On Error GoTo Error_LlamaMenu
+    Dim ctl As Control
+    Set ctl = Screen.ActiveControl
+    AbrirfrmListasVarias ctl.Tag
+Salir_LlamaMenu:
+    Exit Function
+Error_LlamaMenu:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LlamaMenu" & vbCrLf & Err.Description
+            Resume Salir_LlamaMenu
+    End Select
+            
+End Function
+
+Public Function MisBotones(strNombreBoton As String)
+End Function
+
+Public Sub CentrarTodo()
+    On Error GoTo Error_CentrarTodo
+    Dim ctl As Control, lngX0 As Long, lngDX As Long, lngY0 As Long, lngDY As Long
+    Dim lngTop As Long
+    DoCmd.Maximize
+    lngX0 = Me.cdrCentrar.Left
+    Me.cdrCentrar.Left = (Me.WindowWidth - Me.cdrCentrar.Width) \ 2
+    lngDX = Me.cdrCentrar.Left - lngX0
+    If lngDX < 0 Then lngDX = 0
+    For Each ctl In Me.Controls
+        If ctl.Name <> "cdrCentrar" Then ctl.Left = ctl.Left + lngDX
+    Next ctl
+    lngY0 = Me.cdrCentrar.Top
+    Me.Detalle0.Height = Me.WindowHeight
+    Me.cdrCentrar.Top = (Me.WindowHeight - Me.EncabezadoDelFormula.Height - Me.cdrCentrar.Height) \ 2
+    lngDY = Me.cdrCentrar.Top - lngY0
+    For Each ctl In Me.Detalle0.Controls
+        If ctl.Name <> "cdrCentrar" Then
+            lngTop = ctl.Top + lngDY
+            ctl.Top = IIf(lngTop < 0, 0, lngTop)
+        End If
+    Next ctl
+    Me.Detalle0.Height = 0
+Salir_CentrarTodo:
+    Exit Sub
+Error_CentrarTodo:
+    Select Case Err
+        Case Else
+            Resume Next
+            MsgBox "error nº " & Err & " en CentrarTodo" & vbCrLf & Err.Description
+            Resume Salir_CentrarTodo
+    End Select
+End Sub
+
+Public Sub Carga_Btns()
+    Dim i As Integer, lngIdComando As Long, strPic As String, strCTT As String
+    On Error Resume Next
+    For i = 2 To 7
+        strPic = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_imagen"), "")
+        If Dir(strPic) <> "" Then Me("btn_" & i).Picture = strPic
+        Me("btn_" & i).Enabled = Nz(DameValorParam("AplicacionMenuVer_Btn_" & i), False)
+        If Me("btn_" & i).Enabled Then
+            lngIdComando = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_comando"), 0)
+            Me("btn_" & i).OnClick = "=AccionMenu(" & lngIdComando & ",2)"
+            strCTT = Nz(DLookup("Leyenda", "sysMenus2", "IdComando = " & lngIdComando), "")
+            Me("btn_" & i).ControlTipText = strCTT
+            If lngIdComando = 51 Then 'Abrir-Cerrar Caja
+                If IsCajaOpen > 0 Then
+                    Me("btn_" & i).ControlTipText = "Cerrar Caja"
+                Else
+                    Me("btn_" & i).ControlTipText = "Abrir Caja"
+                End If
+            End If
+        Else
+            Me("btn_" & i).ControlTipText = ""
+        End If
+    Next i
+End Sub

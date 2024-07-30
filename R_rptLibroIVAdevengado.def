@@ -1,0 +1,54 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    On Error GoTo Error_Detalle_Format
+    If Me.linea1 = False Then
+        Me.NumFactura.Visible = False
+        Me.Fecha.Visible = False
+        Me.ClienteConcepto.Visible = False
+        Me.NIF.Visible = False
+    Else
+        Me.NumFactura.Visible = True
+        Me.Fecha.Visible = True
+        Me.ClienteConcepto.Visible = True
+        Me.NIF.Visible = True
+    End If
+Salir_Detalle_Format:
+    Exit Sub
+Error_Detalle_Format:
+    Select Case Err
+        Case 2427
+            Resume Salir_Detalle_Format
+        Case Else
+            MsgBox "Error nº " & Err & " en Detalle_Format" & vbCrLf & Err.Description
+            Resume Salir_Detalle_Format
+    End Select
+
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros con las condiciones seleccionadas"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    If Nz(DameValorParam("EncabezadoTrimestreEnRptLibroIVA"), True) Then 'Forms![frmMaestros]![subfrm]![mrcTrimestre] < 5 Then
+        Me.EncabezadoTrimestre.Visible = False
+        Me.PieDelGrupo1.Visible = False
+    Else
+        Me.EncabezadoTrimestre.Visible = True
+        Me.PieDelGrupo1.Visible = True
+    End If
+    Me.subrptRegistroVentasResumenIVA.Visible = Nz(DameValorParam("LibroIVAD_verResumenTiposIVA"), True)
+    Me.subrptRegistroVentasResumenFP.Visible = Nz(DameValorParam("LibroIVAD_verResumenFPago"), True)
+    Me.subrptRegistroVentasFP.Visible = Me.subrptRegistroVentasResumenFP.Visible
+    Me.lblFP.Visible = Me.subrptRegistroVentasResumenFP.Visible
+    Me.subrptRegistroVentasPendientesPago.Visible = Nz(DameValorParam("LibroIVAD_verFacturasPPago"), True)
+End Sub

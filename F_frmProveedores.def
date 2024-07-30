@@ -1,0 +1,99 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+Option Compare Database
+Option Explicit
+Private Sub btnBuscarProveedor_Click()
+    Static strBusca As String
+    On Error Resume Next
+    strBusca = InputBox("Buscar....", "Buscar Proveedor", strBusca)
+    If strBusca = "" Then Exit Sub
+    Me.NombreProveedor.SetFocus
+    
+    DoCmd.FindRecord strBusca, acAnywhere, , acSearchAll, , acAll
+
+End Sub
+
+Private Sub btnCodPos_Click()
+On Error GoTo Err_btnCodPos_Click
+
+    Dim stAppName As String
+
+    stAppName = "C:\MisDocumentos\ACCESS\CodigosPostales.mdb"
+    Call Shell("C:\Archivos de programa\Microsoft Office\Office\MSACCESS.EXE " & stAppName, 1)
+
+Exit_btnCodPos_Click:
+    Exit Sub
+
+Err_btnCodPos_Click:
+    MsgBox Err.Description
+    Resume Exit_btnCodPos_Click
+    
+End Sub
+
+
+Private Sub btnModi_Click()
+    BloqueoFormulario Me
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.CodProveedor = Format(CLng(Nz(DMax("CodProveedor", "tbProveedores"), 0)) + 1, "00000")
+End Sub
+
+Private Sub Form_Current()
+    If Me.NewRecord Then
+        BloqueoFormulario Me, False
+    Else
+        BloqueoFormulario Me, True
+    End If
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, ""
+End Sub
+
+Private Sub Form_Load()
+    If Me.OpenArgs <> "" Then
+        DoCmd.GoToRecord , , acNewRec
+        Me.NombreProveedor = Me.OpenArgs
+    End If
+End Sub
+
+Private Sub NIF_AfterUpdate()
+    Dim db As DAO.Database
+    Dim rs As Recordset
+    On Error GoTo Error_NIF_AfterUpdate
+    If IsNull(Me.NIF) Then Exit Sub
+    If IsNumeric(Me.NIF) And Len(Me.NIF) = 8 Then
+        Me.NIF = Format(Me.NIF, "#,##0") & "-" & letra_dni(Me.NIF)
+    End If
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("tbProveedores")
+    'rs.Index = "NIF"
+    'rs.Seek "=", Me.NIF
+    rs.FindFirst "NIF = '" & Me.NIF & "'"
+    If Not rs.NoMatch Then
+        If rs("IdProveedor") <> Me.IdProveedor Then
+            MsgBox "El proveedor ya está en la base"
+            Me.NIF.SetFocus
+        End If
+        'Cancel = True
+    End If
+Exit_NIF_AfterUpdate:
+    Exit Sub
+Error_NIF_AfterUpdate:
+    Select Case Err.Number
+    Case Else
+        MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En NIF_AfterUpdate"
+        Resume Exit_NIF_AfterUpdate
+    End Select
+End Sub

@@ -1,0 +1,270 @@
+Option Compare Database
+Option Explicit
+
+Private Const GENERIC_READ = &H80000000
+Private Const GENERIC_WRITE = &H40000000
+Private Const FILE_SHARE_READ = &H1
+Private Const FILE_SHARE_DELETE As Long = &H4
+Private Const FILE_FLAG_BACKUP_SEMANTICS = &H2000000
+Private Const OPEN_EXISTING = 3
+
+Private Type FILETIME
+  dwLowDateTime     As Long
+  dwHighDateTime    As Long
+End Type
+
+Private Type SYSTEMTIME
+  wYear          As Integer
+  wMonth         As Integer
+  wDayOfWeek     As Integer
+  wDay           As Integer
+  wHour          As Integer
+  wMinute        As Integer
+  wSecond        As Integer
+  wMilliseconds  As Long
+End Type
+
+'Para obtener el handle
+Private Declare Function CreateFile Lib "kernel32" _
+   Alias "CreateFileA" _
+  (ByVal lpFileName As String, _
+   ByVal dwDesiredAccess As Long, _
+   ByVal dwShareMode As Long, _
+   ByVal lpSecurityAttributes As Long, _
+   ByVal dwCreationDisposition As Long, _
+   ByVal dwFlagsAndAttributes As Long, _
+   ByVal hTemplateFile As Long) As Long
+
+'Cierra el handle anterior
+Private Declare Function CloseHandle Lib "kernel32" _
+  (ByVal hObject As Long) As Long
+
+'Para obtener las fechas
+Private Declare Function GetFileTime Lib "kernel32" _
+  (ByVal hFile As Long, _
+   lpCreationTime As FILETIME, _
+   lpLastAccessTime As FILETIME, _
+   lpLastWriteTime As FILETIME) As Long
+   
+'Para convertir las fechas
+Private Declare Function FileTimeToLocalFileTime Lib "kernel32" _
+  (lpFileTime As FILETIME, _
+   lpLocalFileTime As FILETIME) As Long
+
+Private Declare Function FileTimeToSystemTime Lib "kernel32" _
+  (lpFileTime As FILETIME, _
+   lpSystemTime As SYSTEMTIME) As Long
+
+Private Declare Function SystemTimeToFileTime Lib "kernel32" _
+  (lpSystemTime As SYSTEMTIME, _
+   lpFileTime As FILETIME) As Long
+
+Private Declare Function LocalFileTimeToFileTime Lib "kernel32" _
+  (lpLocalFileTime As FILETIME, _
+   lpFileTime As FILETIME) As Long
+
+'Para guardar las fechas
+Private Declare Function SetFileTime Lib "kernel32" _
+  (ByVal hFile As Long, _
+   lpCreationTime As FILETIME, _
+   lpLastAccessTime As Any, _
+   lpLastWriteTime As Any) As Long
+
+'Tipo usado para agrupar las tres fechas
+Public Type FechasDeArchivo
+    Creacion As Date
+    Modificacion As Date
+    Acceso As Date
+End Type
+
+
+'Funcion para guardar las fechas
+Public Function GuardarFechas(ByVal s_PathFile As String, ByRef t_Fechas As FechasDeArchivo) As Boolean
+
+
+    Dim FechaCreacion As FILETIME
+    Dim FechaAcceso As FILETIME
+    Dim FechaModif As FILETIME
+    Dim fHandle As Long
+    Dim SysFechaCreacion As SYSTEMTIME
+    Dim SysFechaAcceso As SYSTEMTIME
+    Dim SysFechaModif As SYSTEMTIME
+    
+    'Obtener el handle
+    fHandle = CreateFile(s_PathFile, GENERIC_READ Or GENERIC_WRITE, FILE_SHARE_READ Or FILE_SHARE_DELETE, 0&, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0&)
+    
+    'Cambiamos las fechas
+    With SysFechaCreacion
+        .wDay = Day(t_Fechas.Creacion)
+        .wMonth = Month(t_Fechas.Creacion)
+        .wYear = Year(t_Fechas.Creacion)
+        .wHour = Hour(t_Fechas.Creacion)
+        .wMinute = Minute(t_Fechas.Creacion)
+        .wSecond = Second(t_Fechas.Creacion)
+        .wMilliseconds = 0
+    End With
+    
+    With SysFechaModif
+        .wDay = Day(t_Fechas.Modificacion)
+        .wMonth = Month(t_Fechas.Modificacion)
+        .wYear = Year(t_Fechas.Modificacion)
+        .wHour = Hour(t_Fechas.Modificacion)
+        .wMinute = Minute(t_Fechas.Modificacion)
+        .wSecond = Second(t_Fechas.Modificacion)
+        .wMilliseconds = 0
+    End With
+    
+    With SysFechaAcceso
+        .wDay = Day(t_Fechas.Acceso)
+        .wMonth = Month(t_Fechas.Acceso)
+        .wYear = Year(t_Fechas.Acceso)
+        .wHour = Hour(t_Fechas.Acceso)
+        .wMinute = Minute(t_Fechas.Acceso)
+        .wSecond = Second(t_Fechas.Acceso)
+        .wMilliseconds = 0
+    End With
+    
+    'Convertimos las fechas
+    If SystemTimeToFileTime(SysFechaCreacion, FechaCreacion) <> 1 Then GoTo ErrHandler
+   
+    If LocalFileTimeToFileTime(FechaCreacion, FechaCreacion) <> 1 Then GoTo ErrHandler
+      
+    'Convertimos otra
+    If SystemTimeToFileTime(SysFechaModif, FechaModif) <> 1 Then GoTo ErrHandler
+   
+    If LocalFileTimeToFileTime(FechaModif, FechaModif) <> 1 Then GoTo ErrHandler
+      
+    'Convertimos la ultima
+    If SystemTimeToFileTime(SysFechaAcceso, FechaAcceso) <> 1 Then GoTo ErrHandler
+   
+    If LocalFileTimeToFileTime(FechaAcceso, FechaAcceso) <> 1 Then GoTo ErrHandler
+    
+    'Cambiamos las fechas del archivo
+    If SetFileTime(fHandle, FechaCreacion, FechaAcceso, FechaModif) <> 1 Then GoTo ErrHandler
+    
+    'Cerramos el handle
+    If CloseHandle(fHandle) <> 1 Then GoTo ErrHandler
+    
+    GuardarFechas = True
+    
+    Exit Function
+    
+ErrHandler:
+
+    GuardarFechas = False
+    
+    MsgBox "Ocurrio un error gurdando las fechas", vbCritical, "Error"
+
+End Function
+
+'Funcion para leer las fechas
+Public Function LeerFechas(ByVal s_PathFile As String) As FechasDeArchivo
+
+    Dim FechaCreacion As FILETIME
+    Dim FechaAcceso As FILETIME
+    Dim FechaModif As FILETIME
+    Dim fHandle As Long
+    Dim SysFechaCreacion As SYSTEMTIME
+    Dim SysFechaAcceso As SYSTEMTIME
+    Dim SysFechaModif As SYSTEMTIME
+    
+On Error GoTo ErrHandler
+    
+    'Obtener el handle
+    fHandle = CreateFile(s_PathFile, GENERIC_READ Or GENERIC_WRITE, FILE_SHARE_READ Or FILE_SHARE_DELETE, 0&, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0&)
+    
+    'Leemos las fechas (este formato no se puede manejar asi)
+    If GetFileTime(fHandle, FechaCreacion, FechaAcceso, FechaModif) <> 1 Then GoTo ErrHandler
+    
+    'Convertimos una de las fechas
+    If FileTimeToLocalFileTime(FechaCreacion, FechaCreacion) <> 1 Then GoTo ErrHandler
+    
+    If FileTimeToSystemTime(FechaCreacion, SysFechaCreacion) <> 1 Then GoTo ErrHandler
+    
+    'Convertimos otra
+    If FileTimeToLocalFileTime(FechaAcceso, FechaAcceso) <> 1 Then GoTo ErrHandler
+    
+    If FileTimeToSystemTime(FechaAcceso, SysFechaAcceso) <> 1 Then GoTo ErrHandler
+    
+    'Convertimos la ultima
+    If FileTimeToLocalFileTime(FechaModif, FechaModif) <> 1 Then GoTo ErrHandler
+    
+    If FileTimeToSystemTime(FechaModif, SysFechaModif) <> 1 Then GoTo ErrHandler
+    
+    LeerFechas.Creacion = DateSerial(SysFechaCreacion.wYear, SysFechaCreacion.wMonth, SysFechaCreacion.wDay) + TimeSerial(SysFechaCreacion.wHour, SysFechaCreacion.wMinute, SysFechaCreacion.wSecond)
+    LeerFechas.Modificacion = DateSerial(SysFechaModif.wYear, SysFechaModif.wMonth, SysFechaModif.wDay) + TimeSerial(SysFechaModif.wHour, SysFechaModif.wMinute, SysFechaModif.wSecond)
+    LeerFechas.Acceso = DateSerial(SysFechaAcceso.wYear, SysFechaAcceso.wMonth, SysFechaAcceso.wDay) + TimeSerial(SysFechaAcceso.wHour, SysFechaAcceso.wMinute, SysFechaAcceso.wSecond)
+
+    If CloseHandle(fHandle) <> 1 Then GoTo ErrHandler
+    
+    Exit Function
+    
+ErrHandler:
+
+    LeerFechas.Creacion = Empty
+    LeerFechas.Modificacion = Empty
+    LeerFechas.Acceso = Empty
+    
+    MsgBox "Ocurrio un error leyendo las fechas", vbCritical, "Error"
+
+End Function
+
+
+'Para Usarlo.......................
+Private Sub cmdLeer_Click()
+
+    Dim fechas As FechasDeArchivo
+    
+    fechas = LeerFechas("C:\Prueba.txt")
+    
+    MsgBox fechas.Creacion & vbCrLf & fechas.Modificacion & vbCrLf & fechas.Acceso
+
+End Sub
+
+Private Sub cmdEscribir_Click()
+    
+    Dim fechas As FechasDeArchivo
+    
+    fechas.Acceso = "2099/11/18 05:25:22"
+    fechas.Modificacion = "2007/12/21 21:24:53"
+    fechas.Creacion = "2007/06/21 10:45:58"
+    
+    If GuardarFechas("C:\Prueba1.txt", fechas) = True Then
+        fechas = LeerFechas("C:\Prueba.txt")
+        
+        MsgBox "Las nuevas fechas son: " & vbCrLf & fechas.Creacion & vbCrLf & fechas.Modificacion & vbCrLf & fechas.Acceso
+        
+    Else
+    
+        MsgBox "No se pudieron escribir las fechas"
+    
+    End If
+    
+End Sub
+
+Public Sub Consultar_Archivo(Path As String)
+
+
+    'Variable de tipo FileSystemObject y File
+
+    Dim o_Fso As New FileSystemObject
+    Dim Archivo As File
+
+    ' Lee las propiedades del archivo mediante GetFile
+    Set Archivo = o_Fso.GetFile(Path)
+
+    
+    'Visualiza el resultado: Creación ,acceso y modificado etc..
+    MsgBox "Fecha de creación del archivo: " & Format(Archivo.DateCreated), vbInformation
+    MsgBox "Fecha de modificación : " & Format(Archivo.DateLastModified), vbInformation
+    MsgBox "Fecha de del último acceso: " & Format(Archivo.DateLastAccessed), vbInformation
+    MsgBox "Tamaño del archivo : " & Format(Archivo.Size) & " Bytes", vbInformation
+    MsgBox "Tipo de archivo : " & Format(Archivo.Type), vbInformation
+    
+    
+    ' Elimina las variables de objeto
+    Set Archivo = Nothing
+    Set o_Fso = Nothing
+
+
+End Sub

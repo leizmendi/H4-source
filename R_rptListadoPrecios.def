@@ -1,0 +1,71 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    If Len(Nz(Me.ImagenSer, "")) > 0 Then
+        Me.imgServicio.Picture = Me.ImagenSer
+        Me.imgServicio.Visible = True
+    Else
+        Me.imgServicio.Visible = False
+    End If
+End Sub
+
+Private Sub EncabezadoDePágina_Format(Cancel As Integer, FormatCount As Integer)
+    If Me.CodGrupoIngresos.Column(2) = True Then
+        Me.lblPreciosDe.Caption = "PRECIOS DE SERVICIOS DIARIOS"
+    Else
+        Me.lblPreciosDe.Caption = "PRECIOS"
+    End If
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim sngAltoMax As Single
+    sngAltoMax = Me.LogoImagen.Height
+    If DameValorParam("ListadoPreciosSaltoPag") = True Then
+        Me.EncabezadoDelGrupo0.ForceNewPage = 1
+    Else
+        Me.EncabezadoDelGrupo0.ForceNewPage = 0
+    End If
+    If DameValorParam("ListadoPreciosVerTemporada") = True Then
+        'Me.lblTemporada.Visible = True
+        Me.txtNombreTemporada.Visible = True
+    Else
+        'Me.lblTemporada.Visible = False
+        Me.txtNombreTemporada.Visible = False
+    End If
+
+    If DameValorParam("ListadoPreciosLogoSN") = True Then
+        Me.LogoImagen.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+        Me.LogoImagen.Width = Nz(DameValorParam("LogoAncho"), 3) * TC_CmToPoints
+        Me.LogoImagen.Height = Nz(DameValorParam("LogoAlto"), 3) * TC_CmToPoints
+'        sngAltoMax = Nz(DameValorParam("FacturasLogoMaxAlto"), 0) * TC_CmToPoints
+        If sngAltoMax < Me.LogoImagen.Height Then
+            Me.LogoImagen.Width = Me.LogoImagen.Width * (sngAltoMax / Me.LogoImagen.Height)
+            Me.LogoImagen.Height = sngAltoMax
+        End If
+        Me.LogoImagen.Visible = True
+    Else
+        Me.LogoImagen.Visible = False
+    End If
+    Dim strSQL As String
+    strSQL = "SELECT DISTINCT tbServiciosDiarios.CodGrupoIngresos, tbTemporadasNombre.NombreTemporada, tbServiciosDiarios.CodSD, tbPreciosSD.PrecioDiario, tbServiciosDiarios.ServicioDiario, tbServiciosDiarios.Orden, tbServiciosDiarios.Imagen as ImagenSer"
+    strSQL = strSQL & " FROM tbServiciosDiarios INNER JOIN (tbTemporadasNombre INNER JOIN tbPreciosSD ON tbTemporadasNombre.IdTemporadaNombre = tbPreciosSD.IdTemporadaNombre) ON tbServiciosDiarios.IdSD = tbPreciosSD.IdSD"
+    strSQL = strSQL & " WHERE (((tbServiciosDiarios.IncluirEnLista) = True))"
+    If IsOpenForm("frmListadoPrecios") Then
+        If Forms("frmListadoPrecios").cmbIdTemporadaNombre.ListIndex <> -1 Then
+            strSQL = strSQL & " AND tbPreciosSD.IdTemporadaNombre = " & Forms("frmListadoPrecios").cmbIdTemporadaNombre
+        End If
+        If Forms("frmListadoPrecios").cmbGrupo <> "Todos" Then
+            strSQL = strSQL & " AND tbServiciosDiarios.CodGrupoIngresos = " & ConComillas(Forms("frmListadoPrecios").cmbGrupo)
+        End If
+        DoCmd.Close acForm, "frmListadoPrecios"
+    End If
+    strSQL = strSQL & " ORDER BY tbServiciosDiarios.CodGrupoIngresos;"
+    Me.RecordSource = strSQL
+    
+End Sub

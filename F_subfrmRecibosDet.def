@@ -1,0 +1,63 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_AfterDelConfirm(status As Integer)
+    Call Form_AfterUpdate
+End Sub
+
+Private Sub Form_AfterUpdate()
+    On Error GoTo Error_Form_AfterUpdate
+    Forms![frmRecibos].IMPORTE = Nz(DSum("Importe", "tbRecibosDet", "NumRecibo =" & Me.NumRecibo), 0)
+    Forms![frmRecibos].btnAceptar.Enabled = True
+    If IsNull(DLookup("Importe", "tbRecibosDet", "NumRecibo =" & Me.NumRecibo)) Then
+        Forms![frmRecibos].casDetalle = False
+    Else
+        Forms![frmRecibos].casDetalle = True
+    End If
+    
+Salir_Form_AfterUpdate:
+    Exit Sub
+Error_Form_AfterUpdate:
+    Select Case Err
+        Case 2448
+            Resume Salir_Form_AfterUpdate
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_Form_AfterUpdate
+    End Select
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Dim intLinea As Integer
+    intLinea = Nz(DMax("Linea", "tbRecibosDet", "NumRecibo = " & Me.NumRecibo), 0) + 1
+    If intLinea > 15 Then
+        MsgBox "No se pueden incluir más de 15 líneas de detalle por recibo"
+        Cancel = True
+    Else
+        Me.Linea = intLinea
+    End If
+End Sub
+
+
+Public Sub Grabar()
+    DoCmd.RunCommand acCmdSaveRecord
+'    Call Form_AfterUpdate
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    Me.Concepto = NuloEs(Me.Concepto, "")
+    If Len(Me.Concepto) = 0 Then
+        MsgBox "El campo Concepto no puede estar vacío"
+        Cancel = True
+        Me.Concepto.SetFocus
+    End If
+End Sub
+
+Private Sub Importe_Change()
+    Forms![frmRecibos].btnAceptar.Enabled = False
+End Sub

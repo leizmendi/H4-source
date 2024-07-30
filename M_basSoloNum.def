@@ -1,0 +1,28 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function SoloNum(strTel As String, Optional intYLetras As Integer = False) As String
+    'Devuelve un string con solo los números del string pasado (para buscar teléfonos)
+    On Error GoTo Error_SoloNum
+    Dim i As Integer, stRes As String, sT1 As String
+    For i = 1 To Len(strTel)
+        If IsNumeric(Mid(strTel, i, 1)) Then
+            stRes = stRes & Mid(strTel, i, 1)
+        ElseIf intYLetras Then
+            sT1 = UCase(Mid(strTel, i, 1))
+            If sT1 >= "A" And sT1 <= "Z" Then
+                stRes = stRes & Mid(strTel, i, 1)
+            End If
+        End If
+    Next i
+Salir_SoloNum:
+    SoloNum = stRes
+    Exit Function
+Error_SoloNum:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en SoloNum" & vbCrLf & Err.Description
+            Resume Salir_SoloNum
+    End Select
+End Function

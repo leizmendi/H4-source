@@ -1,0 +1,184 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAdd_Click()
+    On Error GoTo HandleError
+    Dim strN As String, iMax As Integer, strMax As String, i As Integer
+    strN = Nz(MyInputBox("Introduzca nombre de notificación a añadir", "Nueva notificación"), "")
+    If strN = "" Then GoTo HandleExit
+    strMax = Nz(DMax("NP", "cfgParam", "NP Like 'Notificacion_?'"), "")
+    i = InStrRev(strMax, "_")
+    If i = 0 Then
+        iMax = 1
+    Else
+        iMax = CInt(Mid(strMax, i + 1, 1)) + 1
+    End If
+    PonValorParam "Notificacion_" & iMax, strN, 10
+    Me.lstNotificaciones.Requery
+        
+    '
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnAddFile_Click()
+    Dim strFile As String, strF As String
+    strFile = DimeFicheros()
+    If strFile <> "" Then
+        Dim i As Integer
+        For i = 1 To LineasDeStr(strFile)
+            strF = ExtraeLin(strFile, i) & ";"
+            If InStr(Me.lstAdjuntarFicheros.RowSource, strF) = 0 Then Me.lstAdjuntarFicheros.RowSource = Me.lstAdjuntarFicheros.RowSource & strF
+        Next i
+    End If
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+    PonVP_AdjuntarFicheros
+End Sub
+
+Private Sub btnDel_Click()
+    On Error GoTo HandleError
+    Dim iR As Integer
+    If Me.lstNotificaciones.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar la notificación que se quiere eliminar", vbExclamation
+        GoTo HandleExit
+    End If
+    iR = MsgBox("¿Eliminar " & ConComillas(Me.lstNotificaciones.Column(1)) & "?", vbOKCancel + vbQuestion)
+    If iR = vbOK Then
+        CurrentDb.Execute "DELETE * FROM cfgParam WHERE NP Like " & ConComillas(Me.lstNotificaciones & "*"), dbFailOnError
+        Me.lstNotificaciones.Requery
+    End If
+        
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnDelFile_Click()
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    Dim strDelFile As String, i As Integer
+    strDelFile = Me.lstAdjuntarFicheros & ";"
+    i = InStr(Me.lstAdjuntarFicheros.RowSource, strDelFile)
+    Me.lstAdjuntarFicheros.RowSource = Replace(Me.lstAdjuntarFicheros.RowSource, strDelFile, "")
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+    PonVP_AdjuntarFicheros
+End Sub
+
+Private Sub btnEdit_Click()
+    On Error GoTo HandleError
+    If Me.lstNotificaciones.ListIndex = -1 Then GoTo HandleExit
+    Dim strN As String, iMax As Integer, strMax As String, i As Integer
+    strN = Me.lstNotificaciones.Column(1)
+    strN = Nz(MyInputBox("Introduzca nombre de notificación a actualizar", "Nombre de notificación", strN), "")
+    If strN = "" Then GoTo HandleExit
+    PonValorParam Me.lstNotificaciones.Column(0), strN, 10
+    Me.lstNotificaciones.Requery
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnOpenFile_Click()
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    OpenFile Me.lstAdjuntarFicheros
+End Sub
+
+Private Sub btnSN_Click()
+    On Error GoTo HandleError
+    If Me.lstNotificaciones.ListIndex = -1 Then GoTo HandleExit
+    Dim bSN As Boolean
+    bSN = Me.lstNotificaciones.Column(2) = "S"
+    PonValorParam Me.lstNotificaciones.Column(0) & "_SN", Not bSN, 1
+    Me.lstNotificaciones.Requery
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub cmbIdioma_AfterUpdate()
+    Dim strSuf As String
+    If Me.cmbIdioma.ListIndex <> -1 Then strSuf = "_IdIdioma_" & Me.cmbIdioma
+    Me.txtAsunto = Nz(DameValorParam(Me.lstNotificaciones & "_Asunto" & strSuf), "Notificación")
+    Me.txtMensaje = Nz(DameValorParam(Me.lstNotificaciones & "_Mensaje" & strSuf), "")
+    Me.lstAdjuntarFicheros.RowSource = Nz(DameValorParam(Me.lstNotificaciones & "_AdjuntarFicheros" & strSuf), "")
+    
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False
+End Sub
+
+Private Sub lstNotificaciones_AfterUpdate()
+    On Error GoTo HandleError
+    If Me.lstNotificaciones.ListIndex = -1 Then GoTo HandleExit
+    Me.mrcAntesDespues = Nz(DameValorParam(Me.lstNotificaciones & "_AntesDespues"), 1)
+    Me.txtDias = Nz(DameValorParam(Me.lstNotificaciones & "_Dias"), 1)
+    Me.txtLMX = DameValorParam(Me.lstNotificaciones & "_LMX")
+    Call cmbIdioma_AfterUpdate
+HandleExit:
+
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub mrcAntesDespues_AfterUpdate()
+    If Me.lstNotificaciones.ListIndex = -1 Then Exit Sub
+    PonValorParam Me.lstNotificaciones & "_AntesDespues", Me.mrcAntesDespues, 4
+End Sub
+
+Private Sub txtAsunto_AfterUpdate()
+    Dim strSuf As String
+    If Me.cmbIdioma.ListIndex <> -1 Then strSuf = "_IdIdioma_" & Me.cmbIdioma
+    PonValorParam Me.lstNotificaciones & "_Asunto" & strSuf, Nz(Me.txtAsunto, ""), 10
+End Sub
+
+Private Sub txtDias_AfterUpdate()
+    If Me.lstNotificaciones.ListIndex = -1 Then Exit Sub
+    PonValorParam Me.lstNotificaciones & "_Dias", SpNz(Me.txtDias, 0), 4
+End Sub
+
+Private Sub txtDias_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Nz(Me.txtDias)) Then
+        MsgBox "Debe ser un número", vbExclamation
+        Cancel = True
+    End If
+End Sub
+
+Private Sub txtLMX_AfterUpdate()
+    Call AMayus
+    PonValorParam Me.lstNotificaciones & "_LMX", Me.txtLMX, 10
+
+End Sub
+
+Private Sub txtMensaje_AfterUpdate()
+    Dim strSuf As String
+    If Me.cmbIdioma.ListIndex <> -1 Then strSuf = "_IdIdioma_" & Me.cmbIdioma
+    PonValorParam Me.lstNotificaciones & "_Mensaje" & strSuf, Nz(Me.txtMensaje, ""), 12
+End Sub
+
+Public Sub PonVP_AdjuntarFicheros()
+    If Me.lstNotificaciones.ListIndex = -1 Then Exit Sub
+    PonValorParam Me.lstNotificaciones & "_AdjuntarFicheros" & IIf(Me.cmbIdioma.ListIndex = -1, "", "_IdIdioma_" & Me.cmbIdioma), IIf(Me.lstAdjuntarFicheros.RowSource = "", Null, Me.lstAdjuntarFicheros.RowSource), 12
+End Sub

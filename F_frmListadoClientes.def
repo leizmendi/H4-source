@@ -1,0 +1,358 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim strSQL As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim rs As Recordset, rsSelect As Recordset
+    Dim i As Integer
+    Dim strQRY As String, strFile As String, strOtros As String
+    On Error GoTo Error_btnAceptar_Click
+'    If Me.cmbEmpresa.ListIndex = -1 Then
+'        MsgBox "Se debe seleccionar empresa"
+'        Me.cmbEmpresa.SetFocus
+'        Exit Sub
+'    End If
+    DoCmd.Hourglass True
+    strTitulo = Me.lblTitulo.Caption
+    strSQL = "SELECT DISTINCT tbClientes.CodCliente, tbClientes.NIF, Trim([NombreCli] & ' ' & [ApellidosCli]) AS Cliente, tbClientes.EMail, tbClientes.Direccion, tbClientes.Ciudad AS Localida, tbClientes.EdoOProv AS Provincia, tbClientes.CodPostal, tbClientes.Pais, tbClientes.Telefono, tbClientes.MatriculaVehiculo"
+    strSQL = strSQL & " FROM tbClientes LEFT JOIN tbFichasCab on tbClientes.NIF = tbFichasCab.DNICliente"
+    strSQL = strSQL & " WHERE True"
+    Select Case Me.cmbTipoCli
+        Case 1
+            strSQL = strSQL & " AND Nz(Agencia,False)=False"
+        Case 2
+            strSQL = strSQL & " AND Nz(Agencia,False)=True"
+    End Select
+    If Len(Me.txtNombre) > 0 Then
+        strSQL = strSQL & " AND Trim([NombreCli] & ' ' & [ApellidosCli]) Like '*" & Me.txtNombre & "*'"
+    End If
+    If Len(Me.txtLocalidad) > 0 Then
+        strSQL = strSQL & " AND [Ciudad] Like '*" & Me.txtLocalidad & "*'"
+    End If
+    If Len(Me.txtProvincia) > 0 Then
+        strSQL = strSQL & " AND Trim([EdoOProv] & ' ' & [Pais]) Like '*" & Me.txtProvincia & "*'"
+    End If
+    If Len(Me.IdProcedencia) > 0 Then
+        strSQL = strSQL & " AND IdProcedencia = " & Me.IdProcedencia
+    End If
+    Select Case Me.mrcTREF
+        Case 1, 2
+            MarcarClientesXFechaEstancia CDate(Me.txtDesde), CDate(Me.txtHasta)
+            strSQL = strSQL & " AND tbClientes.MarcarSN=True"
+    End Select
+    CurrentDb.QueryDefs("qryClientes").SQL = strSQL
+Presentar:
+    'PonXML strXML, "Subtitulo", Me.lblTitulo.Caption
+    If Me.mrcPantImp = 1 Then
+        'DoCmd.OpenReport "rptEmpl_Presencia", acViewPreview, , , , strXML
+        DoCmd.OpenQuery "qryClientes", , acReadOnly
+    ElseIf Me.mrcPantImp = 2 Then
+        strOtros = "1111,08133015,1111,1111,0000"
+        ImprimirSQL_DOS1 "qryClientes", strTitulo, strOtros, , , True
+    Else
+        strQRY = "qryClientes"
+        strOtros = "1111,08133015,1111,1111,0000"
+        strFile = DameValorParam("AplicacionCarpetaListados") & NombreCampoValido(strTitulo, True, True)
+Buc:
+        'If InStr(strFile, "__") > 0 Then
+        '    strFile = Replace(strFile, "__", "_")
+        '    GoTo Buc
+        'End If
+        ExportarSQL_Excel strQRY, strFile, , strOtros
+    End If
+Exit_btnAceptar_click:
+    DoCmd.Hourglass False
+    Close
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+
+Private Sub btnAceptar2_Click()
+    Dim strSQL As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim rs As Recordset, rsSelect As Recordset
+    Dim i As Integer
+    Dim strQRY As String, strFile As String, strOtros As String
+    On Error GoTo Error_btnAceptar2_Click
+'    If Me.cmbEmpresa.ListIndex = -1 Then
+'        MsgBox "Se debe seleccionar empresa"
+'        Me.cmbEmpresa.SetFocus
+'        Exit Sub
+'    End If
+    DoCmd.Hourglass True
+    strTitulo = "Estancias_" & Me.lblTitulo.Caption
+    If Me.casVerPagos Then
+        strSQL = "TRANSFORM Sum(qryTotalesFichasFPago.SumaDeCantidad) AS Pagado"
+    Else
+        strSQL = ""
+    End If
+    strSQL = strSQL & " SELECT tbFichasCab.IdFichaCab AS [Nº Ficha], Format(tbFichasCab.FechaLlegada,'dd/mm/yyyy') as Llegada, Format(tbFichasCab.FechaSalida,'dd/mm/yyyy') as Salida, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, Trim(tbFichasCab.LocalidadCliente & '-' & tbFichasCab.PaisCliente) AS [Localidad-Pais], tbClientes.[NombreCli] & ' ' & tbClientes.[ApellidosCli] AS [Agencia-Empresa], CCur(Nz([TotalBase]+[TotalIVA]+[TotalRecEq],0)) AS Importe, tbProcedencias.Procedencia"
+    If Me.casVerPagos Then
+        strSQL = strSQL & " FROM ((((tbFichasCab LEFT JOIN tbClientes ON tbFichasCab.IdAgencia = tbClientes.IdCliente) LEFT JOIN tbClientes AS Viajeros ON tbFichasCab.DNICliente = Viajeros.NIF) LEFT JOIN tbProcedencias ON tbFichasCab.IdProcedencia = tbProcedencias.IdProcedencia) LEFT JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab) LEFT JOIN qryTotalesFichasFPago ON tbFichasCab.IdFichaCab = qryTotalesFichasFPago.IdFrom"
+    Else
+        strSQL = strSQL & " FROM (((tbFichasCab LEFT JOIN tbClientes ON tbFichasCab.IdAgencia = tbClientes.IdCliente)LEFT JOIN tbClientes as Viajeros ON tbFichasCab.DNICliente = Viajeros.NIF) LEFT JOIN tbFichasCab_Totales ON tbFichasCab.IdFichaCab = tbFichasCab_Totales.IdFichaCab) LEFT JOIN tbProcedencias ON tbFichasCab.IdProcedencia = tbProcedencias.IdProcedencia"
+    End If
+    strSQL = strSQL & " WHERE True"
+    Select Case Me.cmbTipoCli
+        Case 0
+            If Len(Me.txtNombre) > 0 Then
+                strSQL = strSQL & " AND (Trim(tbClientes.[NombreCli] & ' ' & tbClientes.[ApellidosCli]) Like '*" & Me.txtNombre & "*'"
+                strSQL = strSQL & " OR Trim([NombreCliente] & ' ' & [ApellidosCliente]) Like '*" & Me.txtNombre & "*')"
+            End If
+            If Len(Me.txtLocalidad) > 0 Then
+                strSQL = strSQL & " AND (tbClientes.[Ciudad] Like '*" & Me.txtLocalidad & "*'"
+                strSQL = strSQL & " OR [LocalidadCliente] Like '*" & Me.txtLocalidad & "*')"
+            End If
+            If Len(Me.txtProvincia) > 0 Then
+                strSQL = strSQL & " AND (Trim(tbClientes.[EdoOProv] & ' ' & tbClientes.[Pais]) Like '*" & Me.txtProvincia & "*'"
+                strSQL = strSQL & " OR Trim([ProvinciaCliente] & ' ' & [PaisCliente]) Like '*" & Me.txtProvincia & "*')"
+            End If
+        Case 1
+            strSQL = strSQL & " AND Nz(Viajeros.Agencia,False)=False"
+            If Len(Me.txtNombre) > 0 Then
+                strSQL = strSQL & " AND Trim([NombreCliente] & ' ' & [ApellidosCliente]) Like '*" & Me.txtNombre & "*'"
+            End If
+            If Len(Me.txtLocalidad) > 0 Then
+                strSQL = strSQL & " AND [LocalidadCliente] Like '*" & Me.txtLocalidad & "*'"
+            End If
+            If Len(Me.txtProvincia) > 0 Then
+                strSQL = strSQL & " AND Trim([ProvinciaCliente] & ' ' & [PaisCliente]) Like '*" & Me.txtProvincia & "*'"
+            End If
+        Case 2
+            strSQL = strSQL & " AND Nz(tbClientes.Agencia,False)=True"
+            If Len(Me.txtNombre) > 0 Then
+                strSQL = strSQL & " AND Trim(tbClientes.[NombreCli] & ' ' & tbClientes.[ApellidosCli]) Like '*" & Me.txtNombre & "*'"
+            End If
+            If Len(Me.txtLocalidad) > 0 Then
+                strSQL = strSQL & " AND tbClientes.[Ciudad] Like '*" & Me.txtLocalidad & "*'"
+            End If
+            If Len(Me.txtProvincia) > 0 Then
+                strSQL = strSQL & " AND Trim(tbClientes.[EdoOProv] & ' ' & tbClientes.[Pais]) Like '*" & Me.txtProvincia & "*'"
+            End If
+    End Select
+    If Len(Me.IdProcedencia) > 0 Then
+        strSQL = strSQL & " AND tbFichasCab.IdProcedencia = " & Me.IdProcedencia
+    End If
+    Select Case Me.mrcTREF
+        Case 1, 2
+            'MarcarClientesXFechaEstancia CDate(Me.txtDesde), CDate(Me.txtHasta)
+            'strSQL = strSQL & " AND (tbClientes.MarcarSN=True OR Viajeros.MarcarSN=True)"
+            strSQL = strSQL & " AND tbFichasCab.FechaLlegada<=" & CLng(CDate(Me.txtHasta))
+            strSQL = strSQL & " AND tbFichasCab.FechaSalida>=" & CLng(CDate(Me.txtDesde))
+    End Select
+    If Me.casVerPagos Then
+        strSQL = strSQL & " GROUP BY tbFichasCab.IdFichaCab, Format(tbFichasCab.FechaLlegada,'dd/mm/yyyy'), Format(tbFichasCab.FechaSalida,'dd/mm/yyyy'), [NombreCliente] & ' ' & [ApellidosCliente], Trim(tbFichasCab.LocalidadCliente & '-' & tbFichasCab.PaisCliente), tbClientes.[NombreCli] & ' ' & tbClientes.[ApellidosCli], CCur(Nz([TotalBase]+[TotalIVA]+[TotalRecEq],0)), tbProcedencias.Procedencia, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida"
+    End If
+    
+    strSQL = strSQL & " ORDER BY tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida"
+    If Me.casVerPagos Then strSQL = strSQL & " PIVOT qryTotalesFichasFPago.CodFPago"
+
+    CurrentDb.QueryDefs("qryClientesFichas").SQL = strSQL
+Presentar:
+    'PonXML strXML, "Subtitulo", Me.lblTitulo.Caption
+    If Me.mrcPantImp = 1 Then
+        'DoCmd.OpenReport "rptEmpl_Presencia", acViewPreview, , , , strXML
+        DoCmd.OpenQuery "qryClientesFichas", , acReadOnly
+    ElseIf Me.mrcPantImp = 2 Then
+        strQRY = "qryClientesFichas"
+        strOtros = "11111111,0810103020201510,11111131,11111131,00000010"
+        ImprimirSQL_DOS1 strQRY, strTitulo, strOtros, , , True
+    Else
+        strQRY = "qryClientesFichas"
+        strOtros = "11111111,0810103020201510,11111131,11111131,00000010"
+        strFile = DameValorParam("AplicacionCarpetaListados") & NombreCampoValido(strTitulo, True, True)
+Buc:
+        'If InStr(strFile, "__") > 0 Then
+        '    strFile = Replace(strFile, "__", "_")
+        '    GoTo Buc
+        'End If
+        ExportarSQL_Excel strQRY, strFile, , strOtros
+    End If
+Exit_btnAceptar2_Click:
+    DoCmd.Hourglass False
+    Close
+    Exit Sub
+Error_btnAceptar2_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar2_Click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar2_Click
+    End Select
+        
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+
+Private Sub cmbEmpresa_AfterUpdate()
+    Call PonTitulos
+End Sub
+
+Private Sub cmbMes_AfterUpdate()
+    Me.txtDesde = CDate(Me.txtAño & "/" & Me.cmbMes & "/" & "01")
+    Me.txtHasta = CDate(Me.txtAño & "/" & Me.cmbMes & "/" & CStr(DiasDelMes(CInt(Me.cmbMes), CInt(Me.txtAño))))
+    Call PonTitulos
+End Sub
+
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    MascaraFechasForm Me
+    Call mrcTREF_Click
+    Call PonTitulos
+End Sub
+
+Private Function PonTitulos()
+    Dim strTitulo As String
+    Dim strSQL As String
+    Dim strTit As String
+    'If Me.cmbEmpleados <> 0 Then
+    '    strTitulo = "Empleada/o: " & Me.cmbEmpleados.Column(2) & ". "
+    '    strTit = "Empleada/o: " & Me.cmbEmpleados.Column(2) & ". "
+    'End If
+    Select Case Me.cmbTipoCli
+        Case 1
+            strTitulo = "Clientes (Personas): " & vbCrLf
+            strTit = "Clientes (Personas): " & ". "
+        Case 2
+            strTitulo = "Clientes (Empresas-Agencias): " & vbCrLf
+            strTit = "Clientes (Empresas-Agencias): " & ". "
+        Case Else
+            strTitulo = "Clientes: " & vbCrLf
+            strTit = "Clientes: " & ". "
+    End Select
+        
+    If Len(Me.txtNombre) > 0 Then
+        strTitulo = strTitulo & "Nombre como... '" & Me.txtNombre & "'" & vbCrLf
+        strTit = strTit & "Nombre como... '" & Me.txtNombre & "'. "
+    End If
+    If Len(Me.txtLocalidad) > 0 Then
+        strTitulo = strTitulo & "Localidad como... '" & Me.txtLocalidad & "'" & vbCrLf
+        strTit = strTit & "Localidad como... '" & Me.txtLocalidad & "'. "
+    End If
+    If Len(Me.txtProvincia) > 0 Then
+        strTitulo = strTitulo & "Provincia-Pais como... '" & Me.txtProvincia & "'" & vbCrLf
+        strTit = strTit & "Provincia-Pais como... '" & Me.txtProvincia & "'. "
+    End If
+    If Len(Me.IdProcedencia) > 0 Then
+        strTitulo = strTitulo & "Procedencia: " & Me.IdProcedencia.Column(1) & vbCrLf
+        strTit = strTit & "Procedencia: " & Me.IdProcedencia.Column(1)
+    End If
+        
+    Select Case Me.mrcTREF
+        Case 1
+            If Me.mrcTrimestre = 6 Then
+                strTitulo = strTitulo & "Estancias mes: " & Me.cmbMes.Column(1) & " " & Me.txtAño
+                strTit = strTit & "Estancias mes: " & Me.cmbMes.Column(1) & " " & Me.txtAño
+            ElseIf Me.mrcTrimestre = 5 Then
+                strTitulo = strTitulo & "Estancias año: " & Me.txtAño
+                strTit = strTit & "Estancias año: " & Me.txtAño
+            Else
+                strTitulo = strTitulo & "Estancias trimestre: " & Me.mrcTrimestre & " / " & Me.txtAño
+                strTit = strTit & "Estancias trimestre: " & Me.mrcTrimestre & " / " & Me.txtAño
+            End If
+        Case 2
+            strTitulo = strTitulo & "Estancias desde el " & Me.txtDesde & " hasta el " & Me.txtHasta
+            strTit = strTit & "Estancias desde el " & Me.txtDesde & " hasta el " & Me.txtHasta
+    End Select
+'    strTitulo = strTitulo & vbCrLf & "Empresa: " & Me.cmbEmpresa.Column(1)
+'    strTit = strTit & vbCrLf & "Empresa: " & Me.cmbEmpresa.Column(1)
+    Me.lblTitulo.Caption = strTitulo
+End Function
+
+Private Sub IdProcedencia_AfterUpdate()
+    Call PonTitulos
+End Sub
+
+Private Sub mrcTREF_Click()
+    Dim ctl As Control
+    Dim intTRver As Integer
+    Call mrcTrimestre_AfterUpdate
+    'If Me.mrcTREF = 1 Then
+    '    intTRver = True
+    'Else
+    '    intTRver = False
+    'End If
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "TR") > 0 Then ctl.Visible = Me.mrcTREF = 1
+        If InStr(ctl.Tag, "EF") > 0 Then ctl.Visible = Me.mrcTREF = 2
+        'Select Case ctl.Tag
+        '    Case ""
+        '    Case "TR"
+        '        ctl.Visible = intTRver
+        '    Case "EF"
+        '        ctl.Visible = Not intTRver
+        'End Select
+    Next ctl
+End Sub
+
+Private Sub mrcTrimestre_AfterUpdate()
+'    gintActualizarFacturacionRecibidaDetalleXGruposAux = True
+    Select Case mrcTrimestre.value
+        Case 1
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/03/31")
+        Case 2
+            Me.txtDesde = CDate(Me.txtAño & "/04/01")
+            Me.txtHasta = CDate(Me.txtAño & "/06/30")
+        Case 3
+            Me.txtDesde = CDate(Me.txtAño & "/07/01")
+            Me.txtHasta = CDate(Me.txtAño & "/09/30")
+        Case 4
+            Me.txtDesde = CDate(Me.txtAño & "/10/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+        Case 5
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+        Case 6
+            Me.cmbMes = Format(Month(Date), "00")
+            Call cmbMes_AfterUpdate
+    End Select
+    If Me.mrcTrimestre = 6 Then
+        Me.cmbMes.Visible = True
+    Else
+        Me.cmbMes.Visible = False
+    End If
+    Call PonTitulos
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    Call mrcTrimestre_AfterUpdate
+    Call PonTitulos
+End Sub
+
+
+Private Sub txtDesde_AfterUpdate()
+    Call PonTitulos
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call PonTitulos
+End Sub

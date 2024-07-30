@@ -1,0 +1,303 @@
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private mlngIdFichaDet As Long
+Private mlngIdFichaCab As Long
+Private mlngIdSD As Long
+Private mstrConcepto As String
+Private mcurPrecioUnitario As Currency
+Private mlngCantidad As Long
+Private mdtFechaInicio As Date
+Private mdtFechaFin As Date
+Private mcurIVA As Currency
+Private mstrParcela As String
+Private mlngIdTipoParcela As Long
+Private miPlazasOcupadas As Integer
+Private mbooDtoSN As Boolean
+Private mbooFacturarSN As Boolean
+Private miTipoCuenta As Integer
+Private mlngIdFichaCabDestino As Long
+Private mdtFecha_H As Date
+Private mrstRecordset As Recordset
+Private mbooLoaded As Boolean
+Private mintIVAinc As Integer
+
+Public Property Get IdFichaDet() As Long
+    IdFichaDet = mlngIdFichaDet
+End Property
+
+Public Property Get IdFichaCab() As Long
+    IdFichaCab = mlngIdFichaCab
+End Property
+
+Public Property Let IdFichaCab(rData As Long)
+    mlngIdFichaCab = rData
+End Property
+
+Public Property Get IdSD() As Long
+    IdSD = mlngIdSD
+End Property
+
+Public Property Let IdSD(rData As Long)
+    On Error GoTo HandleError
+    mlngIdSD = rData
+    Dim rs As Recordset, strSQL As String, intIVAinc As Integer
+    strSQL = "SELECT tbServiciosDiarios.IdSD, tbServiciosDiarios.ServicioDiario, tbTiposIVA.IVA, tbGruposDeIngresos.EsSD"
+    strSQL = strSQL & " FROM tbGruposDeIngresos RIGHT JOIN (tbTiposIVA RIGHT JOIN tbServiciosDiarios ON tbTiposIVA.TipoIVA = tbServiciosDiarios.TipoIVA) ON tbGruposDeIngresos.CodNombreGrupo = tbServiciosDiarios.CodGrupoIngresos"
+    strSQL = strSQL & " WHERE tbServiciosDiarios.IdSD=" & mlngIdSD
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not IsNull(rs("IVA")) Then mcurIVA = rs("IVA")
+    
+IdSD:
+    mstrConcepto = rs("ServicioDiario")
+    If mstrParcela <> "" Then mstrConcepto = mstrConcepto & " (" & mstrParcela & ")"
+    mcurPrecioUnitario = DamePrecioSD(mlngIdSD, mdtFechaInicio, mintIVAinc, mcurIVA, mdtFechaInicio + 1)
+    mcurPrecioUnitario = Redondea(mcurPrecioUnitario, 2)
+    If rs("EsSD") = False Then ' Es Extra
+        If Len(mstrParcela) > 0 Then
+            mdtFechaFin = 0
+        Else
+            mdtFechaFin = Date
+        End If
+        mdtFechaInicio = 0
+    Else
+    End If
+HandleExit:
+    Exit Property
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Property
+
+Public Property Get Concepto() As String
+    Concepto = mstrConcepto
+End Property
+
+Public Property Let Concepto(rData As String)
+    mstrConcepto = rData
+End Property
+
+Public Property Get PrecioUnitario() As Currency
+    PrecioUnitario = mcurPrecioUnitario
+End Property
+
+Public Property Let PrecioUnitario(rData As Currency)
+    mcurPrecioUnitario = rData
+End Property
+
+Public Property Get Cantidad() As Long
+    Cantidad = mlngCantidad
+End Property
+
+Public Property Let Cantidad(rData As Long)
+    mlngCantidad = rData
+End Property
+
+Public Property Get FechaInicio() As Date
+    FechaInicio = mdtFechaInicio
+End Property
+
+Public Property Let FechaInicio(rData As Date)
+    mdtFechaInicio = rData
+End Property
+
+Public Property Get FechaFin() As Date
+    FechaFin = mdtFechaFin
+End Property
+
+Public Property Let FechaFin(rData As Date)
+    mdtFechaFin = rData
+End Property
+
+Public Property Get IVA() As Currency
+    IVA = mcurIVA
+End Property
+
+Public Property Let IVA(rData As Currency)
+    mcurIVA = rData
+End Property
+
+Public Property Get Parcela() As String
+    Parcela = mstrParcela
+End Property
+
+Public Property Let Parcela(rData As String)
+    mstrParcela = rData
+End Property
+
+Public Property Get IdTipoParcela() As Long
+    IdTipoParcela = mlngIdTipoParcela
+End Property
+
+Public Property Let IdTipoParcela(rData As Long)
+    mlngIdTipoParcela = rData
+End Property
+
+Public Property Get PlazasOcupadas() As Integer
+    PlazasOcupadas = miPlazasOcupadas
+End Property
+
+Public Property Let PlazasOcupadas(rData As Integer)
+    miPlazasOcupadas = rData
+End Property
+
+Public Property Get DtoSN() As Boolean
+    DtoSN = mbooDtoSN
+End Property
+
+Public Property Let DtoSN(rData As Boolean)
+    mbooDtoSN = rData
+End Property
+
+Public Property Get FacturarSN() As Boolean
+    FacturarSN = mbooFacturarSN
+End Property
+
+Public Property Let FacturarSN(rData As Boolean)
+    mbooFacturarSN = rData
+End Property
+
+Public Property Get TipoCuenta() As Integer
+    TipoCuenta = miTipoCuenta
+End Property
+
+Public Property Let TipoCuenta(rData As Integer)
+    miTipoCuenta = rData
+End Property
+
+Public Property Get IdFichaCabDestino() As Long
+    IdFichaCabDestino = mlngIdFichaCabDestino
+End Property
+
+Public Property Let IdFichaCabDestino(rData As Long)
+    mlngIdFichaCabDestino = rData
+End Property
+
+Public Property Get Fecha_H() As Date
+    Fecha_H = mdtFecha_H
+End Property
+
+Public Property Let Fecha_H(rData As Date)
+    mdtFecha_H = rData
+End Property
+
+Private Property Get Recordset() As Recordset
+    Set Recordset = mrstRecordset
+End Property
+
+Private Property Set Recordset(rData As Recordset)
+    Set mrstRecordset = rData
+End Property
+
+Private Sub Load()
+    With Recordset
+        mlngIdFichaDet = Nz(.Fields("IdFichaDet").value)
+        Me.IdFichaCab = Nz(.Fields("IdFichaCab").value)
+        Me.IdSD = Nz(.Fields("IdSD").value)
+        Me.Concepto = Nz(.Fields("Concepto").value)
+        Me.PrecioUnitario = Nz(.Fields("PrecioUnitario").value)
+        Me.Cantidad = Nz(.Fields("Cantidad").value)
+        Me.FechaInicio = Nz(.Fields("FechaInicio").value)
+        Me.FechaFin = Nz(.Fields("FechaFin").value)
+        Me.IVA = Nz(.Fields("IVA").value)
+        Me.Parcela = Nz(.Fields("Parcela").value)
+        Me.IdTipoParcela = Nz(.Fields("IdTipoParcela").value)
+        Me.PlazasOcupadas = Nz(.Fields("PlazasOcupadas").value)
+        Me.DtoSN = Nz(.Fields("DtoSN").value)
+        Me.FacturarSN = Nz(.Fields("FacturarSN").value)
+        Me.TipoCuenta = Nz(.Fields("TipoCuenta").value)
+        Me.IdFichaCabDestino = Nz(.Fields("IdFichaCabDestino").value)
+        Me.Fecha_H = Nz(.Fields("Fecha_H").value)
+        mintIVAinc = Nz(DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & mlngIdFichaCab), True)
+    End With
+    mbooLoaded = True
+End Sub
+Public Sub Update()
+    With Recordset
+        If mbooLoaded = True Then
+            .Edit
+        Else
+            .AddNew
+        End If
+        mlngIdFichaDet = Nz(.Fields("IdFichaDet").value)
+        .Fields("IdFichaCab").value = Me.IdFichaCab
+        .Fields("IdSD").value = Me.IdSD
+        .Fields("Concepto").value = NullIfEmptyString(Me.Concepto)
+        .Fields("PrecioUnitario").value = Me.PrecioUnitario
+        .Fields("Cantidad").value = Me.Cantidad
+        .Fields("FechaInicio").value = NullIfZeroDate(Me.FechaInicio)
+        .Fields("FechaFin").value = NullIfZeroDate(Me.FechaFin)
+        .Fields("IVA").value = Me.IVA
+        .Fields("Parcela").value = NullIfEmptyString(Me.Parcela)
+        .Fields("IdTipoParcela").value = NullIfZeroLong(Me.IdTipoParcela)
+        .Fields("PlazasOcupadas").value = Me.PlazasOcupadas
+        .Fields("DtoSN").value = Me.DtoSN
+        .Fields("FacturarSN").value = Me.FacturarSN
+        .Fields("TipoCuenta").value = Me.TipoCuenta
+        .Fields("IdFichaCabDestino").value = Me.IdFichaCabDestino
+        .Fields("Fecha_H").value = Me.Fecha_H
+        .Update
+    End With
+    mbooLoaded = True
+End Sub
+Public Sub AddNew()
+    mbooLoaded = False
+    Me.FacturarSN = True
+    Me.FechaInicio = 0
+    Me.FechaFin = 0
+End Sub
+Public Function FindFirst(Optional Criteria As Variant) As Boolean
+    If IsMissing(Criteria) Then
+        Recordset.MoveFirst
+        FindFirst = Not Recordset.EOF
+    Else
+        Recordset.FindFirst Criteria
+        FindFirst = Not Recordset.NoMatch
+    End If
+    If FindFirst Then Load
+End Function
+Public Function FindLast(Optional Criteria As Variant) As Boolean
+    If IsMissing(Criteria) Then
+        Recordset.MoveLast
+        FindLast = Not Recordset.EOF
+    Else
+        Recordset.FindLast Criteria
+        FindLast = Not Recordset.NoMatch
+    End If
+    If FindLast Then Load
+End Function
+Private Sub Class_Initialize()
+    Set Recordset = CurrentDb.OpenRecordset("tbFichasDet", dbOpenDynaset)
+End Sub
+Private Sub Class_Terminate()
+    Recordset.Close
+    Set Recordset = Nothing
+End Sub
+Function NullIfEmptyString(str As String) As Variant
+    Dim strTrimmed As String: strTrimmed = Trim(str)
+    If Len(strTrimmed) = 0 Then
+        NullIfEmptyString = Null
+    Else
+        NullIfEmptyString = strTrimmed
+    End If
+End Function
+
+Function NullIfZeroDate(dt As Date) As Variant
+    If dt = 0 Then
+        NullIfZeroDate = Null
+    Else
+        NullIfZeroDate = dt
+    End If
+End Function
+
+Function NullIfZeroLong(lng As Long) As Variant
+    If lng = 0 Then
+        NullIfZeroLong = Null
+    Else
+        NullIfZeroLong = lng
+    End If
+End Function

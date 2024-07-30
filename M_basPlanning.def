@@ -1,0 +1,1743 @@
+    Option Compare Database
+    Option Explicit
+    Global g_Columnas() As String, g_Filas() As String
+    Global g_intC As Integer, g_intF As Integer, g_intN As Integer, g_intNMax As Integer
+'    Global g_intFC(1 To 31, 1 To 17) As Integer
+    Global g_intFC() As Integer
+'    Global g_lngAlto As Long, g_lngAncho As Long, g_lngAncho1a As Long
+    Const SIN_ASIGNAR = "Sin asignar"
+
+Public Function CargarPlanning(intMes As Integer, intAño As Integer, frm As Form, Optional lngGrupoPlanning As Long = 0, Optional intSoloFichas As Integer = False, Optional dtHastaFechaReserva As Date = 0)
+    On Error GoTo Error_CargarPlanning
+    Dim dtD As Date, dtH As Date, i As Integer, n As Integer, ñ As Integer, j As Integer, p As Integer
+    Dim lngX As Long, lngY As Long, lngAlto As Long, lngAncho As Long, strCaption As String
+    Dim lngX_ As Long, lngY_ As Long, lngAlto_ As Long, lngAncho_ As Long, lngAlto_1 As Long, lngBColor As Long
+    Dim strMA As String
+    Dim intTamañoFuente As Integer, intMaximoParcelasXGrupo As Integer
+    Dim intMaxI As Integer, intColAct As Integer, lngMrg As Long, lngX2 As Long
+    Dim intPrimeroPax As Integer
+    Dim intFechasEUS As Integer
+    intFechasEUS = Nz(DameValorParam("FormatoFechaEUS_SN"), False)
+    intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+    intMaximoParcelasXGrupo = Nz(DameValorParam("PlaningMaximoParcelasXGrupo"), 15)
+    ReDim g_intFC(1 To 31, 1 To intMaximoParcelasXGrupo + 2)
+    For i = 1 To 31
+        For j = 1 To 17
+            g_intFC(i, j) = 0
+        Next j
+    Next i
+    dtD = CDate(CStr(intAño) & "/" & CStr(intMes) & "/01")
+    dtH = CDate(CStr(intAño) & "/" & CStr(intMes) & "/" & CStr(DDM(intMes, intAño)))
+    intTamañoFuente = CInt(Nz(DameValorParam("PlanningTamañoFuente"), 7))
+    If intSoloFichas = True Then
+        lngAncho = Nz(DameValorParam("PlanningAnchoCeldas"), 1) * TC_CmToPoints
+        lngAlto = Nz(DameValorParam("PlanningAltoCeldas"), 1) * TC_CmToPoints
+        GoTo CargaFichas
+    End If
+    DoCmd.Hourglass True
+    '1ª COLUMNAS: Fechas---------------------
+    lngAlto = Nz(DameValorParam("PlanningAltoCeldas"), 0.7) * TC_CmToPoints
+    lngAncho = 1.5 * TC_CmToPoints
+    'g_lngAncho1a = lngAncho
+    'g_lngAlto = lngAlto
+    g_intF = DDM(intMes, intAño)
+    frm.Section(0).Height = (g_intF + 3) * lngAlto ' el +3 es para que haya un poco margen (en realidad debería ser + 2)
+    n = 1
+    PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, "Fecha", 13158600, , , True
+    If Not intFechasEUS Then
+        strMA = "/" & intMes & "/" & Right(intAño, 2)
+    Else
+        strMA = Right(intAño, 2) & "/" & intMes & "/"
+    End If
+    ReDim g_Filas(1 To 31)
+    
+    
+    Dim rs As Recordset, strSQL As String, strCTT As String, lngColor As Long
+    Dim lngColorFuente As Long, dt As Date
+    strSQL = "SELECT tbTempoDias.*, tbTemporadasNombre.Color, tbTemporadasNombre.NombreTemporada"
+    strSQL = strSQL & " FROM tbTempoDias LEFT JOIN tbTemporadasNombre ON tbTempoDias.IdTempo = tbTemporadasNombre.IdTemporadaNombre;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    For i = 1 To DDM(intMes, intAño)
+        n = n + 1
+        lngY = lngY + lngAlto
+        strCaption = IIf(Not intFechasEUS, i & strMA, strMA & i)
+        g_Filas(i) = strCaption
+        rs.FindFirst "Dia = #" & intMes & "/" & i & "/" & intAño & "#"
+        If Not rs.NoMatch Then
+            If Nz(DameValorParam("PlanningColorTemporadaEnFecha"), True) = True Then
+                lngColor = rs("Color")
+            Else
+                lngColor = 13158600
+            End If
+            strCTT = rs("NombreTemporada")
+        Else
+            lngColor = 13158600
+            strCTT = "?"
+        End If
+        dt = CDate(intAño & "/" & intMes & "/" & i)
+        lngColorFuente = IIf(EsFestivo(dt), vbWhite, vbBlack)
+        PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, lngColor, intTamañoFuente, lngColorFuente, , , , , strCTT
+'        If Not IsNull(DLookup("FFiesta", "tbFestivos", "FFiesta = #" & intMes & "/" & i & "/" & intAño & "#")) Then ' es festivo
+'            PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 45567, intTamañoFuente
+'        Else
+'            Select Case Weekday(CDate(i & strMA))
+'                Case vbSunday, vbSaturday
+'                    PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 16764057, intTamañoFuente
+'                Case Else
+'                    PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente
+'            End Select
+'        End If
+    Next i
+    '1ª FILA: Parcelas---------------------------
+    Dim strSQL2 As String
+    strSQL = "SELECT * FROM tbParcelas WHERE True"
+    If lngGrupoPlanning <> 0 Then
+        strSQL2 = "SELECT tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.NombreParcela"
+        strSQL2 = strSQL2 & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        strSQL2 = strSQL2 & " WHERE (((tbGruposPlaning_Parcelas.IdGrupoPlaning)=" & lngGrupoPlanning & "))"
+        strSQL2 = strSQL2 & " ORDER BY tbParcelas.Orden"
+        Set rs = CurrentDb.OpenRecordset(strSQL2, dbOpenSnapshot)
+        strSQL2 = ""
+        If Not rs.EOF Then
+            strSQL2 = " AND ("
+        End If
+        While Not rs.EOF
+            strSQL2 = strSQL2 & " NombreParcela = " & ConComillas(rs("NombreParcela")) & " OR"
+            rs.MoveNext
+        Wend
+        If Len(strSQL2) > 3 Then
+            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL = strSQL & strSQL2
+        End If
+    End If
+    strSQL = strSQL & " ORDER BY Orden"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngX = lngX + lngAncho
+    lngY = 0
+    lngAncho = Nz(DameValorParam("PlanningAnchoCeldas"), 1) * TC_CmToPoints
+    'g_lngAncho = lngAncho
+    lngAlto = lngAlto
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        frm.Width = lngAncho * (rs.RecordCount + 2)
+        g_intC = rs.RecordCount + 1
+    Else
+        frm.Width = lngAncho * 2
+        g_intC = 1
+    End If
+    frm.Width = (g_intC + 2) * lngAncho
+    ReDim g_Columnas(1 To g_intC)
+    '1º columna para fichas sin asignar
+    n = n + 1
+    strCaption = SIN_ASIGNAR '"Sin asignar" 'Nz(DameValorParam("PlanningParcelaSinAsignarTXT"), "Sin H.")
+    PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+    n = n + 1
+    PonLBL frm, n, True, lngX, lngY + (g_intF + 1) * lngAlto, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+    lngX = lngX + lngAncho
+    'línea vertical
+    lngX_ = lngX
+    lngY_ = lngAlto
+    lngAncho_ = 0 'ancho de línea
+    lngAlto_ = (g_intF) * lngAlto  'alto de línea
+    i = 1
+    g_Columnas(i) = strCaption
+    ñ = ñ + 1
+    PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+    While Not rs.EOF
+        n = n + 1
+        strCaption = rs("NombreParcela")
+        PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+        n = n + 1
+        PonLBL frm, n, True, lngX, lngY + (g_intF + 1) * lngAlto, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+        lngX = lngX + lngAncho
+        'línea vertical
+        lngX_ = lngX
+        lngY_ = lngAlto
+        lngAncho_ = 0 'ancho de línea
+        lngAlto_ = (g_intF) * lngAlto  'alto de línea
+        ñ = ñ + 1
+        PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+        'Cargar matriz g_columnas
+        i = i + 1
+        g_Columnas(i) = strCaption
+        rs.MoveNext
+    Wend
+    'líneas horizontales y festivos
+    lngX_ = 1.5 * TC_CmToPoints
+    lngAncho_ = g_intC * lngAncho
+    lngAlto_ = 0
+    For i = 1 To DDM(intMes, intAño)
+        If Not IsNull(DLookup("FFiesta", "tbFestivos", "FFiesta = #" & intMes & "/" & i & "/" & intAño & "#")) Then ' es festivo
+            p = p + 1
+            PonCDR frm, p, True, lngX_, lngY_, lngAlto, lngAncho_, 45567
+        Else
+            Select Case Weekday(CDate(IIf(Not intFechasEUS, i & strMA, strMA & i)))
+                Case vbSunday, vbSaturday
+                    p = p + 1
+                    PonCDR frm, p, True, lngX_, lngY_, lngAlto, lngAncho_, 16764057
+                Case Else
+            End Select
+        End If
+        ñ = ñ + 1
+        lngY_ = lngAlto * (i + 1)
+        PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+    Next i
+    g_intN = n
+CargaFichas:
+    n = g_intN
+'   Colocar las etiquetas de las reservas
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Actualizar_tbAuxPlanning dtD, dtH, lngGrupoPlanning, , , dtHastaFechaReserva
+'    DoCmd.Hourglass False
+'    DoCmd.Hourglass True
+'    ActualizarCuadroOcupacion dtD, dtH, lngGrupoPlanning
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Dim strAntPar As String
+    Dim cFC As cFichaCab
+    lngAlto_1 = lngAlto
+    strSQL = "SELECT * FROM tbAuxPlanning ORDER BY Parcela, FechaReserva"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    Set cFC = New cFichaCab
+    While Not rs.EOF
+        If strAntPar <> rs("Parcela") Then
+            For i = 1 To g_intC
+                If g_Columnas(i) = rs("Parcela") Then
+                    lngX = 1.5 * TC_CmToPoints + (i - 1) * lngAncho
+                    strAntPar = rs("Parcela")
+                    intColAct = i
+                    Exit For
+                End If
+            Next i
+            If strAntPar <> rs("Parcela") Then
+                MsgBox "No se encontró parcela <<" & rs("Parcela") & ">> en Planning"
+                lngX = 1.5 * TC_CmToPoints + (g_intC + 1) * lngAncho
+                strAntPar = rs("Parcela")
+                intColAct = g_intC + 1
+            End If
+        End If
+        Select Case rs("EstadoFicha")
+            Case 10
+                lngBColor = 16763904
+            Case 1
+                lngBColor = 8454016
+            Case 2
+                lngBColor = 8454143
+            Case 3
+                lngBColor = 8421631
+            Case 4
+                lngBColor = 9868950
+            Case 5
+                lngBColor = 9868950
+            Case 6
+                lngBColor = G_lngColorLimpieza
+            Case 9
+                lngBColor = G_lngColorCancelada
+        End Select
+        
+        lngY = Day(rs("FechaEntrada")) * lngAlto_1
+        lngAlto = rs("NumNoches") * lngAlto_1
+        lngAncho = lngAncho
+        n = n + 1
+        If cFC.FindFirst("IdFichaCab = " & rs("IdFichaCab")) Then strCaption = cFC.ResumenFicha(intPrimeroPax)       ' DimeFicha(rs("IdFichaCab"), intPrimeroPax) 'rs("Notas")
+        intMaxI = 0
+        lngMrg = 50
+        For i = Day(rs("FechaEntrada")) To Day(rs("FechaEntrada")) + rs("NumNoches") - 1
+            g_intFC(i, intColAct) = g_intFC(i, intColAct) + 1
+            If g_intFC(i, intColAct) > intMaxI Then intMaxI = g_intFC(i, intColAct)
+        Next i
+        lngX2 = lngX + (intMaxI - 1) * lngMrg
+        lngY = lngY + (intMaxI - 1) * lngMrg
+        PonLBL frm, n, True, lngX2, lngY, lngAlto, lngAncho, strCaption, lngBColor, intTamañoFuente, , , , 1, CStr(rs("IdFichaCab"))
+        rs.MoveNext
+    Wend
+    g_intNMax = n
+    While n < 500
+        n = n + 1
+        PonLBL frm, n, False
+    Wend
+    If intSoloFichas = False Then
+        While p < 31
+            p = p + 1
+            PonCDR frm, p, False
+        Wend
+    End If
+    If intSoloFichas = False Then
+        While ñ < 52
+            ñ = ñ + 1
+            PonLinea frm, ñ, False
+        Wend
+    End If
+Salir_CargarPlanning:
+    DoCmd.Hourglass False
+    Exit Function
+Error_CargarPlanning:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargarPlanning" & vbCrLf & Err.Description
+            Resume Salir_CargarPlanning
+    End Select
+End Function
+
+Public Function CargarPlanningH(dtIni As Date, frm As Form, Optional lngIdTipoParcela As Long = 0, Optional intSoloFichas As Integer = False)
+    On Error GoTo Error_CargarPlanningH
+    Dim dtD As Date, dtH As Date, i As Integer, n As Integer, ñ As Integer, j As Integer, p As Integer
+    Dim lngX As Long, lngY As Long, lngAlto As Long, lngAncho As Long, strCaption As String
+    Dim lngX_ As Long, lngY_ As Long, lngAlto_ As Long, lngAncho_ As Long, lngAncho_1 As Long, lngBColor As Long, lngFColor As Long
+    Dim strMA As String
+    Dim intTamañoFuente As Integer, intMaximoParcelas As Integer
+    Dim intMaxI As Integer, intFilAct As Integer, lngMrg As Long, lngX2 As Long
+    Dim rs As Recordset, strSQL As String, strCTT As String, lngColor As Long, dt As Date, intNegrita As Integer, intCursiva As Integer, lngColorFuente As Long
+    Dim iniCol As Integer, lngAnchoCol As Long
+    Dim rsAux As Recordset, intModif As Integer, intNueva As Integer
+    Dim intPrimeroPax As Integer
+    Dim intFechasEUS As Integer
+    Dim cFC As cFichaCab
+    intFechasEUS = Nz(DameValorParam("FormatoFechaEUS_SN"), False)
+    intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+    intMaximoParcelas = DCount("IdParcela", "tbParcelas", "ControlReservas=True")
+    ReDim g_intFC(1 To intMaximoParcelas + 2, 0 To 16)
+    For i = 1 To intMaximoParcelas + 2
+        For j = 0 To 16
+            g_intFC(i, j) = 0
+        Next j
+    Next i
+    dtD = dtIni 'CDate(CStr(intAño) & "/" & CStr(intMes) & "/01")
+    dtH = dtIni + 15 'CDate(CStr(intAño) & "/" & CStr(intMes) & "/" & CStr(DDM(intMes, intAño)))
+    intTamañoFuente = CInt(Nz(DameValorParam("PlanningHTamañoFuente"), 7))
+    If intSoloFichas = True Then
+        lngAncho = Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+        lngAlto = Nz(DameValorParam("PlanningHAltoCeldas"), 1) * TC_CmToPoints
+        lngAncho = Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+        lngAnchoCol = lngAncho
+        PintaBotones frm
+
+        GoTo CargaFichas
+    End If
+    DoCmd.Hourglass True
+'*******************************************************************************************
+    '1ª COLUMNAS: Habitaciones---------------------
+    lngAlto = Nz(DameValorParam("PlanningHAltoCeldas"), 0.7) * TC_CmToPoints
+    g_intF = intMaximoParcelas
+    frm.Section(0).Height = (g_intF + 4) * lngAlto ' el +3 es para que haya un poco margen (en realidad debería ser + 2)
+    n = 1
+    PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, "Habit.", 13158600, , , True
+    strSQL = "SELECT tbParcelas.*, tbParcelasTipo.Color"
+    strSQL = strSQL & " FROM tbParcelasTipo INNER JOIN tbParcelas ON tbParcelasTipo.IdTipoParcela = tbParcelas.IdTipoParcela"
+    'If lngIdTipoParcela <> 0 Then
+    '    strSQL = strSQL & " WHERE tbParcelas.IdTipoParcela = " & lngIdTipoParcela
+    'End If
+    strSQL = strSQL & " WHERE tbParcelas.ControlReservas=True"
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngY = lngY + lngAlto
+    lngX = 0
+    lngAncho = Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+    lngAnchoCol = lngAncho
+'    lngAncho = 2 * TC_CmToPoints
+    lngAlto = lngAlto
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        frm.Section(0).Height = lngAlto * (rs.RecordCount + 4)
+        g_intF = rs.RecordCount + 1
+    Else
+        frm.Width = lngAncho * 2
+        g_intF = 1
+    End If
+    g_intC = 16
+    ReDim g_Columnas(1 To g_intC)
+    frm.Width = (g_intC + 2) * Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+    ReDim g_Filas(1 To g_intF + 1)
+    '1º fila para fichas sin    asignar
+    i = 0
+    If Nz(DameValorParam("PlanningHVerFichasSinParcelas"), True) = True Then
+        n = n + 1
+        strCaption = SIN_ASIGNAR '"Sin asignar" 'Nz(DameValorParam("PlanningHParcelaSinAsignarTXT"), "Sin H.")
+        PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+        lngY = lngY + lngAlto
+        'línea horizontal
+        lngX_ = lngAncho
+        lngY_ = lngY
+        lngAncho_ = (g_intC) * Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints ' 0 'ancho de línea
+        lngAlto_ = 0 '(g_intF) * lngAlto  'alto de línea
+        ñ = ñ + 1
+        PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+        i = i + 1
+        g_Filas(i) = strCaption
+    End If
+  '  i = 0
+    lngAncho_ = (g_intC) * Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints ' ancho de línea
+    lngAlto_ = 0 'alto de línea
+    While Not rs.EOF
+        strCaption = rs("NombreParcela")
+        'PonLBL frm, n, True, lngx, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, rs("Color"), True, , , , Nz(rs("Observaciones"), "")
+        If lngIdTipoParcela <> 0 Then
+            If rs("IdTipoParcela") = lngIdTipoParcela Then
+                PonTXT frm, "btn" & strCaption, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, rs("Color"), True, , , , Nz(rs("Observaciones"), "")
+                lngY = lngY + lngAlto
+                'línea horizontal
+                lngX_ = lngAncho
+                lngY_ = lngY
+                ñ = ñ + 1
+                PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+                'Cargar matriz g_Filas
+                i = i + 1
+                g_Filas(i) = strCaption
+            Else
+                PonTXT frm, "btn" & strCaption, False, 0, 0, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, rs("Color"), True, , , , Nz(rs("Observaciones"), "")
+            End If
+        Else
+            PonTXT frm, "btn" & strCaption, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, rs("Color"), True, , , , Nz(rs("Observaciones"), "")
+            lngY = lngY + lngAlto
+            'línea horizontal
+            lngX_ = lngAncho
+            lngY_ = lngY
+            ñ = ñ + 1
+            PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+            'Cargar matriz g_Filas
+            i = i + 1
+            g_Filas(i) = strCaption
+        End If
+        rs.MoveNext
+    Wend
+    
+    PintaBotones frm
+    Dim lngYBottom  As Long
+    lngYBottom = lngY
+    
+'*******************************************************************************************
+    '1ª FILA: Fechas---------------------------
+    'strMA = "/" & Month(dtIni) & "/" & right(Year(dtIni), 2)
+'    strSQL = "SELECT tbTempoDias.*, tbTemporadasNombre.Color, tbTemporadasNombre.NombreTemporada"
+'    strSQL = strSQL & " FROM tbTempoDias LEFT JOIN tbTemporadasNombre ON tbTempoDias.IdTempo = tbTemporadasNombre.IdTemporadaNombre;"
+'    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngY = 0
+    lngX = lngX + lngAncho
+    lngAncho = Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+    lngY_ = Nz(DameValorParam("PlanningHAltoCeldas"), 0.7) * TC_CmToPoints
+    lngAncho_ = 0 'g_intC * lngAncho
+    lngAlto_ = g_intF * lngAlto '0
+    i = 0
+    Dim lngIdTemp As Long, lngIdTempAnt As Long, intColorTempo As Integer
+    intColorTempo = Nz(DameValorParam("PlanningColorTemporadaEnFecha"), True)
+    lngIdTempAnt = -1
+    For dt = dtIni To dtIni + 15
+        i = i + 1
+        n = n + 1
+        strCaption = Format(dt, IIf(Not intFechasEUS, "dd/mm/yy", "yy/mm/dd"))
+        g_Columnas(i) = strCaption
+        lngIdTemp = Nz(QueTemporadaEs(dt), 0)
+        If lngIdTempAnt <> lngIdTemp Then
+            strCTT = Nz(DLookup("NombreTemporada", "tbTemporadasNombre", "IdTemporadaNombre = " & lngIdTemp), "sin temporada")
+            lngColor = IIf(intColorTempo, Nz(DLookup("Color", "tbTemporadasNombre", "IdTemporadaNombre = " & lngIdTemp), 13158600), 13158600)
+            lngIdTempAnt = lngIdTemp
+        End If
+        If Not IsNull(DLookup("FFiesta", "tbFestivos", "FFiesta = #" & Format(dt, "mm/dd/yyyy") & "#")) Then ' es festivo
+            lngColorFuente = IIf(lngColor <> vbRed, vbRed, vbWhite)
+        Else
+            Select Case Weekday(dt)
+                Case vbSunday, vbSaturday
+                    lngColorFuente = IIf(lngColor <> vbRed, vbRed, vbWhite)
+                Case Else
+                    lngColorFuente = vbBlack
+            End Select
+        End If
+        PonLBL frm, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, lngColor, intTamañoFuente, lngColorFuente, , , , , strCTT
+        n = n + 1
+        PonLBL frm, n, True, lngX, lngYBottom, lngAlto, lngAncho, strCaption, lngColor, intTamañoFuente, lngColorFuente, , , , , strCTT
+        
+        'líneas verticales y festivos
+        lngX_ = lngX
+        If Not IsNull(DLookup("FFiesta", "tbFestivos", "FFiesta = #" & Format(dt, "mm/dd/yyyy") & "#")) Then ' es festivo
+            p = p + 1
+            PonCDR frm, p, True, lngX_, lngY_, lngAlto_, lngAncho, 45567
+        Else
+            Select Case Weekday(dt)
+                Case vbSunday, vbSaturday
+                    p = p + 1
+                    PonCDR frm, p, True, lngX_, lngY_, lngAlto_, lngAncho, vbRed '16764057
+                Case Else
+            End Select
+        End If
+        ñ = ñ + 1
+        PonLinea frm, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+        lngX = lngX + lngAncho
+    Next dt
+    
+'*******************************************************************************************
+    g_intN = n
+CargaFichas:
+    n = g_intN
+'   Colocar las etiquetas de las reservas
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Actualizar_tbAuxPlanning dtD - 1, dtH, , True, lngIdTipoParcela
+'    DoCmd.Hourglass False
+'    DoCmd.Hourglass True
+'    ActualizarCuadroOcupacion dtD, dtH, lngGrupoPlanning
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Dim strAntPar As String
+    lngAncho_1 = lngAncho
+    
+    strSQL = "SELECT *, Iif(Left([Parcela],1)='*','" & SIN_ASIGNAR & "',[Parcela]) AS Parcela_SA FROM tbAuxPlanning ORDER BY FechaEntrada, Parcela"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    
+    strSQL = "UPDATE qryauxPlanning_lbl SET okSN=False"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxPlanning_lbl", dbOpenDynaset)
+    Set cFC = New cFichaCab
+    strAntPar = "xx"
+    While Not rs.EOF
+        rsAux.FindFirst "IdFichaCab = " & rs("IdFichaCab") & " AND Parcela = '" & rs("Parcela_SA") & "' AND FechaEntrada = " & CLng(rs("FechaEntrada"))
+        If Not rsAux.NoMatch Then
+            intNueva = False
+            intModif = False
+            For i = 3 To rs.Fields.Count - 1
+                If rs(i) <> rsAux(rs(i).Name) Then
+                    intModif = True
+                    Exit For
+                End If
+            Next i
+        Else
+            intModif = True
+            intNueva = True
+        End If
+        If intModif = False Then
+            rsAux.Edit
+            rsAux("okSN") = True
+            rsAux.Update
+            GoTo SiguienteFicha
+        End If
+        If strAntPar <> rs("Parcela_SA") Then
+            For i = 1 To g_intF
+                If g_Filas(i) = rs("Parcela_SA") Then
+                    lngY = (i) * lngAlto
+                    strAntPar = rs("Parcela_SA")
+                    intFilAct = i
+                    Exit For
+                End If
+            Next i
+            If strAntPar <> rs("Parcela_SA") Then
+                'MsgBox "No se encontró " & g_strPH & " <<" & rs("Parcela") & ">> en Planning"
+                GoTo SiguienteFicha
+                'lngY = (g_intF + 1) * lngAlto
+                'strAntPar = rs("Parcela")
+                'intFilAct = g_intF + 1
+            End If
+        End If
+        lngFColor = vbBlack
+        Select Case rs("EstadoFicha")
+            Case 10
+                lngBColor = G_lngColorFijos
+            Case 1
+                lngBColor = G_lngColorReservas
+            Case 2
+                lngBColor = G_lngColorActuales
+            Case 3
+                lngBColor = G_lngColorFacturaPreparada
+            Case 4
+                lngBColor = G_lngColorPagadoConCliente
+            Case 5
+                lngBColor = G_lngColorAntigua
+                lngFColor = vbWhite
+            Case 6
+                lngBColor = G_lngColorLimpieza
+                lngFColor = vbWhite
+            Case 9
+                lngBColor = G_lngColorCancelada
+                lngFColor = vbWhite
+        End Select
+        
+        lngAncho = Abs(rs("NumNoches") * lngAncho_1)
+        lngAlto = lngAlto
+pon_n:
+        If intNueva = False Then
+            n = rsAux("lbl_n")
+        Else
+            n = n + 1
+            If Nz(DLookup("lbl_n", "auxPlanning_lbl", "lbl_n = " & n), 0) <> 0 Then
+                n = Nz(DMax("lbl_n", "auxPlanning_lbl"), 0)
+                If n >= 700 Then GoTo SiguienteFicha
+                GoTo pon_n
+            End If
+        End If
+        If cFC.FindFirst("IdFichaCab = " & rs("IdFichaCab")) Then strCaption = cFC.ResumenFicha(intPrimeroPax)       'strCaption = DimeFicha(rs("IdFichaCab"), intPrimeroPax) 'rs("Notas")
+        intMaxI = 0
+        lngMrg = 50
+        iniCol = rs("FechaEntrada") - dtIni + 1
+        lngX = lngAncho_1 + (iniCol - 1) * lngAncho_1
+        For i = (iniCol) To iniCol + rs("NumNoches") - 1
+            g_intFC(intFilAct, i) = g_intFC(intFilAct, i) + 1
+            If g_intFC(intFilAct, i) > intMaxI Then intMaxI = g_intFC(intFilAct, i)
+        Next i
+        lngX2 = lngX + (intMaxI - 1) * lngMrg
+        lngY = lngY + (intMaxI - 1) * lngMrg
+        PonLBL frm, n, True, lngX2 + lngAnchoCol \ 2, lngY, lngAlto, lngAncho, strCaption, lngBColor, intTamañoFuente, lngFColor, , , 1, CStr(rs("IdFichaCab"))
+        If intNueva Then
+            rsAux.AddNew
+            For i = 0 To rs.Fields.Count - 1
+                rsAux(rs(i).Name) = rs(i)
+            Next i
+        Else
+            rsAux.Edit
+            For i = 3 To rs.Fields.Count - 1
+                rsAux(rs(i).Name) = rs(i)
+            Next i
+        End If
+        
+        rsAux("lbl_n") = n
+        rsAux("okSN") = True
+        rsAux.Update
+SiguienteFicha:
+        rs.MoveNext
+    Wend
+    If Not (rsAux.BOF And rsAux.EOF) Then rsAux.MoveFirst
+    g_intNMax = n
+    While Not rsAux.EOF
+        n = rsAux("lbl_n")
+        If rsAux("okSN") = False Then
+            PonLBL frm, n, False
+        End If
+        If n > g_intNMax Then g_intNMax = n
+        rsAux.MoveNext
+    Wend
+    n = g_intNMax
+    While n < 600
+        n = n + 1
+        PonLBL frm, n, False
+    Wend
+    If intSoloFichas = False Then
+        While p < 31
+            p = p + 1
+            PonCDR frm, p, False
+        Wend
+    End If
+    If intSoloFichas = False Then
+        While ñ < 52
+            ñ = ñ + 1
+            PonLinea frm, ñ, False
+        Wend
+    End If
+Salir_CargarPlanningH:
+    'MsgBox "MAX. LIN=" & g_MaxLin
+    DoCmd.Hourglass False
+    Exit Function
+Error_CargarPlanningH:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargarPlanningH" & vbCrLf & Err.Description
+               Resume Salir_CargarPlanningH
+            Resume Next
+    End Select
+End Function
+
+Private Sub PonLBL(frm As Form, n As Integer, intVerSN As Integer, Optional lngX As Long = 0, Optional lngY As Long = 0, Optional lngAlto As Long = 0, Optional lngAncho As Long = 0, Optional strCaption As String = "", _
+    Optional lngColorFondo As Long = 16777215, Optional intTamañoFuente As Integer = 8, _
+    Optional lngColorFuente As Long = 0, Optional intNegrita As Integer = False, Optional intCursiva As Integer = False, Optional intAlinear As Integer = 2, Optional strTag As String = "0", Optional strCTT As String = "")
+    Dim ctl As Control
+    Dim lngMrg As Long
+    Set ctl = frm("lbl" & Format(n, "000"))
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 0.5 * TC_CmToPoints
+        lngAncho = 0.5 * TC_CmToPoints
+        lngMrg = 30
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = 0 'lngAlto + (n \ 100) * (lngAlto + lngMrg)
+        ctl.Left = 0.5 * TC_CmToPoints
+        ctl.Tag = strTag
+        ctl.ControlTipText = strCTT
+        Exit Sub
+    End If
+    ctl.Visible = True
+    ctl.Caption = strCaption
+    ctl.Top = 0
+    ctl.Left = 0
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BackColor = lngColorFondo
+    ctl.fontsize = intTamañoFuente
+    ctl.ForeColor = lngColorFuente
+    ctl.FontBold = intNegrita
+    ctl.FontItalic = intCursiva
+    ctl.TextAlign = intAlinear
+    ctl.Tag = strTag
+    ctl.ControlTipText = strCTT
+End Sub
+
+Private Sub PonLBL_rpt(rpt As Report, n As Integer, intVerSN As Integer, _
+    Optional lngX As Long = 0, _
+    Optional lngY As Long = 0, _
+    Optional lngAlto As Long = 0, _
+    Optional lngAncho As Long = 0, _
+    Optional strCaption As String = "", _
+    Optional lngColorFondo As Long = 16777215, _
+    Optional intTamañoFuente As Integer = 8, _
+    Optional lngColorFuente As Long = 0, _
+    Optional intNegrita As Integer = False, _
+    Optional intCursiva As Integer = False, _
+    Optional intAlinear As Integer = 2, _
+    Optional strTag As String = "0", _
+    Optional strCTT As String = "", _
+    Optional lngTopMargin As Long = 0)
+    Dim ctl As Control
+    Dim lngMrg As Long
+    Set ctl = rpt("lbl" & Format(n, "000"))
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 0.5 * TC_CmToPoints
+        lngAncho = 0.5 * TC_CmToPoints
+        lngMrg = 30
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = 0 'lngAlto + (n \ 100) * (lngAlto + lngMrg)
+        ctl.Left = 0.5 * TC_CmToPoints
+        ctl.Tag = strTag
+        Exit Sub
+    End If
+    ctl.Visible = True
+    ctl.Caption = strCaption
+    ctl.Top = 0
+    ctl.Left = 0
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BackColor = lngColorFondo
+    ctl.fontsize = intTamañoFuente
+    ctl.ForeColor = lngColorFuente
+    ctl.FontBold = intNegrita
+    ctl.FontItalic = intCursiva
+    ctl.TextAlign = intAlinear
+    ctl.Tag = strTag
+    ctl.TopMargin = lngTopMargin
+End Sub
+
+Private Sub PonTXT(frm As Form, strName As String, intVerSN As Integer, Optional lngX As Long = 0, Optional lngY As Long = 0, Optional lngAlto As Long = 0, Optional lngAncho As Long = 0, Optional strCaption As String = "", _
+    Optional lngColorFondo As Long = 16777215, Optional intTamañoFuente As Integer = 8, _
+    Optional lngColorFuente As Long = 0, Optional intNegrita As Integer = False, Optional intCursiva As Integer = False, Optional intAlinear As Integer = 2, Optional strTag As String = "0", Optional strCTT As String = "")
+    Dim ctl As Control
+    Dim lngMrg As Long
+    Set ctl = frm(strName)
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 0.5 * TC_CmToPoints
+        lngAncho = 0.5 * TC_CmToPoints
+        lngMrg = 30
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = lngAlto + (lngY \ 100) * (lngAlto + lngMrg)
+        ctl.Left = 0.5 * TC_CmToPoints
+        ctl.Tag = strTag
+        ctl.ControlTipText = strCTT
+        Exit Sub
+    End If
+    ctl.Visible = True
+'    ctl.Value = strCaption
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BackColor = lngColorFondo
+    ctl.fontsize = intTamañoFuente
+    ctl.ForeColor = lngColorFuente
+    ctl.FontBold = intNegrita
+    ctl.FontItalic = intCursiva
+    ctl.TextAlign = intAlinear
+    ctl.Tag = strTag
+    ctl.ControlTipText = strCTT
+End Sub
+
+Private Sub PonLinea(frm As Form, ñ As Integer, intVerSN As Integer, Optional lngX As Long = 0, Optional lngY As Long = 0, Optional lngAlto As Long = 0, Optional lngAncho As Long = 0, _
+    Optional lngColorLínea As Long = 0, _
+    Optional intAnchoLinea As Integer = 1)
+    Dim ctl As Control
+    Set ctl = frm("Línea" & ñ + 1000)
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 2 * TC_CmToPoints
+        lngAncho = 0 * TC_CmToPoints
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = 1.5 * TC_CmToPoints
+        ctl.Left = 1.5 * TC_CmToPoints
+        Exit Sub
+    End If
+    ctl.Visible = True
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BorderColor = lngColorLínea
+    ctl.BorderWidth = intAnchoLinea
+End Sub
+
+Private Sub PonLinea_rpt(rpt As Report, ñ As Integer, intVerSN As Integer, Optional lngX As Long = 0, Optional lngY As Long = 0, Optional lngAlto As Long = 0, Optional lngAncho As Long = 0, _
+    Optional lngColorLínea As Long = 0, _
+    Optional intAnchoLinea As Integer = 1)
+    Dim ctl As Control
+    Set ctl = rpt("Línea" & ñ + 1000)
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 2 * TC_CmToPoints
+        lngAncho = 0 * TC_CmToPoints
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = 1.5 * TC_CmToPoints
+        ctl.Left = 1.5 * TC_CmToPoints
+        Exit Sub
+    End If
+    ctl.Visible = True
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BorderColor = lngColorLínea
+    ctl.BorderWidth = intAnchoLinea
+    'If ñ > g_MaxLin Then g_MaxLin = ñ
+End Sub
+
+Private Sub PonCDR(frm As Form, n As Integer, intVerSN As Integer, Optional lngX As Long = 0, Optional lngY As Long = 0, Optional lngAlto As Long = 0, Optional lngAncho As Long = 0, Optional lngBorderColor As Long = 0)
+    Dim ctl As Control, lngMrg  As Long
+    Set ctl = frm("cdr" & Format(n, "00"))
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 1.5 * TC_CmToPoints
+        lngAncho = 1.5 * TC_CmToPoints
+        lngMrg = 30
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = lngAlto + (n \ 100) * (lngAlto + lngMrg)
+        ctl.Left = 0.5 * TC_CmToPoints
+        Exit Sub
+    End If
+    ctl.Visible = True
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BorderColor = lngBorderColor
+End Sub
+
+
+Private Sub PonCDR_rpt(rpt As Report, n As Integer, intVerSN As Integer, Optional lngX As Long = 0, Optional lngY As Long = 0, Optional lngAlto As Long = 0, Optional lngAncho As Long = 0, Optional lngBorderColor As Long = 0)
+    Dim ctl As Control, lngMrg  As Long
+    Set ctl = rpt("cdr" & Format(n, "00"))
+    If intVerSN = False Then
+        ctl.Visible = False
+        lngAlto = 1.5 * TC_CmToPoints
+        lngAncho = 1.5 * TC_CmToPoints
+        lngMrg = 30
+        ctl.Height = lngAlto
+        ctl.Width = lngAncho
+        ctl.Top = lngAlto + (n \ 100) * (lngAlto + lngMrg)
+        ctl.Left = 0.5 * TC_CmToPoints
+        Exit Sub
+    End If
+    ctl.Visible = True
+    ctl.Height = lngAlto
+    ctl.Width = lngAncho
+    ctl.Top = lngY
+    ctl.Left = lngX
+    ctl.BorderColor = lngBorderColor
+End Sub
+
+Public Function Actualizar_tbAuxPlanningAño(intAño As Integer)
+    Actualizar_tbAuxPlanning CDate("01/01/" & intAño), CDate("31/12/" & intAño)
+End Function
+
+Public Sub Actualizar_tbAuxPlanning(datDesde As Date, datHasta As Date, _
+                           Optional lngGrupoPlanning As Long = 0, _
+                           Optional intPlanningH As Integer = False, _
+                           Optional lngIdTipoParcela As Long = 0, _
+                           Optional dtHastaFechaReserva As Date = 0, _
+                           Optional intVerCanceladas As Integer = 88)
+    On Error GoTo Error_Actualizar_tbAuxPlanning
+    Dim strSQL As String, rs As Recordset, rsAux As Recordset, strSQL2 As String, strPSA As String
+    Dim dt As Date, dtI As Date, dtF As Date
+    DoCmd.Hourglass True
+    'Primero borrar los registros existentes en tbAuxCuadrOcupacion
+    strSQL = "DELETE *"
+    strSQL = strSQL & " FROM tbAuxPlanning"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("tbAuxPlanning", dbOpenDynaset)
+    'Primero las fichas de Estancias sin detalle (reservas sin asignar todavía parcelas)
+    'If lngGrupoPlanning <> 0 Then GoTo ConParcelas
+    If Nz(DameValorParam("PlanningVerFichasSinParcelas"), True) = True Then
+        strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.FechaReserva, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbFichasCab.LocalidadCliente, tbFichasCab.EstadoFicha, tbFichasCab.DNICliente"
+        strSQL = strSQL & " FROM qryFichasSinParcelasAsignadas INNER JOIN tbFichasCab ON qryFichasSinParcelasAsignadas.IdFichaCab = tbFichasCab.IdFichaCab"
+        strSQL = strSQL & " WHERE ((tbFichasCab.FechaLlegada)<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaSalida)>=#" & Format(datDesde, "mm/dd/yyyy") & "# Or (tbFichasCab.FechaSalida) Is Null)"
+    Else
+        strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.FechaReserva, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbFichasCab.LocalidadCliente, tbFichasCab.EstadoFicha, tbFichasCab.DNICliente"
+        strSQL = strSQL & " FROM qryFichasSinDetalle INNER JOIN tbFichasCab ON qryFichasSinDetalle.IdFichaCab = tbFichasCab.IdFichaCab"
+        strSQL = strSQL & " WHERE ((tbFichasCab.FechaLlegada)<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaSalida)>=#" & Format(datDesde, "mm/dd/yyyy") & "# Or (tbFichasCab.FechaSalida) Is Null)"
+    End If
+    If dtHastaFechaReserva <> 0 Then
+        strSQL = strSQL & " AND tbFichasCab.FechaReserva <= " & CLng(dtHastaFechaReserva)
+    End If
+    If intVerCanceladas = 88 Then intVerCanceladas = Nz(DameValorParam("PlaningVerCanceladas"), False)
+    If intVerCanceladas = False Then strSQL = strSQL & " AND EstadoFicha <>9"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strPSA = "Sin asignar" 'Nz(DameValorParam("PlanningParcelaSinAsignarTXT"), "Sin H.")
+    While Not rs.EOF
+        If IsNull(rs("FechaSalida")) Then
+            dtF = datHasta + 1
+        Else
+            dtF = IIf(rs("FechaSalida") > datHasta, datHasta + 1, rs("FechaSalida"))
+        End If
+        dtI = IIf(rs("FechaLlegada") < datDesde, datDesde, rs("FechaLlegada"))
+        rsAux.AddNew
+        rsAux("FechaEntrada") = dtI
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("Parcela") = strPSA
+        rsAux("NumNoches") = dtF - dtI
+        rsAux("FechaReserva") = rs("FechaReserva")
+        rsAux("EstadoFicha") = rs("EstadoFicha")
+        If intPlanningH = False Then
+            'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & DimeRepRec(rs("DNICliente")) & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+        Else
+            'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "->" & DimeRepRec(rs("DNICliente")) & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
+            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
+        End If
+        rsAux.Update
+        rs.MoveNext
+    Wend
+ConParcelas:
+    'Después la Fichas con Parcelas asignadas
+    strSQL = "SELECT tbFichasCab.IdFichaCab, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS FDesde, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FHasta, tbFichasDet.Parcela, tbFichasCab.FechaReserva, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbFichasCab.LocalidadCliente, tbFichasCab.EstadoFicha, tbFichasDet.PlazasOcupadas, tbFichasCab.DNICliente"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+    If lngIdTipoParcela <> 0 Then
+        strSQL = strSQL & " AND tbFichasDet.IdTipoParcela = " & lngIdTipoParcela
+    End If
+    If lngGrupoPlanning <> 0 Then
+        strSQL2 = "SELECT tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.NombreParcela"
+        strSQL2 = strSQL2 & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        strSQL2 = strSQL2 & " WHERE (((tbGruposPlaning_Parcelas.IdGrupoPlaning)=" & lngGrupoPlanning & "));"
+        Set rs = CurrentDb.OpenRecordset(strSQL2, dbOpenSnapshot)
+        strSQL2 = ""
+        If Not rs.EOF Then
+            strSQL2 = " AND ("
+        End If
+        While Not rs.EOF
+            strSQL2 = strSQL2 & " tbFichasDet.Parcela = " & ConComillas(rs("NombreParcela")) & " OR"
+            rs.MoveNext
+        Wend
+        If Len(strSQL2) > 3 Then
+            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL = strSQL & strSQL2
+        End If
+    End If
+    If dtHastaFechaReserva <> 0 Then
+        strSQL = strSQL & " AND tbFichasCab.FechaReserva <= " & CLng(dtHastaFechaReserva)
+    End If
+    If intVerCanceladas = False Then strSQL = strSQL & " AND EstadoFicha <>9"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If IsNull(rs("FHasta")) Then
+            dtF = datHasta + 1
+        Else
+            dtF = IIf(rs("FHasta") > datHasta, datHasta + 1, rs("FHasta"))
+        End If
+        dtI = IIf(rs("FDesde") < datDesde, datDesde, rs("FDesde"))
+        rsAux.AddNew
+        rsAux("FechaEntrada") = dtI
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("Parcela") = rs("Parcela")
+        rsAux("NumNoches") = dtF - dtI
+        rsAux("FechaReserva") = rs("FechaReserva")
+        rsAux("EstadoFicha") = rs("EstadoFicha")
+        If intPlanningH = False Then
+            'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & DimeRepRec(rs("DNICliente")) & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+        Else
+            'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & "->" & DimeRepRec(rs("DNICliente")) & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
+            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & "->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
+        End If
+        rsAux.Update
+        rs.MoveNext
+    Wend
+
+Salir_Actualizar_tbAuxPlanning:
+    DoCmd.Hourglass False
+    Exit Sub
+Error_Actualizar_tbAuxPlanning:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Actualizar_tbAuxPlanning" & vbCrLf & Err.Description
+            Resume Salir_Actualizar_tbAuxPlanning
+            Resume Next
+    End Select
+End Sub
+
+
+
+Public Sub ActualizarFicha_tbAuxPlanning(datDesde As Date, datHasta As Date, Optional lngGrupoPlanning As Long = 0, Optional lngIdFichaCab As Long)
+    On Error GoTo Error_Actualizar_tbAuxPlanning
+    Dim strSQL As String, rs As Recordset, rsAux As Recordset, strSQL2 As String, strPSA As String
+    Dim dt As Date, dtI As Date, dtF As Date
+    DoCmd.Hourglass True
+    'Primero borrar los registros existentes en tbAuxCuadrOcupacion
+    strSQL = "DELETE *"
+    strSQL = strSQL & " FROM tbAuxPlanning"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("tbAuxPlanning", dbOpenDynaset)
+    'Primero las fichas de Estancias sin detalle (reservas sin asignar todavía parcelas)
+    'If lngGrupoPlanning <> 0 Then GoTo ConParcelas
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.FechaReserva, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbFichasCab.LocalidadCliente, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM qryFichasSinParcelasAsignadas INNER JOIN tbFichasCab ON qryFichasSinParcelasAsignadas.IdFichaCab = tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " WHERE ((tbFichasCab.FechaLlegada)<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((tbFichasCab.FechaSalida)>=#" & Format(datDesde, "mm/dd/yyyy") & "# Or (tbFichasCab.FechaSalida) Is Null)"
+    strSQL = strSQL & " AND tbFichasCab.IdFichaCab = " & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strPSA = "Sin asignar" 'DameValorParam("PlanningParcelaSinAsignarTXT")
+    While Not rs.EOF
+        If IsNull(rs("FechaSalida")) Then
+            dtF = datHasta + 1
+        Else
+            dtF = IIf(rs("FechaSalida") > datHasta, datHasta + 1, rs("FechaSalida"))
+        End If
+        dtI = IIf(rs("FechaLlegada") < datDesde, datDesde, rs("FechaLlegada"))
+        rsAux.AddNew
+        rsAux("FechaEntrada") = dtI
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("Parcela") = strPSA
+        rsAux("NumNoches") = dtF - dtI
+        rsAux("FechaReserva") = rs("FechaReserva")
+        rsAux("EstadoFicha") = rs("EstadoFicha")
+        rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+        rsAux.Update
+        rs.MoveNext
+    Wend
+ConParcelas:
+    'Después la Fichas con Parcelas asignadas
+    strSQL = "SELECT tbFichasCab.IdFichaCab, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS FDesde, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FHasta, tbFichasDet.Parcela, tbFichasCab.FechaReserva, tbFichasCab.Notas, tbFichasCab.ConfirmadaReserva, tbFichasCab.NombreCliente, tbFichasCab.ApellidosCliente, tbFichasCab.LocalidadCliente, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+    strSQL = strSQL & " AND tbFichasCab.IdFichaCab = " & lngIdFichaCab
+    If lngGrupoPlanning <> 0 Then
+        strSQL2 = "SELECT tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.NombreParcela"
+        strSQL2 = strSQL2 & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        strSQL2 = strSQL2 & " WHERE (((tbGruposPlaning_Parcelas.IdGrupoPlaning)=" & lngGrupoPlanning & "));"
+        Set rs = CurrentDb.OpenRecordset(strSQL2, dbOpenSnapshot)
+        If Not rs.EOF Then
+            strSQL2 = " AND ("
+        End If
+        While Not rs.EOF
+            strSQL2 = strSQL2 & " tbFichasDet.Parcela = " & ConComillas(rs("NombreParcela")) & " OR"
+            rs.MoveNext
+        Wend
+        If Len(strSQL2) > 3 Then
+            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL = strSQL & strSQL2
+        End If
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If IsNull(rs("FHasta")) Then
+            dtF = datHasta + 1
+        Else
+            dtF = IIf(rs("FHasta") > datHasta, datHasta + 1, rs("FHasta"))
+        End If
+        dtI = IIf(rs("FDesde") < datDesde, datDesde, rs("FDesde"))
+        rsAux.AddNew
+        rsAux("FechaEntrada") = dtI
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("Parcela") = rs("Parcela")
+        rsAux("NumNoches") = dtF - dtI
+        rsAux("FechaReserva") = rs("FechaReserva")
+        rsAux("EstadoFicha") = rs("EstadoFicha")
+        rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+        rsAux.Update
+        rs.MoveNext
+    Wend
+
+Salir_Actualizar_tbAuxPlanning:
+    DoCmd.Hourglass False
+    Exit Sub
+Error_Actualizar_tbAuxPlanning:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Actualizar_tbAuxPlanning" & vbCrLf & Err.Description
+            Resume Salir_Actualizar_tbAuxPlanning
+            Resume Next
+    End Select
+End Sub
+
+Public Function PrintPlanning(intMes As Integer, intAño As Integer, rpt As Report, Optional lngGrupoPlanning As Long = 0, Optional intSoloFichas As Integer = False)
+    On Error GoTo Error_PrintPlanning
+    Dim dtD As Date, dtH As Date, i As Integer, n As Integer, ñ As Integer, j As Integer, p As Integer
+    Dim lngX As Long, lngY As Long, lngAlto As Long, lngAncho As Long, strCaption As String
+    Dim lngX_ As Long, lngY_ As Long, lngAlto_ As Long, lngAncho_ As Long, lngAlto_1 As Long, lngBColor As Long
+    Dim strMA As String
+    Dim intMaximoParcelas As Integer
+    Dim intTamañoFuente As Integer, intMaximoParcelasXGrupo As Integer
+    Dim intMaxI As Integer, intColAct As Integer, lngMrg As Long, lngX2 As Long
+    Dim intPrimeroPax As Integer, cFC As cFichaCab
+    intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+    intMaximoParcelas = DCount("IdParcela", "tbParcelas", "ControlReservas=True")
+    ReDim g_intFC(1 To 31, 1 To intMaximoParcelas + 2)
+    For i = 1 To 31
+        For j = 1 To intMaximoParcelasXGrupo + 2
+            g_intFC(i, j) = 0
+        Next j
+    Next i
+    dtD = CDate(CStr(intAño) & "/" & CStr(intMes) & "/01")
+    dtH = CDate(CStr(intAño) & "/" & CStr(intMes) & "/" & CStr(DDM(intMes, intAño)))
+    intTamañoFuente = CInt(Nz(DameValorParam("PlanningPrintTamañoFuente"), 8))
+    If intSoloFichas = True Then
+        lngAncho = Nz(DameValorParam("PlanningPrintAnchoCeldas"), 2) * TC_CmToPoints
+        lngAlto = Nz(DameValorParam("PlanningPrintAltoCeldas"), 0.7) * TC_CmToPoints
+        GoTo CargaFichas
+    End If
+    DoCmd.Hourglass True
+'*******************************************************************************************
+    '1ª COLUMNA: Fechas---------------------
+    lngAlto = Nz(DameValorParam("PlanningPrintAltoCeldas"), 0.7) * TC_CmToPoints
+    lngAncho = 2 * TC_CmToPoints 'Nz(DameValorParam("PlanningPrintAnchoCeldas"), 2) * TC_CmToPoints
+    g_intF = DDM(intMes, intAño)
+    rpt.Section(0).Height = (g_intF + 3) * lngAlto ' el +3 es para que haya un poco margen (en realidad debería ser + 2)
+    n = 1
+    PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho, "Fecha", 13158600, , , True
+    strMA = "/" & intMes & "/" & Right(intAño, 2)
+    Dim rs As Recordset, strSQL As String, strCTT As String, lngColor As Long
+'    strSQL = "SELECT tbTempoDias.*, tbTemporadasNombre.Color, tbTemporadasNombre.NombreTemporada"
+'    strSQL = strSQL & " FROM tbTempoDias LEFT JOIN tbTemporadasNombre ON tbTempoDias.IdTempo = tbTemporadasNombre.IdTemporadaNombre;"
+'    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    For i = 1 To DDM(intMes, intAño)
+        n = n + 1
+        lngY = lngY + lngAlto
+        strCaption = i & strMA
+'        rs.FindFirst "Dia = #" & intMes & "/" & i & "/" & intAño & "#"
+'        If Not rs.NoMatch Then
+'            If Nz(DameValorParam("PlanningPrintColorTemporadaEnFecha"), True) = True Then
+'                lngColor = rs("Color")
+'            Else
+                lngColor = 13158600
+'            End If
+'            strCTT = rs("NombreTemporada")
+'        Else
+'            lngColor = 13158600
+'            strCTT = "?"
+'        End If
+        PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, lngColor, intTamañoFuente, , , , , , strCTT, 0.2 * TC_CmToPoints
+    Next i
+    '1ª FILA: Parcelas---------------------------
+    
+    Dim strSQL2 As String
+    strSQL = "SELECT * FROM tbParcelas WHERE True"
+    If lngGrupoPlanning <> 0 Then
+        strSQL2 = "SELECT tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.NombreParcela"
+        strSQL2 = strSQL2 & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        strSQL2 = strSQL2 & " WHERE (((tbGruposPlaning_Parcelas.IdGrupoPlaning)=" & lngGrupoPlanning & "))"
+        strSQL2 = strSQL2 & " ORDER BY tbParcelas.Orden"
+        Set rs = CurrentDb.OpenRecordset(strSQL2, dbOpenSnapshot)
+        strSQL2 = ""
+        If Not rs.EOF Then
+            strSQL2 = " AND ("
+        End If
+        While Not rs.EOF
+            strSQL2 = strSQL2 & " NombreParcela = " & ConComillas(rs("NombreParcela")) & " OR"
+            rs.MoveNext
+        Wend
+        If Len(strSQL2) > 3 Then
+            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL = strSQL & strSQL2
+        End If
+    Else
+        strSQL = strSQL & " AND ControlReservas=True"
+    End If
+    strSQL = strSQL & " ORDER BY Orden"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngX = lngX + lngAncho
+    lngY = 0
+    'lngAncho = Nz(DameValorParam("PlanningPrintAnchoCeldas"), 2) * TC_CmToPoints
+    lngAlto = lngAlto
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        'rpt.Width = lngAncho * (rs.RecordCount + 2)
+        g_intC = rs.RecordCount + 1
+    Else
+        rpt.Width = lngAncho * 2
+        g_intC = 1
+    End If
+    'rpt.Width = (g_intC + 0.5) * lngAncho + 2 * TC_CmToPoints
+    rpt.Width = 19 * TC_CmToPoints
+    lngAncho = (rpt.Width - 3 * TC_CmToPoints) / g_intC
+    ReDim g_Columnas(1 To g_intC)
+    '1º columna para fichas sin asignar
+    n = n + 1
+    strCaption = "Sin asignar" 'Nz(DameValorParam("PlanningParcelaSinAsignarTXT"), "Sin H.")
+    PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+    n = n + 1
+    PonLBL_rpt rpt, n, True, lngX, lngY + (g_intF + 1) * lngAlto, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+    lngX = lngX + lngAncho
+    'línea vertical
+    lngX_ = lngX
+    lngY_ = lngAlto
+    lngAncho_ = 0 'ancho de línea
+    lngAlto_ = (g_intF) * lngAlto  'alto de línea
+    i = 1
+    g_Columnas(i) = strCaption
+    ñ = ñ + 1
+    PonLinea_rpt rpt, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+    While Not rs.EOF
+        n = n + 1
+        strCaption = rs("NombreParcela")
+        PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True, , , , Nz(rs("Observaciones"), "")
+        n = n + 1
+        PonLBL_rpt rpt, n, True, lngX, lngY + (g_intF + 1) * lngAlto, lngAlto, lngAncho, strCaption, 13158600, intTamañoFuente, , True
+        lngX = lngX + lngAncho
+        'línea vertical
+        lngX_ = lngX
+        lngY_ = lngAlto
+        lngAncho_ = 0 'ancho de línea
+        lngAlto_ = (g_intF) * lngAlto  'alto de línea
+        ñ = ñ + 1
+        PonLinea_rpt rpt, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+        'Cargar matriz g_columnas
+        i = i + 1
+        g_Columnas(i) = strCaption
+        rs.MoveNext
+    Wend
+    
+'*******************************************************************************************
+    'líneas horizontales y festivos
+    lngX_ = 2 * TC_CmToPoints
+    lngAncho_ = g_intC * lngAncho
+    lngAlto_ = 0
+    For i = 1 To DDM(intMes, intAño)
+        If Not IsNull(DLookup("FFiesta", "tbFestivos", "FFiesta = #" & intMes & "/" & i & "/" & intAño & "#")) Then ' es festivo
+            p = p + 1
+            PonCDR_rpt rpt, p, True, lngX_, lngY_, lngAlto, lngAncho_, 45567
+        Else
+            Select Case Weekday(CDate(i & strMA))
+                Case vbSunday, vbSaturday
+                    p = p + 1
+                    PonCDR_rpt rpt, p, True, lngX_, lngY_, lngAlto, lngAncho_, 16764057
+                Case Else
+            End Select
+        End If
+        ñ = ñ + 1
+        lngY_ = lngAlto * (i + 1)
+        PonLinea_rpt rpt, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+    Next i
+    g_intN = n
+CargaFichas:
+    n = g_intN
+'   Colocar las etiquetas de las reservas
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Actualizar_tbAuxPlanning dtD, dtH, lngGrupoPlanning
+'    DoCmd.Hourglass False
+'    DoCmd.Hourglass True
+'    ActualizarCuadroOcupacion dtD, dtH, lngGrupoPlanning
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Dim strAntPar As String
+    lngAlto_1 = lngAlto
+    strSQL = "SELECT * FROM tbAuxPlanning ORDER BY Parcela, FechaReserva"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    strAntPar = "xx"
+    Set cFC = New cFichaCab
+    While Not rs.EOF
+        If strAntPar <> rs("Parcela") Then
+            For i = 1 To g_intC
+                If g_Columnas(i) = rs("Parcela") Then
+                    lngX = 2 * TC_CmToPoints + (i - 1) * lngAncho
+                    strAntPar = rs("Parcela")
+                    intColAct = i
+                    Exit For
+                End If
+            Next i
+            If strAntPar <> rs("Parcela") Then
+                'MsgBox "No se encontró " & g_strPH & " <<" & rs("Parcela") & ">> en Planning"
+                lngX = 2 * TC_CmToPoints + (g_intC + 1) * lngAncho
+                strAntPar = rs("Parcela")
+                intColAct = g_intC + 1
+            End If
+        End If
+        Select Case rs("EstadoFicha")
+            Case 10
+                lngBColor = G_lngColorFijos
+            Case 1
+                lngBColor = G_lngColorReservas
+            Case 2
+                lngBColor = G_lngColorActuales
+            Case 3
+                lngBColor = G_lngColorFacturaPreparada
+            Case 4
+                lngBColor = G_lngColorPagadoConCliente
+            Case 5
+                lngBColor = G_lngColorAntigua
+            Case 6
+                lngBColor = G_lngColorLimpieza
+        End Select
+        
+        lngY = Day(rs("FechaEntrada")) * lngAlto_1
+        lngAlto = Abs(rs("NumNoches") * lngAlto_1)
+        lngAncho = lngAncho
+        n = n + 1
+        If cFC.FindFirst("IdFichaCab = " & rs("IdFichaCab")) Then strCaption = cFC.ResumenFicha(intPrimeroPax)       'strCaption = DimeFicha(rs("IdFichaCab"), intPrimeroPax) 'rs("Notas")
+        intMaxI = 0
+        lngMrg = 50
+        For i = Day(rs("FechaEntrada")) To Day(rs("FechaEntrada")) + rs("NumNoches") - 1
+            g_intFC(i, intColAct) = g_intFC(i, intColAct) + 1
+            If g_intFC(i, intColAct) > intMaxI Then intMaxI = g_intFC(i, intColAct)
+        Next i
+        lngX2 = lngX + (intMaxI - 1) * lngMrg
+        lngY = lngY + (intMaxI - 1) * lngMrg
+        PonLBL_rpt rpt, n, True, lngX2, lngY, lngAlto, lngAncho, strCaption, lngBColor, intTamañoFuente, , , , , CStr(rs("IdFichaCab"))
+        rs.MoveNext
+    Wend
+    g_intNMax = n
+    While n < 500
+        n = n + 1
+        PonLBL_rpt rpt, n, False
+    Wend
+    If intSoloFichas = False Then
+        While p < 31
+            p = p + 1
+            PonCDR_rpt rpt, p, False
+        Wend
+    End If
+    If intSoloFichas = False Then
+        While ñ < 52
+            ñ = ñ + 1
+            PonLinea_rpt rpt, ñ, False
+        Wend
+    End If
+Salir_PrintPlanning:
+    DoCmd.Hourglass False
+    Exit Function
+Error_PrintPlanning:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PrintPlanning" & vbCrLf & Err.Description
+            Resume Salir_PrintPlanning
+            Resume Next
+    End Select
+End Function
+
+Public Function PrintPlanningH(intMes As Integer, intAño As Integer, rpt As Report, Optional lngGrupoPlanning As Long = 0, Optional intSoloFichas As Integer = False)
+    On Error GoTo Error_PrintPlanningH
+    Dim dtD As Date, dtH As Date, i As Integer, n As Integer, ñ As Integer, j As Integer, p As Integer
+    Dim lngX As Long, lngY As Long, lngAlto As Long, lngAncho As Long, strCaption As String
+    Dim lngX_ As Long, lngY_ As Long, lngAlto_ As Long, lngAncho_ As Long, lngAlto_1 As Long, lngBColor As Long
+    Dim strMA As String
+    Dim intMaximoParcelas As Integer
+    Dim intTamañoFuente As Integer, intMaximoParcelasXGrupo As Integer
+    Dim intMaxI As Integer, intColAct As Integer, lngMrg As Long, lngX2 As Long
+    Dim lngAncho_1 As Long, intFilAct As Integer, lngY2 As Long, lngAncho0 As Long
+    Dim intPrimeroPax As Integer, cFC As cFichaCab
+    intPrimeroPax = Nz(DameValorParam("PlaningDimeFichaPrimeroPaxSN"), False)
+    intMaximoParcelas = DCount("IdParcela", "tbParcelas", "ControlReservas=True")
+    ReDim g_intFC(1 To intMaximoParcelas + 2, 1 To 31)
+    For i = 1 To intMaximoParcelasXGrupo + 2
+        For j = 1 To 31
+            g_intFC(i, j) = 0
+        Next j
+    Next i
+    dtD = CDate(CStr(intAño) & "/" & CStr(intMes) & "/01")
+    dtH = CDate(CStr(intAño) & "/" & CStr(intMes) & "/" & CStr(DDM(intMes, intAño)))
+    intTamañoFuente = CInt(Nz(DameValorParam("PlanningPrintTamañoFuente"), 8))
+    If intSoloFichas = True Then
+        lngAncho = Nz(DameValorParam("PlanningPrintAnchoCeldas"), 2) * TC_CmToPoints
+        lngAlto = Nz(DameValorParam("PlanningPrintAltoCeldas"), 0.7) * TC_CmToPoints
+        GoTo CargaFichas
+    End If
+    DoCmd.Hourglass True
+'*******************************************************************************************
+    '1ª FILA: Fechas---------------------
+    lngAlto = Nz(DameValorParam("PlanningPrintAltoCeldas"), 0.7) * TC_CmToPoints
+    lngAlto_1 = lngAlto 'Nz(DameValorParam("PlanningPrintAltoCeldas"), 0.7) * TC_CmToPoints
+    lngAncho_1 = 2 * TC_CmToPoints 'Nz(DameValorParam("PlanningPrintAnchoCeldas"), 2) * TC_CmToPoints
+    g_intC = DDM(intMes, intAño)
+    'rpt.Section(0).Height = (g_intF + 3) * lngAlto ' el +3 es para que haya un poco margen (en realidad debería ser + 2)
+    rpt.Width = 27 * TC_CmToPoints
+    lngAncho = (rpt.Width - lngAncho_1 * 2) \ (g_intC + 2)
+    lngAncho0 = lngAncho
+    n = 1
+    PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho_1, "Día", 13158600, , , True
+    strMA = "" '"/" & intMes & "/" & Right(intAño, 2)
+    Dim rs As Recordset, strSQL As String, strCTT As String, lngColor As Long
+'    strSQL = "SELECT tbTempoDias.*, tbTemporadasNombre.Color, tbTemporadasNombre.NombreTemporada"
+'    strSQL = strSQL & " FROM tbTempoDias LEFT JOIN tbTemporadasNombre ON tbTempoDias.IdTempo = tbTemporadasNombre.IdTemporadaNombre;"
+'    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngX = lngAncho_1
+    For i = 1 To DDM(intMes, intAño)
+        n = n + 1
+        strCaption = i & strMA
+        lngColor = 13158600
+        PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho, strCaption, lngColor, intTamañoFuente, , , , , , strCTT, 0.2 * TC_CmToPoints
+        lngX = lngX + lngAncho
+    Next i
+    n = n + 1
+    PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho_1, "Día", 13158600, , , True
+    '1ª COLUMNA: Parcelas---------------------------
+    Set cFC = New cFichaCab
+    Dim strSQL2 As String
+    strSQL = "SELECT * FROM tbParcelas WHERE True"
+    If lngGrupoPlanning <> 0 Then
+        strSQL2 = "SELECT tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.NombreParcela"
+        strSQL2 = strSQL2 & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        strSQL2 = strSQL2 & " WHERE (((tbGruposPlaning_Parcelas.IdGrupoPlaning)=" & lngGrupoPlanning & "))"
+        strSQL2 = strSQL2 & " ORDER BY tbParcelas.Orden"
+        Set rs = CurrentDb.OpenRecordset(strSQL2, dbOpenSnapshot)
+        strSQL2 = ""
+        If Not rs.EOF Then
+            strSQL2 = " AND ("
+        End If
+        While Not rs.EOF
+            strSQL2 = strSQL2 & " NombreParcela = " & ConComillas(rs("NombreParcela")) & " OR"
+            rs.MoveNext
+        Wend
+        If Len(strSQL2) > 3 Then
+            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL = strSQL & strSQL2
+        End If
+    Else
+        strSQL = strSQL & " AND ControlReservas=True"
+    End If
+    strSQL = strSQL & " ORDER BY Orden"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    lngY = lngY + lngAlto
+    lngX = 0
+    'lngAncho = Nz(DameValorParam("PlanningPrintAnchoCeldas"), 2) * TC_CmToPoints
+    lngAlto = lngAlto
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        'rpt.Width = lngAncho * (rs.RecordCount + 2)
+        g_intF = rs.RecordCount + 1
+    Else
+        'rpt.Width = lngAncho * 2
+        g_intF = 1
+    End If
+    rpt.Section(0).Height = 19 * TC_CmToPoints '
+    lngAlto = (rpt.Section(0).Height - 3 * TC_CmToPoints) / g_intF
+    ReDim g_Filas(1 To g_intF)
+    '1º fila para fichas sin asignar
+    n = n + 1
+    strCaption = "Sin asignar" 'Nz(DameValorParam("PlanningParcelaSinAsignarTXT"), "Sin H.")
+    PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho_1, strCaption, 13158600, intTamañoFuente, , True
+    n = n + 1
+    PonLBL_rpt rpt, n, True, lngX + g_intC * lngAncho + lngAncho_1, lngY, lngAlto, lngAncho_1, strCaption, 13158600, intTamañoFuente, , True
+    lngY = lngY + lngAlto
+    'línea horizontal
+    lngX_ = lngAncho_1
+    lngY_ = lngY
+    lngAncho_ = (g_intC) * lngAncho  'ancho de línea
+    lngAlto_ = 0  'alto de línea
+    i = 1
+    g_Filas(i) = strCaption
+    ñ = ñ + 1
+    PonLinea_rpt rpt, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+    While Not rs.EOF
+        n = n + 1
+        strCaption = rs("NombreParcela")
+        PonLBL_rpt rpt, n, True, lngX, lngY, lngAlto, lngAncho_1, strCaption, 13158600, intTamañoFuente, , True, , , , Nz(rs("Observaciones"), "")
+        n = n + 1
+        PonLBL_rpt rpt, n, True, lngX + g_intC * lngAncho + lngAncho_1, lngY, lngAlto, lngAncho_1, strCaption, 13158600, intTamañoFuente, , True
+        lngY = lngY + lngAlto
+        'línea horizontal
+        lngY_ = lngY
+        ñ = ñ + 1
+        PonLinea_rpt rpt, ñ, True, lngX_, lngY_, lngAlto_, lngAncho_
+        'Cargar matriz g_columnas
+        i = i + 1
+        g_Filas(i) = strCaption
+        rs.MoveNext
+    Wend
+    
+'*******************************************************************************************
+    'líneas verticales y festivos
+    lngY_ = lngAlto_1 '2 * TC_CmToPoints
+    lngAncho_ = lngAncho
+    lngAlto_ = g_intF * lngAlto '0
+    lngX_ = lngAncho_1
+    For i = 1 To DDM(intMes, intAño)
+        lngX_ = lngAncho_1 + lngAncho * (i - 1)
+        If Not IsNull(DLookup("FFiesta", "tbFestivos", "FFiesta = #" & intMes & "/" & i & "/" & intAño & "#")) Then ' es festivo
+            p = p + 1
+            PonCDR_rpt rpt, p, True, lngX_, lngY_, lngAlto_, lngAncho_, 45567
+        Else
+            Select Case Weekday(CDate(intMes & "/" & i & "/" & intAño))
+                Case vbSunday, vbSaturday
+                    p = p + 1
+                    PonCDR_rpt rpt, p, True, lngX_, lngY_, lngAlto_, lngAncho_, 16764057
+                Case Else
+            End Select
+        End If
+        ñ = ñ + 1
+        PonLinea_rpt rpt, ñ, True, lngX_, lngY_, lngAlto_, 0 'lngAncho_
+    Next i
+    g_intN = n
+CargaFichas:
+    n = g_intN
+'   Colocar las etiquetas de las reservas
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Actualizar_tbAuxPlanning dtD, dtH, lngGrupoPlanning
+'    DoCmd.Hourglass False
+'    DoCmd.Hourglass True
+'    ActualizarCuadroOcupacion dtD, dtH, lngGrupoPlanning
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    Dim strAntPar As String
+    'lngAlto_1 = lngAlto
+    strSQL = "SELECT * FROM tbAuxPlanning ORDER BY Parcela, FechaReserva"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    strAntPar = "xx"
+    While Not rs.EOF
+        If strAntPar <> rs("Parcela") Then
+            For i = 1 To g_intF
+                If g_Filas(i) = rs("Parcela") Then
+                    lngY = lngAlto_1 + (i - 1) * lngAlto
+                    strAntPar = rs("Parcela")
+                    intFilAct = i
+                    Exit For
+                End If
+            Next i
+            If strAntPar <> rs("Parcela") Then
+                'MsgBox "No se encontró " & g_strPH & " <<" & rs("Parcela") & ">> en Planning"
+                lngY = lngAlto_1 + (g_intF + 1) * lngAlto
+                strAntPar = rs("Parcela")
+                intFilAct = g_intF + 1
+            End If
+        End If
+        Select Case rs("EstadoFicha")
+            Case 10
+                lngBColor = G_lngColorFijos
+            Case 1
+                lngBColor = G_lngColorReservas
+            Case 2
+                lngBColor = G_lngColorActuales
+            Case 3
+                lngBColor = G_lngColorFacturaPreparada
+            Case 4
+                lngBColor = G_lngColorPagadoConCliente
+            Case 5
+                lngBColor = G_lngColorAntigua
+            Case 6
+                lngBColor = G_lngColorLimpieza
+        End Select
+        
+        lngX = lngAncho_1 + (Day(rs("FechaEntrada")) - 1) * lngAncho0
+        lngAncho = Abs(rs("NumNoches") * lngAncho0)
+        If lngAncho = 0 Then lngAncho = lngAncho0
+        lngAlto = lngAlto
+        n = n + 1
+        If cFC.FindFirst("IdFichaCab = " & rs("IdFichaCab")) Then strCaption = cFC.ResumenFicha(intPrimeroPax)       'strCaption = DimeFicha(rs("IdFichaCab"), intPrimeroPax) 'rs("Notas")
+        intMaxI = 0
+        lngMrg = 50
+        For i = Day(rs("FechaEntrada")) To Day(rs("FechaEntrada")) + rs("NumNoches") - 1
+            g_intFC(intFilAct, i) = g_intFC(intFilAct, i) + 1
+            If g_intFC(intFilAct, i) > intMaxI Then intMaxI = g_intFC(intFilAct, i)
+        Next i
+        lngY2 = lngY + (intMaxI - 1) * lngMrg
+        If lngY2 < lngY Then lngY2 = lngY
+        lngX = lngX + (intMaxI - 1) * lngMrg
+        PonLBL_rpt rpt, n, True, lngX, lngY2, lngAlto, lngAncho, strCaption, lngBColor, intTamañoFuente, , , , , CStr(rs("IdFichaCab"))
+        rs.MoveNext
+    Wend
+    g_intNMax = n
+    While n < 500
+        n = n + 1
+        PonLBL_rpt rpt, n, False
+    Wend
+    If intSoloFichas = False Then
+        While p < 31
+            p = p + 1
+            PonCDR_rpt rpt, p, False
+        Wend
+    End If
+    If intSoloFichas = False Then
+        While ñ < 52
+            ñ = ñ + 1
+            PonLinea_rpt rpt, ñ, False
+        Wend
+    End If
+Salir_PrintPlanningH:
+    DoCmd.Hourglass False
+    Exit Function
+Error_PrintPlanningH:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PrintPlanningH" & vbCrLf & Err.Description
+            Resume Salir_PrintPlanningH
+            Resume Next
+    End Select
+End Function
+
+
+Public Function MoverEstancia(lngIdFichaCab As Long, strParcelaD As String, strParcelaA As String, dtFechaD As Date, dtFechaA As Date, Optional intNoches As Integer = 0, Optional intNoRecalcularPrecios As Integer = False)
+    On Error GoTo Error_MoverEstancia
+    
+    Dim rs As Recordset, strSQL As String, intI As Integer, intR As Integer
+    Dim lngIdIdi As Long, lngIdTipoParcela As Long, lngIdFichaDet As Long
+    If dtFechaD <> dtFechaA Then
+        intR = MsgBox("¡Se van a modificar las fechas de estancia!" & vbCrLf & "¿Está seguro/a de querer realizar esta modificación?", vbOKCancel + vbExclamation + vbDefaultButton2)
+        If intR = vbCancel Then Exit Function
+    End If
+    If strParcelaD = "Sin asignar" Then strParcelaD = ""
+    If intNoches = 0 Then
+        lngIdFichaDet = Nz(DLookup("IdFichaDet", "tbFichasDet", "IdFichaCab = " & lngIdFichaCab & " AND Parcela = '" & strParcelaD & "' AND FechaInicio = " & CLng(dtFechaD)), 0)
+        intNoches = Nz(DLookup("[Fecha_H] - FechaInicio", "tbFichasDet", "IdFichaDet = " & lngIdFichaDet), 0)
+    End If
+    intI = -1
+intentos:
+    intI = intI + 1
+    strSQL = "SELECT * FROM tbFichasDet"
+    If intI = 0 Then
+        strSQL = strSQL & " WHERE IdFichaDet = " & lngIdFichaDet
+    Else
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+        If strParcelaD <> "" Then strSQL = strSQL & " AND Parcela = '" & strParcelaD & "'"
+        If intI = 1 Then
+            strSQL = strSQL & " AND FechaInicio = " & CLng(dtFechaD)
+        ElseIf intI = 2 Then
+            strSQL = strSQL & " AND FechaFin = " & CLng(dtFechaD) + intNoches
+        ElseIf intI = 3 Then
+            If Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0) = CLng(dtFechaD) + intNoches Then
+                strSQL = strSQL & " AND FechaFin Is Null"
+            Else
+                strSQL = strSQL & " AND False"
+            End If
+        End If
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        If intI < 3 Then GoTo intentos
+        MsgBox "No se encontró detalle de ficha correspondiente"
+        Exit Function
+    End If
+    If intNoRecalcularPrecios = False Then
+        If Nz(rs("FechaFin"), Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichacab = " & lngIdFichaCab), rs("FechaInicio") + 1)) - rs("FechaInicio") <> intNoches Then
+            MsgBox "No se encontró detalle de ficha completo"
+            Exit Function
+        End If
+        intR = MsgBox("¿Volver a calcular precios?", vbYesNoCancel + vbQuestion + vbDefaultButton3)
+        If intR = vbCancel Then Exit Function
+    Else
+        intR = vbNo
+    End If
+    If intR = vbNo Then
+        rs.Edit
+        rs("Parcela") = strParcelaA
+        rs("FechaInicio") = dtFechaA
+        lngIdIdi = Nz(DLookup("IdIdioma", "tbFichasCab", "IdFichaCab = " & rs("IdFichaCab")), 0)
+        lngIdTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strParcelaA & "'"), 0)
+        rs("IdSD") = Nz(DLookup("IdSD", "tbParcelasYServiciosXDefecto", "IdTipoParcela = " & lngIdTipoParcela & " AND Principal = True"), rs("IdSD"))
+        rs("Concepto") = RecDerTop(DimeConceptoIdioma(rs("IdSD"), lngIdIdi) & " (" & strParcelaA & ")", 0, 50)
+        rs("IdTipoParcela") = lngIdTipoParcela
+        
+        If dtFechaD <> dtFechaA Then
+            If intNoches = 0 Then
+                intNoches = Nz(DimeTeclado(2, "Nº de noches", intNoches), 0)
+                If intNoches <= 0 Then GoTo Salir_MoverEstancia
+            End If
+            rs("FechaFin") = dtFechaA + intNoches
+        End If
+        rs.Update
+        If DLookup("IdFicha", "tbParcelas", "NombreParcela = '" & strParcelaD & "'") = lngIdFichaCab Then
+            strSQL = "UPDATE tbParcelas SET IdFicha = 0 WHERE NombreParcela = '" & strParcelaD & "'"
+            CurrentDb.Execute strSQL, dbFailOnError
+            If Nz(DLookup("IdFicha", "tbParcelas", "NombreParcela = '" & strParcelaA & "'"), 0) = 0 Then
+                strSQL = "UPDATE tbParcelas SET IdFicha = " & lngIdFichaCab & " WHERE NombreParcela = '" & strParcelaA & "'"
+                CurrentDb.Execute strSQL, dbFailOnError
+            Else
+                MsgBox "Atención, la " & g_strPH & " " & strParcelaA & " actualmente se encuentra ocupada, no se puede conectar al panel"
+            End If
+        End If
+        G_PonFecha_H rs("IdFichaCab")
+        Dim cF As New cFichaCab
+        cF.FindFirst "IdFichaCab = " & lngIdFichaCab
+        cF.Detalle_to_Planing
+        'FichaAlPlani lngIdFichaCab
+    Else
+        If AñadirLineasDetallePredeterminadas(lngIdFichaCab, strParcelaA, dtFechaA, dtFechaA + intNoches, rs("PlazasOcupadas")) = True Then
+            If strParcelaD <> "" Then rs.Delete
+            G_RecalculaTotales lngIdFichaCab
+        End If
+    End If
+    'Comprobar Fecha de entrada y salida de la cabecera
+    If dtFechaD <> dtFechaA Then
+        If DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab) <> dtFechaA Then
+            intR = MsgBox("¿Modificar Fecha de llegada y salida general de la ficha de estancia?", vbOKCancel + vbQuestion)
+            If intR = vbOK Then
+                strSQL = "UPDATE tbFichasCab SET FechaLlegada = " & CLng(dtFechaA) & ", FechaSalida = " & CLng(dtFechaA) + intNoches
+                strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+                CurrentDb.Execute strSQL, dbFailOnError
+            End If
+        End If
+    End If
+    'Para el caso de que se haya movido una ficha entre parcelas-habitaciones Madres y Vistuales y haya conexion en Wubook, realizar las correspondientes aperturas y cierres de fechas en Wubook
+    If g_SincroWB Then
+        Dim dtIni As Date, dtFin As Date
+        Dim lIdTipoParcelaD As Long, lIdTipoParcelaA As Long
+        Dim sShortNameClose As String, sShortNameOpen As String, lIdRoomClose As Long, lIdRoomOpen As Long
+        lIdTipoParcelaD = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strParcelaD & "'"), 0)
+        lIdTipoParcelaA = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strParcelaA & "'"), 0)
+        If (lIdTipoParcelaD <> lIdTipoParcelaA) And lIdTipoParcelaD <> 0 And lIdTipoParcelaA <> 0 Then ' Sólo si son tipos de parcelas diferentes iniciamos la comprobación
+            dtIni = dtFechaA
+            dtFin = dtIni + intNoches
+            sShortNameClose = Nz(DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lIdTipoParcelaD), "")
+            If sShortNameClose = "" Then GoTo Finish
+            lIdRoomClose = Nz(DLookup("id", "wbRooms", "shortname = " & ConComillas(sShortNameClose, True)), 0)
+            If lIdRoomClose = 0 Then GoTo Finish
+            sShortNameOpen = Nz(DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lIdTipoParcelaA), "")
+            If sShortNameOpen = "" Then GoTo Finish
+            lIdRoomOpen = Nz(DLookup("id", "wbRooms", "shortname = " & ConComillas(sShortNameOpen, True)), 0)
+            If lIdRoomOpen = 0 Then GoTo Finish
+            'comprobamos que las habitaciones están abiertas en el tipo de habitacion a cerrar y viceversa antes de llamar a la función SincroWB...
+            If Not IsNull(DLookup("wbTablaID", "wbTabla", "IdRoom = " & lIdRoomClose & " AND Fecha >= " & CLng(dtIni) & " AND Fecha <= " & CLng(dtFin) & " AND closed")) Then GoTo Finish
+            If Not IsNull(DLookup("wbTablaID", "wbTabla", "IdRoom = " & lIdRoomOpen & " AND Fecha >= " & CLng(dtIni) & " AND Fecha <= " & CLng(dtFin) & " AND Not closed")) Then GoTo Finish
+            SincroWB_AperturaHabitacionesAnidadas dtFechaA, dtFechaA + intNoches - 1, lIdRoomClose, lIdRoomOpen
+        End If
+    End If
+Finish:
+    MoverEstancia = True
+    'AñadeParcelaARecarga strParcelaD
+    'AñadeParcelaARecarga strParcelaA
+    
+Salir_MoverEstancia:
+    Exit Function
+Error_MoverEstancia:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en MoverEstancia" & vbCrLf & Err.Description
+            Resume Salir_MoverEstancia
+    End Select
+End Function
+
+Public Sub LiberarCeldasBloqueadasPlaning()
+    ' Libera en planing fichas que celdas que se han quedado marcadas como ocupadas aunque no lo esten
+    On Error GoTo HandleError
+    Dim sSQL As String
+    sSQL = "DELETE tbPlaningF.*, tbFichasCab.IdFichaCab" & _
+           " FROM tbPlaningF LEFT JOIN tbFichasCab ON tbPlaningF.IdFichaCab = tbFichasCab.IdFichaCab" & _
+           " WHERE (((tbFichasCab.IdFichaCab) Is Null));"
+    CurrentDb.Execute sSQL, dbFailOnError
+    sSQL = "UPDATE tbPlaning LEFT JOIN tbPlaningF ON tbPlaning.IdPl = tbPlaningF.IdPl SET tbPlaning.EstadoFicha = Null, tbPlaning.IdF = 0" & _
+           " WHERE tbPlaningF.IdPl Is Null"
+    CurrentDb.Execute sSQL, dbFailOnError
+    sSQL = "DELETE tbPlaningF.*" & _
+           " FROM tbPlaningF " & _
+           " WHERE tbPlaningF.IdPl Is Null"
+    CurrentDb.Execute sSQL, dbFailOnError
+
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

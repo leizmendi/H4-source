@@ -1,0 +1,337 @@
+Option Compare Database
+Option Explicit
+
+Dim mobjWord As Word.Application
+Dim mobjExcel As Excel.Application
+'Const adhcWordClass = "Word.application"
+'Const adhcExcelClass = "Excel.application"
+Dim mdocWord As Word.Document
+Dim mxlsExcel As Excel.Workbook
+Dim mObj As Object
+Dim oWord As Word.Application
+Dim docW As Word.Document
+
+Public Function FusionDocModelo(strDocMod As String, strDocDestino As String, strDataSourceName As String, Optional strDataSourceConnection As String = "Hoja1", Optional intDestinoUnico As Integer = True, Optional intImprimirYa As Integer = False, Optional strPrinter As String = "", Optional intConfirmarDocModelo As Integer = True, Optional intPrintPDF As Integer = False, Optional ByRef strFilePDF As String, Optional intShowPDF As Integer, Optional strToEmail As String = "") As String
+'    Dim db As Database, strPath As String
+'    Dim ws As Workspace
+'    Dim strSQl As String, strCFRef As String, strDocMod As String, strCarFus As String, strFinca As String,
+    Dim strDocName As String, i As Integer
+'    Dim strCri As String, strTipoAc As String, strCri2 As String
+    On Error GoTo Error_FusionDocModelo
+    ' Seleccionar modelo
+    If intConfirmarDocModelo Then
+        strDocMod = SaveFileNameDlg("Indicar Fichero de Documento Modelo ", "*.doc", strDocMod)
+        If strDocMod = "" Then Exit Function
+    End If
+    'Abrir Word-------------------------------
+    Set oWord = CreateObject("Word.application")
+    oWord.Visible = True
+    oWord.Activate
+    'MsgBox "Clipboard: " & Clipboard2Text() & vbCrLf & "To Email: " & strToEmail
+    Set docW = oWord.Documents.Open(strDocMod)
+'    If docW.MailMerge.MainDocumentType = wdNotAMergeDocument Then
+'        StatusBar = "Not a mail merge main document"
+'    Else
+'        StatusBar = "Document is a mail merge main document."
+'    End If
+'    Exit Function
+    If Right(strDataSourceName, 4) <> ".xls" Then strDataSourceName = strDataSourceName & ".xls"
+    
+    With docW.MailMerge
+        .MainDocumentType = wdFormLetters
+        .OpenDataSource Name:=strDataSourceName, Connection:=strDataSourceConnection
+'        .OpenDataSource Name:= _
+                "H:\Source\file.xls", ConfirmConversions:=False, ReadOnly:= _
+                False, LinkToSource:=True, AddToRecentFiles:=False, PasswordDocument:="", _
+                 PasswordTemplate:="", WritePasswordDocument:="", WritePasswordTemplate:= _
+                "", Revert:=False, Format:=wdOpenFormatAuto, Connection:= _
+                "Provider=Microsoft.Jet.OLEDB.4.0;Password="""";User ID=Admin;Data Source= H:\Source\file.xls;Mode=Read;Extended Properties=""HDR=YES;IMEX=1;"";Jet OLEDB:System database="""";Jet OLEDB:Registry Path="""";Jet OLEDB:Database Password="""";Jet OLEDB:Engine Typ" _
+                , SQLStatement:="SELECT * FROM `data$'`", SQLStatement1:="", _
+                SubType:=wdMergeSubTypeAccess
+        .destination = wdSendToNewDocument
+        .SuppressBlankLines = True
+        .Execute
+    End With
+    docW.Close wdDoNotSaveChanges
+    i = oWord.Documents.Count
+    oWord.Documents(i).Activate
+    If strToEmail <> "" Then Text2Clipboard strToEmail
+    If InStr(strDocDestino, "?") > 0 Then
+        Dim strDD As String
+        strDD = Mid(strDocMod, Len(DirectorioDe(strDocMod)) + 1)
+        i = InStrRev(strDD, ".")
+        strDD = Left(strDD, i - 1)
+        strDocDestino = Replace(strDocDestino, "?", strDD)
+        strFilePDF = Replace(strFilePDF, "?", strDD)
+    End If
+    strDocName = strDocDestino
+VerNombre:
+    strDocName = NombreCampoValido(strDocName, , , True) & Nz(DameValorParam("FichasConfirmacionExtensionFichero"), ".docx")
+    If Dir(strDocName) = "" Then
+        oWord.ActiveDocument.SaveAs (strDocName)
+        
+        FusionDocModelo = strDocName
+    Else
+        If intDestinoUnico = True Then
+            'AppActivate DameValorParam("Puesto_AplicacionTitulo")
+            AppActivate DameValorParam("AplicacionTitulo")
+            strDocName = InputBox("Se encontró un archivo existente denominado: " & strDocName & vbCrLf & _
+                    "Introduzca el nombre del documento nuevo generado:", "Nombre del documento generado", strDocName)
+                    
+            If strDocName <> "" Then
+                GoTo VerNombre
+            End If
+        Else
+            oWord.ActiveDocument.SaveAs (strDocName)
+            FusionDocModelo = strDocName
+        End If
+    End If
+    If intImprimirYa = False Then
+        oWord.Activate
+    Else
+        If intPrintPDF = False Then
+            If strPrinter <> "" Then oWord.ActivePrinter = strPrinter
+            oWord.PrintOut Background:=False
+            oWord.ActiveDocument.Close False
+            oWord.Quit
+        Else
+            oWord.ActiveDocument.Close False
+            oWord.Quit
+            PrintWordDocAsPDF strDocName, strFilePDF, "T", , , intShowPDF
+        End If
+    End If
+Salir_FusionDocModelo:
+    Set oWord = Nothing
+    Set docW = Nothing
+    Exit Function
+Error_FusionDocModelo:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FusionDocModelo " & vbCrLf & Err.Description
+            oWord.Documents.Close
+            Resume Salir_FusionDocModelo
+            Resume Next
+    End Select
+    
+End Function
+
+
+Public Function AbrirDoc(strDoc As String)
+    Dim strDocName As String
+    On Error GoTo Error_AbrirDoc
+    If Right(strDoc, 3) = "xls" Then
+        Set mobjExcel = CreateObject("Excel.application")
+        mobjExcel.Visible = True
+        Set mxlsExcel = mobjExcel.Workbooks.Open(strDoc)
+    Else
+        'Abrir Word-------------------------------
+        Set mobjWord = CreateObject("Word.application")
+        mobjWord.Visible = True
+        Set mdocWord = mobjWord.Documents.Open(strDoc)
+        mobjWord.Activate
+    End If
+Salir_AbrirDoc:
+    Set mobjExcel = Nothing
+    Set mxlsExcel = Nothing
+    Set mobjWord = Nothing
+    Set mdocWord = Nothing
+    Exit Function
+Error_AbrirDoc:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AbrirDoc " & vbCrLf & Err.Description
+            On Error Resume Next
+            'mobjWord.Documents.Close
+            Resume Salir_AbrirDoc
+            Resume Next
+    End Select
+End Function
+
+
+Public Function NombreCampoValido(ByVal str As String, _
+                               Optional intIncluidoEspacio As Integer = False, _
+                               Optional intIncluidoDosPuntos As Integer = False, _
+                               Optional intPuntoNo As Integer = False) As String
+    Dim i As Integer, strResult As String
+    strResult = str
+    strResult = Replace(strResult, "-", "_")
+    strResult = Replace(strResult, "/", "_")
+    strResult = Replace(strResult, "?", "_")
+    If Not intPuntoNo Then strResult = Replace(strResult, ".", "_")
+    strResult = Replace(strResult, "(", "_")
+    strResult = Replace(strResult, ")", "_")
+    strResult = Replace(strResult, vbCrLf, "_")
+    If intIncluidoEspacio = True Then strResult = Replace(strResult, " ", "_")
+    If intIncluidoDosPuntos = True Then strResult = Replace(strResult, ":", "_")
+    'For i = 1 To Len(str)
+    '    Select Case Mid(str, i, 1)
+    '        Case "-", "/", "?", "."
+    '            Mid(strResult, i, 1) = "_"
+    '        Case " "
+    '            If intIncluidoEspacio = True Then
+    '                Mid(strResult, i, 1) = "_"
+    '            End If
+    '    End Select
+    'Next i
+    NombreCampoValido = strResult
+
+End Function
+
+Public Sub ExportarSQL_Excel(strSQL As String, strFile As String, Optional intAbrirDoc As Integer = True, Optional strOtros As String)
+    On Error GoTo Error_ExportarSQL_Excel
+    Dim rs As Recordset, ws As Worksheet, i As Integer, j As Integer, z As Integer
+    Dim intColsFormat() As Integer
+    Dim intImpr() As Integer, intForm() As Integer, intTotal() As Integer
+    DoCmd.Hourglass True
+    Set mobjExcel = CreateObject("Excel.application")
+    mobjExcel.Visible = False
+    If Len(strFile) < 5 Then
+        strFile = strFile & ".xls"
+    End If
+    If Right(strFile, 4) <> ".xls" Then
+        strFile = strFile & ".xls"
+    End If
+    If Dir(strFile) <> "" Then Kill strFile
+    Set mxlsExcel = mobjExcel.Workbooks.Add
+    Set ws = mxlsExcel.Worksheets(1)
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+  'Transfer the data to Excel
+   'ws.Range("A1").CopyFromRecordset rs
+    PonOtros rs.Fields.Count, strOtros, intImpr(), intForm(), intTotal
+    For j = 0 To rs.Fields.Count - 1
+        ws.Cells(1, j + 1) = "'" & rs.Fields(j).Name
+        'formato de la columna
+        'ws.Range(Cells(2, j + 1), Cells(2, j + 1)).Select
+        ws.Cells(1, j + 1).Select
+        mobjExcel.Selection.EntireColumn.Select
+        'If intImpr(j + 1) = 0 Then
+ '           mobjExcel.Selection.Hidden = True
+        'Else
+'            mobjExcel.Selection.Hidden = False
+        'End If
+        If strOtros <> "" Then
+            Select Case intForm(j + 1)
+                Case 3
+                    mobjExcel.Selection.NumberFormat = "#,##0.00 €"
+                Case 4
+                    mobjExcel.Selection.NumberFormat = "#,##0;-#,##0;-"
+                Case 5
+                    mobjExcel.Selection.NumberFormat = "dd/mm/yyyy"
+                Case 6, 7
+                    mobjExcel.Selection.NumberFormat = "0.00 %"
+                Case 8
+                    mobjExcel.Selection.NumberFormat = "#,##0.00"
+            End Select
+        End If
+    Next j
+    
+    i = 1
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        i = i + 1
+        For j = 0 To rs.Fields.Count - 1
+            'ws.Cells(i, j + 1) = Left(rs.Fields(j), 32768)
+            ws.Cells(i, j + 1) = rs.Fields(j)
+        Next j
+        rs.MoveNext
+        SysCmd acSysCmdSetStatus, "Generando Hoja Excel: " & i & "/" & z & " filas"
+    Wend
+    i = i + 1
+    Dim intHayTotal As Integer, k As Integer
+    For j = 0 To rs.Fields.Count - 1
+        ws.Cells(1, j + 1).Select
+        mobjExcel.Selection.HorizontalAlignment = xlCenter
+        mobjExcel.Selection.EntireColumn.AutoFit
+        If strOtros <> "" Then
+            If intTotal(j + 1) = 1 Then
+                If intHayTotal = False Then
+                    ws.Cells(i, 1) = "TOTAL"
+                    intHayTotal = True
+                End If
+                'ws.Cells(i, j + 1) = mobjExcel.WorksheetFunction.Sum(Range(Cells(2, j + 1), Cells(i - 1, j + 1)))
+                ws.Cells(i, j + 1).Formula = "=SUM(" & ws.Cells(2, j + 1).Address(False, False) & ":" & ws.Cells(i - 1, j + 1).Address(False, False) & ")"
+            End If
+        End If
+    Next j
+    
+    For k = 1 To rs.Fields.Count
+        ws.Cells(1, k).Select
+        mobjExcel.Selection.Font.Bold = True
+        mobjExcel.Selection.Interior.ColorIndex = 15
+        'mobjExcel.Selection.Interior.HorizontalAlignment = xlHAlignCenter
+        If strOtros <> "" Then
+            ws.Cells(i, k).Select
+            mobjExcel.Selection.Font.Bold = True
+            mobjExcel.Selection.Interior.ColorIndex = 15
+        End If
+        
+        mobjExcel.Selection.EntireColumn.AutoFit
+    Next k
+    
+    ws.Cells(1, 1).Select
+    mxlsExcel.SaveAs (strFile)
+    mobjExcel.Quit
+    If intAbrirDoc Then AbrirDoc strFile
+Salir_ExportarSQL_Excel:
+    DoCmd.Hourglass False
+    SysCmd acSysCmdClearStatus
+    Set mobjExcel = Nothing
+    Set mxlsExcel = Nothing
+    Set ws = Nothing
+    Exit Sub
+Error_ExportarSQL_Excel:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ExportarSQL_Excel" & vbCrLf & Err.Description
+            Resume Salir_ExportarSQL_Excel
+    End Select
+
+End Sub
+
+
+
+Public Function PonOtros(intNumCampos As Integer, strOtros As String, intImpr() As Integer, intForm() As Integer, intTotal() As Integer)
+    On Error GoTo Error_PonOtros
+    If strOtros = "" Then GoTo Salir_PonOtros
+    Dim i As Integer, k As Integer, intC1 As Integer, intC2 As Integer, intC3 As Integer, intC4 As Integer
+    
+    ReDim intImpr(1 To intNumCampos) As Integer
+    'ReDim intAnch(1 To intgCampos) As Integer
+    'ReDim intAlin(1 To intgCampos) As Integer
+    ReDim intForm(1 To intNumCampos) As Integer
+    ReDim intTotal(1 To intNumCampos) As Integer
+    intC1 = InStr(1, strOtros, ",")
+    intC2 = InStr(intC1 + 1, strOtros, ",")
+    intC3 = InStr(intC2 + 1, strOtros, ",")
+    intC4 = InStr(intC3 + 1, strOtros, ",")
+    For i = 1 To intNumCampos
+        If k = 0 Then
+            If Mid(strOtros, i, 1) = "," Then k = i - 1
+        End If
+        If k > 0 Then
+            intImpr(i) = CInt(Mid(strOtros, k, 1))
+            'intAnch(i) = CInt(Mid(strOtros, intC1 + 1 + (k - 1) * 2, 2))
+            'intAlin(i) = CInt(Mid(strOtros, intC2 + k, 1))
+            intForm(i) = CInt(Mid(strOtros, intC3 + k, 1))
+            intTotal(i) = CInt(Mid(strOtros, intC4 + k, 1))
+        Else
+            intImpr(i) = CInt(Mid(strOtros, i, 1))
+            'intAnch(i) = CInt(Mid(strOtros, intC1 + 1 + (i - 1) * 2, 2))
+            'intAlin(i) = CInt(Mid(strOtros, intC2 + i, 1))
+            intForm(i) = CInt(Mid(strOtros, intC3 + i, 1))
+            intTotal(i) = CInt(Mid(strOtros, intC4 + i, 1))
+        End If
+    Next i
+Salir_PonOtros:
+    Exit Function
+Error_PonOtros:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PonOtros" & vbCrLf & Err.Description
+            Resume Salir_PonOtros
+    End Select
+End Function

@@ -1,0 +1,191 @@
+Option Compare Database
+Option Explicit
+
+Public Function FirmarEntradaViajeroRPT(strRPT As String, lngIdFichaCab As Long, Optional lngIdPartePolicia As Long = 0, Optional strDocName As String = "EntradaViajeros")
+    On Error GoTo Error_FirmarEntradaViajeroRPT
+    Dim strCmd As String, strFile As String, strCri As String
+    Dim lngDifSeg As Long, dtIni As Date, intR As Integer
+    
+    strFile = DimeFileEntradaViajeroPDF(lngIdFichaCab, lngIdPartePolicia, strDocName)
+    If Dir(strFile) <> "" Then
+        intR = MsgBox("¿Volver a generar documento? Se borrará un documento que puede estar firmado", vbYesNo + vbExclamation)
+        If intR = vbNo Then
+            OpenFile strFile
+            FirmarEntradaViajeroRPT = True
+            GoTo Salir_FirmarEntradaViajeroRPT
+        Else
+            If BorrarFileEntradaViajeroPDF(lngIdFichaCab, lngIdPartePolicia, strDocName) = False Then
+                MsgBox "No se pudo borrar", vbExclamation
+                Exit Function
+            End If
+        End If
+    End If
+    If g_CapturaFirmas = False Then
+        GoTo Salir_FirmarEntradaViajeroRPT
+    End If
+    If lngIdPartePolicia <> 0 Then
+        strCri = "IdPartePolicia = " & lngIdPartePolicia
+    Else
+        strCri = "IdFichaCab = " & lngIdFichaCab
+    End If
+    PrintReportAsPDF strRPT, strCri, strFile, "", , , False
+    If Nz(DameValorParam("EntradaViajerosWacoEco"), 1) = 1 Then
+        strCmd = Nz(DameValorParam("WacomSignipropdf"), "")
+        If strCmd = "" Then
+            MsgBox "Se debe indicar en Parámetros la ubicación del programa -Sign I Pro PDF-"
+            GoTo Salir_FirmarEntradaViajeroRPT
+        End If
+        dtIni = Now()
+        While Dir(strFile) = "" And DateDiff("s", dtIni, Now) < 30
+            If lngDifSeg <> DateDiff("s", dtIni, Now) Then
+                lngDifSeg = DateDiff("s", dtIni, Now)
+                SysCmd acSysCmdSetStatus, "Generando " & strFile & " (" & lngDifSeg & ")"
+            End If
+        Wend
+        strCmd = ConComillas(strCmd) & " " & ConComillas(strFile)
+        WaitShell strCmd, vbMaximizedFocus
+    Else
+        ' se supone que se ha generado el pdf en la carpeta donde el servicio Eco
+    End If
+    FirmarEntradaViajeroRPT = True
+Salir_FirmarEntradaViajeroRPT:
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_FirmarEntradaViajeroRPT:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en FirmarEntradaViajeroRPT" & vbCrLf & Err.Description
+            Resume Salir_FirmarEntradaViajeroRPT
+    End Select
+
+End Function
+
+
+Public Function ImprimirEntradaViajero_Wacom(strRPT As String, lngIdFichaCab As Long, Optional lngIdPartePolicia As Long = 0, Optional strDocName As String = "EntradaViajeros")
+    On Error GoTo Error_ImprimirEntradaViajero_Wacom
+    Dim strCmd As String, strFile As String, strCri As String
+    Dim lngDifSeg As Long, dtIni As Date, intR As Integer
+    strFile = DimeFileEntradaViajeroPDF(lngIdFichaCab, lngIdPartePolicia, strDocName)
+    If Dir(strFile) <> "" Then
+        intR = MsgBox("¿Volver a generar documento? Se borrará un documento que puede estar firmado", vbYesNo + vbExclamation)
+        If intR = vbNo Then
+            OpenFile strFile
+            ImprimirEntradaViajero_Wacom = True
+            GoTo Salir_ImprimirEntradaViajero_Wacom
+        Else
+            If BorrarFileEntradaViajeroPDF(lngIdFichaCab, lngIdPartePolicia, strDocName) = False Then
+                MsgBox "No se pudo borrar", vbExclamation
+                Exit Function
+            End If
+        End If
+    End If
+    If g_CapturaFirmas = False Then
+        GoTo Salir_ImprimirEntradaViajero_Wacom
+    End If
+    strCmd = Nz(DameValorParam("WacomSignipropdf"), "")
+    If strCmd = "" Then
+        MsgBox "Se debe indicar en Parámetros la ubicación del programa -Sign I Pro PDF-"
+        GoTo Salir_ImprimirEntradaViajero_Wacom
+    End If
+    If lngIdPartePolicia <> 0 Then
+        strCri = "IdPartePolicia = " & lngIdPartePolicia
+    Else
+        strCri = "IdFichaCab = " & lngIdFichaCab
+    End If
+    If strCmd Like "*.exe" Then
+        PrintReportAsPDF strRPT, strCri, strFile, "", , , False
+        dtIni = Now()
+        While Dir(strFile) = "" And DateDiff("s", dtIni, Now) < 30
+            If lngDifSeg <> DateDiff("s", dtIni, Now) Then
+                lngDifSeg = DateDiff("s", dtIni, Now)
+                SysCmd acSysCmdSetStatus, "Generando " & strFile & " (" & lngDifSeg & ")"
+            End If
+        Wend
+        strCmd = ConComillas(strCmd) & " " & ConComillas(strFile)
+        WaitShell strCmd, vbMaximizedFocus
+    Else
+        ' se supone que se ha generado el pdf en la carpeta donde el servicio Eco
+    End If
+    ImprimirEntradaViajero_Wacom = True
+Salir_ImprimirEntradaViajero_Wacom:
+    SysCmd acSysCmdClearStatus
+    Exit Function
+Error_ImprimirEntradaViajero_Wacom:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ImprimirEntradaViajero_Wacom" & vbCrLf & Err.Description
+            Resume Salir_ImprimirEntradaViajero_Wacom
+    End Select
+
+End Function
+
+Public Function DimeFileEntradaViajeroPDF(lngIdFichaCab As Long, Optional lngIdPartePolicia As Long = 0, Optional strDocName As String = "EntradaViajeros") As String
+    On Error GoTo Error_DimeFileEntradaViajeroPDF
+    Dim strCarpetaEV As String, strPref As String, strFile As String, lngIdIdioma As Long
+    Dim i As Integer, sNdoc As String
+    lngIdIdioma = Nz(DLookup("IdIdioma", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    strCarpetaEV = Nz(DameValorParam("AplicacionCarpetaEntradaViajeros" & "_IdIdioma_" & lngIdIdioma), "")
+    If strCarpetaEV = "" Then strCarpetaEV = Nz(DameValorParam("AplicacionCarpetaEntradaViajeros"), DameValorParam("AplicacionCarpetaDatos") & strDocName & "\")
+    i = InStrRev(strDocName, "_")
+    If i > 0 Then
+        strDocName = Left(strDocName, i - 1)
+        sNdoc = Mid(strDocName, i)
+    End If
+    If strDocName <> "EntradaViajeros" Then strCarpetaEV = Replace(strCarpetaEV, "EntradaViajeros", strDocName)
+    If Right(strCarpetaEV, 1) = "\" Then strCarpetaEV = RecDerTop(strCarpetaEV, 1, 0)
+    If Dir(strCarpetaEV, vbDirectory) = "" Then MkDir strCarpetaEV
+    strCarpetaEV = strCarpetaEV & "\"
+     'If Nz(DameValorParam("EntradaViajerosWacoEco"), 1) = 2 Then
+     '   strCarpetaEV = strCarpetaEV & "FirmaPendiente"
+    '  'If strDocName = "Socorrista" Then strCarpetaEV = "C:\H4 3.0\EntradaViajeros\FirmaPendiente\Socorrista"
+      '   If Dir(strCarpetaEV, vbDirectory) = "" Then MkDir strCarpetaEV
+       '  strCarpetaEV = strCarpetaEV & "\"
+     'End If
+    strPref = strDocName & sNdoc & "_"
+    strFile = strCarpetaEV & strPref & lngIdFichaCab & "_" & lngIdPartePolicia & ".pdf"
+    DimeFileEntradaViajeroPDF = strFile
+Salir_DimeFileEntradaViajeroPDF:
+    Exit Function
+Error_DimeFileEntradaViajeroPDF:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFileEntradaViajeroPDF" & vbCrLf & Err.Description
+            Resume Salir_DimeFileEntradaViajeroPDF
+    End Select
+
+End Function
+
+
+Public Function BorrarFileEntradaViajeroPDF(lngIdFichaCab As Long, Optional lngIdPartePolicia As Long = 0, Optional strDocName As String = "EntradaViajeros") As Integer
+    On Error GoTo Error_BorrarFileEntradaViajeroPDF
+    Dim strCarpetaBorrados As String, strPref As String, strFile As String, strFile0 As String
+    Dim strFile_ As String, i As Integer
+    strFile = DimeFileEntradaViajeroPDF(lngIdFichaCab, lngIdPartePolicia, strDocName)
+    strFile0 = Dir(strFile)
+    If strFile0 = "" Then
+        MsgBox "No se encontró Archivo de entrada viajeros: " & strFile
+        Exit Function
+    End If
+    'strCarpetaBorrados = Nz(DameValorParam("AplicacionCarpetaEntradaViajeros"), DameValorParam("AplicacionCarpetaDatos") & "EntradaViajeros\") & "borradas\"
+    strCarpetaBorrados = DirectorioDe(strFile) & "borradas"
+    'If Right(strCarpetaBorrados, 1) = "\" Then strCarpetaBorrados = RecDerTop(strCarpetaBorrados, 1, 0)
+    If Dir(strCarpetaBorrados, vbDirectory) = "" Then MkDir strCarpetaBorrados
+    strCarpetaBorrados = strCarpetaBorrados & "\"
+    strFile_ = strCarpetaBorrados & strFile0
+    While Dir(strFile_) <> ""
+        i = i + 1
+        strFile_ = strCarpetaBorrados & Left(strFile0, Len(strFile0) - 4) & "_" & i & Right(strFile0, 4)
+    Wend
+    FileCopy strFile, strFile_
+    Kill strFile
+    BorrarFileEntradaViajeroPDF = True
+Salir_BorrarFileEntradaViajeroPDF:
+    Exit Function
+Error_BorrarFileEntradaViajeroPDF:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BorrarFileEntradaViajeroPDF" & vbCrLf & Err.Description
+            Resume Salir_BorrarFileEntradaViajeroPDF
+    End Select
+
+End Function

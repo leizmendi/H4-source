@@ -1,0 +1,173 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    
+    Dim gShift As Integer
+
+Private Sub btnCli_Click()
+    Me.cmbCliente = Nz(BuscaAyuda(IIf(Me.mrcCliVen = 2, "AG0", "CL2"), Me.cmbCliente, 1), Me.cmbCliente)
+    Call cmbCliente_AfterUpdate
+End Sub
+
+Private Sub btnImprimir_Click()
+    DoCmd.OpenReport "rptFacturasPendientes", acViewPreview
+End Sub
+
+Private Sub btnIrAFactura_Click()
+    If Me.lstFacturas.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar una factura"
+        Exit Sub
+    End If
+    DoCmd.OpenForm "frmFacturas", , , "IdFactura = " & Me.lstFacturas
+End Sub
+
+Private Sub btnPagadaSN_Click()
+    On Error GoTo HandleError
+    If (gShift And acCtrlMask) <> 0 Then
+        Dim intR As Integer, i As Integer
+        intR = MsgBox("¿Marcar todas las facturas según si se han pagado o no?", vbOKCancel + vbQuestion)
+        If intR = vbCancel Then Exit Sub
+        For i = 1 To Me.lstFacturas.ListCount - 1
+            Call MarcarPagadaSN(Me.lstFacturas.ItemData(i))
+        Next i
+    Else
+        If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+        Call MarcarPagadaSN(Me.lstFacturas)
+    End If
+    Me.lstFacturas.Requery
+    
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnPagadaSN_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub btnPagadaSN_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub cmbCliente_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub Form_Activate()
+    Me.lstFacturas.Requery
+End Sub
+
+Private Sub Form_Load()
+    Call AfterUpdateSeleccion
+    Call mrcCliVen_AfterUpdate
+End Sub
+
+Private Sub lstFacturas_DblClick(Cancel As Integer)
+    Call btnIrAFactura_Click
+End Sub
+
+Private Sub mrcCliVen_AfterUpdate()
+    If Me.mrcCliVen = 1 Then
+        Me.cmbCliente.Visible = False
+        Me.txtCli.Visible = False
+        Me.btnCli.Visible = False
+    Else
+        Dim strSQL As String
+        Select Case Me.mrcCliVen
+            Case 2
+                Me.lblCmbCli.Caption = "Empresa"
+                strSQL = "SELECT tbClientes.IdCliente, tbClientes.CodCliente, [NombreCli] & ' ' & [ApellidosCli] AS Cliente"
+                strSQL = strSQL & " FROM tbClientes"
+                strSQL = strSQL & " WHERE (((tbClientes.Agencia)=True));"
+                Me.btnCli.Visible = True
+            Case 3
+                Me.lblCmbCli.Caption = "Cliente"
+                strSQL = "SELECT tbClientes.IdCliente, tbClientes.CodCliente, [NombreCli] & ' ' & [ApellidosCli] AS Cliente"
+                strSQL = strSQL & " FROM tbClientes"
+                'strSQL = strSQL & " WHERE (((tbClientes.Agencia)=false));"
+                Me.btnCli.Visible = True
+        End Select
+        Me.cmbCliente.RowSource = strSQL
+        Me.cmbCliente.Visible = True
+        Me.txtCli.Visible = True
+        Me.btnCli.Visible = True
+    End If
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub mrcFecha_AfterUpdate()
+    If Me.mrcFecha = 1 Then
+        Me.txtDesde.Enabled = False
+        Me.txtHasta.Enabled = False
+    Else
+        Me.txtDesde.Enabled = True
+        Me.txtHasta.Enabled = True
+    End If
+    Call AfterUpdateSeleccion
+End Sub
+Public Sub AfterUpdateSeleccion()
+    Dim strSQL As String, strSeleccion As String
+    Dim strSQL2 As String
+ '    strSQL = "SELECT tbFacturasCab.IdFactura, tbFacturasCab.NumeroDeFactura AS [Nº de Factura], tbFacturasCab.FechaFactura AS Fecha, tbFacturasCab.NIF, tbFacturasCab.DireccionCliente AS Cliente, [TotalBase]+[TotalIVA] AS [Total Factura], TotalFacturaPagos([IdFactura]) AS Pagado"
+    strSQL = "SELECT tbFacturasCab.IdFactura, tbFacturasCab.NumeroDeFactura AS [Nº de Factura], tbFacturasCab.FechaFactura AS Fecha, tbFacturasCab.NIF, tbFacturasCab.DireccionCliente AS Cliente, LlenaIzq(Format([TotalBase]+[TotalIVA],'Standard'),12) AS [Total Factura], LlenaIzq(Format(TotalFacturaPagos([IdFactura]),'Standard'),12) AS Pagado"
+    strSQL = strSQL & " FROM tbFacturasCab"
+'    strSQL = strSQL & " WHERE (((TotalFacturaPagos([IdFactura])) < [TotalBase] + [TotalIVA]))"
+    strSQL = strSQL & " WHERE PagadaSN = False"
+
+    'strSQL2 = "SELECT *"
+    'strSQL2 = strSQL2 & " FROM tbFichasCab WHERE True"
+    strSeleccion = "Todas las Facturas"
+    strSeleccion = strSeleccion & " Pendientes de Cobro"
+    
+    If Me.mrcFecha = 2 Then
+        If IsDate(Me.txtDesde) Then
+            strSQL = strSQL & " AND tbFacturasCab.FechaFactura >= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+            'strSQL2 = strSQL2 & " AND tbFichasCab.FechaSalida >= #" & Format(CDate(Me.txtDesde), "mm/dd/yyyy") & "#"
+        End If
+        If IsDate(Me.txtHasta) Then
+            strSQL = strSQL & " AND tbFacturasCab.FechaFactura <= #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#"
+            'strSQL2 = strSQL2 & " AND tbFichasCab.FechaSalida <= #" & Format(CDate(Me.txtHasta), "mm/dd/yyyy") & "#"
+        End If
+        strSeleccion = strSeleccion & " Con fecha de factura entre el " & Nz(Me.txtDesde, "-") & " y el " & Nz(Me.txtHasta, "-")
+    End If
+    Select Case Me.mrcCliVen
+        Case 2, 3
+            If Me.cmbCliente.ListIndex = -1 Then
+            Else
+                strSQL = strSQL & " AND tbFacturasCab.NIF = " & ConComillas(DLookup("NIF", "tbClientes", "IdCliente = " & Me.cmbCliente))
+                'strSQL2 = strSQL2 & " AND tbFichasCab.IdAgencia = " & Me.cmbCliente
+                strSeleccion = strSeleccion & " Del cliente: " & Me.txtCli
+            End If
+        'Case 3
+        '    If Me.cmbCliente.ListIndex = -1 Then
+        '    Else
+        '        strSQL = strSQL & " AND tbAlbaranesCab.CodVendedor = '" & Me.cmbCliente & "'"
+        '        strSQL2 = strSQL2 & " AND tbAlbaranesCab.CodVendedor = '" & Me.cmbCliente & "'"
+        '        strSeleccion = strSeleccion & " Del vendedor/a: " & Me.txtCli
+        '    End If
+    End Select
+    strSQL = strSQL & " ORDER BY tbFacturasCab.FechaFactura, tbFacturasCab.NumeroDeFactura;"
+    'strSQL = strSQL & " ORDER BY IIf(IsNull([tbClientes].[CodCliente]),[tbClientes_1]![CodCliente],[tbClientes]![IdCliente]), tbFichasCab.IdFichaCab;"
+    'strSQL = strSQL & " ORDER BY CodCliente, tbFichasCab.IdFichaCab;"
+    Me.lstFacturas.RowSource = strSQL
+    Me.lblSeleccion.Caption = strSeleccion
+    'Me.lblSQL.Caption = strSQL2
+
+End Sub
+
+
+Private Sub txtDesde_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call AfterUpdateSeleccion
+End Sub

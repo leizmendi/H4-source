@@ -1,0 +1,57 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_AfterUpdate()
+    Dim rs As Recordset, lngIdFacturaRec As Long
+    Dim v As Variant
+'    gintCambios = True
+    Set rs = Parent.RecordsetClone
+    lngIdFacturaRec = Parent.IdFacturaRecibida
+    rs.FindFirst "IdFacturaRecibida = " & lngIdFacturaRec
+    If rs.NoMatch Then Exit Sub
+    rs.Edit
+    rs("TotalBase") = DimeFacturaRecibidaTotalBase(lngIdFacturaRec)
+    rs("TotalIVA") = DimeFacturaRecibidaTotalIVA(lngIdFacturaRec)
+    rs("TotalRecEq") = DimeFacturaRecibidaTotalRecEq(lngIdFacturaRec)
+    rs("IVA_Cab") = DimeFacturaRecibidaIVA(lngIdFacturaRec)
+    rs("RecEq_Cab") = DimeFacturaRecibidaRecEq(lngIdFacturaRec)
+    On Error Resume Next
+    v = Me.Bookmark
+    rs.Update
+    Me.Bookmark = v
+    Parent.IVA_Cab.Visible = Not (Nz(Parent.IVA_Cab, 1) = 1)
+'    Parent.TotalIVA.Visible = Parent.IVA.Visible
+    Parent.RecEq_Cab.Visible = Not (Nz(Parent.RecEq_Cab, 1) = 1)
+    'Parent.TotalRecEq.Visible = Parent.RecEq.Visible
+
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call Parent.Form_KeyDown(KeyCode, Shift)
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+End Sub
+
+Private Sub IVA_AfterUpdate()
+    If Me.RecEq <> 0 Then
+        Me.RecEq = Me.IVA.Column(1)
+    End If
+End Sub
+
+Private Sub RecEq_BeforeUpdate(Cancel As Integer)
+    If Me.RecEq = 0 Then Exit Sub
+    If Me.RecEq <> CSng(Me.IVA.Column(1)) Then
+        MsgBox "A un IVA del " & Format(Me.IVA, "percent") & " le corresponde un Recargo de Equivalencia del " & Format(Me.IVA.Column(1), "percent")
+        Cancel = True
+    End If
+End Sub

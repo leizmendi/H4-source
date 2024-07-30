@@ -1,0 +1,73 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Explicit
+Option Compare Database
+
+Private Sub btnCtasFPago_Click()
+    If Me.lstCtasFPago.ListIndex = -1 Then Exit Sub
+    Dim strCta As String
+    strCta = Me.lstCtasFPago.Column(2)
+    strCta = Nz(DimeTeclado(2, "Nº de Cuenta de Forma de PAgo", strCta), "")
+    If strCta = "" Then Exit Sub
+    PonValorParam "ContabilidadCuentaFPago_" & Me.lstCtasFPago, strCta, 10
+    Me.lstCtasFPago.Requery
+End Sub
+
+Private Sub btnCtaGastos_Click()
+    If Me.lstCtasGastos.ListIndex = -1 Then Exit Sub
+    Dim strCta As String
+    strCta = Me.lstCtasGastos.Column(3)
+    strCta = Nz(DimeTeclado(2, "Nº de Cuenta de Grupos de Gastos", strCta), "")
+    If strCta = "" Then Exit Sub
+    PonValorParam "ContabilidadCuentaGrupoGastos_" & Me.lstCtasGastos, strCta, 10
+    Me.lstCtasGastos.Requery
+End Sub
+
+Private Sub btnCtaIVA_Click()
+    If Me.lstCtasIVA.ListIndex = -1 Then Exit Sub
+    Dim strCta As String
+    strCta = Me.lstCtasIVA.Column(2)
+    strCta = Nz(DimeTeclado(2, "Nº de Cuenta de IVA repercutido", strCta), "")
+    If strCta = "" Then Exit Sub
+    PonValorParam "ContabilidadCuentaIVArep_" & Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & Me.lstCtasIVA), 0) * 100, strCta, 10
+    Me.lstCtasIVA.Requery
+End Sub
+
+Private Sub btnCtaIVAsop_Click()
+    If Me.lstCtasIVA.ListIndex = -1 Then Exit Sub
+    Dim strCta As String
+    strCta = Me.lstCtasIVA.Column(3)
+    strCta = Nz(DimeTeclado(2, "Nº de Cuenta de IVA soportado", strCta), "")
+    If strCta = "" Then Exit Sub
+    PonValorParam "ContabilidadCuentaIVAsop_" & Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & Me.lstCtasIVA), 0) * 100, strCta, 10
+    Me.lstCtasIVA.Requery
+End Sub
+
+
+Private Sub btnFichero_Click()
+    Dim strX As String
+    strX = SaveFileNameDlg("Indicar Fichero de Diario", "*.txt", Nz(Me.ContabilidadFicheroDiario, ""))
+    If strX <> "" Then
+        Me.ContabilidadFicheroDiario = strX
+    End If
+End Sub
+
+Private Sub btnFicheroSubCtas_Click()
+    Dim strX As String
+    strX = SaveFileNameDlg("Indicar Fichero de Subcuentas", "*.txt", Nz(Me.ContabilidadFicheroSubcuentas, ""))
+    If strX <> "" Then
+        Me.ContabilidadFicheroSubcuentas = strX
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub

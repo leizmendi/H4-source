@@ -1,0 +1,1486 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim rsRemesa As Recordset
+Dim aux_libre1 As String, aux_libre2 As String, aux_libre3 As String, nceros As String
+Dim aux_codreg, aux_coddat, aux_nif, aux_sufijo As String
+Dim aux_codref, aux_nombre, aux_entidad, aux_oficina As String
+Dim aux_digcont, aux_numcuenta, aux_importe, aux_concepto As String
+Dim aux_numrecibos As String
+    Dim gstrOpenArgs As String
+
+Private Sub btnAñadirFac_Click()
+    Dim vIt As Variant, frm As Form, strForm As String
+    Dim strXML As String
+    If Me.Dirty Then DoCmd.RunCommand acCmdSaveRecord
+    Select Case Me.TipoEmision
+        Case 1
+            strForm = "frmSeleccionarFacturas"
+            DoCmd.OpenForm strForm, , , , , acDialog
+            If Not IsOpenForm(strForm) Then Exit Sub
+            Set frm = Forms(strForm)
+            For Each vIt In frm.lstFacturas.ItemsSelected
+                AñadirReciboDeFactura frm.lstFacturas.ItemData(vIt), Me.IdReciboEmision
+            Next vIt
+            DoCmd.Close acForm, strForm
+        Case 4
+            If IsNull(Me.FechaCargo) Then
+                MsgBox "Se debe indicar Fecha de Cargo"
+                Me.FechaCargo.SetFocus
+                Exit Sub
+            End If
+            PonXML strXML, "Año", Year(CDate(Me.FechaCargo))
+            PonXML strXML, "Mes", Month(CDate(Me.FechaCargo))
+            strForm = "frmSeleccionarPagosP"
+            DoCmd.OpenForm strForm, , , , , acDialog, strXML
+            If Not IsOpenForm(strForm) Then Exit Sub
+            Set frm = Forms(strForm)
+            For Each vIt In frm.lstPagos.ItemsSelected
+                AñadirReciboDePagoP frm.lstPagos.Column(0, vIt), Me.IdReciboEmision
+            Next vIt
+            DoCmd.Close acForm, strForm
+    End Select
+End Sub
+
+Private Sub btnAñadirRecibo_Click()
+    On Error GoTo Error_btnAñadirRecibo_Click
+    Me.RemesaGenerada = False
+    DoCmd.RunCommand acCmdSaveRecord
+    DoCmd.OpenForm "frmRecibos", acNormal, , , acFormAdd, acDialog, "Añadir"
+    Me.ActualizarMisTotales
+    DoCmd.GoToControl "subfrmRecibos"
+    DoCmd.GoToRecord , , acLast
+Salir_btnAñadirRecibo_Click:
+    Exit Sub
+Error_btnAñadirRecibo_Click:
+    Select Case Err
+        
+        Case 2498, 2105
+            Resume Salir_btnAñadirRecibo_Click
+        Case Else
+            MsgBox "Error nº " & Err & " en btnAñadirRecibo_Click" & vbCrLf & Err.Description
+            Resume Salir_btnAñadirRecibo_Click
+    End Select
+End Sub
+
+Private Sub btnCombinar_Click()
+    On Error GoTo Error_btnCombinar_Click
+    Dim strSQL As String
+    Dim qdf As QueryDef
+    If IsNull(Me.IdReciboEmision) Then Exit Sub
+'SELECT tbRecibos.NUMRECIBO, tbRecibos.CONCEPTO, tbRecibos.IMPORTE, [ENTIDAD] & '-' & [OFICINA] & '-' & [DIGCONT] & '-' & [NUMCUENTA] AS [C/C Nº], tbRecibos.NumeroCarnet, tbRecibosEmisiones.FechaCargo, Asociados.Establecimiento, Asociados.Sociedad, Asociados.Nombre, Asociados.Direccion, Asociados.Poblacion, Asociados.Provincia, Asociados.CodigoPostal
+'FROM Asociados RIGHT JOIN (tbRecibosEmisiones INNER JOIN tbRecibos ON tbRecibosEmisiones.IdReciboEmision = tbRecibos.IdReciboEmision) ON Asociados.NumeroCarnet = tbRecibos.NumeroCarnet
+'WHERE (((tbRecibos.IdReciboEmision)=1));
+
+    strSQL = "SELECT tbRecibos.NUMRECIBO, tbRecibos.CONCEPTO, tbRecibos.IMPORTE, [ENTIDAD] & '-' & [OFICINA] & '-' & [DIGCONT] & '-' & [NUMCUENTA] AS [C/C Nº], tbRecibos.NumeroCarnet, tbRecibosEmisiones.FechaCargo, Asociados.Establecimiento, Asociados.Sociedad, Asociados.Nombre, Asociados.Direccion, Asociados.Poblacion, Asociados.Provincia, Asociados.CodigoPostal"
+    strSQL = strSQL & " FROM Asociados RIGHT JOIN (tbRecibosEmisiones INNER JOIN tbRecibos ON tbRecibosEmisiones.IdReciboEmision = tbRecibos.IdReciboEmision) ON Asociados.NumeroCarnet = tbRecibos.NumeroCarnet"
+    strSQL = strSQL & " WHERE (((tbRecibos.IdReciboEmision)=" & Me.IdReciboEmision & "))"
+    If Me.verDevueltos = True Then
+        strSQL = strSQL & " AND tbRecibos.ReciboDevuelto = True"
+    End If
+
+    Set qdf = CurrentDb.QueryDefs("x")
+    qdf.SQL = strSQL
+    qdf.Close
+    'DoCmd.OpenQuery qdf.Name, acViewPreview, acReadOnly
+    'DoCmd.RunCommand acCmdOutputToRTF
+    DoCmd.OutputTo acOutputQuery, qdf.Name, acFormatRTF, qdf.Name & ".rtf", False
+    Dim s As String
+    's = OpenCommDlg
+    If s <> "" Then
+        Shell DLookup("Archivo", "auxCartasModelo", "Tema = 'WinWord'") & " " & s
+    End If
+    'DoCmd.Close acQuery, qdf.Name
+Salir_btnCombinar_Click:
+        Exit Sub
+Error_btnCombinar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnCombinar_Click" & vbCrLf & Err.Description
+            Resume Salir_btnCombinar_Click
+    End Select
+End Sub
+
+Private Sub btnEditarRecibo_Click()
+    Dim lngNR As Long, varBM As Variant
+    On Error GoTo Error_btnEditarRecibo_Click
+    lngNR = Me![subfrmRecibos].Form![NumRecibo]
+    Me.RemesaGenerada = False
+    DoCmd.RunCommand acCmdSaveRecord
+    DoCmd.OpenForm "frmRecibos", , , "NUMRECIBO = " & Me![subfrmRecibos].Form![NumRecibo], acFormEdit, acDialog, "NoAdNoDel"
+    Me.ActualizarMisTotales
+    Dim rs As Recordset
+    Set rs = Me.subfrmRecibos.Form.RecordsetClone
+    rs.FindFirst "NUMRECIBO = " & lngNR
+    If rs.NoMatch Then Exit Sub
+    'DoCmd.GoToControl "subfrmRecibos"
+    'Me![subfrmRecibos].Form![txtNUMRECIBO].SetFocus
+    'DoCmd.FindRecord CStr(lngNR)
+    varBM = rs.Bookmark
+    Me.subfrmRecibos.Form.Bookmark = varBM
+Salir_btnEditarRecibo_Click:
+    Exit Sub
+Error_btnEditarRecibo_Click:
+    Select Case Err
+        Case 2427
+            Resume Salir_btnEditarRecibo_Click
+        Case Else
+            MsgBox "Error nº " & Err & " en btnEditarRecibo_Click" & vbCrLf & Err.Description
+            Resume Salir_btnEditarRecibo_Click
+    End Select
+End Sub
+
+Private Sub btnEnviar_Click()
+    DoCmd.GoToControl "txtRemesa"
+    DoCmd.RunCommand acCmdCopy
+    Dim strWeb As String
+    strWeb = Nz(DLookup("WebBanco", "tbMisCuentas", "NumCuenta = '" & Replace(Me.CuentaAbono, "-", "") & "'"), "")
+    If strWeb = "" Then
+        MsgBox "No se encontró web de entidad bancaria en tabla de MisCuentas"
+    Else
+        OpenFile strWeb
+    End If
+    
+    
+End Sub
+
+Private Sub btnEtiquetas_Click()
+    Call Aceptar_Click(0)
+End Sub
+
+Private Sub btnGenRecibos_Click()
+    On Error GoTo Error_btnGenRecibos_Click
+    DoCmd.RunCommand acCmdSaveRecord
+    Select Case Me.TipoEmision
+        Case 1
+            'Me.RemesaGenerada = False
+            'Call Form_Current
+            'Call GenerarNormal
+        Case 2
+            Dim intRes As Integer
+            intRes = MsgBox("¿Generar Recibos de Devoluciones pendientes?", vbYesNo + vbQuestion, "AEHN")
+            If intRes = vbYes Then
+                Me.RemesaGenerada = False
+                Call Form_Current
+                GenerarDevoluciones
+            End If
+        Case Else
+    End Select
+    
+    
+Salir_btnGenRecibos_Click:
+    Exit Sub
+Error_btnGenRecibos_Click:
+    Select Case Err
+        Case 3022
+            MsgBox "Ya existe una emisión de Recibos con el mismo concepto: " & Me.Concepto & vbCrLf & "Compruebe si existe la emisión de recibos que quiere introducir. Si no, debe modificar el concepto de la misma", , "AEHN"
+            Resume Salir_btnGenRecibos_Click
+        Case Else
+            MsgBox "Error nº " & Err & " en btnGenRecibos_Click" & vbCrLf & Err.Description
+            Resume Salir_btnGenRecibos_Click
+    End Select
+            
+End Sub
+
+Private Sub btnGenRemesa_Click()
+    If GenerarRemesa(Me.IdReciboEmision) = True Then
+        If Me.Dirty Then DoCmd.RunCommand acCmdSaveRecord
+        Dim strSQL As String
+        Me.RemesaGenerada = True
+        DoCmd.RunCommand acCmdSaveRecord
+        strSQL = "UPDATE tbRecibosEmisiones SET CuentaAbono = '" & Me.txtCuentaAbonar & "' WHERE IdReciboEmision = " & Me.IdReciboEmision
+        CurrentDb.Execute strSQL, dbFailOnError
+        Call Form_Current
+    End If
+End Sub
+
+Private Sub btnListado_Click()
+    'On Error Resume Next
+    DoCmd.OpenReport "rptRecibosEmisiones", acViewPreview, , "IdReciboEmision = " & Me.IdReciboEmision
+End Sub
+
+Private Sub btnModi_Click()
+    MsgBox "ATENCIÓN, si se modifica una emisión de recibos ya remesada, se deberá volver a generar la remesa a enviar al Banco", vbExclamation
+    Me.FechaEmision.SetFocus
+    'BloqueoFormulario Me, False
+    Me.RemesaGenerada = False
+    Me.txtRemesa = Null
+    'LockUnForm False
+    Call Form_Current
+End Sub
+
+Private Sub btnOrdenante_Click()
+    Dim strnumCC As String, strSQL As String, strC As String
+    
+    strnumCC = Nz(BuscaAyuda("NUMCC"), "")
+    If strnumCC = "" Then Exit Sub
+    strSQL = "UPDATE Ordenante SET Entidad = '" & Mid(strnumCC, 1, 4) _
+    & "', OFICINA = '" & Mid(strnumCC, 5, 4) _
+    & "', DIGCONT = '" & Mid(strnumCC, 9, 2) _
+    & "', NUMCUENTA = '" & Mid(strnumCC, 11, 10) & "'"
+    strC = Nz(DLookup("NIF_Ordenante", "tbMisCuentas", "NumCuenta = '" & strnumCC & "'"), "")
+    strSQL = strSQL & ", NIF_ORDENANTE = '" & strC & "'"
+    strC = Nz(DLookup("SUFIJO_Ordenante", "tbMisCuentas", "NumCuenta = '" & strnumCC & "'"), "")
+    strSQL = strSQL & ", SUFIJO_ORDENANTE = '" & strC & "'"
+    strC = Nz(DLookup("NOMBRE_Ordenante", "tbMisCuentas", "NumCuenta = '" & strnumCC & "'"), "")
+    strSQL = strSQL & ", NOMBRE_ORDENANTE = '" & strC & "'"
+    strSQL = strSQL & ", CuentaIBAN = '" & HallarIBAN(strnumCC, True) & "'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strC = Nz(DLookup("CodFPago", "tbMisCuentas", "NumCuenta = '" & strnumCC & "'"), "")
+    If strC <> "" Then
+        PonValorParam "PagoPrevisto_CodFPago", strC
+        CargarParam Me
+    End If
+    Me.Recalc
+    
+End Sub
+
+Private Sub btnOrdenanteParam_Click()
+    DoCmd.OpenForm "frmOrdenante", , , , , acWindowNormal
+End Sub
+
+Private Sub btnVerNotepad_Click()
+    Shell "Notepad " & ConComillas(Me.txtRemesa), vbMaximizedFocus
+End Sub
+
+Private Sub FechaCargo_AfterUpdate()
+    On Error Resume Next
+    Me.cmbMes = Month(Me.FechaCargo)
+    Me.txtAño = Year(Me.FechaCargo)
+End Sub
+
+Private Sub FechaCargo_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        If Me.FechaCargo.Locked = True Then Exit Sub
+        varFecha = adhDoCalendar(Me.FechaCargo)
+        If IsDate(varFecha) Then
+            Me.FechaCargo = varFecha
+            Call FechaCargo_AfterUpdate
+        End If
+    End If
+
+End Sub
+
+Private Sub FechaEmision_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim varFecha As Variant
+    If KeyCode = vbKeyF4 Then
+        If Me.FechaEmision.Locked = True Then Exit Sub
+        varFecha = adhDoCalendar(Me.FechaEmision)
+        If IsDate(varFecha) Then
+            Me.FechaEmision = varFecha
+            'Call FechaEmision_AfterUpdate
+        End If
+    End If
+End Sub
+
+Private Sub Form_Current()
+    On Error GoTo Error_Form_Current
+    Dim ctl As Control, intVerOrdPredet As Integer
+    'Me.lstFacturas.Visible = False
+    'Me.txtDesdeFecha.Visible = False
+    Me.btnAñadirFac.Visible = Me.TipoEmision = 1
+    'Me.casSoloDomi.Visible = False
+    
+    Me.ActualizarMisTotales
+    If Me.RemesaGenerada = True Then
+        Me.lblRemesa.Visible = True
+        Me.txtRemesa.Visible = True
+        Me.CuentaAbono.Visible = True
+        LockUnForm True
+        intVerOrdPredet = False
+    Else
+        Me.lblRemesa.Visible = False
+        Me.txtRemesa.Visible = False
+        Me.CuentaAbono.Visible = False
+        LockUnForm False
+        intVerOrdPredet = True
+    End If
+    Me.btnEnviar.Visible = Me.txtRemesa.Visible
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "_ordenante_predet") > 0 Then ctl.Visible = intVerOrdPredet
+    Next ctl
+    If gstrOpenArgs Like "NUMRECIBO=*" Then
+        BuscaReciboNum CLng(Mid(gstrOpenArgs, 11))
+        gstrOpenArgs = ""
+    End If
+    Call TipoEmision_AfterUpdate
+    Call FechaCargo_AfterUpdate
+    Me.btnGenRemesa.Enabled = Nz(Me.RemesaGenerada, False) = False
+Salir_Form_Current:
+    Exit Sub
+Error_Form_Current:
+    Select Case Err
+        Case 2105
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en Form_Current" & vbCrLf & Err.Description
+            Resume Salir_Form_Current
+    End Select
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    CentrarTodo
+    gstrOpenArgs = Nz(Me.OpenArgs, "")
+    If gstrOpenArgs Like "NUMRECIBO=*" Then
+        'BuscaReciboNum CLng(Mid(strOpenArg, 11))
+        Exit Sub
+    End If
+    DoCmd.GoToRecord , , acLast
+    DoCmd.GoToControl "FechaEmision"
+    
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False
+    If IsOpenForm("frmPagosPrevistos") Then
+        Forms("frmPagosPrevistos").SetFocus
+        DoCmd.Restore
+    End If
+End Sub
+
+Public Sub TipoEmision_AfterUpdate()
+    On Error GoTo Error_TipoEmision_AfterUpdate
+    If Not IsDate(Me.FechaEmision) Then Exit Sub
+    Me.btnAñadirFac.Visible = False
+    Select Case Me.TipoEmision
+        Case 1
+            Me.Concepto = "Facturación"
+            Me.btnAñadirFac.Visible = True
+            Me.btnAñadirFac.Caption = "Añadir facturas"
+        Case 2
+            Me.Concepto = "Devoluciones a fecha: " & Me.FechaEmision
+        Case 3
+            Me.Concepto = "Otras: "
+        Case 4
+            Me.Concepto = "Pagos Previstos"
+            Me.btnAñadirFac.Visible = True
+            Me.btnAñadirFac.Caption = "Añadir Pagos"
+    End Select
+    Me.txtAño.Visible = Me.TipoEmision = 4
+    Me.cmbMes.Visible = Me.TipoEmision = 4
+    Me.PagoPrevisto_CodFPago.Visible = Me.TipoEmision = 4
+Salir_TipoEmision_AfterUpdate:
+    Exit Sub
+Error_TipoEmision_AfterUpdate:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en TipoEmision_AfterUpdate" & vbCrLf & Err.Description
+            Resume Salir_TipoEmision_AfterUpdate
+    End Select
+End Sub
+
+
+Sub GenerarNormal()
+    
+    Dim intRes As Integer
+    Dim lngNumRecibo As Long, i As Integer, lngImporteTotal As Long
+    Dim v As Variant, strNIF_O As String, strSUFIJO_O As String
+    Dim rsAsociados As Recordset
+    Dim rsCuotas As Recordset
+    Dim rsRecibos As Recordset
+    On Error GoTo Error_GenerarNormal
+    Dim strSQL As String
+    strSQL = "SELECT Asociados.NumeroCarnet, Asociados.Baja, Asociados.EmisionRecibo, Asociados.EmisionEspecial"
+    strSQL = strSQL & " FROM Asociados"
+    strSQL = strSQL & " WHERE (((Asociados.Baja)=False) AND ((Asociados.EmisionRecibo)=Yes) AND ((ISNULL([CodigoEntidad]) OR ISNULL([CodigoSucursal]) OR ISNULL([DigitoControl]) OR ISNULL([NumeroCuenta]))));"
+    Set rsAsociados = CurrentDb.OpenRecordset(strSQL)
+    If Not rsAsociados.EOF Then
+        MsgBox "El asociado con nº de carnet: " & rsAsociados("NumeroCarnet") & " no tiene el nº de cuenta completa, se debe rellenar o excluirlo de la emisión de recibos para generarla"
+        DoCmd.OpenForm "frmAsociados", , , "NumeroCarnet = " & rsAsociados("NumeroCarnet"), , , "WHERE CONDITION"
+        Exit Sub
+    End If
+    
+    strSQL = "SELECT Asociados.*"
+    strSQL = strSQL & " FROM Asociados"
+    strSQL = strSQL & " WHERE (((Asociados.Baja)=False));"
+    Set rsAsociados = CurrentDb.OpenRecordset(strSQL)
+    Set rsCuotas = CurrentDb.OpenRecordset("Cuotas")
+    Set rsRecibos = CurrentDb.OpenRecordset("tbRecibos")
+    'Set rsOrdenante = CurrentDb.OpenRecordset("Ordenante")
+    'Set rsParametros = CurrentDb.OpenRecordset("Parametros")
+    strNIF_O = DLookup("NIF_ORDENANTE", "Ordenante")
+    strSUFIJO_O = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    
+    
+    If DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & Me.IdReciboEmision) > 0 Then
+        intRes = MsgBox("ATENCIÓN, antes de generar, se borrarán todos los recibos existentes de la emisión" & vbCrLf & "¿Quiere continuar?", vbOKCancel + vbExclamation + vbDefaultButton2, "Emisión de Recibos")
+        If intRes <> vbOK Then
+            Exit Sub
+        End If
+    End If
+    DoCmd.SetWarnings False
+    DoCmd.RunSQL "DELETE * from tbRecibos WHERE IdReciboEmision = " & Me.IdReciboEmision
+    DoCmd.SetWarnings True
+     
+    v = DMax("NUMRECIBO", "tbRecibos")
+    If IsNull(v) Then
+        lngNumRecibo = 0
+    Else
+        lngNumRecibo = CLng(v)
+    End If
+    While Not rsAsociados.EOF
+     'Añado un registro en caso de que haya que emitir recibo trimestral ordinario
+      If rsAsociados!EmisionRecibo = True Then
+            'Busco en la tabla de Cuotas el importe y el concepto correspondiente
+            rsCuotas.FindFirst "TipoCuota= '" & Trim(rsAsociados("Cuota")) & "'"
+            If Not rsCuotas.NoMatch Then
+                If rsCuotas("Importe1") > 0 Then
+                    lngNumRecibo = lngNumRecibo + 1
+                    i = i + 1
+                    rsRecibos.AddNew
+                    rsRecibos("IdReciboEmision") = Me.IdReciboEmision
+                    rsRecibos!Concepto = Me.Concepto
+                    rsRecibos!IMPORTE = rsCuotas!Importe1
+                    lngImporteTotal = lngImporteTotal + rsRecibos!IMPORTE
+                    rsRecibos!NIF_O = strNIF_O
+                    rsRecibos!SUFIJO_O = strSUFIJO_O
+                    rsRecibos!CODREF = CStr(rsAsociados!NumeroCarnet)
+                    rsRecibos!Nombre = rsAsociados!Sociedad
+                    rsRecibos!ENTIDAD = rsAsociados!CodigoEntidad
+                    rsRecibos!OFICINA = rsAsociados!CodigoSucursal
+                    rsRecibos!DIGCONT = rsAsociados!DigitoControl
+                    rsRecibos!NumCuenta = rsAsociados!NumeroCuenta
+                    rsRecibos!NumRecibo = lngNumRecibo
+                    rsRecibos!NumeroCarnet = rsAsociados!NumeroCarnet
+                    rsRecibos.Update
+                End If
+            End If
+'            rsAsociados.Edit
+'            rsAsociados!NumeroRecibo = lngNumRecibo
+'            rsAsociados.Update
+        End If
+        rsAsociados.MoveNext
+    Wend
+    rsRecibos.Close
+    DoCmd.Hourglass False
+    Me.ActualizarMisTotales
+'    Me.TotalImporte = lngImporteTotal
+'    Me.NumRecibos = i
+'    DoCmd.RunCommand acCmdSaveRecord
+    Me.subfrmRecibos.Requery
+    intRes = MsgBox("¿Generar ahora la remesa de recibos a disquete?", vbQuestion + vbYesNo, "Emisión de Recibos")
+    If intRes = vbNo Then
+        Exit Sub
+    End If
+
+    'GenerarRemesa Me.IdReciboEmision
+    Call btnGenRemesa_Click
+Salir_GenerarNormal:
+    Exit Sub
+Error_GenerarNormal:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & "en GenerarNormal" & vbCrLf & Err.Description
+            Resume Salir_GenerarNormal
+    End Select
+End Sub
+Sub GenerarEspecial()
+    
+    Dim intRes As Integer
+    Dim lngNumRecibo As Long, i As Integer, lngImporteTotal As Long
+    Dim v As Variant, strNIF_O As String, strSUFIJO_O As String
+    Dim rsAsociados As Recordset
+    Dim rsCuotas As Recordset
+    Dim rsRecibos As Recordset
+    On Error GoTo Error_GenerarEspecial
+    Dim strSQL As String
+    strSQL = "SELECT Asociados.NumeroCarnet, Asociados.Baja, Asociados.EmisionRecibo, Asociados.EmisionEspecial"
+    strSQL = strSQL & " FROM Asociados"
+    strSQL = strSQL & " WHERE (((Asociados.Baja)=False) AND ((Asociados.EmisionEspecial)=Yes) AND ((ISNULL([CodigoEntidad]) OR ISNULL([CodigoSucursal]) OR ISNULL([DigitoControl]) OR ISNULL([NumeroCuenta]))));"
+    Set rsAsociados = CurrentDb.OpenRecordset(strSQL)
+    If Not rsAsociados.EOF Then
+        MsgBox "El asociado con nº de carnet: " & rsAsociados("NumeroCarnet") & " no tiene el nº de cuenta completa, se debe rellenar o excluirlo de la emisión de recibos para generarla"
+        DoCmd.OpenForm "frmAsociados", , , "NumeroCarnet = " & rsAsociados("NumeroCarnet"), , , "WHERE CONDITION"
+        Exit Sub
+    End If
+    
+    strSQL = "SELECT Asociados.*"
+    strSQL = strSQL & " FROM Asociados"
+    strSQL = strSQL & " WHERE (((Asociados.Baja)=False));"
+    Set rsAsociados = CurrentDb.OpenRecordset(strSQL)
+    Set rsCuotas = CurrentDb.OpenRecordset("Cuotas")
+    Set rsRecibos = CurrentDb.OpenRecordset("tbRecibos")
+    'Set rsOrdenante = CurrentDb.OpenRecordset("Ordenante")
+    'Set rsParametros = CurrentDb.OpenRecordset("Parametros")
+    strNIF_O = DLookup("NIF_ORDENANTE", "Ordenante")
+    strSUFIJO_O = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    
+    
+    If DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & Me.IdReciboEmision) > 0 Then
+        intRes = MsgBox("ATENCIÓN, antes de generar, se borrarán todos los recibos existentes de la emisión" & vbCrLf & "¿Quiere continuar?", vbOKCancel + vbExclamation + vbDefaultButton2, "Emisión de Recibos")
+        If intRes <> vbOK Then
+            Exit Sub
+        End If
+    End If
+    DoCmd.SetWarnings False
+    DoCmd.RunSQL "DELETE * from tbRecibos WHERE IdReciboEmision = " & Me.IdReciboEmision
+    DoCmd.SetWarnings True
+     
+    v = DMax("NUMRECIBO", "tbRecibos")
+    If IsNull(v) Then
+        lngNumRecibo = 0
+    Else
+        lngNumRecibo = CLng(v)
+    End If
+    While Not rsAsociados.EOF
+     'Añado un registro en caso de que haya que emitir recibo trimestral ordinario
+      If rsAsociados!EmisionEspecial = True Then
+            'Busco en la tabla de Cuotas el importe y el concepto correspondiente
+            rsCuotas.FindFirst "TipoCuota= '" & Trim(rsAsociados("Cuota")) & "'"
+            If Not rsCuotas.NoMatch Then
+                If rsCuotas("Importe2") > 0 Then
+                    lngNumRecibo = lngNumRecibo + 1
+                    i = i + 1
+                    rsRecibos.AddNew
+                    rsRecibos("IdReciboEmision") = Me.IdReciboEmision
+                    rsRecibos!Concepto = Me.Concepto
+                    rsRecibos!IMPORTE = rsCuotas!Importe2
+                    lngImporteTotal = lngImporteTotal + rsRecibos!IMPORTE
+                    rsRecibos!NIF_O = strNIF_O
+                    rsRecibos!SUFIJO_O = strSUFIJO_O
+                    rsRecibos!CODREF = CStr(rsAsociados!NumeroCarnet)
+                    rsRecibos!Nombre = rsAsociados!Sociedad
+                    rsRecibos!ENTIDAD = rsAsociados!CodigoEntidad
+                    rsRecibos!OFICINA = rsAsociados!CodigoSucursal
+                    rsRecibos!DIGCONT = rsAsociados!DigitoControl
+                    rsRecibos!NumCuenta = rsAsociados!NumeroCuenta
+                    rsRecibos!NumRecibo = lngNumRecibo
+                    rsRecibos!NumeroCarnet = rsAsociados!NumeroCarnet
+                    rsRecibos.Update
+                End If
+            End If
+'            rsAsociados.Edit
+'            rsAsociados!NumeroRecibo = lngNumRecibo
+'            rsAsociados.Update
+        End If
+        rsAsociados.MoveNext
+    Wend
+    rsRecibos.Close
+    DoCmd.Hourglass False
+    Me.ActualizarMisTotales
+'    Me.TotalImporte = lngImporteTotal
+'    Me.NumRecibos = i
+'    DoCmd.RunCommand acCmdSaveRecord
+    Me.subfrmRecibos.Requery
+    intRes = MsgBox("¿Generar ahora la remesa de recibos a disquete?", vbQuestion + vbYesNo, "Emisión de Recibos")
+    If intRes = vbNo Then
+        Exit Sub
+    End If
+
+    Call btnGenRemesa_Click
+
+Salir_GenerarEspecial:
+    Exit Sub
+Error_GenerarEspecial:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & "en GenerarEspecial" & vbCrLf & Err.Description
+            Resume Salir_GenerarEspecial
+    End Select
+End Sub
+
+Sub GenerarDevoluciones()
+    
+    Dim intRes As Integer
+    Dim lngNumRecibo As Long, i As Integer, lngImporteTotal As Long
+    Dim v As Variant, strNIF_O As String, strSUFIJO_O As String
+    Dim rsClientes As Recordset
+    'Dim rsCuotas As Recordset
+    Dim rsRecibos As Recordset, rsRecibosDet As Recordset, lngNR As Long
+    Dim rsDevol As Recordset
+    Dim strSQL As String
+    On Error GoTo Error_GenerarDevoluciones
+    strSQL = "SELECT tbRecibos.*, tbRecibosDet.*"
+    strSQL = strSQL & " FROM  tbRecibos LEFT JOIN tbRecibosDet ON tbRecibos.NUMRECIBO = tbRecibosDet.NumRecibo"
+    strSQL = strSQL & " WHERE (((tbRecibos.ReciboDevuelto)=True) AND ((tbRecibos.NuevoRecibo)=0));"
+    Set rsDevol = CurrentDb.OpenRecordset(strSQL)
+    Set rsClientes = CurrentDb.OpenRecordset("Clientes")
+    'Set rsCuotas = CurrentDb.OpenRecordset("Cuotas")
+    Set rsRecibos = CurrentDb.OpenRecordset("tbRecibos")
+    Set rsRecibosDet = CurrentDb.OpenRecordset("tbRecibosDet")
+    'Set rsOrdenante = CurrentDb.OpenRecordset("Ordenante")
+    'Set rsParametros = CurrentDb.OpenRecordset("Parametros")
+    strNIF_O = DLookup("NIF_ORDENANTE", "Ordenante")
+    strSUFIJO_O = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+     
+    v = DMax("NUMRECIBO", "tbRecibos")
+    If IsNull(v) Then
+        lngNumRecibo = 0
+    Else
+        lngNumRecibo = CLng(v)
+    End If
+    While Not rsDevol.EOF
+     'Añado un registro en caso de que haya que emitir recibo trimestral ordinario
+        lngNumRecibo = lngNumRecibo + 1
+        i = i + 1
+        rsRecibos.AddNew
+        rsRecibos("IdReciboEmision") = Me.IdReciboEmision
+        rsRecibos!Concepto = rsDevol("tbRecibos.CONCEPTO")
+        rsRecibos!IMPORTE = rsDevol("tbRecibos.IMPORTE")
+        lngImporteTotal = lngImporteTotal + rsRecibos!IMPORTE
+        rsRecibos!NIF_O = strNIF_O
+        rsRecibos!SUFIJO_O = strSUFIJO_O
+        rsRecibos!CODREF = rsDevol("CODREF")
+        rsClientes.FindFirst "CIF =" & ConComillas(rsDevol("CIF_Cliente"))
+        If Not rsClientes.NoMatch Then
+            rsRecibos!Nombre = rsClientes!Nombre
+            rsRecibos!ENTIDAD = rsClientes!CodigoEntidad
+            rsRecibos!OFICINA = rsClientes!CodigoSucursal
+            rsRecibos!DIGCONT = rsClientes!DigitoControl
+            rsRecibos!NumCuenta = rsClientes!NumeroCuenta
+            rsRecibos!NumRecibo = lngNumRecibo
+            rsRecibos!CIF_Cliente = rsDevol!CIF_Cliente
+        End If
+        If Not IsNull(rsDevol("tbRecibosDet.NumRecibo")) Then
+            rsRecibos!Detalle = True
+        End If
+        rsRecibos.Update
+        rsDevol.Edit
+        rsDevol("NuevoRecibo") = lngNumRecibo
+        rsDevol.Update
+Detalle_Recibos:
+        If Not IsNull(rsDevol("tbRecibosDet.NumRecibo")) Then
+            lngNR = rsDevol("tbRecibos.NUMRECIBO")
+            While rsDevol("tbRecibosDet.NumRecibo") = lngNR
+                rsRecibosDet.AddNew
+                rsRecibosDet("NumRecibo") = lngNumRecibo
+                rsRecibosDet("Linea") = rsDevol("Linea")
+                rsRecibosDet("Concepto") = rsDevol("tbRecibosdet.Concepto")
+                rsRecibosDet("Importe") = rsDevol("tbRecibosdet.Importe")
+                rsRecibosDet.Update
+                rsDevol.MoveNext
+                If rsDevol.EOF Then GoTo Fin_Detalle_Recibos
+            Wend
+Fin_Detalle_Recibos:
+        Else
+            rsDevol.MoveNext
+        End If
+    Wend
+    rsRecibos.Close
+    DoCmd.Hourglass False
+    Me.ActualizarMisTotales
+'    Me.TotalImporte = lngImporteTotal
+'    Me.NumRecibos = i
+'    DoCmd.RunCommand acCmdSaveRecord
+    Me.subfrmRecibos.Requery
+    intRes = MsgBox("¿Generar ahora la remesa de recibos a disquete?", vbQuestion + vbYesNo, "Emisión de Recibos")
+    If intRes = vbNo Then
+        Exit Sub
+    End If
+
+    Call btnGenRemesa_Click
+
+Salir_GenerarDevoluciones:
+    Exit Sub
+Error_GenerarDevoluciones:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & "en GenerarDevoluciones" & vbCrLf & Err.Description
+            Resume Salir_GenerarDevoluciones
+    End Select
+End Sub
+Sub Generar_Normal_y_Especial()
+    
+    Dim intRes As Integer
+    Dim lngNumRecibo As Long, i As Integer, lngImporteTotal As Long
+    Dim v As Variant, strNIF_O As String, strSUFIJO_O As String
+    Dim rsAsociados As Recordset
+    Dim rsCuotas As Recordset
+    Dim rsRecibos As Recordset
+    Dim rsRecibosDet As Recordset
+    Dim lin As Integer, curTotRecibo As Currency
+    On Error GoTo Error_Generar_Normal_y_Especial
+    Dim strSQL As String
+    strSQL = "SELECT Asociados.NumeroCarnet, Asociados.Baja, Asociados.EmisionRecibo, Asociados.EmisionEspecial"
+    strSQL = strSQL & " FROM Asociados"
+    strSQL = strSQL & " WHERE (((Asociados.Baja)=False) AND ((Asociados.EmisionRecibo)=Yes OR (Asociados.EmisionEspecial)=Yes) AND ((ISNULL([CodigoEntidad]) OR ISNULL([CodigoSucursal]) OR ISNULL([DigitoControl]) OR ISNULL([NumeroCuenta]))));"
+    Set rsAsociados = CurrentDb.OpenRecordset(strSQL)
+    If Not rsAsociados.EOF Then
+        MsgBox "El asociado con nº de carnet: " & rsAsociados("NumeroCarnet") & " no tiene el nº de cuenta completa, se debe rellenar o excluirlo de la emisión de recibos para generarla"
+        DoCmd.OpenForm "frmAsociados", , , "NumeroCarnet = " & rsAsociados("NumeroCarnet"), , , "WHERE CONDITION"
+        Exit Sub
+    End If
+    
+    strSQL = "SELECT Asociados.*"
+    strSQL = strSQL & " FROM Asociados"
+    strSQL = strSQL & " WHERE (((Asociados.Baja)=False));"
+    Set rsAsociados = CurrentDb.OpenRecordset(strSQL)
+    Set rsCuotas = CurrentDb.OpenRecordset("Cuotas")
+    Set rsRecibos = CurrentDb.OpenRecordset("tbRecibos")
+    Set rsRecibosDet = CurrentDb.OpenRecordset("tbRecibosDet")
+    'Set rsOrdenante = CurrentDb.OpenRecordset("Ordenante")
+    'Set rsParametros = CurrentDb.OpenRecordset("Parametros")
+    strNIF_O = DLookup("NIF_ORDENANTE", "Ordenante")
+    strSUFIJO_O = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    
+    
+    If DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & Me.IdReciboEmision) > 0 Then
+        intRes = MsgBox("ATENCIÓN, antes de generar, se borrarán todos los recibos existentes de la emisión" & vbCrLf & "¿Quiere continuar?", vbOKCancel + vbExclamation + vbDefaultButton2, "Emisión de Recibos")
+        If intRes <> vbOK Then
+            Exit Sub
+        End If
+    End If
+    DoCmd.SetWarnings False
+    DoCmd.RunSQL "DELETE * from tbRecibos WHERE IdReciboEmision = " & Me.IdReciboEmision
+    DoCmd.SetWarnings True
+     
+    v = DMax("NUMRECIBO", "tbRecibos")
+    If IsNull(v) Then
+        lngNumRecibo = 0
+    Else
+        lngNumRecibo = CLng(v)
+    End If
+    While Not rsAsociados.EOF
+     'Añado un registro en caso de que haya que emitir recibo
+      If rsAsociados!EmisionRecibo = True Or rsAsociados!EmisionEspecial = True Then
+            rsCuotas.FindFirst "TipoCuota= '" & Trim(rsAsociados("Cuota")) & "'"
+            If Not rsCuotas.NoMatch Then
+                lngNumRecibo = lngNumRecibo + 1
+                i = i + 1
+                rsRecibos.AddNew
+                rsRecibos("IdReciboEmision") = Me.IdReciboEmision
+                rsRecibos!Concepto = Me.Concepto
+                'rsRecibos!IMPORTE = rsCuotas!Importe1
+                'lngImporteTotal = lngImporteTotal + rsRecibos!IMPORTE
+                rsRecibos!NIF_O = strNIF_O
+                rsRecibos!SUFIJO_O = strSUFIJO_O
+                rsRecibos!CODREF = CStr(rsAsociados!NumeroCarnet)
+                rsRecibos!Nombre = rsAsociados!Sociedad
+                rsRecibos!ENTIDAD = rsAsociados!CodigoEntidad
+                rsRecibos!OFICINA = rsAsociados!CodigoSucursal
+                rsRecibos!DIGCONT = rsAsociados!DigitoControl
+                rsRecibos!NumCuenta = rsAsociados!NumeroCuenta
+                rsRecibos!NumRecibo = lngNumRecibo
+                rsRecibos!NumeroCarnet = rsAsociados!NumeroCarnet
+                rsRecibos.Update
+            End If
+            ' líneas de detalle de recibo
+            lin = 0: curTotRecibo = 0
+            If rsAsociados("EmisionRecibo") = True Then
+                lin = lin + 1
+                rsRecibosDet.AddNew
+                rsRecibosDet("NumRecibo") = lngNumRecibo
+                rsRecibosDet("Linea") = lin
+                rsRecibosDet("Concepto") = rsCuotas("Concepto1")
+                rsRecibosDet("Importe") = rsCuotas("Importe1")
+                curTotRecibo = curTotRecibo + rsRecibosDet("Importe")
+                lngImporteTotal = lngImporteTotal + rsRecibosDet("Importe")
+                rsRecibosDet.Update
+            End If
+            If rsAsociados("EmisionEspecial") = True Then
+                lin = lin + 1
+                rsRecibosDet.AddNew
+                rsRecibosDet("NumRecibo") = lngNumRecibo
+                rsRecibosDet("Linea") = lin
+                rsRecibosDet("Concepto") = rsCuotas("Concepto2")
+                rsRecibosDet("Importe") = rsCuotas("Importe2")
+                curTotRecibo = curTotRecibo + rsRecibosDet("Importe")
+                lngImporteTotal = lngImporteTotal + rsRecibosDet("Importe")
+                rsRecibosDet.Update
+            End If
+            rsRecibos.FindFirst "NUMRECIBO = " & lngNumRecibo
+            If rsRecibos.NoMatch Then
+                MsgBox "No se encontró Recibo nº " & lngNumRecibo, vbCritical
+            Else
+                rsRecibos.Edit
+                rsRecibos("IMPORTE") = curTotRecibo
+                rsRecibos.Update
+            End If
+                
+        End If
+        rsAsociados.MoveNext
+    Wend
+    rsRecibos.Close
+    DoCmd.Hourglass False
+    Me.ActualizarMisTotales
+'    Me.TotalImporte = lngImporteTotal
+'    Me.NumRecibos = i
+'    DoCmd.RunCommand acCmdSaveRecord
+    Me.subfrmRecibos.Requery
+    intRes = MsgBox("¿Generar ahora la remesa de recibos a disquete?", vbQuestion + vbYesNo, "Emisión de Recibos")
+    If intRes = vbNo Then
+        Exit Sub
+    End If
+
+    Call btnGenRemesa_Click
+
+Salir_Generar_Normal_y_Especial:
+    Exit Sub
+Error_Generar_Normal_y_Especial:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & "en Generar_Normal_y_Especial" & vbCrLf & Err.Description
+            Resume Salir_Generar_Normal_y_Especial
+    End Select
+End Sub
+
+Public Sub ActualizarMisTotales()
+    If IsNull(Forms![frmRecibosEmisiones]![IdReciboEmision]) Then Exit Sub
+    Dim intNumRecibos As Integer, curTotal As Currency, lngIdReciboEmision As Long, strSQL As String
+    lngIdReciboEmision = Me.IdReciboEmision
+    intNumRecibos = Nz(DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & lngIdReciboEmision), 0)
+    curTotal = Nz(DSum("IMPORTE", "tbRecibos", "IdReciboEmision = " & lngIdReciboEmision), 0)
+    strSQL = "UPDATE tbRecibosEmisiones SET NumRecibos = " & intNumRecibos & ", TotalImporte = " & ComaPunto(curTotal)
+    strSQL = strSQL & " WHERE IdReciboEmision = " & lngIdReciboEmision
+'    Me.Recalc
+    
+    Me.NumRecibos = intNumRecibos 'DCount("NUMRECIBO", "tbRecibos", "IdReciboEmision = " & Forms![frmRecibosEmisiones]![IdReciboEmision])
+    Me.TotalImporte = curTotal 'DSum("IMPORTE", "tbRecibos", "IdReciboEmision = " & Forms![frmRecibosEmisiones]![IdReciboEmision])
+    Me.subfrmRecibos.Requery
+    DoCmd.RunCommand acCmdSaveRecord
+End Sub
+
+Function GenerarRemesa(lngIdEmision As Long) As Integer
+    GenerarRemesa = GenerarRemesaSEPA1914(lngIdEmision)
+    Exit Function
+    
+    
+    
+    On Error GoTo Error_GenerarRemesa
+    Dim X As Integer
+    Dim cod_error As Integer
+    Dim dobSumImpOrd As Double
+    Dim dobSumTotalImp As Double
+    Dim lngNumRegXOrd As Long
+    Dim lngNumDomXOrd As Long
+    Dim lngNumDomTotal As Long
+    Dim lngNumRegTotal As Long
+    Dim strSQL As String
+    Dim v As Variant
+    Dim intNL As Integer
+    Dim intFyP As Integer, strMSG As String, intF As Integer, intP As Integer, intTF As Integer, intTP As Integer
+    'x = MsgBox("Introduzca el disco en la unidad A:", 48 + 1, "Domiciliación de Recibos")
+    'If x = 2 Then
+    '     Exit Sub
+    'End If
+    strSQL = "SELECT tbRecibos.ENTIDAD, tbRecibos.OFICINA, tbRecibos.CODREF, tbRecibos.NIF_O, tbRecibos.SUFIJO_O, tbRecibos.NOMBRE, tbRecibos.DIGCONT, tbRecibos.NUMCUENTA, tbRecibos.IMPORTE, tbRecibos.CONCEPTO, tbRecibos.NUMRECIBO, tbRecibos.Detalle"
+    strSQL = strSQL & " FROM tbRecibos"
+    strSQL = strSQL & " WHERE (((tbRecibos.IdReciboEmision) = " & lngIdEmision & "))"
+    strSQL = strSQL & " ORDER BY tbRecibos.ENTIDAD, tbRecibos.OFICINA, tbRecibos.CODREF;"
+
+    Set rsRemesa = CurrentDb.OpenRecordset(strSQL)
+    v = DLookup("TipoEmision", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdEmision)
+    If IsNull(v) Then
+        MsgBox "No se encontró le Emisión Id: " & lngIdEmision
+        Exit Function
+    End If
+    'DoCmd.SetWarnings False
+    Dim strFile As String, strCarpeta As String
+    strCarpeta = DirectorioDe(CurrentDb.Name) & "Remesas"
+    If Dir(strCarpeta, vbDirectory) = "" Then MkDir strCarpeta
+    strCarpeta = strCarpeta & "\"
+    strFile = "REM" & Format(lngIdEmision, "0000") & ".TXT"
+    Select Case v
+    Case Else
+       Open strCarpeta & strFile For Output Access Write As 1 Len = 162
+       'Open strCarpeta & strFile & "2" For Output Access Write As 2 Len = 162
+       'Open "a:" & strFile For Output Access Write As 2 Len = 162
+    'Case 2
+    '   Open "c:\" & strFile For Output Access Write As 1 Len = 162
+    '   Open "a:" & strFile For Output Access Write As 2 Len = 162
+    'Case 3
+    '   Open "c:\" & strFile For Output Access Write As 1 Len = 162
+    '   Open "a:" & strFile For Output Access Write As 2 Len = 162
+    'Case 4
+    '   Open "c:\" & strFile For Output Access Write As 1 Len = 162
+    '   Open "a:" & strFile For Output Access Write As 2 Len = 162
+     End Select
+    'DoCmd.SetWarnings True
+  
+    DoCmd.Hourglass True
+    
+    EscribirRegistroPresentador Me.IdReciboEmision
+    lngNumRegTotal = 1
+    'Do While Not rcs_ordenantes.eof
+    EscribirRegistroOrdenante Me.IdReciboEmision
+    lngNumRegXOrd = 1
+    Do While Not rsRemesa.EOF
+        EscribirRegistroIndividualObligatorio
+        dobSumImpOrd = dobSumImpOrd + rsRemesa!IMPORTE
+        lngNumDomXOrd = lngNumDomXOrd + 1
+        lngNumRegXOrd = lngNumRegXOrd + 1
+        If rsRemesa!Detalle = True Then
+            EscribirRegistrosIndividualesOpcionales rsRemesa("NUMRECIBO"), intNL
+            lngNumRegXOrd = lngNumRegXOrd + intNL
+        End If
+        intF = 0: intP = 0
+        If AñadirPago_y_FacturaDeRecibo(rsRemesa("NUMRECIBO"), intF, intP) = True Then
+            intFyP = intFyP + 1
+            intTF = intTF + intF
+            intTP = intTP + intP
+        End If
+        
+        rsRemesa.MoveNext
+    Loop
+    lngNumRegXOrd = lngNumRegXOrd + 1
+    EscribirRegistroTotalOrdenante dobSumImpOrd, lngNumDomXOrd, lngNumRegXOrd
+    dobSumTotalImp = dobSumTotalImp + dobSumImpOrd
+    lngNumDomTotal = lngNumDomTotal + lngNumDomXOrd
+    lngNumRegTotal = lngNumRegTotal + lngNumRegXOrd
+        'rcs_ordenantes.MoveNext
+    'Loop
+    lngNumRegTotal = lngNumRegTotal + 1
+    EscribirRegistroTotalGeneral dobSumTotalImp, lngNumDomTotal, lngNumRegTotal
+    rsRemesa.Close
+  
+    Close #1
+    'CurrentDb.Execute "UPDATE tbRecibosEmisiones SET FicheroRemesa = '" & strCarpeta & strFile & "' WHERE IdReciboEmision = " & lngIdEmision, dbFailOnError
+    'Close #2
+    DoCmd.Hourglass False
+    strMSG = "Remesa generada"
+    If intFyP > 0 Then strMSG = strMSG & vbCrLf & "Se generaron " & intTF & " facturas y " & intTP & " pagos correspondientes"
+    X = MsgBox(strMSG, vbInformation, "Domiciliación de Recibos")
+    Me.txtRemesa = strCarpeta & strFile
+    Me.RemesaGenerada = True
+    DoCmd.RunCommand acCmdSaveRecord
+    Call Form_Current
+  'dba.Close
+    GenerarRemesa = True
+exit_confeccionar:
+    Exit Function
+
+Error_GenerarRemesa:
+    'DoCmd.SetWarnings False
+    Close #1
+    'Close #2
+    'DoCmd.SetWarnings True
+    cod_error = Err
+    Error_en_disco cod_error
+    Resume exit_confeccionar
+
+
+End Function
+
+Public Function GenerarRemesaSEPA1914(lngIdEmision As Long) As Integer
+    On Error GoTo Error_GenerarRemesaSEPA1914
+    
+    
+    
+    ' Variables SEPA1914
+    Dim FechaSeleccionadaRemesa As Date, FechaSeleccionadaCargo As Date
+      
+    ' Validaciones
+    If Not IsDate(Me.FechaEmision) Then
+        MsgBox "La fecha de emisión no es válida"
+        Exit Function
+    End If
+    
+    If Not IsDate(Me.FechaCargo) Then
+        MsgBox "La fecha de Cargo no es válida"
+        Exit Function
+    End If
+    
+    If Me.IdentificacionFichero.value = "" Then
+        MsgBox "La identificación del fichero no puede estar vacía"
+        Exit Function
+    End If
+
+    ' SEPA1914
+    FechaSeleccionadaRemesa = Format(Me.FechaEmision, "dd/mm/yyyy")
+    FechaSeleccionadaCargo = Format(Me.FechaCargo, "dd/mm/yyyy")
+    
+    
+    
+    Dim X As Integer
+    Dim cod_error As Integer
+    Dim v As Variant
+    Dim intNL As Integer
+
+
+    v = DLookup("TipoEmision", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdEmision)
+    If IsNull(v) Then
+        MsgBox "No se encontró le Emisión Id: " & lngIdEmision
+        Exit Function
+    End If
+    'DoCmd.SetWarnings False
+    Dim strFile As String
+    strFile = Nz(DameValorParam("PuestoCarpetaRemesas"), "")
+    If strFile = "" Then strFile = DirectorioDe(CurrentDb.Name)
+    If Right(strFile, 1) <> "\" Then strFile = strFile & "\"
+    strFile = strFile & "REM_" & Format(lngIdEmision, "0000") & ".TXT"
+    strFile = DimeFileSaveAs(strFile, "Indique carpeta y nombre de fichero para guardar remesa")
+    If strFile = "" Then Exit Function
+    PonValorParam "PuestoCarpetaRemesas", DirectorioDe(strFile)
+    
+        Open strFile For Random As #1 Len = 602
+    
+    'DoCmd.SetWarnings True
+  
+    DoCmd.Hourglass True
+    
+    ' SEPA1914
+    If IsNull(Me.IdentificacionFichero) Then Me.IdentificacionFichero = Me.IdReciboEmision
+    CrearCabeceraPresentador "", FechaEmision, FechaCargo, Me.IdentificacionFichero
+    CrearCabeceraAcreedorFechaCobro "", FechaCargo
+    CrearRegistroIndividualObligatorio lngIdEmision
+    CrearRegistroTotalesAcreedorFechaCobro
+    CrearRegistroTotalesAcreeedor
+    CrearRegistroTotalGeneral
+
+    Close #1
+    DoCmd.Hourglass False
+
+    MsgBox "Proceso concluido, el fichero de remesa generado es: " & vbCrLf & strFile, vbInformation
+    GenerarRemesaSEPA1914 = True
+
+exit_confeccionarSEPA1914:
+    Exit Function
+
+Error_GenerarRemesaSEPA1914:
+    'DoCmd.SetWarnings False
+    Close #1
+    'DoCmd.SetWarnings True
+    cod_error = Err
+    Error_en_disco cod_error
+    Resume exit_confeccionarSEPA1914
+
+End Function
+
+
+
+
+
+Sub Error_en_disco(Codigo As Integer)
+    Dim X As Integer
+    DoCmd.Hourglass False
+    Select Case Codigo
+        Case 61
+            MsgBox Error$(61)
+        Case 68
+            MsgBox Error$(68)
+        Case 71
+            DoCmd.SetWarnings False
+            rsRemesa.Close
+            X = MsgBox("El disco no está listo", , "AEHN")
+            DoCmd.SetWarnings True
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description
+     End Select
+End Sub
+
+
+
+Sub EscribirRegistroPresentador(lngIdEmision As Long)
+
+Dim aux_d, aux_m, aux_a As String
+
+ 'asignación de los valores a escribir en el diskette
+ aux_codreg = "51"
+ aux_coddat = "80"
+ aux_nif = DLookup("NIF_ORDENANTE", "Ordenante")
+ aux_sufijo = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+'Fecha de concepción del soporte
+ 
+ aux_codref = Format(DLookup("FechaEmision", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdEmision), "DDMMYY")
+ 
+ aux_libre1 = space(6)
+ 'relleno por la dcha con blancos
+ aux_nombre = Trim(DLookup("NOMBRE_ORDENANTE", "Ordenante"))
+ dcha_blancos aux_nombre, 40
+
+ aux_libre2 = space(20)
+ aux_entidad = DLookup("ENTIDAD", "Ordenante")
+ aux_oficina = DLookup("OFICINA", "Ordenante")
+ aux_importe = Trim(nceros) & aux_importe
+ aux_libre3 = space(66)
+
+    Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_libre1; aux_nombre; aux_libre2; aux_entidad; aux_oficina; aux_libre3
+    'Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_libre1; aux_nombre; aux_libre2; aux_entidad; aux_oficina; aux_libre3
+  
+  
+
+End Sub
+
+
+Sub EscribirRegistroOrdenante(lngIdEmision As Long)
+
+Dim aux_procedimiento As String
+Dim aux_d As String, aux_m As String, aux_a As String
+Dim aux_d1 As String, aux_m1 As String, aux_a1 As String
+Dim aux_fecha
+
+ 
+ 'asignación de los valores a escribir en el diskette
+ aux_codreg = "53"
+ aux_coddat = "80"
+' aux_nif = DLookup("NIF_ORDENANTE", "Ordenante")' Ya están asignados
+' aux_sufijo = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+
+'Fecha de confección del soporte
+ aux_codref = Format(DLookup("FechaEmision", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdEmision), "DDMMYY")
+'Recojo la fecha de cargo
+ aux_fecha = Format(DLookup("FechaCargo", "tbRecibosEmisiones", "IdReciboEmision = " & lngIdEmision), "DDMMYY")
+
+'relleno por la dcha con blancos
+ aux_nombre = Trim(DLookup("NOMBRE_ORDENANTE", "Ordenante"))
+ dcha_blancos aux_nombre, 40
+
+ aux_entidad = DLookup("ENTIDAD", "Ordenante")
+ aux_oficina = DLookup("OFICINA", "Ordenante")
+ aux_digcont = DLookup("DIGCONT", "Ordenante")
+ aux_numcuenta = DLookup("NUMCUENTA", "Ordenante")
+ aux_libre1 = space(8)
+ aux_procedimiento = "01"
+ aux_libre2 = space(64)
+ 
+ Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; Trim(aux_codref); Trim(aux_fecha); aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; ; aux_libre1; aux_procedimiento; aux_libre2
+ 'Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; Trim(aux_codref); Trim(aux_fecha); aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; ; aux_libre1; aux_procedimiento; aux_libre2
+ 
+End Sub
+
+
+Sub EscribirRegistroIndividualObligatorio()
+ 'asignación de los valores a escribir en el diskette
+    aux_codreg = "56"
+    aux_coddat = "80"
+'    aux_nif = DLookup("NIF_ORDENANTE", "Ordenante")
+'    aux_sufijo = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    
+'relleno por la izqda con ceros
+    aux_codref = Trim(rsRemesa("CODREF"))
+    izda_ceros aux_codref, aux_codref, 12
+
+'relleno por la dcha con blancos
+    aux_nombre = Trim(UCase$(rsRemesa("Nombre")))
+    dcha_blancos aux_nombre, 40
+
+    aux_entidad = Trim(rsRemesa("Entidad"))
+    If Len(Trim(aux_entidad)) < 4 Then
+         izda_ceros aux_entidad, aux_entidad, 4
+    End If
+
+    aux_oficina = Trim(rsRemesa("OFICINA"))
+    If Len(Trim(aux_oficina)) < 4 Then
+         izda_ceros aux_oficina, aux_oficina, 4
+    End If
+
+    aux_digcont = Trim(rsRemesa("DIGCONT"))
+    If Len(Trim(aux_digcont)) < 2 Then
+         izda_ceros aux_digcont, aux_digcont, 2
+    End If
+ 
+    aux_numcuenta = Trim(rsRemesa("NUMCUENTA"))
+    If Len(Trim(aux_numcuenta)) = 10 Then
+        aux_numcuenta = Trim(aux_numcuenta)
+    Else
+        izda_ceros aux_numcuenta, aux_numcuenta, 10
+    End If
+
+    aux_importe = QuitaComa(Format(rsRemesa("IMPORTE"), "0.00"))
+'    aux_importe = Trim(rsRemesa("IMPORTE"))
+    izda_ceros aux_importe, aux_importe, 10
+
+    aux_numrecibos = Trim(CStr(rsRemesa("NUMRECIBO")))
+    izda_ceros aux_numrecibos, aux_numrecibos, 6
+    
+    aux_libre1 = space(10)
+    aux_concepto = Trim(UCase$(CStr(rsRemesa("Concepto"))))
+    dcha_blancos aux_concepto, 40
+
+    aux_libre2 = space(8)
+
+ Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; aux_importe; aux_numrecibos; aux_libre1; aux_concepto; aux_libre2
+ 'Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; aux_importe; aux_numrecibos; aux_libre1; aux_concepto; aux_libre2
+End Sub
+Public Sub EscribirRegistrosIndividualesOpcionales(lngNumRecibo As Long, intNumLin As Integer) 'NEW
+    Dim strSQL As String
+    Dim rs As Recordset
+    Dim aux_Linea As String
+    On Error GoTo Error_EscribirRegistrosIndividualesOpcionales
+    strSQL = "SELECT tbRecibosDet.Linea, tbRecibosDet.Concepto, tbRecibosDet.Importe"
+    'strSQL = "SELECT tbRecibosDet.Linea, tbRecibosDet.Concepto, tbRecibosDet.Importe, tbAlumnos.TitularCuenta, tbAlumnos.Direccion, tbAlumnos.Poblacion, tbAlumnos.CP"
+    strSQL = strSQL & " FROM tbRecibosDet"
+    'strSQL = strSQL & " FROM (tbRecibos INNER JOIN tbRecibosDet ON tbRecibos.NUMRECIBO = tbRecibosDet.NumRecibo) INNER JOIN tbAlumnos ON tbRecibos.IdAlumno = tbAlumnos.IdAlumno"
+    strSQL = strSQL & " WHERE (((tbRecibosDet.NUMRECIBO) = " & lngNumRecibo & "))"
+    strSQL = strSQL & " ORDER BY tbRecibosDet.Linea;"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    If rs.EOF Then Exit Sub ' si no hay detalle, fuera
+    Dim i As Integer, j As Integer, str3Conceptos As String * 120
+    Dim k As Long
+    i = 0
+    ' para grabar registro opcional final (direcciones, etc)******************************
+    'guardo datos de titularcuenta... en strReg antes de llegar a rs.eof
+'    Dim strReg As String * 163
+'    Mid(strReg, 1, 2) = "06"
+'    Mid(strReg, 3, 2) = "86"
+'    Mid(strReg, 5, 9) = DLookup("NIF_ORDENANTE", "Ordenante")
+'    Mid(strReg, 14, 3) = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+'    Mid(strReg, 17, 12) = "  " & Format(lngNumRecibo, "0000000000") '10 ceros
+'    Mid(strReg, 29, 40) = AjustaIzda(rs("TitularCuenta"), 40)
+'    Mid(strReg, 69, 40) = AjustaIzda(rs("Direccion"), 40)
+'    Mid(strReg, 109, 35) = AjustaIzda(rs("Poblacion"), 35)
+'    Mid(strReg, 144, 5) = AjustaIzda(rs("CP"), 5)
+'    Mid(strReg, 149, 14) = Space(14)
+    ' para grabar registro opcional final (direcciones, etc)******************************
+    While Not rs.EOF
+         'asignación de los valores a escribir en el diskette
+            aux_codreg = "56"
+            i = i + 1
+            aux_coddat = "8" & i
+'            aux_nif = DLookup("NIF_ORDENANTE", "Ordenante")
+'            aux_sufijo = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+'            aux_Linea = " Detalle    " 'Space(12) ' & Format(rs("Linea"), "00")
+            aux_codref = Trim(rsRemesa("CODREF"))
+            izda_ceros aux_codref, aux_codref, 12
+            str3Conceptos = ""
+            j = 0
+            While Not rs.EOF And j < 3
+                k = j * 40 + 1
+                Mid(str3Conceptos, k, 30) = rs("Concepto")
+                Mid(str3Conceptos, k + 30, 10) = Format(rs("Importe"), "currency")
+                j = j + 1
+                rs.MoveNext
+            Wend
+        'relleno por la dcha con blancos
+            aux_libre2 = space(14)
+'            Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_Linea; str3Conceptos; aux_libre2
+'            Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_Linea; str3Conceptos; aux_libre2
+            Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; str3Conceptos; aux_libre2
+            'Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; str3Conceptos; aux_libre2
+    Wend
+    intNumLin = i
+    'Print #1, strReg ' para grabar registro opcional final (direcciones, etc)
+    'Print #2, strReg
+Salir_EscribirRegistrosIndividualesOpcionales:
+    Exit Sub
+Error_EscribirRegistrosIndividualesOpcionales:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EscribirRegistrosIndividualesOpcionales" & vbCrLf & Err.Description
+            Resume Salir_EscribirRegistrosIndividualesOpcionales
+    End Select
+End Sub
+Public Function AjustaIzda(varTexto As Variant, intHasta As Integer) As String
+    Dim strTexto As String
+    If IsNull(varTexto) Then
+        strTexto = ""
+    Else
+        strTexto = CStr(varTexto)
+    End If
+    If Len(strTexto) >= intHasta Then
+        AjustaIzda = Left(strTexto, intHasta)
+    Else
+        AjustaIzda = strTexto & space(intHasta - Len(strTexto))
+    End If
+End Function
+
+Sub EscribirRegistroTotalOrdenante(Sum_imp As Double, ndomic As Long, ntotal_reg As Long)
+Dim aux_ndomic  As String, aux_ntotal As String, aux_importe2 As String
+ 'asignación de los valores a escribir en el diskette
+    aux_codreg = "58"
+    aux_coddat = "80"
+'    aux_nif = DLookup("NIF_ORDENANTE", "Ordenante")
+'    aux_sufijo = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    aux_codref = space(12)
+    aux_nombre = space(40)
+    aux_entidad = space(4)
+    aux_oficina = space(4)
+    aux_digcont = space(2)
+    aux_numcuenta = space(10)
+ 
+'relleno por la izqda con ceros
+    aux_importe = QuitaComa(Format(Sum_imp, "0.00"))
+    izda_ceros aux_importe, aux_importe, 10
+    aux_libre1 = space(6)
+    aux_ndomic = Trim(CStr(ndomic))
+    izda_ceros aux_ndomic, aux_ndomic, 10
+    aux_ntotal = Trim(CStr(ntotal_reg))
+    izda_ceros aux_ntotal, aux_ntotal, 10
+    aux_libre2 = space(38)
+    Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; aux_importe; aux_libre1; aux_ndomic; aux_ntotal; aux_libre2
+    'Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; aux_importe; aux_libre1; aux_ndomic; aux_ntotal; aux_libre2
+End Sub
+
+Sub EscribirRegistroTotalGeneral(Sum_tot As Double, ndomictot As Long, nregsop As Long)
+
+Dim aux_ndomictot, aux_ntotalreg  As String
+
+'asignación de los valores a escribir en el diskette
+    aux_codreg = "59"
+    aux_coddat = "80"
+'    aux_nif = DLookup("NIF_ORDENANTE", "Ordenante")
+'    aux_sufijo = DLookup("SUFIJO_ORDENANTE", "Ordenante")
+    aux_codref = space(12)
+    aux_nombre = space(40)
+    aux_entidad = "0001"
+    aux_oficina = space(4)
+    aux_digcont = space(2)
+    aux_numcuenta = space(10)
+'relleno por la izqda con ceros
+    aux_importe = QuitaComa(Format(Sum_tot, "0.00"))
+    izda_ceros aux_importe, aux_importe, 10
+    
+    aux_libre1 = space(6)
+'relleno por la izqda con ceros
+    aux_ndomictot = Trim(CStr(ndomictot))
+    izda_ceros aux_ndomictot, aux_ndomictot, 10
+    
+    aux_ntotalreg = Trim(CStr(nregsop))
+    izda_ceros aux_ntotalreg, aux_ntotalreg, 10
+    
+    aux_libre2 = space(38)
+    
+    Print #1, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; aux_importe; aux_libre1; aux_ndomictot; aux_ntotalreg; aux_libre2
+    'Print #2, aux_codreg; aux_coddat; aux_nif; aux_sufijo; aux_codref; aux_nombre; aux_entidad; aux_oficina; aux_digcont; aux_numcuenta; aux_importe; aux_libre1; aux_ndomictot; aux_ntotalreg; aux_libre2
+    
+    
+End Sub
+
+Sub dcha_blancos(Cadena, ByVal topec As Integer)
+    Dim nespacios As Integer
+    nespacios = topec - Len(Trim(Cadena))
+    Cadena = Cadena & space$(nespacios)
+End Sub
+Sub izda_ceros(aux_entrada, aux_salida, ByVal tope As Integer)
+    Dim i As Integer, nblancos As Integer
+    Dim nceros As String
+    nceros = "0"
+    aux_salida = Trim(aux_entrada)
+    nblancos = tope - Len(Trim(aux_salida))
+    For i = 1 To (nblancos - 1)
+        nceros = Trim(nceros) & "0"
+    Next
+    aux_salida = Trim(nceros) & aux_salida
+End Sub
+
+Private Sub verDevueltos_AfterUpdate()
+    If Me.verDevueltos = True Then
+        Me![subfrmRecibos].Form.RecordSource = "SELECT tbRecibos.* FROM tbRecibos WHERE ReciboDevuelto = True ORDER BY tbRecibos.NUMRECIBO;"
+        Me.subfrmRecibos2_Etiqueta.Caption = "&Recibos DEVUELTOS"
+        Me.lblDevol.Visible = True
+    Else
+        Me![subfrmRecibos].Form.RecordSource = "SELECT tbRecibos.* FROM tbRecibos ORDER BY tbRecibos.NUMRECIBO;"
+        Me.subfrmRecibos2_Etiqueta.Caption = "&Recibos"
+        Me.lblDevol.Visible = False
+    End If
+    Me.subfrmRecibos.Requery
+End Sub
+
+Private Sub Aceptar_Click(Optional intRpt As Integer = 0)
+    Dim strSQL As String, strSQL2 As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim rs As Recordset, rs2 As Recordset
+    Dim i As Integer
+    Dim qdf As QueryDef
+    On Error GoTo Error_Aceptar_Click
+    strSQL = "SELECT Asociados.*, tbRecibos.IdReciboEmision"
+    strSQL = strSQL & " FROM Asociados RIGHT JOIN tbRecibos ON Asociados.NumeroCarnet = tbRecibos.NumeroCarnet"
+    strSQL = strSQL & " WHERE (((tbRecibos.IdReciboEmision) = " & Me.IdReciboEmision & "))"
+    If Me.verDevueltos = True Then
+        strSQL = strSQL & " AND tbRecibos.ReciboDevuelto = True"
+    End If
+    strSQL = strSQL & " ORDER BY tbRecibos.NUMRECIBO"
+RecrearConsulta:
+    Select Case intRpt
+        Case 0
+            Me.lblSQL.Caption = strSQL
+            'DoCmd.OpenForm "frmAsignarImpresion", , , , , acDialog
+            'Select Case Forms![frmAsignarImpresion]![lblResult].Caption
+            '    Case 1
+                    DoCmd.OpenReport "rptEtiquetasLaser", acViewPreview
+            '    Case 2
+            '        DoCmd.OpenReport "rptEtiquetasMatricial", acViewPreview
+            'End Select
+            'DoCmd.Close acForm, "frmAsignarImpresion"
+    End Select
+Exit_Aceptar_Click:
+    Close
+    Exit Sub
+Error_Aceptar_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Aceptar_Click" & vbCrLf & Err.Description
+            Resume Exit_Aceptar_Click
+    End Select
+        
+End Sub
+
+
+Private Sub LockUnForm(intYN As Integer)
+    On Error GoTo Error_LockUnForm
+    Me.FechaEmision.SetFocus
+    Me.btnModi.Visible = intYN
+'    Me.lblRemesa.Visible = intYN
+'    Me.AllowEdits = Not intYN
+    Dim lngColor As Long, lngColor2 As Long
+    If intYN = True Then
+        lngColor = 12632256
+        lngColor2 = 16777215
+    Else
+        lngColor = 16777215
+        lngColor2 = 12632256
+    End If
+'    Me.subfrmFacturasRecibidasDet.Form.AllowAdditions = Not intYN
+    Me.subfrmRecibos.Form.DatasheetBackColor = lngColor
+    Me.subfrmRecibos.Form.DatasheetGridlinesColor = lngColor2
+    Me.subfrmRecibos.Form.AllowDeletions = Not intYN
+    Me.subfrmRecibos.Locked = intYN
+    Me.DatasheetBackColor = lngColor
+    Me.DatasheetGridlinesColor = lngColor2
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If ctl.Tag = "LockUn" Then
+            ctl.BackColor = lngColor
+            ctl.Locked = intYN
+        End If
+    Next ctl
+    Me.btnAñadirRecibo.Enabled = Not intYN
+    'Me.btnEditarRecibo.Enabled = Not intYN
+    Me.btnGenRecibos.Enabled = Not intYN
+    'Me.btnGenRemesa.Enabled = Not intYN
+    
+Salir_LockUnForm:
+    Exit Sub
+Error_LockUnForm:
+    Select Case Err
+        Case 2110 ' txtFechaEmision ya tiene el foco
+            Resume Next
+        Case 2455
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & " en LockUnForm" & vbCrLf & Err.Description
+            Resume Salir_LockUnForm
+    End Select
+End Sub
+
+Public Function QuitaComa(strImporte As String) As String
+    Dim i As Integer, strRes As String
+    For i = 1 To Len(strImporte)
+        If Mid(strImporte, i, 1) <> "," Then
+            strRes = strRes & Mid(strImporte, i, 1)
+        End If
+    Next i
+    QuitaComa = strRes
+End Function
+
+
+
+Public Sub BuscaReciboNum(lngNumRecibo As Long)
+    Dim rs As Recordset, frm As Form
+    Set frm = Me.subfrmRecibos.Form
+    Set rs = frm.RecordsetClone
+    rs.FindFirst "NUMRECIBO = " & lngNumRecibo
+    If Not rs.NoMatch Then
+        Me.subfrmRecibos.SetFocus
+        frm.Bookmark = rs.Bookmark
+        'DoCmd.RunCommand acCmdSelectRecord
+    End If
+End Sub
+
+Public Sub CentrarTodo()
+    Dim ctl As Control, lngD As Long, lngD0 As Long
+    DoCmd.Maximize
+    lngD0 = Me.cdrCentrar.Left
+    Me.cdrCentrar.Left = (Me.WindowWidth - Me.cdrCentrar.Width) \ 2
+    lngD = Me.cdrCentrar.Left - lngD0
+    For Each ctl In Me.Controls
+        If ctl.Name <> "cdrCentrar" Then ctl.Left = ctl.Left + lngD
+    Next ctl
+End Sub

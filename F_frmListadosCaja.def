@@ -1,0 +1,321 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim gintActualizarPagosAuxEntreFechas As Integer
+
+
+Private Sub btnAceptar_Click()
+    Dim lngGuia As Long
+    Dim strCrit As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim intES As Integer, intTDiDe As Integer
+    Dim strSQL As String, str As String
+    On Error GoTo Error_btnAceptar_Click
+    intES = Me.mrcES
+    intTDiDe = Me.mrcTDiDe
+    Select Case intES
+        Case 1
+            If gintActualizarPagosAuxEntreFechas = True Then
+                DoCmd.Hourglass True
+                ActualizarPagosAuxEntreFechas
+                DoCmd.Hourglass False
+            End If
+            strTitulo = "ENTRADA EN CAJA" & vbCrLf & "DESDE EL " & Me.txtDesde & vbCrLf & "HASTA EL " & Me.txtHasta
+        Case 4
+            strTitulo = "LISTADO DE CAJA "
+            If Me.cmbCaja.ListIndex = -1 Then
+                strTitulo = strTitulo & " (Todas las Cajas registradas)"
+                DoCmd.Hourglass True
+                Call ActualizarCajaAux(0)
+                DoCmd.Hourglass False
+            Else
+                str = Format(DLookup("Cantidad_A", "tbCajaCab", "IdCajaCab = " & Me.cmbCaja), "#,##0.00")
+                str = LlenaIzqChar(str, 17, ".")
+                strTitulo = strTitulo & vbCrLf & "Apertura: " & Format(Me.cmbCaja.Column(2), "dd/mm/yy hh:nn") & vbCrLf & "Saldo Apertura: " & str
+                str = Format(DLookup("Cantidad_C", "tbCajaCab", "IdCajaCab = " & Me.cmbCaja), "#,##0.00")
+                str = LlenaIzqChar(str, 17, ".")
+                strTitulo = strTitulo & vbCrLf & "Cierre  : " & Format(Me.cmbCaja.Column(1), "dd/mm/yy hh:nn") & vbCrLf & "Saldo Cierre  : " & str
+                'strTitulo = strTitulo & vbCrLf & "Puesto: " & Me.cmbCaja.Column(3)
+                DoCmd.Hourglass True
+                Call ActualizarCajaAux(Me.cmbCaja)
+                DoCmd.Hourglass False
+            End If
+    End Select
+    If Me.lstFPago.ItemsSelected.Count > 0 Then
+        Dim item As Variant, strW As String
+        For Each item In Me.lstFPago.ItemsSelected
+            If Me.lstFPago.ItemData(item) = "-" Then GoTo Salida
+            strW = strW & Me.lstFPago.Column(1, item) & ", "
+        Next item
+        strW = RecDerTop(strW, 2, 0)
+        strTitulo = strTitulo & vbCrLf & strW
+    End If
+    PonValorParam "ListadosCajaSubtitulo", strTitulo, 10
+Salida:
+    Select Case intTDiDe
+        Case 1
+            strTitulo = strTitulo & vbCrLf & "TOTALES"
+            If Me.mrcPantImp = 1 Then
+                DoCmd.OpenQuery "qryCajaTotales", , acReadOnly
+            Else
+                ImprimirSQL_DOS1 "qryCajaTotales", strTitulo, "11,2018,13,13,01", , , True
+            End If
+        Case 2
+            If Me.cmbCaja.ListIndex = -1 Then
+                MsgBox "Se debe seleccionar una caja", vbExclamation
+                Exit Sub
+            End If
+            ImprimeCierreDeCaja Me.cmbCaja, Me.mrcPantImp = 2, Me.CajaCierreDeCajaCiego
+        Case 3
+            strTitulo = strTitulo & vbCrLf & "DETALLE"
+            If Me.mrcPantImp = 1 Then
+                DoCmd.OpenQuery "qryCajaDetalle", , acReadOnly
+            Else
+                'ImprimirSQL_DOS1 "qryCajaDetalle", strTitulo, "1111,10151525,2131,5131,0010", , , True
+                DoCmd.OpenReport "rptCajaDetalle", acViewPreview
+            End If
+            
+        Case 4
+            strTitulo = strTitulo & vbCrLf & "DIARIO X FORMA DE COBRO"
+            If Me.mrcPantImp = 1 Then
+                DoCmd.OpenQuery "qryCajaDiario_X_FPago", , acReadOnly
+            Else
+                ImprimirSQL_DOS1 "qryCajaDiario_X_FPago", strTitulo, "11,1018,23,53,01", , , True
+            End If
+    End Select
+
+Exit_btnAceptar_click:
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+            Resume Next
+    End Select
+        
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    On Error GoTo HandleError
+    gintActualizarPagosAuxEntreFechas = True
+    Dim strSQL As String, rs As Recordset, strRow
+    'strSQL = "SELECT valDivisas.IdDivisa, valDivisas.DenMoneda"
+    'strSQL = strSQL & " FROM valDivisas"
+    'strSQL = strSQL & " ORDER BY valDivisas.DenMoneda;"
+    'Set rs = CurrentDb.OpenRecordset(strSQL)
+    'strROW = "0; 'TODAS'"
+    'While Not rs.EOF
+    '    strROW = strROW & "; " & rs(0) & "; '" & rs(1) & "'"
+    '    rs.MoveNext
+    'Wend
+    'Me.cmbDivisa.RowSource = strROW
+    'Me.cmbDivisa = 0
+    CargarParam Me, Me.Name
+    Me.CajaImprimirCierreAlCerrar = Nz(DameValorParam("CajaImprimirCierreAlCerrar"), True)
+    Me.CajaCierreDeCajaCiego = Nz(DameValorParam("CajaCierreDeCajaCiego"), False)
+    'Me.mrcES = Nz(DameValorParam(Me.Name & "_mrcES"), 1)
+    Call mrcES_AfterUpdate
+    BuruForm Me
+    MascaraFechasForm Me
+    
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False, Me.Name
+End Sub
+
+Public Sub mrcES_AfterUpdate()
+    Select Case Me.mrcES
+    Case 1, 2
+        Me.opt4.Enabled = True
+        Me.opt4TDiDeLBL.Caption = "X Formas de Pago / Diario"
+        'Me.opt2TDiDe.Enabled = True
+        'Me.cmbDivisa.Visible = False
+        Me.cmbCaja.Visible = False
+        Me.txtDesde.Visible = True
+        Me.txtHasta.Visible = True
+    Case 3
+        If Me.mrcTDiDe = 4 Then
+            Me.mrcTDiDe = 1
+        End If
+        'Me.opt2TDiDe.Enabled = True
+        Me.opt4.Enabled = False
+        Me.cmbCaja.Visible = False
+        'Me.cmbDivisa.Visible = False
+        'Me.cmbDivisa = "*"
+        Me.txtDesde.Visible = True
+        Me.txtHasta.Visible = True
+    Case 4
+        If Me.mrcTDiDe = 2 Then
+            Me.mrcTDiDe = 1
+        End If
+        Me.opt4.Enabled = True
+        'Me.opt4TDiDeLBL.Caption = "X Formas de Pago"
+        'Me.opt2TDiDe.Enabled = False
+        Me.cmbCaja.Visible = True
+        'Me.cmbDivisa.Visible = False
+        Me.txtDesde.Visible = False
+        Me.txtHasta.Visible = False
+    End Select
+    Me.opt2.Enabled = Me.mrcES = 4
+    If Not Me.opt2.Enabled And Me.mrcTDiDe = 2 Then Me.mrcTDiDe = 1
+End Sub
+
+
+Private Sub mrcES_Click()
+    PonValorParamAC 4, Me.Name & "_"
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    gintActualizarPagosAuxEntreFechas = True
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    gintActualizarPagosAuxEntreFechas = True
+End Sub
+
+Public Sub ActualizarPagosAuxEntreFechas()
+    Dim i As Integer, intPasCob1 As Integer, intPasCob2 As Integer
+    Dim rs As Recordset, rsAux As Recordset
+    Dim strSQL As String, strOri As String, lngIdF As Long, strPersona
+    On Error GoTo Error_ActualizarPagosAuxEntreFechas
+    strSQL = "DELETE * FROM auxCaja"
+    CurrentDb.Execute strSQL
+    Set rsAux = CurrentDb.OpenRecordset("auxCaja")
+    strSQL = "SELECT *"
+    strSQL = strSQL & " FROM tbCajaDet"
+    strSQL = strSQL & " WHERE tbCajaDet.Fecha Between #" & Format(Nz(Me.txtDesde, 0), "mm/dd/yyyy") & "# And #" & Format(Nz(Me![txtHasta], Date), "mm/dd/yyyy") & "#"
+    If Me.lstFPago.ItemsSelected.Count > 0 Then
+        Dim item As Variant, strW As String
+        For Each item In Me.lstFPago.ItemsSelected
+            If Me.lstFPago.ItemData(item) = "-" Then GoTo Bucle
+            strW = strW & "CodFPago = '" & Me.lstFPago.ItemData(item) & "' OR "
+        Next item
+        strW = RecDerTop(strW, 4, 0)
+        strSQL = strSQL & " AND(" & strW & ")"
+    End If
+Bucle:
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+        rsAux.AddNew
+        rsAux("Fecha") = rs("Fecha")
+        rsAux("FormaPago") = DLookup("Descripcion", "tbFPago", "CodFPago = '" & rs("CodFPago") & "'")
+        rsAux("Cantidad") = rs("Cantidad")
+        Select Case rs("Origen")
+            Case "T"
+                strOri = "Ticket nº " & DLookup("NumTicket", "tbTickCab", "IdTickCab = " & rs("IdFrom"))
+            Case "E"
+                strOri = "Fic.: " & Format(rs("IdFrom"), "00000")
+                lngIdF = Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & rs("IdFrom")), 0)
+                strOri = strOri & " Fra.: " & Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdF), "")
+                strPersona = DLookup("[NombreCliente] & ' ' & [ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & rs("IdFrom"))
+            Case "F"
+                lngIdF = Nz(DLookup("IdFichaCab", "tbFichasCab", "IdFactura = " & rs("IdFrom")), 0)
+                strOri = "Fic.: " & Format(Nz(DLookup("IdFichaCab", "tbFichasCab", "IdFichaCab = " & lngIdF), 0), "00000")
+                strOri = strOri & " Fra.: " & DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & rs("IdFrom"))
+                strPersona = DLookup("[DireccionCliente]", "tbFacturasCab", "IdFactura= " & rs("IdFrom"))
+            Case "C"
+                strOri = "Caja, " & DLookup("Concepto", "tbCajaDet_Concepto", "IdCajaDet = " & rs("IdCajaDet"))
+            Case "R"
+                strOri = "F.R., " & DLookup("Concepto", "tbCajaDet_Concepto", "IdCajaDet = " & rs("IdCajaDet"))
+        End Select
+        rsAux("Origen") = RecDerTop(strOri, 0, 100)
+        rsAux("Persona") = RecDerTop(Nz(strPersona, ""), 0, 50)
+        rsAux.Update
+        rs.MoveNext
+    Wend
+Salir_ActualizarPagosAuxEntreFechas:
+    Exit Sub
+Error_ActualizarPagosAuxEntreFechas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ActualizarPagosAuxEntreFechas"
+    End Select
+    Resume Salir_ActualizarPagosAuxEntreFechas
+    Resume Next
+End Sub
+
+Public Sub ActualizarCajaAux(lngIdCajaCab As Long)
+    Dim i As Integer, intPasPag1 As Integer, intPasPag2 As Integer
+    Dim rs As Recordset, rsAux As Recordset
+    Dim strOri As String
+    Dim strSQL As String, intBucle As Integer
+    On Error GoTo Error_ActualizarCajaAux
+    strSQL = "DELETE * FROM auxCaja"
+    CurrentDb.Execute strSQL
+    Set rsAux = CurrentDb.OpenRecordset("auxCaja")
+    strSQL = "SELECT *" & _
+             " FROM tbCajaDet" & _
+             " WHERE True"
+
+    If lngIdCajaCab <> 0 Then
+        strSQL = strSQL & " AND IdCajaCab = " & lngIdCajaCab
+    End If
+    If Me.lstFPago.ItemsSelected.Count > 0 Then
+        Dim item As Variant, strW As String
+        For Each item In Me.lstFPago.ItemsSelected
+            If Me.lstFPago.ItemData(item) = "-" Then GoTo Bucle
+            strW = strW & "CodFPago = '" & Me.lstFPago.ItemData(item) & "' OR "
+        Next item
+        strW = RecDerTop(strW, 4, 0)
+        strSQL = strSQL & " AND(" & strW & ")"
+    End If
+    
+Bucle:
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+        rsAux.AddNew
+        rsAux("Fecha") = rs("Fecha")
+        rsAux("FormaPago") = DLookup("Descripcion", "tbFPago", "CodFPago = '" & rs("CodFPago") & "'")
+        rsAux("Cantidad") = rs("Cantidad")
+        Select Case rs("Origen")
+            Case "T"
+                strOri = "Ticket nº " & DLookup("NumTicket", "tbTickCab", "IdTickCab = " & rs("IdFrom"))
+            Case "E"
+                strOri = "Estancia nº " & DLookup("IdFichaCab", "tbFichasCab", "IdFichaCab = " & rs("IdFrom"))
+            Case "F"
+                strOri = "Factura nº " & DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & rs("IdFrom"))
+            Case "C"
+                strOri = "Caja, " & DLookup("Concepto", "tbCajaDet_Concepto", "IdCajaDet = " & rs("IdCajaDet"))
+            Case "R"
+                strOri = "F.R., " & DLookup("Concepto", "tbCajaDet_Concepto", "IdCajaDet = " & rs("IdCajaDet"))
+        End Select
+        rsAux("Origen") = RecDerTop(strOri, 0, 50)
+        rsAux.Update
+        rs.MoveNext
+    Wend
+Salir_ActualizarCajaAux:
+    Exit Sub
+Error_ActualizarCajaAux:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ActualizarCajaAux"
+    End Select
+    Resume Salir_ActualizarCajaAux
+    Resume Next
+End Sub

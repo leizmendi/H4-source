@@ -1,0 +1,28 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gfstrNRBorrados As String, gstrNumR As String
+
+Private Sub Form_AfterDelConfirm(status As Integer)
+    Parent.ActualizarMisTotales
+    gfstrNRBorrados = Left(gfstrNRBorrados, Len(gfstrNRBorrados) - 4)
+    gstrNumR = Left(gstrNumR, Len(gstrNumR) - 4)
+    If status = acDeleteOK Then
+        CurrentDb.Execute ("UPDATE tbRecibos SET tbRecibos.NuevoRecibo = 0 WHERE " & gfstrNRBorrados)
+        CurrentDb.Execute ("UPDATE tbFacturasCab SET NumRecibo = 0 WHERE " & gstrNumR), dbFailOnError
+    End If
+    gfstrNRBorrados = "": gstrNumR = ""
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+    gfstrNRBorrados = gfstrNRBorrados & " (NuevoRecibo = " & Me.NumRecibo & ") OR "
+    gstrNumR = gstrNumR & " (NumRecibo = " & Me.NumRecibo & ") OR "
+End Sub
+
+Private Sub IdFichaCab_DblClick(Cancel As Integer)
+    If Nz(Me.IdFichaCab, 0) <> 0 Then DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me.IdFichaCab
+End Sub

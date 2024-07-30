@@ -1,0 +1,18 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call Parent.Form_KeyDown(KeyCode, Shift)
+End Sub
+
+Private Sub txtRep_AfterUpdate()
+    Me.Reparto = Me.txtRep / Parent.txtTotalRepartir
+    DoCmd.RunCommand acCmdSaveRecord
+End Sub

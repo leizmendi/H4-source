@@ -1,0 +1,31 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub DenMoneda_AfterUpdate()
+    If UltimaVocal(Me.DenMoneda) = "A" Then
+        Me.MF = "F"
+    Else
+        Me.MF = "M"
+    End If
+End Sub
+
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.Orden = DMax("Orden", "tbDivisas") + 1
+End Sub
+
+
+Private Sub Form_Open(Cancel As Integer)
+    AjustarColumnas Me
+End Sub

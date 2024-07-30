@@ -1,0 +1,91 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnImprimir_Click()
+On Error GoTo Err_btnImprimir_Click
+    DoCmd.OpenReport "rptSituacionActual"
+Exit_btnImprimir_Click:
+    Exit Sub
+
+Err_btnImprimir_Click:
+    MsgBox Err.Description
+    Resume Exit_btnImprimir_Click
+    
+End Sub
+
+Private Sub btnOtro_Click()
+    If Nz(DameValorParam("SituacionActualFormulario"), "frmSituacionActual") = "frmSituacionActual" Then
+        PonValorParam "SituacionActualFormulario", "frmSituacionActual_U"
+    Else
+        PonValorParam "SituacionActualFormulario", "frmSituacionActual"
+    End If
+    Call AccionMenu(70)
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnVistaPrevia_Click()
+On Error GoTo Err_btnImprimir_Click
+    DoCmd.OpenReport "rptSituacionActual", acViewPreview
+Exit_btnImprimir_Click:
+    Exit Sub
+
+Err_btnImprimir_Click:
+    MsgBox Err.Description
+    Resume Exit_btnImprimir_Click
+
+End Sub
+
+Private Sub Form_Load()
+    CentrarTodoFRM Me, Me.cdrCentrar
+    Me.mrcEnFP = Nz(DameValorParam(Me.Name & "_mrcEnFP"), 1)
+    Call mrcEnFP_Click
+End Sub
+
+Private Sub lstPaxAcampadas_Click()
+    Me.lstPaxAcampadas.ControlTipText = "Doble clic para ir a la Ficha: " & Me.lstPaxAcampadas
+End Sub
+
+Private Sub lstPaxAcampadas_DblClick(Cancel As Integer)
+    If Me.lstPaxAcampadas.ListIndex = -1 Then Exit Sub
+    AbrirFichaNum Me.lstPaxAcampadas
+End Sub
+
+Private Sub mrcEnFP_AfterUpdate()
+    PonValorParam Me.Name & "_mrcEnFP", Nz(Me.mrcEnFP, 0), 4
+End Sub
+
+Private Sub mrcEnFP_Click()
+    If Me.mrcEnFP = 1 Then
+        Me.lstPaxAcampadas.RowSource = "qryPersonasAcampadas_EnFichas"
+    Else
+        Me.lstPaxAcampadas.RowSource = "qryPersonasAcampadas_EnPartes"
+    End If
+    Me.txtBuscar = ""
+End Sub
+
+Private Sub txtBuscar_AfterUpdate()
+    If Len(Me.txtBuscar) > 0 Then
+        Dim strSQL As String
+        If Me.mrcEnFP = 1 Then
+            strSQL = "SELECT tbFichasCab.IdFichaCab, Trim([NombreCliente] & ' ' & [ApellidosCliente]) AS Cliente"
+            strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbParcelas ON tbFichasCab.IdFichaCab = tbParcelas.IdFicha"
+            strSQL = strSQL & " WHERE (Trim([NombreCliente] & ' ' & [ApellidosCliente]) Like '*" & Me.txtBuscar & "*') And (tbParcelas.IdFicha Is Not Null OR tbFichasCab.EstadoFicha = 2)"
+            strSQL = strSQL & " ORDER BY [NombreCliente],[ApellidosCliente];"
+
+        Else
+            strSQL = "SELECT tbFichasCab.IdFichaCab, [Nombre] & ' ' & [Apellido1] & ' ' & [Apellido2] AS Cliente"
+            strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN tbParcelas ON tbFichasCab.IdFichaCab = tbParcelas.IdFicha) LEFT JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab"
+            strSQL = strSQL & " WHERE ([Nombre] & ' ' & [Apellido1] & ' ' & [Apellido2]) Like '*" & Me.txtBuscar & "*' And (tbParcelas.IdFicha Is Not Null Or tbFichasCab.EstadoFicha = 2)"
+            strSQL = strSQL & " ORDER BY tbPartesPolicia.Nombre, tbPartesPolicia.Apellido1, tbPartesPolicia.Apellido2;"
+
+        End If
+        Me.lstPaxAcampadas.RowSource = strSQL
+    Else
+        Call mrcEnFP_Click
+    End If
+End Sub

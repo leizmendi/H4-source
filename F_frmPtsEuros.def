@@ -1,0 +1,34 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnOK_Click()
+    DoCmd.Close
+End Sub
+Private Sub Form_Load()
+    Dim l As New clsLista
+    On Error Resume Next
+    l.gvList = Me.OpenArgs
+    l.gsSep = ";"
+    If l.DiElemento(2) = 1 Then
+        Me.txtEuros = l.DiElemento(1)
+        Call txtEuros_AfterUpdate
+    Else
+        Me.txtPts = l.DiElemento(1)
+        Call txtPts_AfterUpdate
+    End If
+    Me.btnOK.SetFocus
+End Sub
+
+Private Sub txtEuros_AfterUpdate()
+    Me.txtPts = Redondea((Me.txtEuros * 166.386), 0)
+End Sub
+
+Private Sub txtPts_AfterUpdate()
+    Me.txtEuros = Redondea((Me.txtPts / 166.386), 2)
+End Sub

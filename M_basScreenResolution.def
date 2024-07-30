@@ -1,0 +1,44 @@
+Option Compare Database
+Option Explicit
+
+'---------------------------------------------------------
+' ScreenResolution
+'
+' Código escrito originalmente por Juan M Afán de Ribera.
+' Estás autorizado a utilizarlo dentro de una aplicación
+' siempre que esta nota de autor permanezca inalterada.
+' En el caso de querer publicarlo en una página Web,
+' por favor, contactar con el autor en
+'
+'     accessvba@ya.com
+'
+' Este código se brinda por cortesía de
+' Juan M. Afán de Ribera
+'
+
+Private Type RECT
+    Left As Long
+    Top As Long
+    Right As Long
+    Bottom As Long
+End Type
+
+Private Declare Function GetWindowRect Lib "user32" _
+                        (ByVal Hwnd As Long, _
+                        lpRect As RECT) As Long
+
+Private Declare Function GetDesktopWindow Lib "user32" () As Long
+
+Function ScreenResolution(ByRef lngWidth As Long, lngHeight As Long) As String
+Dim rec As RECT
+Dim sWidth As String
+Dim sHigh As String
+
+    Call GetWindowRect(GetDesktopWindow, rec)
+    sWidth = CStr(rec.Right - rec.Left)
+    sHigh = CStr(rec.Bottom - rec.Top)
+    lngWidth = (rec.Right - rec.Left)
+    lngHeight = (rec.Bottom - rec.Top)
+    ScreenResolution = sWidth & " x " & sHigh
+End Function
+'--------------------------------------------------------

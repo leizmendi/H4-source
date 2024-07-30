@@ -1,0 +1,211 @@
+Option Compare Database
+Option Explicit
+
+Public Function AccionMenu(lngComando As Long, Optional intMenu2_3 As Integer = 2)
+    On Error GoTo Error_AccionMenu
+    Dim rs As Recordset, str As String
+    Dim strMSG As String
+    str = "sysMenus" & intMenu2_3
+    Set rs = CurrentDb.OpenRecordset(str, dbOpenSnapshot)
+    rs.FindFirst "IdComando = " & lngComando
+    If Not rs.NoMatch Then
+        Select Case rs("TipoObjeto")
+        Case 1
+            DoCmd.OpenForm rs("NombreObjeto")
+        Case 11
+            DoCmd.OpenForm rs("NombreObjeto"), acFormDS
+        Case 111
+            DoCmd.OpenForm "frmHD", , , , , , rs("NombreObjeto") & "//"
+        Case 12
+            On Error Resume Next ' para evitar mensaje de error (se canceló la acción...
+            DoCmd.OpenForm rs("NombreObjeto"), , , , , acDialog
+        Case 13
+            DoCmd.OpenForm rs("NombreObjeto"), , , , , , rs("Argumentos")
+        Case 2
+            DoCmd.OpenQuery rs("NombreObjeto"), acViewNormal, acReadOnly
+'            AbrirfrmConsultas strNom, Me.Name
+        Case 3
+            DoCmd.OpenReport rs("NombreObjeto")
+        Case 31
+            DoCmd.OpenReport rs("NombreObjeto"), acViewPreview
+        Case 4
+            Abre_sysFormsGX CLng(rs("NombreObjeto"))
+        Case 1001
+            Call btnEntradas_Click
+        Case 1002
+            Call btnReservasDelDia_Click
+        Case 1003
+            Call Abrir_Cerrar_Caja
+        Case 1004
+            Call ClientesActuales
+        Case 1005
+            Call Reservas
+        Case 1006
+            Call FichasAntiguas
+        Case 1007
+            Call ClientesFijos
+        Case 1008
+            Call OtrosCampistas
+        Case 1009     ' Pago a Caja
+            Call fNuevoPago("C", 0)
+        Case 1010
+            Call AbrirPlaning
+        Case 1011
+            Call AbreEmpresa
+        Case 1012
+            Call AbrirPanel
+        Case 1013
+            Call SincroWuBook(True, strMSG)
+        Case 1014
+            Call VentaServicio
+        Case 1015
+            DoCmd.OpenForm Nz(DameValorParam("SituacionActualFormulario"), "frmSituacionActual")
+        End Select
+    End If
+Salir_AccionMenu:
+    Exit Function
+Error_AccionMenu:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AccionMenu" & vbCrLf & Err.Description
+            Resume Salir_AccionMenu
+    End Select
+End Function
+
+Public Sub btnEntradas_Click()
+    DoCmd.OpenForm "frmFichas", , , , , , "1"
+    DoCmd.GoToRecord acDataForm, "frmFichas", acNewRec
+End Sub
+
+Public Sub btnReservasDelDia_Click()
+    DoCmd.OpenForm "frmFichas", , , , , , "1"
+    Forms!frmFichas.Filter = "FechaLlegada = #" & Format(Date, "mm/dd/yy") & "#"
+    Forms!frmFichas.FilterOn = True
+    Forms!frmFichas.AllowAdditions = False
+End Sub
+
+
+Public Function pp()
+    On Error GoTo Error_pp
+    Dim bar As CommandBar
+    Set bar = Application.CommandBars("Parcelas a Panel")
+    bar.Controls(1).OnAction = "=ConectarAlPanel()"
+    bar.Controls(2).OnAction = "=LiberarDelPanel()"
+Salir_pp:
+    Exit Function
+Error_pp:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en pp" & vbCrLf & Err.Description
+            Resume Salir_pp
+            Resume Next
+    End Select
+End Function
+
+
+Public Sub ClientesFijos()
+    DoCmd.OpenForm "frmFichas", , , "EstadoFicha = 10 "
+    DoCmd.OpenForm "frmClientesActuales", , , , , acDialog, 10
+End Sub
+
+Public Sub ClientesActuales()
+    DoCmd.OpenForm "frmFichas", , , "EstadoFicha = 2 OR EstadoFicha = 3"
+    DoCmd.OpenForm "frmClientesActuales", , , , , acDialog, 2
+End Sub
+Public Sub Reservas()
+    DoCmd.OpenForm "frmFichas", , , "EstadoFicha = 1"
+    DoCmd.OpenForm "frmClientesActuales", , , , , acDialog, 1
+End Sub
+Public Sub FichasAntiguas()
+    DoCmd.OpenForm "frmFichas", , , "EstadoFicha = 4 OR EstadoFicha = 5"
+    DoCmd.OpenForm "frmClientesActuales", , , , , acDialog, 5
+End Sub
+Public Sub OtrosCampistas()
+    DoCmd.OpenForm "frmOtrosCampistas", , , , , acDialog
+    If IsOpenForm("frmFichas") Then
+        Forms("frmFichas").SetFocus
+    End If
+End Sub
+Public Function VerTraducciones()
+    'On Error Resume Next
+    Dim frm As Form
+    If IsOpenForm("frmPreciosSDPorTemporadas") Then
+        Set frm = Forms("frmPreciosSDPorTemporadas")("subfrmServiciosDiarios").Form
+    ElseIf IsOpenForm("frmHD") Then
+        Set frm = Forms("frmHD")("subfrm").Form
+    Else
+        Set frm = Forms("frmServiciosDiarios")
+    End If
+    DoCmd.OpenForm "frmSDIdiomas", acFormDS, , "IdSD = " & frm("IdSD"), , acDialog, frm("ServicioDiario")
+    Forms("frmSDIdiomas").Tag = frm("IdSD")
+End Function
+
+Public Function AbrirPlaning()
+    If Nz(DameValorParam("ObligarPlaningG_SN"), True) = True Then
+        DoCmd.OpenForm "frmPlaningG"
+    Else
+        DoCmd.OpenForm Nz(DameValorParam("PlanningPreferido"), "frmPlaningG")
+    End If
+End Function
+
+Public Function AbrirPanel()
+    On Error GoTo Error_AbrirPanel
+    Dim strForm As String
+    'On Error Resume Next
+    strForm = Nz(DameValorParam("PanelUltimo"), "frmPanel")
+    If Screen.ActiveForm.Name = strForm Then strForm = Nz(DimePanel(), strForm)
+    DoCmd.OpenForm strForm
+    PonValorParam "PanelUltimo", strForm
+Salir_AbrirPanel:
+    Exit Function
+Error_AbrirPanel:
+    Select Case Err
+        Case 2102
+            If strForm <> "frmPanel" Then
+                strForm = "frmPanel"
+                Resume
+            Else
+                MsgBox "Error nº " & Err & " en AbrirPanel" & vbCrLf & Err.Description
+                Resume Salir_AbrirPanel
+            End If
+        Case Else
+            MsgBox "Error nº " & Err & " en AbrirPanel" & vbCrLf & Err.Description
+            Resume Salir_AbrirPanel
+    End Select
+End Function
+
+Public Function DimePanel()
+    Dim strRS As String
+    Dim obj As AccessObject, dbs As Object
+    Set dbs = Application.CurrentProject
+    ' Search for open AccessObject objects in AllForms collection.
+    For Each obj In dbs.AllForms
+        If obj.Name Like "frmPanel*" And obj.Name <> "frmPanel_ini" Then
+            ' Print name of obj.
+            'Debug.Print obj.Name
+            strRS = strRS & obj.Name & ";" & Replace(Mid(obj.Name, 4), "_", " ") & ";"
+        End If
+    Next obj
+    Dim strSQL As String
+    strSQL = "UPDATE sysBusquedas SET strSQL = " & ConComillas(strRS) & " WHERE CodBusqueda = 'PANEL'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    DimePanel = BuscaAyuda("PANEL", , , , , False)
+    
+    'Debug.Print strRS
+End Function
+
+
+Public Sub Abre_sysFormsGX(lngId As Long)
+    Dim lngIdFormsG As Long, strXML As String, lngTipo As Long
+    If IsOpenForm("frmMaestros") Then
+        MsgBox "Se encontró abierto el formulario Maestro" & vbCrLf & "No se inició: " & DLookup("Concepto", "sysFormsGX", "Id = " & lngId), vbExclamation
+        Exit Sub
+    End If
+        
+    lngIdFormsG = Nz(DLookup("IdFormsG", "sysFormsGX", "Id = " & lngId), 0)
+    lngTipo = Nz(DLookup("Tipo", "sysFormsG", "IdFormsG = " & lngIdFormsG), 0)
+    PonValorParam "frmMaestros_cmbIdFormsG_Tipo" & lngTipo, lngIdFormsG, 4
+    PonValorParam "frmMaestros_IdFormsG" & lngIdFormsG & "_lstIdFormsGX", lngId
+    PonXML strXML, "Tipo", lngTipo
+    DoCmd.OpenForm "frmMaestros", , , , , , strXML
+End Sub

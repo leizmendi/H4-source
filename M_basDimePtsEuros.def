@@ -1,0 +1,22 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function DimePtsEuros(v As Variant, Optional intPtsEuros As Integer = 1)
+    Dim l As New clsLista
+    On Error Resume Next
+    l.gsSep = ";"
+    l.PonElemento 1, CStr(v)
+    l.PonElemento 2, CStr(intPtsEuros)
+    DoCmd.OpenForm "frmPtsEuros", , , , , acDialog, l.gvList
+    DoCmd.Maximize
+End Function
+
+Public Function DimeControlPtsEuros()
+    Dim v As Variant
+    On Error Resume Next
+    If IsNumeric(Screen.ActiveControl.value) Then
+        v = Screen.ActiveControl.value
+    End If
+    DimePtsEuros v
+End Function

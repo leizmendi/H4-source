@@ -1,0 +1,163 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+Dim gintActualizarFacturacionRecibidaDetalleXGruposAux As Integer
+Dim gintActualizarRegistroComprasAux As Integer
+
+Private Sub btnAceptar_Click()
+    Dim strSQL As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim rs As Recordset, rsSelect As Recordset
+    Dim i As Integer
+    
+    On Error GoTo Error_btnAceptar_Click
+'    If Me.cmbEmpresa.ListIndex = -1 Then
+'        MsgBox "Se debe seleccionar empresa"
+'        Me.cmbEmpresa.SetFocus
+'        Exit Sub
+'    End If
+    DoCmd.Hourglass True
+    strTitulo = Me.lblTitulo.Caption
+Presentar:
+        If Me.mrcPantImp = 1 Then
+            DoCmd.OpenReport "rptLibroRegistroBienesInversion", acViewPreview
+        Else
+            DoCmd.OpenReport "rptLibroRegistroBienesInversion"
+        End If
+Exit_btnAceptar_click:
+    DoCmd.Hourglass False
+    Close
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+
+Private Sub cmbEmpresa_AfterUpdate()
+    Call mrcTDiDe_AfterUpdate
+End Sub
+
+Private Sub cmbMes_AfterUpdate()
+    Me.txtDesde = CDate(Me.txtAño & "/" & Me.cmbMes & "/" & "01")
+    Me.txtHasta = CDate(Me.txtAño & "/" & Me.cmbMes & "/" & CStr(DiasDelMes(CInt(Me.cmbMes), CInt(Me.txtAño))))
+    Call mrcTDiDe_AfterUpdate
+End Sub
+
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    Call mrcTDiDe_AfterUpdate
+End Sub
+
+Private Sub mrcTDiDe_AfterUpdate()
+    Dim strTitulo As String
+    Dim strSQL As String
+    Dim strTit As String
+
+    If Me.mrcTREF = 1 Then
+        If Me.mrcTrimestre = 6 Then
+            strTitulo = "Mes: " & Me.cmbMes.Column(1) & " " & Me.txtAño
+            strTit = "Mes: " & Me.cmbMes.Column(1) & " " & Me.txtAño
+        ElseIf Me.mrcTrimestre = 5 Then
+            strTitulo = "Año: " & Me.txtAño
+            strTit = "Año: " & Me.txtAño
+        Else
+            strTitulo = "Trimestre: " & Me.mrcTrimestre & " / " & Me.txtAño
+            strTit = "Trimestre: " & Me.mrcTrimestre & " / " & Me.txtAño
+        End If
+    Else
+        strTitulo = strTitulo & " Desde el " & Me.txtDesde & " hasta el " & Me.txtHasta
+        strTit = "Desde el " & Me.txtDesde & " hasta el " & Me.txtHasta
+    End If
+'    strTitulo = strTitulo & vbCrLf & "Empresa: " & Me.cmbEmpresa.Column(1)
+'    strTit = strTit & vbCrLf & "Empresa: " & Me.cmbEmpresa.Column(1)
+    Me.lblTitulo.Caption = strTitulo
+End Sub
+
+Private Sub mrcTREF_Click()
+    Dim ctl As Control
+    Dim intTRver As Integer
+    Call mrcTrimestre_AfterUpdate
+    If Me.mrcTREF = 1 Then
+        intTRver = True
+    Else
+        intTRver = False
+    End If
+    For Each ctl In Me.Controls
+        Select Case ctl.Tag
+            Case ""
+            Case "TR"
+                ctl.Visible = intTRver
+            Case "EF"
+                ctl.Visible = Not intTRver
+        End Select
+    Next ctl
+End Sub
+
+Private Sub mrcTrimestre_AfterUpdate()
+    gintActualizarRegistroComprasAux = True
+    gintActualizarFacturacionRecibidaDetalleXGruposAux = True
+    Select Case mrcTrimestre.value
+        Case 1
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/03/31")
+        Case 2
+            Me.txtDesde = CDate(Me.txtAño & "/04/01")
+            Me.txtHasta = CDate(Me.txtAño & "/06/30")
+        Case 3
+            Me.txtDesde = CDate(Me.txtAño & "/07/01")
+            Me.txtHasta = CDate(Me.txtAño & "/09/30")
+        Case 4
+            Me.txtDesde = CDate(Me.txtAño & "/10/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+        Case 5
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+        Case 6
+            Me.cmbMes = Format(Month(Date), "00")
+            Call cmbMes_AfterUpdate
+    End Select
+    If Me.mrcTrimestre = 6 Then
+        Me.cmbMes.Visible = True
+    Else
+        Me.cmbMes.Visible = False
+    End If
+    Call mrcTDiDe_AfterUpdate
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    Call mrcTrimestre_AfterUpdate
+    Call mrcTDiDe_AfterUpdate
+End Sub
+
+
+Private Sub txtDesde_AfterUpdate()
+    Call mrcTDiDe_AfterUpdate
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call mrcTDiDe_AfterUpdate
+End Sub

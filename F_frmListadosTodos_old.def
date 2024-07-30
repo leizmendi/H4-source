@@ -1,0 +1,580 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim gintActualizar_aux As Integer
+Dim gintTotales As Integer
+
+
+Private Sub btnAceptar_Click()
+    Dim strSQL As String, strQRY As String
+    Dim strTitulo As String
+    Dim intRes As Integer
+    Dim rs As Recordset, rsSelect As Recordset
+    Dim i As Integer, qdf As QueryDef
+'La selección sobre el trimestre o entre fechas se hace en el procedimiento ActualizarFacturacionXClientesAux
+'la selección sobre Cliente-Concepto y Contabilizado se hace en este procedimiento
+    On Error GoTo Error_btnAceptar_Click
+    DoCmd.Hourglass True
+    If gintActualizar_aux = True Then
+        Select Case Me.tabTipoLis.value
+            Case 0 ' Listados de Ventas e Ingresos
+                Call Actualizar_auxRegistroVentas(CDate(Me.txtDesde), CDate(Me.txtHasta))
+            Case 1 ' Listados de ocupación
+                Call Actualizar_auxOcupacion(CDate(Me.txtDesde), CDate(Me.txtHasta))
+        End Select
+    End If
+                
+    DoCmd.Hourglass False
+    DoCmd.Hourglass True
+    strTitulo = Me.lblTitulo.Caption
+Presentar:
+    Select Case Me.tabTipoLis.value
+        Case 0 ' Listados de Ventas e Ingresos
+            Select Case Me.mrcOpcionesVI
+                Case 1 'Detalle
+                    If Me.mrcPantImp = 1 Then
+                        DoCmd.OpenQuery "qryRegistroVentas_Detalle", , acReadOnly
+                    Else
+                        ImprimirSQL_DOS1 "qryRegistroVentas_Detalle", strTitulo, "111111111,080808202006121012,122113333,155114888,000001111", , , IIf(Me.mrcPantImp = 2, False, True)
+                    End If
+                Case 2 'Totales x Servicio
+                    If Me.mrcPantImp = 1 Then
+                        DoCmd.OpenQuery "qryRegistroVentas_X_Servicio", , acReadOnly
+                    Else
+                        ImprimirSQL_DOS1 "qryRegistroVentas_X_Servicio", strTitulo, "111111,082506131113,213333,115868,000101", , , IIf(Me.mrcPantImp = 2, False, True)
+                    End If
+                Case 3 'Totales x Agencia
+                    If Me.casYClientes = True Then
+                        strQRY = "qryRegistroVentas_X_Agencia_Cliente"
+                    Else
+                        strQRY = "qryRegistroVentas_X_Agencia"
+                    End If
+                    If Me.mrcPantImp = 1 Then
+                        DoCmd.OpenQuery strQRY, , acReadOnly
+                    Else
+                        ImprimirSQL_DOS1 strQRY, strTitulo, "111,301313,133,188,011", , , IIf(Me.mrcPantImp = 2, False, True)
+                    End If
+                Case 4 'Totales x Parcela
+                    If Me.mrcPantImp = 1 Then
+                        DoCmd.OpenQuery "qryRegistroVentas_X_Parcela", , acReadOnly
+                    Else
+                        ImprimirSQL_DOS1 "qryRegistroVentas_X_Parcela", strTitulo, "11,1515,13,18,01", , , IIf(Me.mrcPantImp = 2, False, True)
+                    End If
+                Case 5 'Totales Mensuales x grupo
+                    If Me.mrcPantImp = 1 Then
+                        DoCmd.OpenQuery "qryRegistroVentas_X_Mes_Grupo", , acReadOnly
+                    Else
+                        ImprimirSQL_DOS1 "qryRegistroVentas_X_Mes_Grupo", strTitulo, "11,1515,13,18,01", , , IIf(Me.mrcPantImp = 2, False, True)
+                    End If
+            End Select
+        Case 1 ' Listados de ocupación
+            Select Case Me.mrcOpcionesOc
+                Case 6 'Totales Mensuales x Parcela
+                    If Me.mrcPantImp = 1 Then
+                        DoCmd.OpenQuery "qryRegistroVentas_X_Mes_Parcela_Noches", , acReadOnly
+                    Else
+                        ImprimirSQL_DOS1 "qryRegistroVentas_X_Mes_Parcela_Noches", strTitulo, "11,1010,13,14,01", , , IIf(Me.mrcPantImp = 2, False, True)
+                    End If
+            End Select
+    End Select
+
+Exit_btnAceptar_click:
+    DoCmd.Hourglass False
+    Close
+    Exit Sub
+Error_btnAceptar_Click:
+    Select Case Err
+        Case 2501
+            Resume Exit_btnAceptar_click
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnAceptar_click
+    End Select
+        
+End Sub
+
+Private Sub btnBusca_Click()
+    Me.cmbConcepto = BuscaAyuda("SD0", Me.cmbConcepto)
+    Call cmbConcepto_AfterUpdate
+End Sub
+
+Private Sub btnCancelar_Click()
+    On Error Resume Next
+    DoCmd.Close
+End Sub
+
+Private Sub btnTotales_Click()
+    gintTotales = True
+    Me.mrcOpcionesVI = 4
+    Call btnAceptar_Click
+End Sub
+
+Private Sub casOI_AfterUpdate()
+    Call ActualizarTitulos
+    gintActualizar_aux = True
+End Sub
+
+Private Sub cmbSFA2_AfterUpdate()
+    Call ActualizarTitulos
+    gintActualizar_aux = True
+End Sub
+
+Private Sub casYClientes_AfterUpdate()
+    ActualizarTitulos
+End Sub
+
+Private Sub cmbAgencia_AfterUpdate()
+    Call OI_Enabled
+End Sub
+
+Private Sub cmbConcepto_AfterUpdate()
+    gintActualizar_aux = True
+    Call ActualizarTitulos
+End Sub
+
+Private Sub cmbSFA_AfterUpdate()
+    Dim strSQL As String
+    Me.btnBusca.Visible = False
+    Select Case Me.cmbSFA
+        Case "T" 'Todos
+            Me.cmbConcepto.Visible = False
+            Me.txtCon.Visible = False
+        Case "G" ' Grupo
+            strSQL = "SELECT tbGruposDeIngresos.CodNombreGrupo, tbGruposDeIngresos.CodNombreGrupo, tbGruposDeIngresos.DescripcionGrupo"
+            strSQL = strSQL & " FROM tbGruposDeIngresos"
+            strSQL = strSQL & " ORDER BY tbGruposDeIngresos.CodNombreGrupo;"
+        Case "C" 'Servicio
+            strSQL = "SELECT tbServiciosDiarios.IdSD, tbServiciosDiarios.CodSD, tbServiciosDiarios.ServicioDiario"
+            strSQL = strSQL & " FROM tbServiciosDiarios"
+            strSQL = strSQL & " ORDER BY tbServiciosDiarios.CodSD;"
+            Me.btnBusca.Visible = True
+    End Select
+    If Me.cmbSFA <> "T" Then
+        Me.cmbConcepto.RowSource = strSQL
+        Me.cmbConcepto.Visible = True
+        Me.txtCon.Visible = True
+        Me.cmbConcepto = Null
+        Call cmbConcepto_AfterUpdate
+    End If
+    Call OI_Enabled
+End Sub
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    Dim strRow As String
+    gintActualizar_aux = True
+    Me.lblOpt4.Caption = "Totales por " & g_strPH
+    Me.lblOpt6.Caption = "Totales de Noches por Mes y " & g_strPH
+    ActualizarTitulos
+End Sub
+
+Private Sub mrcOpcionesVI_AfterUpdate()
+    If Me.mrcOpcionesVI = 4 Then
+        Me.txtCli = ""
+    End If
+    If Me.mrcOpcionesVI = 3 Then
+        Me.casYClientes.Visible = True
+    Else
+        Me.casYClientes.Visible = False
+    End If
+    Call OI_Enabled
+    Call ActualizarTitulos
+End Sub
+
+Private Sub mrcTREF_Click()
+    Dim ctl As Control
+    Dim intTRver As Integer
+    gintActualizar_aux = True
+    Call mrcTrimestre_AfterUpdate
+    If Me.mrcTREF = 1 Then
+        intTRver = True
+    Else
+        intTRver = False
+    End If
+    For Each ctl In Me.Controls
+        Select Case ctl.Tag
+            Case ""
+            Case "TR"
+                ctl.Visible = intTRver
+            Case "EF"
+                ctl.Visible = Not intTRver
+        End Select
+    Next ctl
+End Sub
+
+Private Sub mrcTrimestre_AfterUpdate()
+    gintActualizar_aux = True
+    Select Case mrcTrimestre.value
+        Case 1
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/03/31")
+        Case 2
+            Me.txtDesde = CDate(Me.txtAño & "/04/01")
+            Me.txtHasta = CDate(Me.txtAño & "/06/30")
+        Case 3
+            Me.txtDesde = CDate(Me.txtAño & "/07/01")
+            Me.txtHasta = CDate(Me.txtAño & "/09/30")
+        Case 4
+            Me.txtDesde = CDate(Me.txtAño & "/10/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+        Case 5
+            Me.txtDesde = CDate(Me.txtAño & "/01/01")
+            Me.txtHasta = CDate(Me.txtAño & "/12/31")
+    End Select
+    Call ActualizarTitulos
+End Sub
+
+Private Sub tabTipoLis_Change()
+    Call ActualizarTitulos
+    gintActualizar_aux = True
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    Call mrcTrimestre_AfterUpdate
+End Sub
+
+Private Sub txtCli_AfterUpdate()
+    Call OI_Enabled
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    Call ActualizarTitulos
+    gintActualizar_aux = True
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Call ActualizarTitulos
+    gintActualizar_aux = True
+End Sub
+
+Public Sub Actualizar_auxRegistroVentas(dtDesde As Date, dtHasta As Date)
+    Dim i As Integer, intPas As Integer
+    Dim rs As Recordset, rsAux As Recordset
+    Dim strSQL As String, lngL As Long
+    On Error GoTo Error_Actualizar_auxRegistroVentas
+    strSQL = "DELETE * FROM auxRegistroVentas"
+    CurrentDb.Execute strSQL
+    Set rsAux = CurrentDb.OpenRecordset("auxRegistroVentas")
+    'Guardar en auxRegistrosVentas las Fichas de Estancia. La Fecha de Entrada es la que se tiene en cuenta en para seleccionar las fichas
+    'En lin=0 se guarda Los totales de la ficha
+    'En lin >0 se guarda el detalle....
+    strSQL = "SELECT tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasCab.IdAgencia, tbFichasCab.IdFichaCab, tbFichasCab.IvaIncluido, tbFichasCab.DNICliente, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, [Adultos]+[Niños] AS Pax, tbServiciosDiarios.CodGrupoIngresos, tbServiciosDiarios.CodSD, tbServiciosDiarios.ServicioDiario, tbFichasDet.IdFichaDet, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, IIf(IsNull([FechaFin]),0,IIf(IsNull([FechaInicio]),1,[FechaFin]-[FechaInicio])) AS Dias, tbFichasDet.PrecioUnitario, tbFichasDet.Cantidad, tbFichasDet.IVA, tbFichasDet.Parcela, tbFichasDet.IdTipoParcela"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN (tbServiciosDiarios RIGHT JOIN tbFichasDet ON tbServiciosDiarios.IdSD = tbFichasDet.IdSD) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.IdFichaCab>0 AND tbFichasCab.FechaLlegada Between #" & Format(dtDesde, "mm/dd/yyyy") & "# And #" & Format(dtHasta, "mm/dd/yyyy") & "#"
+    If Len(Me.txtCli) > 0 Then
+        strSQL = strSQL & " AND [NombreCliente] & ' ' & [ApellidosCliente] Like " & ConComillas("*" & Me.txtCli & "*")
+    End If
+    If Me.cmbAgencia.ListIndex <> -1 Then
+        strSQL = strSQL & " AND IdAgencia = " & Me.cmbAgencia
+    End If
+    If Me.cmbConcepto.ListIndex <> -1 Then
+        Select Case Me.cmbSFA
+            Case "T"
+            Case "G"
+                strSQL = strSQL & " AND tbServiciosDiarios.CodGrupoIngresos = " & ConComillas(Me.cmbConcepto)
+            Case "C"
+                strSQL = strSQL & " AND tbServiciosDiarios.IdSD = " & Me.cmbConcepto
+        End Select
+    End If
+    strSQL = strSQL & " ORDER BY tbFichasCab.IdFichaCab"
+Bucle:
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    Dim strNumFic As String, intLin As Integer, dtFec As Date, strNIF As String, strCli As String
+    Dim curTotalB As Currency, curTotalI As Currency
+    While Not rs.EOF
+        If strNumFic <> rs("IdFichaCab") Then
+            If Len(strNumFic) > 0 Then ' grabar totales de ficha
+                rsAux.FindFirst "NumFicha = " & ConComillas(strNumFic) & " AND linea=0"
+                If Not rsAux.NoMatch Then
+                    rsAux.Edit
+                    rsAux("Base") = curTotalB
+                    rsAux("IVA") = curTotalI 'En lin=0 guarda totales, en detalle porcentaje
+                    'rsAux("RecEq") = rs("TotalRecEq")
+                    rsAux("Importe") = curTotalB + curTotalI
+                    rsAux.Update
+                End If
+            End If
+            curTotalB = 0
+            curTotalI = 0
+            intLin = 0
+            strNumFic = rs("IdFichaCab")
+            dtFec = rs("FechaLlegada")
+            strNIF = Nz(rs("DNICliente"), "-")
+            strCli = Nz(RecDerTop(Nz(rs("Cliente"), ""), 0, 50), "")
+            lngL = lngL + 1
+            'Totales Ficha (lin=0)
+            rsAux.AddNew
+            rsAux("AutoNum") = lngL
+            rsAux("NumFicha") = strNumFic
+            rsAux("linea") = intLin 'lin=0 guarda los totales de la ficha
+            rsAux("FechaEntrada") = rs("FechaLlegada")
+            rsAux("FechaSalida") = rs("FechaSalida")
+            rsAux("IdAgencia") = rs("IdAgencia")
+            rsAux("Cliente") = strCli
+            rsAux("NIF") = strNIF
+            rsAux("Pax") = rs("Pax")
+            'rsAux("Base") = rs("TotalBase")
+            'rsAux("IVA") = rs("TotalIVA") 'En lin=0 guarda totales, en detalle porcentaje
+            'rsAux("RecEq") = rs("TotalRecEq")
+            'rsAux("Importe") = rs("TotalBase") + rs("TotalIVA") + rs("TotalRecEq")
+            rsAux.Update
+            
+        End If
+        If IsNull(rs("IdFichaDet")) Then GoTo SiguienteRegistro
+        intLin = intLin + 1
+        lngL = lngL + 1
+        rsAux.AddNew
+        rsAux("AutoNum") = lngL
+        rsAux("NumFicha") = strNumFic
+        rsAux("linea") = intLin
+        rsAux("Cliente") = strCli
+        rsAux("NIF") = strNIF
+'        rsAux("Pax") = rs("Pax")
+'        rsAux("IdSeccion") = rs("IdSeccion")
+        rsAux("CodGrupo") = rs("CodGrupoIngresos")
+        rsAux("CodSD") = rs("CodSD")
+        rsAux("IvaCeroSN") = IIf(rs("IVA") = 0, True, False)
+        rsAux("Concepto") = rs("ServicioDiario")
+        rsAux("Precio") = rs("PrecioUnitario")
+        rsAux("Cantidad") = rs("Cantidad")
+        rsAux("FechaD") = rs("FechaInicio")
+        rsAux("FechaH") = rs("FechaFin")
+        rsAux("Dias") = rs("Dias")
+        rsAux("Parcela") = rs("Parcela")
+        rsAux("IdTipoParcela") = rs("IdTipoParcela")
+        If rs("IvaIncluido") = True Then
+            rsAux("Importe") = rs("PrecioUnitario") * rs("Cantidad") * rs("Dias")
+            rsAux("Base") = rsAux("Importe") / (1 + rs("IVA"))
+        Else
+            rsAux("Base") = rs("PrecioUnitario") * rs("Cantidad") * rs("Dias")
+            rsAux("Importe") = rsAux("Base") * (1 + rs("IVA"))
+        End If
+        rsAux("IVA") = rs("IVA")
+        'rsAux("RecEq") = rs("RecEq")
+        curTotalB = curTotalB + rsAux("Base")
+        curTotalI = curTotalI + rsAux("Base") * rs("IVA")
+        rsAux.Update
+SiguienteRegistro:
+        rs.MoveNext
+    Wend
+    If Len(strNumFic) > 0 Then ' grabar totales de ficha
+        rsAux.FindFirst "NumFicha = " & ConComillas(strNumFic) & " AND linea=0"
+        If Not rsAux.NoMatch Then
+            rsAux.Edit
+            rsAux("Base") = curTotalB
+            rsAux("IVA") = curTotalI 'En lin=0 guarda totales, en detalle porcentaje
+            'rsAux("RecEq") = rs("TotalRecEq")
+            rsAux("Importe") = curTotalB + curTotalI
+            rsAux.Update
+        End If
+    End If
+OtrosIngresos:
+    If Me.casOI = False Then GoTo SegCob2
+    strSQL = "SELECT tbGruposDeIngresos.CodNombreGrupo, tbGruposDeIngresos.DescripcionGrupo, tbOI.*"
+    strSQL = strSQL & " FROM tbOI LEFT JOIN tbGruposDeIngresos ON tbOI.CodGrupoIngresos = tbGruposDeIngresos.CodNombreGrupo"
+    strSQL = strSQL & " WHERE tbOI.Fecha Between #" & Format(Me.txtDesde, "mm/dd/yyyy") & "# And #" & Format(Me.txtHasta, "mm/dd/yyyy") & "#"
+'    If Len(Me.txtCli) > 0 Then
+'        strSQL = strSQL & " AND Concepto Like " & ConComillas("*" & Me.txtCli & "*")
+'    End If
+    If Me.cmbConcepto.ListIndex <> -1 Then
+        Select Case Me.cmbSFA
+            Case "T"
+            Case "G"
+                strSQL = strSQL & " AND tbGruposDeIngresos.CodNombreGrupo = " & ConComillas(Me.cmbConcepto)
+            'Case "C"
+            '    strSQL = strSQL & " AND tbServiciosDiarios.IdSD = " & Me.cmbConcepto
+        End Select
+    End If
+    strSQL = strSQL & " ORDER BY Fecha, NumeroCorrelativo, NumeroCorrelativoAux"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rs.EOF
+'línea para detalle (linea=0), IVA total
+        lngL = lngL + 1
+        rsAux.AddNew
+        rsAux("AutoNum") = lngL
+        rsAux("NumFicha") = RecDerTop("OI-" & Format(rs("NumeroCorrelativo"), "000") & rs("NumeroCorrelativoAux"), 0, 20)
+        rsAux("FechaEntrada") = rs("Fecha")
+        rsAux("FechaD") = rs("Fecha")
+        rsAux("FechaH") = rs("Fecha")
+        rsAux("Cliente") = "O.I."
+        rsAux("NIF") = "-"
+'        rsAux("Comentario") = rs("Concepto")
+        rsAux("linea") = 0
+        rsAux("CodGrupo") = rs("CodNombreGrupo")
+        rsAux("Concepto") = rs("DescripcionGrupo") & " - O.I."
+        'rsAux("IVA") = rs("IVA")
+        rsAux("RecEq") = 0 'rs("RecEq")
+        rsAux("Importe") = rs("Importe1") + rs("Importe2") + rs("Importe3") + rs("Importe4")
+        rsAux("Base") = rsAux("Importe") / (1 + rs("IVA"))
+        rsAux("IVA") = rsAux("Base") * rs("IVA")
+        rsAux("IvaCeroSN") = IIf(rs("IVA") = 0, True, False)
+        rsAux.Update
+'línea para detalle (linea=1)
+        lngL = lngL + 1
+        rsAux.AddNew
+        rsAux("AutoNum") = lngL
+        rsAux("NumFicha") = RecDerTop("OI-" & Format(rs("NumeroCorrelativo"), "000") & rs("NumeroCorrelativoAux"), 0, 20)
+        rsAux("FechaEntrada") = rs("Fecha")
+        rsAux("FechaD") = rs("Fecha")
+        rsAux("FechaH") = rs("Fecha")
+        rsAux("Cliente") = "O.I."
+        rsAux("NIF") = "-"
+'        rsAux("Comentario") = rs("Concepto")
+        rsAux("linea") = 1
+        rsAux("CodGrupo") = rs("CodNombreGrupo")
+        rsAux("Concepto") = rs("DescripcionGrupo") & " - O.I."
+        rsAux("IVA") = rs("IVA")
+        rsAux("RecEq") = 0 'rs("RecEq")
+        rsAux("Importe") = rs("Importe1") + rs("Importe2") + rs("Importe3") + rs("Importe4")
+        rsAux("Base") = rsAux("Importe") / (1 + rsAux("IVA"))
+        rsAux("IvaCeroSN") = IIf(rs("IVA") = 0, True, False)
+        rsAux.Update
+        rs.MoveNext
+    Wend
+SegCob2:
+    gintActualizar_aux = False
+Salir_Actualizar_auxRegistroVentas:
+    Exit Sub
+Error_Actualizar_auxRegistroVentas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En Actualizar_auxRegistroVentas"
+    End Select
+    Resume Salir_Actualizar_auxRegistroVentas
+    Resume Next
+End Sub
+
+Private Sub Actualizar_auxOcupacion(datDesde As Date, datHasta As Date)
+    On Error GoTo Error_Actualizar_auxOcupacion
+    Dim strSQL As String, rs As Recordset, rsAux As Recordset, strSQL2 As String
+    Dim dt As Date, dtI As Date, dtF As Date
+    DoCmd.Hourglass True
+    'Primero borrar los registros existentes en tbAuxCuadrOcupacion
+    strSQL = "DELETE *"
+    strSQL = strSQL & " FROM auxOcupacion"
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rsAux = CurrentDb.OpenRecordset("auxOcupacion", dbOpenDynaset)
+ConParcelas:
+    'Fichas con Parcelas asignadas
+    strSQL = "SELECT tbFichasCab.IdFichaCab, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS FDesde, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FHasta, tbFichasDet.Parcela, tbFichasDet.IdTipoParcela"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.EstadoFicha >1 AND(((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<=#" & Format(datHasta, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(datDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If IsNull(rs("FHasta")) Then
+            dtF = datHasta + 1
+        Else
+            dtF = IIf(rs("FHasta") > datHasta, datHasta + 1, rs("FHasta"))
+        End If
+        dtI = IIf(rs("FDesde") < datDesde, datDesde, rs("FDesde"))
+        For dt = dtI To dtF - 1
+            rsAux.AddNew
+            rsAux("FechaDia") = dt
+            rsAux("PH") = rs("Parcela")
+            rsAux("Tipo") = rs("IdTipoParcela")
+            rsAux.Update
+        Next dt
+        rs.MoveNext
+    Wend
+    gintActualizar_aux = False
+Salir_Actualizar_auxOcupacion:
+    DoCmd.Hourglass False
+    Exit Sub
+Error_Actualizar_auxOcupacion:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Actualizar_auxOcupacion" & vbCrLf & Err.Description
+            Resume Salir_Actualizar_auxOcupacion
+    End Select
+End Sub
+
+
+
+Private Sub ActualizarTitulos()
+    Dim strT As String, strT2 As String
+    Select Case Me.tabTipoLis.value
+        Case 0
+            strT = "Listado de Ventas e Ingresos"
+            strT = strT & " (" & Me("lblOpt" & Me.mrcOpcionesVI).Caption & IIf(Me.casYClientes.Visible And Me.casYClientes, " y Clientes", "") & ")"
+            Me.lblFormulario.Caption = "Listados de Ventas e Ingresos"
+        Case 1
+            strT = "Listado de Ocupación"
+            strT = strT & " (" & Me("lblOpt" & Me.mrcOpcionesOc).Caption & ")"
+            Me.lblFormulario.Caption = "Listados de Ocupación"
+    End Select
+    strT = strT & vbCrLf
+    Select Case Me.mrcTREF
+        Case 1
+            If Me.mrcTrimestre = 5 Then
+                strT = strT & "Año: " & Me.txtAño
+                strT2 = strT2 & "Año: " & Me.txtAño
+            Else
+                strT = strT & "Trimestre: " & Me.mrcTrimestre & "/" & Me.txtAño
+                strT2 = strT2 & "Trimestre: " & Me.mrcTrimestre & "/" & Me.txtAño
+            End If
+        Case 2
+            strT = strT & "Desde: " & Me.txtDesde & " hasta: " & Me.txtHasta
+            strT2 = strT2 & "Desde: " & Me.txtDesde & " hasta: " & Me.txtHasta
+    End Select
+    If Me.tabTipoLis <> 0 Then GoTo Segi
+    If Me.cmbAgencia.ListIndex <> -1 Then
+        strT = strT & vbCrLf & "Empresa / Agencia: " & Me.cmbAgencia.Column(1)
+        strT2 = strT2 & ". Empresa / Agencia: " & Me.cmbAgencia.Column(1)
+    End If
+    If Len(Me.txtCli) > 0 Then
+        strT = strT & vbCrLf & "Cliente / Comentario (como..): " & Me.txtCli
+        strT2 = strT2 & ". Cliente / Comentario (como..): " & Me.txtCli
+    End If
+    If Me.cmbSFA = "T" Then
+    Else
+        If Me.cmbConcepto.ListIndex <> -1 Then
+            strT = strT & vbCrLf
+            Select Case Me.cmbSFA
+                Case "S"
+                    strT = strT & "Sección: " & Me.cmbConcepto.Column(2)
+                    strT2 = strT2 & ". Sección: " & Me.cmbConcepto.Column(2)
+                Case "G"
+                    strT = strT & "Grupo: " & Me.cmbConcepto.Column(2)
+                    strT2 = strT2 & ". Grupo: " & Me.cmbConcepto.Column(2)
+                Case "C"
+                    strT = strT & "Servicio: " & Me.cmbConcepto.Column(2)
+                    strT2 = strT2 & ". Servicio: " & Me.cmbConcepto.Column(2)
+            End Select
+        End If
+    End If
+    If Me.casOI = True Then
+        strT = strT & " (Incluidos Otros Ingresos)"
+        strT2 = strT2 & " (Incluidos Otros Ingresos)"
+    End If
+Segi:
+    Me.lblTitulo.Caption = strT
+    Me.lblTit.Caption = strT2
+End Sub
+
+Public Sub OI_Enabled()
+    Dim intOI As Integer
+    intOI = True
+    Me.casOI.Enabled = True
+    If Len(Me.txtCli) > 0 Or Me.cmbAgencia.ListIndex <> -1 Then
+        Me.casOI.Enabled = False
+        Me.casOI = False
+    ElseIf Me.cmbSFA = "C" Then
+        Me.casOI.Enabled = False
+        Me.casOI = False
+    Else
+        Select Case Me.mrcOpcionesVI
+            Case 2, 3, 4
+                Me.casOI.Enabled = False
+                Me.casOI = False
+        End Select
+    End If
+    Call casOI_AfterUpdate
+End Sub

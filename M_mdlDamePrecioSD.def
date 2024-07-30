@@ -1,0 +1,250 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function DamePrecioSD(IdSD As Long, ByRef dtFecha As Date, ByVal intIVAincSN As Integer, Optional ByVal curIVA As Currency = 88, Optional dtFechaFin As Date = 0, Optional lngTemporada As Long = 0) As Currency
+    Dim db As Database
+    Dim rs As Recordset
+    Dim strSQL As String
+    'Dim lngTemporada As Long
+    Dim curPre As Currency, curPre2 As Currency, intR As Integer
+    Dim intIVAincSD As Integer, strCodGrupo As String
+    On Error GoTo Error_DamePrecioSD
+    If lngTemporada = 0 Then lngTemporada = QueTemporadaEs(dtFecha)
+    If lngTemporada = False Then
+        curPre = 0
+        GoTo ValorFuncion
+        'DamePrecioSD = 0
+        'Exit Function
+    End If
+    strSQL = "SELECT tbPreciosSD.IdSD, tbPreciosSD.IdTemporadaNombre, tbPreciosSD.PrecioDiario"
+    strSQL = strSQL & " FROM tbPreciosSD"
+    strSQL = strSQL & " WHERE (((tbPreciosSD.IdSD)=" & IdSD & ") AND ((tbPreciosSD.IdTemporadaNombre)=" & lngTemporada & "));"
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset(strSQL)
+    If rs.RecordCount = 0 Then
+        'DamePrecioSD = 0
+        curPre = 0
+    Else
+        rs.MoveFirst
+        curPre = rs("PrecioDiario")
+    End If
+    
+    If dtFechaFin = 0 Then dtFechaFin = dtFecha + 1
+        
+    If dtFechaFin < dtFecha Then
+        DamePrecioSD = curPre
+        GoTo ValorFuncion
+        'Exit Function
+    End If
+    Dim dt As Date, intDias As Integer
+    intDias = dtFechaFin - dtFecha
+    
+    ' Mirar se existen precios por varios días....
+    strSQL = "SELECT tbPreciosSDVariosDias.PrecioDiario"
+    strSQL = strSQL & " FROM tbPreciosSDVariosDias"
+    strSQL = strSQL & " WHERE (((tbPreciosSDVariosDias.IdSD) = " & IdSD & ") And ((tbPreciosSDVariosDias.IdTemporadaNombre) = " & lngTemporada & ") And ((tbPreciosSDVariosDias.DesdeDias) <= " & intDias & "))"
+    strSQL = strSQL & " ORDER BY tbPreciosSDVariosDias.DesdeDias DESC;"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveFirst
+        curPre = rs("PrecioDiario")
+    End If
+    
+    ' Mirar se existe cambio de precios por temporada entre las fechas....
+    'If DameValorParam("TemporadasAvisoCambioPrecio") = True Then
+    If dtFecha <> 0 Then
+        For dt = dtFecha To dtFechaFin - 1
+            If QueTemporadaEs(dt) <> lngTemporada Then
+                curPre2 = DamePrecioSD(IdSD, dt, intIVAincSN, curIVA, dt + 1)
+                If curPre2 <> curPre Then
+                    If Nz(DameValorParam("TemporadasCambioPrecioAutomatico"), False) Then
+                        intR = vbYes
+                    Else
+                        intR = MsgBox("Atención hay cambio de temporada en las fechas de estancia, se calcula el precio sobre la temporada de inicio" & vbCrLf _
+                        & "Se debería cambiar el precio a partir del " & Format(dt, "dd/mm/yyyy") & "-->" & Format(curPre2, "Currency") _
+                        & vbCrLf & "¿Desea que se genere el cambio de precio?", vbYesNo + vbQuestion)
+                    End If
+                    If intR = vbYes Then dtFecha = dt
+                    Exit For
+                End If
+            End If
+        Next dt
+    End If
+ValorFuncion:
+    intIVAincSD = DameValorParam("IVAIncluidoEnPreciosSD")
+    If intIVAincSD = 3 Then
+        strCodGrupo = Nz(DLookup("CodGrupoIngresos", "tbServiciosDiarios", "IdSD = " & IdSD), "")
+        intIVAincSD = Nz(DLookup("IVAincSN", "tbGruposDeIngresos", "CodNombreGrupo = '" & strCodGrupo & "'"), 8)
+        If intIVAincSD = 8 Then
+            MsgBox "Falta Definir IVA inc. S/N en Grupos de Ingresos de Servicios Diarios"
+            intIVAincSD = intIVAincSN
+        End If
+    End If
+    If intIVAincSD <> intIVAincSN Then
+        If curIVA = 88 Then curIVA = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & Nz(DLookup("TipoIVA", "tbServiciosDiarios", "IdSD = " & IdSD), 0)), 0)
+        If intIVAincSN = False Then
+            curPre = curPre / (1 + curIVA)
+        Else
+            curPre = curPre * (1 + curIVA)
+        End If
+    End If
+    DamePrecioSD = curPre
+Exit_DamePrecioSD:
+    Exit Function
+Error_DamePrecioSD:
+    Select Case Err.Number
+        Case Else
+            MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En DamePrecioSD"
+            DamePrecioSD = 0
+            Resume Exit_DamePrecioSD
+    End Select
+
+End Function
+
+Public Sub Añade_FichaDet(lngIdFicha As Long, lngIdSD As Long, dtDesde As Date, dtHasta As Date, curCant As Currency)
+    On Error GoTo Error_Añade_FichaDet
+    Dim dobPU As Double, v As Variant
+    Dim rsSD As Recordset, rsFD As Recordset, strSQL As String, intIVAinc As Integer
+    strSQL = "SELECT * FROM tbServiciosDiarios"
+    strSQL = strSQL & " WHERE IdSD = " & lngIdSD
+    Set rsSD = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rsSD.EOF Then
+        MsgBox "No se encontró Servicio ID: " & lngIdSD
+        Exit Sub
+    End If
+    intIVAinc = Nz(DLookup("IVAIncluido", "tbFichasCab", "IdFichaCab = " & lngIdFicha), False)
+    Set rsFD = CurrentDb.OpenRecordset("tbFichasDet", dbOpenDynaset, dbAppendOnly)
+    rsFD.AddNew
+    rsFD("IdFichaCab") = lngIdFicha
+    rsFD("IdSD") = lngIdSD
+    rsFD("Concepto") = rsSD("ServicioDiario")
+    rsFD("Cantidad") = curCant
+    v = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & rsSD("TipoIVA"))
+    If Not IsNull(v) Then
+        rsFD("IVA") = v
+    End If
+IdSD:
+    rsFD("PrecioUnitario") = DamePrecioSD(lngIdSD, dtDesde, intIVAinc, rsFD("IVA"), dtHasta)
+    'rsFD("PrecioUnitario") = Redondea(rsFD("PrecioUnitario"), 2)
+    rsFD("FechaInicio") = dtDesde
+    rsFD("FechaFin") = dtHasta
+    rsFD.Update
+    
+Salir_Añade_FichaDet:
+    Exit Sub
+Error_Añade_FichaDet:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Añade_FichaDet" & vbCrLf & Err.Description
+            Resume Salir_Añade_FichaDet
+            Resume Next
+    End Select
+End Sub
+
+Public Sub ComprobarPreciosTemporadas(lngIdFicha As Long, Optional intSoloSalida As Integer = True)
+    On Error GoTo Error_ComprobarPreciosTemporadas
+    Dim rs As Recordset, strSQL As String, dtD As Date, dtH As Date, dtI As Date
+    Dim lngAntTemp As Long, lngT As Long, curAntPrecio As Currency, curP As Currency
+    Dim intR As Integer, intCambioParam As Integer
+    strSQL = "SELECT tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, IVAIncluido, tbFichasDet.*"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.IdFichaCab=" & lngIdFicha & " AND tbFichasDet.FechaInicio Is Not Null"
+    If intSoloSalida = True Then
+        strSQL = strSQL & " AND tbFichasDet.FechaFin Is Null"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        dtD = rs("FechaInicio")
+        If IsNull(rs("FechaFin")) Then
+            dtH = Nz(rs("FechaSalida"), Date)
+        Else
+            dtH = rs("FechaFin")
+        End If
+        lngAntTemp = 0
+        curAntPrecio = -0.001
+        For dtI = dtD To dtH - 1
+            lngT = QueTemporadaEs(dtI)
+            If lngAntTemp <> lngT Then
+'                If lngAntTemp <> 0 Then
+                    curP = DamePrecioSD(rs("IdSD"), dtI, rs("IVAIncluido"), rs("IVA"))
+                    If curAntPrecio <> curP Then
+                        If curAntPrecio <> -0.001 Then
+                            If intR <> vbOK Then
+                                intR = MsgBox("Se encontraron diferentes precios por cambio de temporada. ¿Aplicar las diferencias?", vbOKCancel + vbQuestion)
+                                If intR = vbCancel Then Exit Sub
+                                If Nz(DameValorParam("TemporadasCambioPrecioAutomatico"), False) = False Then
+                                    PonValorParam "TemporadasCambioPrecioAutomatico", True, 1
+                                    intCambioParam = True
+                                End If
+                            End If
+                            AplicarPreciosTemporadas rs("IdFichaDet")
+                            Exit For
+                        End If
+                        curAntPrecio = curP
+                    End If
+'                End If
+                lngAntTemp = lngT
+            End If
+        Next dtI
+        rs.MoveNext
+    Wend
+Salir_ComprobarPreciosTemporadas:
+    If intCambioParam = True Then PonValorParam "TemporadasCambioPrecioAutomatico", False, 1
+    Exit Sub
+Error_ComprobarPreciosTemporadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ComprobarPreciosTemporadas" & vbCrLf & Err.Description
+            Resume Salir_ComprobarPreciosTemporadas
+    End Select
+End Sub
+
+Public Sub AplicarPreciosTemporadas(lngIdFichaDet As Long)
+    On Error GoTo Error_AplicarPreciosTemporadas
+    Dim rs As Recordset, rs2 As Recordset, strSQL As String, dtF1 As Date, dtH As Date, dtF2 As Date
+    Dim lngAntTemp As Long, lngT As Long, curAntPrecio As Currency, curP As Currency
+    Dim intR As Integer, intCambioParam As Integer, i As Integer, intIVAinc As Integer
+    strSQL = "SELECT tbFichasDet.*"
+    strSQL = strSQL & " FROM tbFichasDet"
+    strSQL = strSQL & " WHERE tbFichasDet.IdFichaDet=" & lngIdFichaDet
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    Set rs2 = CurrentDb.OpenRecordset("tbFichasDet", dbOpenDynaset)
+    While Not rs.EOF
+        dtF1 = rs("FechaInicio")
+        If IsNull(rs("FechaFin")) Then
+            dtH = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & rs("IdFichaCab")), Date)
+        Else
+            dtH = rs("FechaFin")
+        End If
+        dtF2 = dtF1
+        intIVAinc = Nz(DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & rs("IdFichaCab")), False)
+        curP = DamePrecioSD(rs("IdSD"), dtF2, intIVAinc, , dtH)
+        rs.Edit
+        rs("PrecioUnitario") = Round(curP, 2)
+        If dtF2 <> dtF1 Then
+            rs("FechaFin") = dtF2
+        End If
+        rs.Update
+        If dtF2 = dtF1 Then Exit Sub
+        rs2.AddNew
+        For i = 1 To rs.Fields.Count - 1
+            rs2(i) = rs(i)
+        Next i
+        rs2("FechaInicio") = dtF2
+        rs2("FechaFin") = Null
+        lngIdFichaDet = rs2("IdFichaDet")
+        rs2.Update
+        Set rs2 = Nothing
+        AplicarPreciosTemporadas lngIdFichaDet
+        rs.MoveNext
+    Wend
+Salir_AplicarPreciosTemporadas:
+    Exit Sub
+Error_AplicarPreciosTemporadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AplicarPreciosTemporadas" & vbCrLf & Err.Description
+            Resume Salir_AplicarPreciosTemporadas
+    End Select
+End Sub

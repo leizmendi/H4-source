@@ -1,0 +1,728 @@
+' $Id: basSc14n.bas $
+'/**
+' The VBA/VB6 interface to the __diSc14n.dll__ library.
+'
+' <p>_New in v3.0:_</p>
+' <ul>
+' <li>The "~2" functions: {@link sc14nFile2File2}, {@link sc14nFile2Bytes2}, {@link sc14nBytes2Bytes2},
+' {@link sc14nFile2Digest2}, {@link sc14nBytes2Digest2}.
+' These have a better interface using enumerations and more useful defaults than the original functions.
+' </li>
+' <li>In-built UTF-8 encoding/decoding functions {@link sc14nUtf8BytesFromString}, {@link sc14nUtf8BytesToString}.</li>
+' </ul>
+'
+' @author dai
+' @version 3.0.0
+'**/
+' $Date: 2021-08-03 10:19:00 $
+
+'*********************** COPYRIGHT NOTICE***********************
+' Copyright (c) 2017-21 DI Management Services Pty Limited.
+' <www.di-mgt.com.au> <www.cryptosys.net>. All rights reserved.
+' The latest version of SC14N and a licence
+' may be obtained from <http://www.cryptosys.net/sc14n/>.
+' Refer to licence for conditions of use.
+' This copyright notice must always be left intact.
+'******************** END OF COPYRIGHT NOTICE*******************
+
+Option Explicit
+Option Base 0
+
+'//////////////////////////////////////////////////
+' OPTION FLAGS
+'//////////////////////////////////////////////////
+
+'/**
+' Use default digest algorithm (SHA-1).
+'**/
+Public Const SC14N_DIG_DEFAULT As Long = 0
+
+'/**
+' Use SHA-1 digest algorithm (default).
+'**/
+Public Const SC14N_DIG_SHA1 As Long = 0
+
+'/**
+' Use SHA-256 digest algorithm.
+'**/
+Public Const SC14N_DIG_SHA256 As Long = &H2000
+
+'/**
+' Flatten the XML - remove all ignorable whitespace between tags.
+'**/
+Public Const SC14N_OPT_FLATTEN As Long = &H10000
+
+'/**
+' Transform the entire document.
+'**/
+Public Const SC14N_TRAN_ENTIRE As Long = 0
+
+'/**
+' Omit the element with the given tag name.
+'**/
+Public Const SC14N_TRAN_OMITBYTAG As Long = &H1
+
+'/**
+' Transform the subset with the given tag name.
+'**/
+Public Const SC14N_TRAN_SUBSETBYTAG As Long = &H2
+
+'/**
+' Omit the element with the given Id.
+'**/
+Public Const SC14N_TRAN_OMITBYID As Long = &H11
+
+'/**
+' Transform the subset with the given Id.
+'**/
+Public Const SC14N_TRAN_SUBSETBYID As Long = &H12
+
+'/**
+' Use inclusive c14n method [RFC 3076] (default).
+'**/
+Public Const SC14N_METHOD_INCLUSIVE    As Long = 0
+'/**
+' Use exclusive c14n method [RFC 3741].
+'**/
+Public Const SC14N_METHOD_EXCLUSIVE    As Long = &H100
+'/**
+' Include comments in c14n form (`#WithComments`).
+'**/
+Public Const SC14N_METHOD_WITHCOMMENTS As Long = &H800
+
+' DEPRECATED FLAGS (use OMIT instead)
+''' Omit (exclude) the element with the given tag name
+''' @deprecated Use `{@link SC14N_TRAN_OMITBYTAG}`
+Public Const SC14N_TRAN_EXCLUDEBYTAG As Long = &H1
+''' Omit (exclude) the element with the given Id
+''' @deprecated Use `{@link SC14N_TRAN_OMITBYID}`
+Public Const SC14N_TRAN_EXCLUDEBYID As Long = &H11
+
+' **********
+' CONSTANTS
+' **********
+''' Maximum number of characters in base64-encoded hash digest value
+Public Const SC14N_MAX_DIGEST_CHARS As Long = 44
+''' Maximum number of characters in an error message
+Public Const SC14N_MAX_ERROR_CHARS As Long = 4073
+
+' ************
+' DECLARATIONS
+' ************
+
+#If VBA7 Then
+' Declarations for 64-bit Office
+' (In VB6 these will appear red. Turn off "Auto Syntax Check" in Tools > Options to avoid annoying warnings)
+Private Declare PtrSafe Function C14N_File2File Lib "diSc14n.dll" (ByVal szOutputFile As String, ByVal szInputFile As String, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function C14N_File2String Lib "diSc14n.dll" (ByRef abOut As Byte, ByVal nOutBytes As Long, ByVal szInputFile As String, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function C14N_File2Digest Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal szInputFile As String, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function C14N_String2String Lib "diSc14n.dll" (ByRef abOut As Byte, ByVal nOutBytes As Long, ByRef lpDataIn As Byte, ByVal nDataLen As Long, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function C14N_String2Digest Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByRef lpDataIn As Byte, ByVal nDataLen As Long, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function SC14N_Gen_CompileTime Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare PtrSafe Function SC14N_Gen_ModuleName Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal nOptions As Long) As Long
+Private Declare PtrSafe Function SC14N_Gen_Platform Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare PtrSafe Function SC14N_Err_LastError Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare PtrSafe Function SC14N_Err_ErrorLookup Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal nErrCode As Long) As Long
+Public Declare PtrSafe Function SC14N_Gen_Version Lib "diSc14n.dll" () As Long
+Public Declare PtrSafe Function SC14N_Gen_LicenceType Lib "diSc14n.dll" () As Long
+Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
+    ByVal CodePage As Long, _
+    ByVal dwFlags As Long, _
+    ByVal lpWideCharStr As Long, _
+    ByVal cchWideChar As Long, _
+    ByVal lpMultiByteStr As Long, _
+    ByVal cbMultiByte As Long, _
+    ByVal lpDefaultChar As Long, _
+    ByVal lpUsedDefaultChar As Long _
+    ) As Long
+Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
+    ByVal CodePage As Long, _
+    ByVal dwFlags As Long, _
+    ByVal lpMultiByteStr As Long, _
+    ByVal cchMultiByte As Long, _
+    ByVal lpWideCharStr As Long, _
+    ByVal cchWideChar As Long _
+    ) As Long
+#Else
+' Declarations for VB6 and 32-bit Office
+Private Declare Function C14N_File2File Lib "diSc14n.dll" (ByVal szOutputFile As String, ByVal szInputFile As String, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare Function C14N_File2String Lib "diSc14n.dll" (ByRef abOut As Byte, ByVal nOutBytes As Long, ByVal szInputFile As String, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare Function C14N_File2Digest Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal szInputFile As String, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare Function C14N_String2String Lib "diSc14n.dll" (ByRef abOut As Byte, ByVal nOutBytes As Long, ByRef lpDataIn As Byte, ByVal nDataLen As Long, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare Function C14N_String2Digest Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByRef lpDataIn As Byte, ByVal nDataLen As Long, ByVal szNameOrId As String, ByVal szParams As String, ByVal nOptions As Long) As Long
+Private Declare Function SC14N_Gen_CompileTime Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare Function SC14N_Gen_ModuleName Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal nOptions As Long) As Long
+Private Declare Function SC14N_Gen_Platform Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare Function SC14N_Err_LastError Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long) As Long
+Private Declare Function SC14N_Err_ErrorLookup Lib "diSc14n.dll" (ByVal szOut As String, ByVal nOutChars As Long, ByVal nErrCode As Long) As Long
+'/**
+' Get version number of core native DLL.
+' @return Version number as an integer in form `Major*10000 + Minor*100 + Release`. For example, version 2.10.3 would return 21003.
+'**/
+Public Declare Function SC14N_Gen_Version Lib "diSc14n.dll" () As Long
+' Keep public for backward compatability
+Public Declare Function SC14N_Gen_LicenceType Lib "diSc14n.dll" () As Long
+'///////////////////////////////////////////////////////////////
+' INTERNAL UTF-8 MAPPING
+''' WinApi function that maps a UTF-16 (wide character) string to a new character string
+Private Declare Function WideCharToMultiByte Lib "kernel32" ( _
+    ByVal CodePage As Long, _
+    ByVal dwFlags As Long, _
+    ByVal lpWideCharStr As Long, _
+    ByVal cchWideChar As Long, _
+    ByVal lpMultiByteStr As Long, _
+    ByVal cbMultiByte As Long, _
+    ByVal lpDefaultChar As Long, _
+    ByVal lpUsedDefaultChar As Long _
+    ) As Long
+''' Maps a character string to a UTF-16 (wide character) string
+Private Declare Function MultiByteToWideChar Lib "kernel32" ( _
+    ByVal CodePage As Long, _
+    ByVal dwFlags As Long, _
+    ByVal lpMultiByteStr As Long, _
+    ByVal cchMultiByte As Long, _
+    ByVal lpWideCharStr As Long, _
+    ByVal cchWideChar As Long _
+    ) As Long
+#End If
+
+' CodePage constant for UTF-8
+Private Const CP_UTF8 = 65001
+
+' ************
+' ENUMERATIONS
+' ************
+'/**
+' Transformation options to specify the document part to be canonicalized.
+'**/
+Public Enum Tran
+    '/**
+    ' Transform the entire document.
+    '**/
+    Entire = SC14N_TRAN_ENTIRE
+    '/**
+    ' Omit the element with the given tag name.
+    '**/
+    OmitByTag = SC14N_TRAN_OMITBYTAG
+    '/**
+    ' Omit the element with the given Id.
+    '**/
+    OmitById = SC14N_TRAN_OMITBYID
+    '/**
+    ' Transform the subset with the given tag name.
+    '**/
+    SubsetByTag = SC14N_TRAN_SUBSETBYTAG
+    '/**
+    ' Transform the subset with the given Id.
+    '**/
+    SubsetById = SC14N_TRAN_SUBSETBYID
+End Enum
+
+'/**
+' Transformation methods.
+'**/
+Public Enum tranMethod
+    '/**
+    ' Inclusive C14N without comments from RFC 3076.
+    '**/
+    Inclusive = SC14N_METHOD_INCLUSIVE
+    '/**
+    ' Exclusive C14N without comments from RFC 3741.
+    '**/
+    Exclusive = SC14N_METHOD_EXCLUSIVE
+    '/**
+    ' Inclusive C14N with comments from RFC 3076.
+    '**/
+    InclusiveWithComments = SC14N_METHOD_INCLUSIVE Or SC14N_METHOD_WITHCOMMENTS
+    '/**
+    ' Exclusive C14N with comments from RFC 3741.
+    '**/
+    ExclusiveWithComments = SC14N_METHOD_EXCLUSIVE Or SC14N_METHOD_WITHCOMMENTS
+End Enum
+
+'/**
+' Digest Algorithm.
+'**/
+Public Enum digAlg
+    '/**
+    ' Use default digest algorithm (SHA-1).
+    '**/
+    Default = 0
+    '/**
+    ' Use SHA-1 digest algorithm (default).
+    '**/
+    Sha1 = SC14N_DIG_SHA1
+    '/**
+    ' Use SHA-256 digest algorithm.
+    '**/
+    Sha256 = SC14N_DIG_SHA256
+End Enum
+
+'/**
+' Advanced option flags.
+'**/
+Public Enum AdvOpts
+    '/**
+    ' No options.
+    '**/
+    None = 0
+    '/**
+    ' Flatten the XML - remove all ignorable whitespace between tags.
+    '**/
+    Flatten = SC14N_OPT_FLATTEN
+End Enum
+
+' --------------------------
+' UTILITIES
+' --------------------------
+
+'/**
+' Get length of byte array.
+' @param lpBytes Input byte array.
+' @return Length of byte array or zero if uninitialized.
+' **/
+Public Function sc14nBytesLength(lpBytes() As Byte) As Long
+    ' Trap error if array is uninitialized
+    On Error Resume Next
+    sc14nBytesLength = UBound(lpBytes) - LBound(lpBytes) + 1
+End Function
+
+' --------------------------
+' EXPORTED WRAPPER FUNCTIONS
+' --------------------------
+
+'/**
+' Perform C14N transformation of XML document (file-to-file, _deprecated_).
+' @param szOutputFile Name of output file to create (will be overwritten if exists).
+' @param szInputFile Name of input file containing XML document to be processed.
+' @param szNameOrId To specify the tag name or Id.
+' @param szParams InclusiveNamespaces `PrefixList` parameter (exclusive C14n only). Use `""` or `vbNullString` to ignore.
+' @param nOptions Option flags. Select one of:<br>
+' `{@link SC14N_TRAN_ENTIRE}` to transform the entire document (default)<br>
+' `{@link SC14N_TRAN_OMITBYTAG}` to exclude the element with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYTAG}` to transform subset with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_OMITBYID}` to exclude the element with Id specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYID}` to transform subset with Id specified in `szNameOrId`<br>
+' and optionally add any of the following. Use the `Or` operator to combine:<br>
+' `{@link SC14N_METHOD_EXCLUSIVE}` to use exclusive c14n method (default is inclusive c14n method)<br>
+' `{@link SC14N_METHOD_WITHCOMMENTS}` to include comments in c14n form (`#WithComments`)<br>
+' `{@link SC14N_OPT_FLATTEN}` to flatten the XML<br>
+' @return Zero (0) on success, or a nonzero error code (use {@link sc14nErrErrorLookup} to check).
+' @deprecated Use {@link sc14nFile2File2}.
+'**/
+Public Function sc14nFile2File(szOutputFile As String, szInputFile As String, Optional szNameOrId As String = "", Optional szParams As String = "", Optional nOptions As Long = 0) As Long
+    Dim nRet As Long
+    nRet = C14N_File2File(szOutputFile, szInputFile, szNameOrId, szParams, nOptions)
+    sc14nFile2File = nRet
+End Function
+
+'/**
+' Perform C14N transformation of XML document (file-to-file).
+' @param szOutputFile Name of output file to create (will be overwritten if exists).
+' @param szInputFile Name of input file containing XML document to be processed.
+' @param szNameOrId Tag name or Id to include or omit.
+' @param eTran Transformation option {@link Tran} (default = `Tran.Entire`).
+' @param eTranMethod  Transformation method {@link TranMethod} (default = `TranMethod.Inclusive`).
+' @param szExclParams InclusiveNamespaces `PrefixList` parameter for exclusive c14n.
+' @param eAdvOpts Advanced option flags {@link AdvOpts}.
+' @return Zero (0) on success, or a nonzero error code (use {@link sc14nErrErrorLookup} to check).
+'**/
+Public Function sc14nFile2File2(szOutputFile As String, szInputFile As String, Optional szNameOrId As String = "", _
+    Optional eTran As Tran = Tran.Entire, Optional eTranMethod As tranMethod = tranMethod.Inclusive, Optional szExclParams As String = "", Optional eAdvOpts As AdvOpts = AdvOpts.None) As Long
+    Dim nRet As Long
+    Dim flags As Long
+    flags = eTran Or eTranMethod Or eAdvOpts
+    nRet = C14N_File2File(szOutputFile, szInputFile, szNameOrId, szExclParams, flags)
+    sc14nFile2File2 = nRet
+End Function
+
+'/**
+' Perform C14N transformation of XML document (file-to-memory, _deprecated_).
+' @param szInputFile Name of input file containing XML document to be processed
+' @param szNameOrId To specify the tag name or Id.
+' @param szParams InclusiveNamespaces `PrefixList` parameter (exclusive C14n only). Use `""` or `vbNullString` to ignore.
+' @param nOptions Option flags. Select one of:<br>
+' `{@link SC14N_TRAN_ENTIRE}` to transform the entire document (default)<br>
+' `{@link SC14N_TRAN_OMITBYTAG}` to exclude the element with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYTAG}` to transform subset with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_OMITBYID}` to exclude the element with Id specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYID}` to transform subset with Id specified in `szNameOrId`<br>
+' and optionally add any of the following. Use the `Or` operator to combine:<br>
+' `{@link SC14N_METHOD_EXCLUSIVE}` to use exclusive c14n method (default is inclusive c14n method)<br>
+' `{@link SC14N_METHOD_WITHCOMMENTS}` to include comments in c14n form (`#WithComments`)<br>
+' `{@link SC14N_OPT_FLATTEN}` to flatten the XML<br>
+' @return UTF-8-encoded byte array _not_ including a terminating zero.
+' @deprecated Use {@link sc14nFile2Bytes2}.
+'**/
+Public Function sc14nFile2Bytes(szInputFile As String, Optional szNameOrId As String = "", Optional szParams As String = "", Optional nOptions As Long = 0) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    
+    sc14nFile2Bytes = vbNullString
+    nBytes = C14N_File2String(0, 0, szInputFile, szNameOrId, szParams, nOptions)
+    If nBytes <= 0 Then Exit Function
+    ReDim abBuffer(nBytes)  ' NB This allocates nBytes+1: we want one extra byte for term'g zero
+    nBytes = C14N_File2String(abBuffer(0), nBytes, szInputFile, szNameOrId, szParams, nOptions)
+    If nBytes > 0 Then
+        ReDim Preserve abBuffer(nBytes - 1) ' Trim term'g zero
+        sc14nFile2Bytes = abBuffer
+    End If
+End Function
+
+'/**
+' Perform C14N transformation of XML document (file-to-memory).
+' @param szInputFile Name of input file containing XML document to be processed.
+' @param szNameOrId Tag name or Id to include or omit.
+' @param eTran Transformation option {@link Tran} (default = `Tran.Entire`).
+' @param eTranMethod  Transformation method {@link TranMethod} (default = `TranMethod.Inclusive`).
+' @param szExclParams InclusiveNamespaces `PrefixList` parameter for exclusive c14n.
+' @param eAdvOpts Advanced option flags {@link AdvOpts}.
+' @return UTF-8-encoded byte array _not_ including a terminating zero.
+'**/
+Public Function sc14nFile2Bytes2(szInputFile As String, Optional szNameOrId As String = "", Optional eTran As Tran = Tran.Entire, _
+    Optional eTranMethod As tranMethod = tranMethod.Inclusive, Optional szExclParams As String = "", Optional eAdvOpts As AdvOpts = AdvOpts.None) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    Dim flags As Long
+    
+    sc14nFile2Bytes2 = vbNullString
+    flags = eTran Or eTranMethod Or eAdvOpts
+    nBytes = C14N_File2String(0, 0, szInputFile, szNameOrId, szExclParams, flags)
+    If nBytes <= 0 Then Exit Function
+    ReDim abBuffer(nBytes)  ' NB This allocates nBytes+1: we want one extra byte for term'g zero
+    nBytes = C14N_File2String(abBuffer(0), nBytes, szInputFile, szNameOrId, szExclParams, flags)
+    If nBytes > 0 Then
+        ReDim Preserve abBuffer(nBytes - 1) ' Trim term'g zero
+        sc14nFile2Bytes2 = abBuffer
+    End If
+End Function
+
+'/**
+' Compute digest value of C14N transformation (file-to-digest, _deprecated_).
+' @param szInputFile Name of input file containing XML document to be processed
+' @param szNameOrId To specify the tag name or Id.
+' @param szParams InclusiveNamespaces `PrefixList` parameter (exclusive C14n only). Use `""` or `vbNullString` to ignore.
+' @param nOptions Option flags. Select one of:<br>
+' `{@link SC14N_TRAN_ENTIRE}` to transform the entire document (default)<br>
+' `{@link SC14N_TRAN_OMITBYTAG}` to exclude the element with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYTAG}` to transform subset with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_OMITBYID}` to exclude the element with Id specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYID}` to transform subset with Id specified in `szNameOrId`<br>
+' and add one of:<br>
+' `{@link SC14N_DIG_SHA1}` to use SHA-1 algorithm (default) or<br>
+' `{@link SC14N_DIG_SHA256}` to use SHA-256.<br>
+' and optionally add any of the following. Use the `Or` operator to combine:<br>
+' `{@link SC14N_METHOD_EXCLUSIVE}` to use exclusive c14n method (default is inclusive c14n method)<br>
+' `{@link SC14N_METHOD_WITHCOMMENTS}` to include comments in c14n form (`#WithComments`)<br>
+' `{@link SC14N_OPT_FLATTEN}` to flatten the XML<br>
+' @return Digest value as base64-encoded string, or an empty string on error.
+' @deprecated Use {@link sc14nFile2Digest2}.
+'**/
+Public Function sc14nFile2Digest(szInputFile As String, Optional szNameOrId As String = "", Optional szParams As String = "", Optional nOptions As Long = 0) As String
+    Dim nc As Long
+    Dim strOut As String
+    
+    nc = C14N_File2Digest(0, 0, szInputFile, szNameOrId, szParams, nOptions)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = C14N_File2Digest(strOut, nc, szInputFile, szNameOrId, szParams, nOptions)
+    If nc > 0 Then
+        sc14nFile2Digest = strOut
+    End If
+End Function
+
+'/**
+' Compute digest value of C14N transformation (file-to-digest).
+' @param szInputFile Name of input file containing XML document to be processed.
+' @param szNameOrId Tag name or Id to include or omit.
+' @param eTran Transformation option {@link Tran} (default = `Tran.Entire`).
+' @param eDigAlg Digest algorithm (default=SHA-1).
+' @param eTranMethod  Transformation method {@link TranMethod} (default = `TranMethod.Inclusive`).
+' @param szExclParams InclusiveNamespaces `PrefixList` parameter for exclusive c14n.
+' @param eAdvOpts Advanced option flags {@link AdvOpts}.
+' @return Digest value as base64-encoded string, or an empty string on error.
+'**/
+Public Function sc14nFile2Digest2(szInputFile As String, Optional szNameOrId As String = "", Optional eTran As Tran = Tran.Entire, _
+    Optional eDigAlg As digAlg = digAlg.Default, Optional eTranMethod As tranMethod = tranMethod.Inclusive, Optional szExclParams As String = "", Optional eAdvOpts As AdvOpts = AdvOpts.None) As String
+    Dim nc As Long
+    Dim strOut As String
+    Dim flags As Long
+    flags = eTran Or eTranMethod Or eAdvOpts Or eDigAlg
+    nc = C14N_File2Digest(0, 0, szInputFile, szNameOrId, szExclParams, flags)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = C14N_File2Digest(strOut, nc, szInputFile, szNameOrId, szExclParams, flags)
+    If nc > 0 Then
+        sc14nFile2Digest2 = strOut
+    End If
+End Function
+
+'/**
+' Perform C14N transformation of XML document (memory-to-memory, _deprecated_).
+' @param lpDataIn Byte array containing XML data to be processed.
+' @param nDataLen Length of input data in bytes.
+' @param szNameOrId To specify the tag name or Id.
+' @param szParams InclusiveNamespaces `PrefixList` parameter (exclusive C14n only). Use `""` or `vbNullString` to ignore.
+' @param nOptions Option flags. Select one of:<br>
+' `{@link SC14N_TRAN_ENTIRE}` to transform the entire document (default)<br>
+' `{@link SC14N_TRAN_OMITBYTAG}` to exclude the element with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYTAG}` to transform subset with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_OMITBYID}` to exclude the element with Id specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYID}` to transform subset with Id specified in `szNameOrId`<br>
+' and optionally add any of the following. Use the `Or` operator to combine:<br>
+' `{@link SC14N_METHOD_EXCLUSIVE}` to use exclusive c14n method (default is inclusive c14n method)<br>
+' `{@link SC14N_METHOD_WITHCOMMENTS}` to include comments in c14n form (`#WithComments`)<br>
+' `{@link SC14N_OPT_FLATTEN}` to flatten the XML<br>
+' @return UTF-8-encoded byte array _not_ including a terminating zero.
+' @remark The output is _always_ UTF-8-encoded.
+' @deprecated Use {@link sc14nBytes2Bytes2}.
+'**/
+Public Function sc14nBytes2Bytes(lpDataIn() As Byte, nDataLen As Long, Optional szNameOrId As String = "", Optional szParams As String = "", Optional nOptions As Long = 0) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    
+    sc14nBytes2Bytes = vbNullString
+    nBytes = C14N_String2String(0, 0, lpDataIn(0), nDataLen, szNameOrId, szParams, nOptions)
+    If nBytes <= 0 Then Exit Function
+    ReDim abBuffer(nBytes)  ' NB This allocates nBytes+1: we want one extra byte for term'g zero
+    nBytes = C14N_String2String(abBuffer(0), nBytes, lpDataIn(0), nDataLen, szNameOrId, szParams, nOptions)
+    If nBytes > 0 Then
+        ReDim Preserve abBuffer(nBytes - 1) ' Trim term'g zero
+        sc14nBytes2Bytes = abBuffer
+    End If
+End Function
+
+'/**
+' Perform C14N transformation of XML document (memory-to-memory).
+' @param lpDataIn Byte array containing XML data to be processed.
+' @param szNameOrId Tag name or Id to include or omit.
+' @param eTran Transformation option {@link Tran} (default = `Tran.Entire`).
+' @param eTranMethod  Transformation method {@link TranMethod} (default = `TranMethod.Inclusive`).
+' @param szExclParams InclusiveNamespaces `PrefixList` parameter for exclusive c14n.
+' @param eAdvOpts Advanced option flags {@link AdvOpts}.
+' @return UTF-8-encoded byte array _not_ including a terminating zero.
+' @remark The output is _always_ UTF-8-encoded.
+'**/
+Public Function sc14nBytes2Bytes2(lpDataIn() As Byte, Optional szNameOrId As String = "", Optional eTran As Tran = Tran.Entire, _
+    Optional eTranMethod As tranMethod = tranMethod.Inclusive, Optional szExclParams As String = "", Optional eAdvOpts As AdvOpts = AdvOpts.None) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    Dim flags As Long
+    Dim nDataLen As Long
+    
+    sc14nBytes2Bytes2 = vbNullString
+    nDataLen = sc14nBytesLength(lpDataIn)
+    If nDataLen <= 0 Then Exit Function
+    flags = eTran Or eTranMethod Or eAdvOpts
+    nBytes = C14N_String2String(0, 0, lpDataIn(0), nDataLen, szNameOrId, szExclParams, flags)
+    If nBytes <= 0 Then Exit Function
+    ReDim abBuffer(nBytes)  ' NB This allocates nBytes+1: we want one extra byte for term'g zero
+    nBytes = C14N_String2String(abBuffer(0), nBytes, lpDataIn(0), nDataLen, szNameOrId, szExclParams, flags)
+    If nBytes > 0 Then
+        ReDim Preserve abBuffer(nBytes - 1) ' Trim term'g zero
+        sc14nBytes2Bytes2 = abBuffer
+    End If
+End Function
+
+'/**
+' Compute digest value of C14N transformation (memory-to-digest, _deprecated_).
+' @param lpDataIn Byte array containing XML data to be processed.
+' @param nDataLen Length of input data in bytes.
+' @param szNameOrId To specify the tag name or Id.
+' @param szParams InclusiveNamespaces `PrefixList` parameter (exclusive C14n only). Use `""` or `vbNullString` to ignore.
+' @param nOptions Option flags. Select one of:<br>
+' `{@link SC14N_TRAN_ENTIRE}` to transform the entire document (default)<br>
+' `{@link SC14N_TRAN_OMITBYTAG}` to exclude the element with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYTAG}` to transform subset with tag name specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_OMITBYID}` to exclude the element with Id specified in `szNameOrId`<br>
+' `{@link SC14N_TRAN_SUBSETBYID}` to transform subset with Id specified in `szNameOrId`<br>
+' and add one of:<br>
+' `{@link SC14N_DIG_SHA1}` to use SHA-1 algorithm (default) or<br>
+' `{@link SC14N_DIG_SHA256}` to use SHA-256.<br>
+' and optionally add any of the following. Use the `Or` operator to combine:<br>
+' `{@link SC14N_METHOD_EXCLUSIVE}` to use exclusive c14n method (default is inclusive c14n method)<br>
+' `{@link SC14N_METHOD_WITHCOMMENTS}` to include comments in c14n form (`#WithComments`)<br>
+' `{@link SC14N_OPT_FLATTEN}` to flatten the XML<br>
+' @return Digest value as base64-encoded string, or an empty string on error.
+' @deprecated Use {@link sc14nBytes2Digest2}.
+'**/
+Public Function sc14nBytes2Digest(lpDataIn() As Byte, nDataLen As Long, Optional szNameOrId As String = "", Optional szParams As String = "", Optional nOptions As Long = 0) As String
+    Dim nc As Long
+    Dim strOut As String
+    
+    nc = C14N_String2Digest(0, 0, lpDataIn(0), nDataLen, szNameOrId, szParams, nOptions)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = C14N_String2Digest(strOut, nc, lpDataIn(0), nDataLen, szNameOrId, szParams, nOptions)
+    If nc > 0 Then
+        sc14nBytes2Digest = strOut
+    End If
+End Function
+
+'/**
+' Compute digest value of C14N transformation (memory-to-digest).
+' @param lpDataIn Byte array containing XML data to be processed.
+' @param szNameOrId Tag name or Id to include or omit.
+' @param eTran Transformation option {@link Tran} (default = `Tran.Entire`).
+' @param eDigAlg Digest algorithm (default=SHA-1).
+' @param eTranMethod  Transformation method {@link TranMethod} (default = `TranMethod.Inclusive`).
+' @param szExclParams InclusiveNamespaces `PrefixList` parameter for exclusive c14n.
+' @param eAdvOpts Advanced option flags {@link AdvOpts}.
+' @return Digest value as base64-encoded string, or an empty string on error.
+'**/
+Public Function sc14nBytes2Digest2(lpDataIn() As Byte, Optional szNameOrId As String = "", Optional eTran As Tran = Tran.Entire, _
+    Optional eDigAlg As digAlg = digAlg.Default, Optional eTranMethod As tranMethod = tranMethod.Inclusive, Optional szExclParams As String = "", Optional eAdvOpts As AdvOpts = AdvOpts.None) As String
+    Dim nc As Long
+    Dim strOut As String
+    Dim flags As Long
+    Dim nDataLen As Long
+    
+    nDataLen = sc14nBytesLength(lpDataIn)
+    If nDataLen <= 0 Then Exit Function
+    flags = eTran Or eTranMethod Or eAdvOpts Or eDigAlg
+    nc = C14N_String2Digest(0, 0, lpDataIn(0), nDataLen, szNameOrId, szExclParams, flags)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = C14N_String2Digest(strOut, nc, lpDataIn(0), nDataLen, szNameOrId, szExclParams, flags)
+    If nc > 0 Then
+        sc14nBytes2Digest2 = strOut
+    End If
+End Function
+
+
+'/**
+' Get date and time the core DLL module was last compiled.
+' @return String containing date and time.
+'**/
+Public Function sc14nGenCompileTime() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = SC14N_Gen_CompileTime("", 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = SC14N_Gen_CompileTime(strOut, nc)
+    If nc > 0 Then
+        sc14nGenCompileTime = strOut
+    End If
+End Function
+
+'/**
+' Get full path name of core DLL module.
+' @return String containing path name.
+'**/
+Public Function sc14nGenModuleName() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = SC14N_Gen_ModuleName("", 0, 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = SC14N_Gen_ModuleName(strOut, nc, 0)
+    If nc > 0 Then
+        sc14nGenModuleName = strOut
+    End If
+End Function
+
+'/**
+' Get platform for which the core DLL is compiled
+' @return String containing `Win32` or `Win64`.
+'**/
+Public Function sc14nGenPlatform() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = SC14N_Gen_Platform("", 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = SC14N_Gen_Platform(strOut, nc)
+    If nc > 0 Then
+        sc14nGenPlatform = strOut
+    End If
+End Function
+
+'/**
+' Get licence type as a string.
+' @return `"D"` = Developer `"T"` = Trial.
+'**/
+Public Function sc14nGenLicenceType() As String
+    sc14nGenLicenceType = Chr(SC14N_Gen_LicenceType())
+End Function
+
+'/**
+' Retrieve the last error message (if available).
+' @return String with more information about the last error.
+' @remark Not all functions set this.
+'**/
+Public Function sc14nErrLastError() As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = SC14N_Err_LastError("", 0)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = SC14N_Err_LastError(strOut, nc)
+    If nc > 0 Then
+        sc14nErrLastError = strOut
+    End If
+End Function
+
+'/**
+' Look up description for error code.
+' @param  nErrCode Value of error code to lookup (may be positive or negative).
+' @return Error message, or empty string if no corresponding error code.
+'**/
+Public Function sc14nErrErrorLookup(nErrCode As Long) As String
+    Dim nc As Long
+    Dim strOut As String
+    nc = SC14N_Err_ErrorLookup("", 0, nErrCode)
+    If nc <= 0 Then Exit Function
+    strOut = String(nc, " ")
+    nc = SC14N_Err_ErrorLookup(strOut, nc, nErrCode)
+    If nc > 0 Then
+        sc14nErrErrorLookup = strOut
+    End If
+End Function
+
+
+' --------------------------
+' UTF-8 CONVERSION UTILITIES
+' --------------------------
+
+' Ref: [How to convert VBA/VB6 Unicode strings to UTF-8](https://www.di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
+
+' /**
+' Convert a VBA "Unicode" string to a UTF-8-encoded byte array.
+' @param strInput String to be encoded.
+' @return Byte array containing UTF-8-encoded string.
+' **/
+Public Function sc14nUtf8BytesFromString(strInput As String) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    ' Catch empty or null input string
+    sc14nUtf8BytesFromString = vbNullString
+    If Len(strInput) < 1 Then Exit Function
+    ' Get length in bytes *including* terminating null
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
+    ReDim abBuffer(nBytes - 2)  ' NB ReDim with one less byte than you need
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
+    sc14nUtf8BytesFromString = abBuffer
+End Function
+
+' /**
+' Convert a byte array containing UTF-8-encoded data to a VBA "Unicode" string.
+' @param lpUtf8Array Byte array to be decoded.
+' @return Standard VBA "Unicode" string containing the decoded characters. Illegal UTF-8 sequences are replaced with "?".
+' **/
+Public Function sc14nUtf8BytesToString(lpUtf8Array() As Byte) As String
+    Dim nBytes As Long
+    Dim nChars As Long
+    Dim strOut As String
+    sc14nUtf8BytesToString = ""
+    ' Catch uninitialized input array
+    nBytes = sc14nBytesLength(lpUtf8Array)
+    If nBytes <= 0 Then Exit Function
+    ' Get number of characters in output string
+    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(lpUtf8Array(0)), nBytes, 0&, 0&)
+    ' Dimension output buffer to receive string
+    strOut = String(nChars, 0)
+    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(lpUtf8Array(0)), nBytes, StrPtr(strOut), nChars)
+    sc14nUtf8BytesToString = Left$(strOut, nChars)
+End Function

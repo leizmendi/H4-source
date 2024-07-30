@@ -1,0 +1,225 @@
+Option Explicit
+Option Compare Database
+
+Type MAPIMessage
+    Reserved As Long
+    Subject As String
+    NoteText As String
+    MessageType As String
+    DateReceived As String
+    ConversationID As String
+    flags As Long
+    RecipCount As Long
+    FileCount As Long
+End Type
+Type MapiRecip
+    Reserved As Long
+    RecipClass As Long
+    Name As String
+    Address As String
+    EIDSize As Long
+    EntryID As String
+End Type
+Type MapiFile
+    Reserved As Long
+    flags As Long
+    Position As Long
+    PathName As String
+    fileName As String
+    FileType As String
+End Type
+Declare Function MAPISendMail Lib "C:\Archivos de programa\Outlook Express\msoe.dll" Alias "BMAPISendMail" _
+    (ByVal Session&, ByVal UIParam&, Message As MAPIMessage, _
+    Recipient() As MapiRecip, File() As MapiFile, ByVal flags&, _
+    ByVal Reserved&) As Long
+
+Global Const SUCCESS_SUCCESS = 0
+Global Const MAPI_TO = 1
+Global Const MAPI_CC = 2
+Global Const MAPI_BCC = 3
+Global Const MAPI_LOGON_UI = &H1
+
+'*************************************************************
+' FUNCION: CountTokens
+'
+' PROPOSITO:
+'   Calcular la cantidad de items que hay en un string, delimitados por
+'   un determinado separador. Util para dimensionar una matriz para
+'   almacenar individualmente los items, antes de llamar a ParseTokens.
+'
+' PARAMETROS:
+'   sSource: La lista de items delimitados
+'   sDelim:  El separador utilizado en sSource para delimitar los items
+'
+' RETORNO
+'   El numero de items en sSource. Si sSource está vacio, devuelve 0.
+'*************************************************************
+Function CountTokens(ByVal sSource As String, ByVal sDelim As String)
+Dim iDelimPos As Integer
+Dim iCount As Integer
+If sSource = "" Then
+    CountTokens = 0
+Else
+    iDelimPos = InStr(1, sSource, sDelim)
+    Do Until iDelimPos = 0
+        iCount = iCount + 1
+        iDelimPos = InStr(iDelimPos + 1, sSource, sDelim)
+    Loop
+    CountTokens = iCount + IIf(Right(sSource, 1) = sDelim, 0, 1)
+End If
+End Function
+
+'*************************************************************
+' FUNCION: GetToken
+'
+' PROPOSITO:
+'   De un string de items delimitados, devuelve el primero y lo elimina de la lista.
+'
+' PARAMETROS:
+'   sSource: La lista de items delimitados
+'   sDelim:  El separador utilizado en sSource para delimitar los items
+'
+' RETORNO
+'   sSource es modificado, con el primer item eliminado.
+'   La función devuelve el item eliminado de sSource.
+'*************************************************************
+Function GetToken(sSource As String, ByVal sDelim As String) As String
+    Dim iDelimPos As Integer
+    ' Busca el primer delimitador
+    iDelimPos = InStr(1, sSource, sDelim)
+    If (iDelimPos = 0) Then
+        GetToken = Trim$(sSource)
+        sSource = ""
+    Else
+        GetToken = Trim$(Left$(sSource, iDelimPos - 1))
+        sSource = Mid$(sSource, iDelimPos + 1)
+    End If
+End Function
+
+'*************************************************************
+' FUNCION: Mail
+'
+' PROPOSITO:
+'   Pasa la información de los campos To, Subject, CC, Attach, y Mensaje
+'   del formulario activo a la función SendMail.
+'   Comprueba que los campos no sean NULL, y si es así los convierte a "".
+'   Muestra también un mensaje indicando si el envío fue ok o no.
+'   Esta función es activada por el botón Enviar del formulario.
+'
+' PARAMETROS:
+'   Ninguno
+'
+' RETORNO
+'   Nada
+'*************************************************************
+Function Mail()
+    Dim f As Form, result
+    Set f = Screen.ActiveForm
+    If IsNull(f!To) Or f!To = "" Then Exit Function
+    If IsNull(f!Subject) Then f!Subject = ""
+    If IsNull(f!CC) Then f!CC = ""
+    If IsNull(f!Bcc) Then f!Bcc = ""
+    If IsNull(f!Attach) Then f!Attach = ""
+    If IsNull(f!Message) Then f!Message = ""
+    result = SendMail((f!Subject), (f!To), (f!CC), (f!Bcc), (f!Attach), (f!Message))
+    If result <> SUCCESS_SUCCESS Then
+        MsgBox "Error sending mail: " & result, 16, "Mail"
+    Else
+        MsgBox "Message sent successfully!", 64, "Mail"
+    End If
+End Function
+
+'*************************************************************
+' SUB: ParseTokens
+'
+' PROPOSITO:
+'   Extraer los items de una lista delimitada y colocarlos en una matriz.
+'
+' PARAMETROS:
+'   mArray(): matriz tipo string de una dimensión donde se colocarán los items.
+'   sTokens:  lista delimitada con los items.
+'   sDelim:   separador utilizado para delimitar.
+'
+' RETORNO
+'   Nada
+'*************************************************************
+Sub ParseTokens(mArray() As String, ByVal sTokens As String, ByVal sDelim As String)
+   Dim i As Integer
+   For i = LBound(mArray) To UBound(mArray)
+      mArray(i) = GetToken(sTokens, sDelim)
+   Next
+End Sub
+
+'*************************************************************
+' FUNCION: SendMail
+'
+' PROPOSITO:
+'   Esta es la función que interactúa directamente con MAPISendMail.
+'   Pasandole unas listas delimitadas por ";" de To, CC, BCC, y adjuntos,
+'   y un mensaje, la función prepara las estructuras MapiRecip y MapiFile
+'   con la ayuda de ParseToken.
+'   Una vez preparadas las estructuras, llama a la API MAPISendMail para
+'   enviar el mensaje.
+'
+' PARAMETROS:
+'   sSubject: Es texto que aparecerá como Asunto del mensaje
+'   sTo:      Lista delimitada por ";" con los destinatarios del mensaje.
+'   sCC:      Lista de los destinatarios CC (Copia)
+'   sBCC:     Lista de los destinatarios BCC (Copia oculta)
+'   sAttach:  Lista de los ficheros a adjuntar al mensaje
+'
+' RETORNO
+'   SUCCESS_SUCCESS si no hay error, o el código MAPI del error.
+'*************************************************************
+Function SendMail(sSubject As String, sTo As String, sCC As String, sBCC As String, _
+   sAttach As String, sMessage As String)
+   Dim i, cTo, CCC, cBCC, cAttach   ' contadores de items
+   Dim MAPI_Message As MAPIMessage
+   ' Contar el número de items en cada lista
+   cTo = CountTokens(sTo, ";")
+   CCC = CountTokens(sCC, ";")
+   cBCC = CountTokens(sBCC, ";")
+   cAttach = CountTokens(sAttach, ";")
+   ' Dimensionar las matrices para las listas
+   ReDim rTo(0 To cTo) As String
+   ReDim rCC(0 To CCC) As String
+   ReDim rBCC(0 To cBCC) As String
+   ReDim rAttach(0 To cAttach) As String
+   ' Pasar el contenido de las listas a las matrices
+   ParseTokens rTo(), sTo, ";"
+   ParseTokens rCC(), sCC, ";"
+   ParseTokens rBCC(), sBCC, ";"
+   ParseTokens rAttach(), sAttach, ";"
+   ' Crear la estructura MAPI Recip para almacenar todos los destinatarios
+   ReDim MAPI_Recip(0 To cTo + CCC + cBCC - 1) As MapiRecip
+   ' Cargar los "TO:" en la estructura
+   For i = 0 To cTo - 1
+      MAPI_Recip(i).Name = rTo(i)
+      MAPI_Recip(i).RecipClass = MAPI_TO
+   Next i
+   ' Cargar los "CC:"
+   For i = 0 To CCC - 1
+      MAPI_Recip(cTo + i).Name = rCC(i)
+      MAPI_Recip(cTo + i).RecipClass = MAPI_CC
+   Next i
+   ' Cargar los "BCC:"
+   For i = 0 To cBCC - 1
+      MAPI_Recip(cTo + CCC + i).Name = rBCC(i)
+      MAPI_Recip(cTo + CCC + i).RecipClass = MAPI_BCC
+   Next i
+   ' Crear la estructura MAPI_File para los adjuntos
+   ReDim MAPI_File(0 To cAttach) As MapiFile
+   ' Cargar los adjuntos en la estructura
+   MAPI_Message.FileCount = cAttach
+   For i = 0 To cAttach - 1
+      MAPI_File(i).Position = -1
+      MAPI_File(i).PathName = rAttach(i)
+   Next i
+   ' Llenar los campos del mensaje
+   MAPI_Message.Subject = sSubject
+   MAPI_Message.NoteText = sMessage
+   MAPI_Message.RecipCount = cTo + CCC + cBCC
+   ' Enviar el mensaje
+   SendMail = MAPISendMail(0&, 0&, MAPI_Message, MAPI_Recip(), _
+        MAPI_File(), MAPI_LOGON_UI, 0&)
+End Function

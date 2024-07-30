@@ -1,0 +1,38 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    If Year(CDate(Nz(Me.txtDesde, 0))) <> CInt(Forms("frmTempo")("txtAño")) Then
+        MsgBox "No es un fecha del año"
+        Me.txtDesde.SetFocus
+        Exit Sub
+    End If
+    If Year(CDate(Nz(Me.txtHasta, 0))) <> CInt(Forms("frmTempo")("txtAño")) Then
+        MsgBox "No es un fecha del año"
+        Me.txtHasta.SetFocus
+        Exit Sub
+    End If
+    If Me.cmbIdTempo.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar una temporada"
+        Me.cmbIdTempo.SetFocus
+        Exit Sub
+    End If
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    Me.txtDesde = CDate(Me.txtDesde)
+End Sub
+
+Private Sub txtHasta_AfterUpdate()
+    Me.txtHasta = CDate(Me.txtHasta)
+End Sub

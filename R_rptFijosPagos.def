@@ -1,0 +1,15 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    If Me.txtPendiente > 0 Then
+        Me.txtPendiente.ForeColor = 255
+    Else
+        Me.txtPendiente.ForeColor = 0
+    End If
+End Sub

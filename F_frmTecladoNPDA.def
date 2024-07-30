@@ -1,0 +1,94 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim gi As Integer, gj As Integer
+
+Private Function Tecla(strBtn As String)
+    Dim strTecla As String, i As Integer, j As Integer, strR As String
+    Select Case strBtn
+        Case "01"
+            strTecla = "1"
+        Case "02"
+            strTecla = "2"
+        Case "03"
+            strTecla = "3"
+        Case "04"
+            strTecla = "4"
+        Case "05"
+            strTecla = "5"
+        Case "06"
+            strTecla = "6"
+        Case "07"
+            strTecla = "7"
+        Case "08"
+            strTecla = "8"
+        Case "09"
+            strTecla = "9"
+        Case "10"
+            strTecla = "0"
+        Case "38"
+            strTecla = ","
+        Case "40"
+            If Left(Me.txtDisplay, 1) = "-" Then
+                Me.txtDisplay = Right(Me.txtDisplay, Len(Me.txtDisplay) - 1)
+                If Me.txtDisplay = "" Then Me.txtDisplay = "0"
+            Else
+                Me.txtDisplay = "-" & Me.txtDisplay
+            End If
+            Exit Function
+        Case "42"
+            If gi > 0 Then
+                Me.txtDisplay = Left(Me.txtDisplay, gi - 1) & Mid(Me.txtDisplay, gi + 1)
+                Me.txtDisplay.SetFocus
+                Me.txtDisplay.SelStart = gi - 1
+                Exit Function
+            End If
+        Case "43"
+            Me.txtDisplay = ""
+            Exit Function
+    End Select
+    If gi = 0 And gj = 0 Then
+        Me.txtDisplay = Me.txtDisplay & strTecla
+        Exit Function
+    End If
+    If gi > 0 Then
+        strR = Left(Me.txtDisplay, gi)
+    Else
+        strR = ""
+    End If
+    strR = strR & strTecla
+    If Len(Me.txtDisplay) > gi + gj Then
+        strR = strR & Right(Me.txtDisplay, Len(Me.txtDisplay) - (gi + gj))
+    End If
+    Me.txtDisplay = strR
+    Me.txtDisplay.SetFocus
+    Me.txtDisplay.SelStart = gi + 1
+    Me.txtDisplay.SelLength = 0
+End Function
+
+Private Sub btnCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnOK_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+        strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), "")
+    Me.txtDisplay = Nz(DimeXML(strXML, "Display"), "")
+    Me.txtDisplay.InputMask = Nz(DimeXML(strXML, "Mascara"), "")
+End Sub
+
+Private Sub txtDisplay_LostFocus()
+    gi = Me.txtDisplay.SelStart
+    gj = Me.txtDisplay.SelLength
+'    MsgBox "SelStart = " & gi & vbCrLf & "Sellength = " & gj
+End Sub

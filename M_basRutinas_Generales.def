@@ -1,0 +1,715 @@
+Option Compare Database
+Option Explicit
+
+Const CM2POINTS = 567
+
+''' WinApi function that maps a UTF-16 (wide character) string to a new character string
+''' se usa en Utf8BytesFromString
+Private Declare Function WideCharToMultiByte Lib "kernel32" ( _
+    ByVal CodePage As Long, _
+    ByVal dwFlags As Long, _
+    ByVal lpWideCharStr As Long, _
+    ByVal cchWideChar As Long, _
+    ByVal lpMultiByteStr As Long, _
+    ByVal cbMultiByte As Long, _
+    ByVal lpDefaultChar As Long, _
+    ByVal lpUsedDefaultChar As Long) As Long
+    
+' CodePage constant for UTF-8
+Private Const CP_UTF8 = 65001
+
+
+
+
+'*******************************************************************************
+'* ShellWSH
+'* Llama al shell de WSH permitiendo la posibilidad de hacerlo de manera
+'* sincrona o asincrona
+'* Argumentos: strRutaAplicacion => Ruta de la aplicación a ejecutar
+'*             strParametros     => (opcional) parámetros a pasarle a la aplic.
+'*             blnEsperar        => (opcional) esperar a la finalización.
+'* uso: ShellWSH "C:\windows\notepad","C:\pp.txt", True
+'* ESH 25/10/05 17:28
+'*******************************************************************************
+ 
+Public Sub RT_ShellWSH(strRutaAplicacion As String, Optional strParametros As String, Optional blnEsperar As Boolean)
+Dim vntResultado As Variant, WSHShell As Object
+ 
+    Set WSHShell = CreateObject("WScript.Shell")
+     
+    If Len(Trim(strParametros)) > 0 Then
+       vntResultado = WSHShell.Run(Chr(34) & strRutaAplicacion & Chr(34) & " " & Chr(34) & strParametros & Chr(34), 8, blnEsperar)
+    Else
+       vntResultado = WSHShell.Run(strRutaAplicacion, 8, blnEsperar)
+    End If
+     
+    Set WSHShell = Nothing
+ 
+End Sub
+
+Public Function LeerArchivoTexto(strFile As String) As String
+    On Error GoTo HandleError
+    Dim strT As String, strR As String    'línea de texto a leer
+    
+    'Abrir el archivo
+    
+    Open strFile For Input As #1  'leer un archivo de texto por el canal #1
+    
+    
+    'Leer y procesar el contenido del archivo
+    While Not EOF(1) 'la función EOF regresa verdadero al llegar al final del archivo
+        Line Input #1, strT  'lee cada una de las líneas del archivo y las almacena en la variable texto
+        strR = strR & strT & vbCrLf
+    Wend
+    If Len(strR) > 2 Then strR = Left(strR, Len(strR) - 2)
+    'Cerrar el archivo de entrada
+    Close #1
+    LeerArchivoTexto = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function EscribirArchivoTexto(strFile As String, strTexto As String) As Boolean
+    On Error GoTo HandleError
+    Dim fs As New Scripting.FileSystemObject
+    Dim ts As TextStream
+    
+    Set ts = fs.CreateTextFile(strFile, True)
+    ts.Write strTexto
+    ts.Close
+    EscribirArchivoTexto = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+
+Sub UnSegundo(Optional iSegundos As Integer = 1)
+    On Error GoTo HandleError
+    Dim dtN As Date
+    dtN = Now()
+    While DateDiff("s", dtN, Now()) < iSegundos
+        'paciencia |)
+    Wend
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+
+Public Function DimeCampo(strTxt As String, _
+                          lIni As Long, _
+                          strBusca As String, _
+                          intMrg As Integer, _
+                          Optional strFinCampo As String = " ", _
+                          Optional lFin As Long, _
+                          Optional ByRef strResultado As String, _
+                          Optional strMSG As String, _
+                          Optional intPasaLineasBeforeFind As Integer = False, _
+                          Optional intReverse As Integer = False) As Integer
+    'Si se pasa strFinCampo="" sirve para comprobar que la cadena buscada está presente en el Texto
+    'En caso contrario, a partir de la cadena buscada se salta espacios o tabuladroes hasta encontrar algún carácter o dígito significativo y a partír de allí recoge resultado hasta encontrarse con strFinCampo o un fin de línea o fin de fichero
+    ' con intPasaLineasBeforeFind=True hacemos que en el bucle1 se "salte los saltos de línea"
+    ' con intReverse = True, a partir del texto buscado se hace el rastreo del campo buscado hacia atrás.
+    'Si busca = "*^*" devuelve los primero que encuentra desde lIni
+    On Error GoTo HandleError
+    Dim k As Long, bAsc As Byte, strR As String, iPaso As Integer
+    iPaso = IIf(intReverse, -1, 1)
+    If strBusca = "*^*" Then
+        k = IIf(lIni = 0, 1, lIni)
+        GoTo Bucle1
+    End If
+    k = InStr(IIf(lIni <= 0, 1, lIni), strTxt, strBusca)
+    
+    If k = 0 Then
+        strMSG = "No se encontró '" & strBusca & "'"
+        GoTo HandleExit
+    End If
+    If Not intReverse Then
+        k = k + Len(strBusca)
+    Else
+        k = k - 1
+    End If
+    If strFinCampo = "" Then GoTo OK
+Bucle1:
+    bAsc = Asc(Mid(strTxt, k, 1))
+    Select Case bAsc
+        Case 0, 10, 13 ' fín de línea
+            If Not intPasaLineasBeforeFind Then
+                GoTo OK
+            Else
+                k = k + iPaso
+                GoTo Bucle1
+            End If
+        Case Is < 33 ' espacio 32, tabulador 9, ...
+            k = k + iPaso
+            GoTo Bucle1
+        Case Else
+            strR = Mid(strTxt, k, 1)
+    End Select
+    
+Bucle2:
+    k = k + iPaso
+    If InStr(k, strTxt, strFinCampo) = k Then
+        GoTo OK
+    End If
+    bAsc = Asc(Mid(strTxt, k, 1))
+    Select Case bAsc
+        Case 0, 10, 13
+            GoTo OK
+        Case Else
+            If Not intReverse Then
+                strR = strR & Mid(strTxt, k, 1)
+            Else
+                strR = Mid(strTxt, k, 1) & strR
+            End If
+            GoTo Bucle2
+    End Select
+            
+OK:
+    DimeCampo = True
+    strResultado = strR
+HandleExit:
+    lFin = k
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    DimeCampo = False
+    strResultado = "?"
+    Resume HandleExit
+End Function
+
+
+
+Function DameComando(strCmd As String) As String
+'Purpose    : Obtiene comando para enviar al shell modificando tildes, eñes y caracteres especiales
+'Author     : Lorenzo
+'Description:
+'Date       : 07ago.19
+    On Error GoTo HandleError
+    Dim strC As String, strFileC As String
+    strFileC = DirectorioDe(CurrentDb.Name) & "cmd.txt"
+    strC = "echo " & strCmd & " > " & strFileC
+    ShellWait strC
+    DameComando = LeerArchivoTexto(strFileC)
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+
+
+''' Return byte array with VBA "Unicode" string encoded in UTF-8
+Public Function Utf8BytesFromString(strInput As String) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    ' Catch empty or null input string
+    Utf8BytesFromString = vbNullString
+    If Len(strInput) < 1 Then Exit Function
+    ' Get length in bytes *including* terminating null
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
+    ReDim abBuffer(nBytes - 2)  ' NB ReDim with one less byte than you need
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
+    Utf8BytesFromString = abBuffer
+End Function
+
+Public Function DimeFileOpen(strTitulo As String, strInitialFileName As String, _
+                             Optional strFiltroDescripcion As String = "PDF", _
+                             Optional strFiltroExtension As String = "*.pdf", _
+                             Optional intAllowMultiSelect As Integer = False) As String
+    On Error GoTo HandleError
+    Dim FileDlg As Office.FileDialog
+    Dim varItem As Variant, strR As String
+    Set FileDlg = Application.FileDialog(msoFileDialogFilePicker)
+    FileDlg.Title = strTitulo
+    FileDlg.AllowMultiSelect = intAllowMultiSelect
+    FileDlg.Filters.Clear
+    FileDlg.Filters.Add strFiltroDescripcion, strFiltroExtension
+    FileDlg.InitialFileName = strInitialFileName
+    If FileDlg.Show = -1 Then
+        For Each varItem In FileDlg.SelectedItems
+            strR = strR & varItem & ";"
+        Next
+    End If
+    If Len(strR) > 1 Then
+        strR = Left(strR, Len(strR) - 1)
+    End If
+    DimeFileOpen = strR
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function Redireccion2puntos(strCarpeta As String) As String
+    On Error GoTo HandleError
+    Dim i As Integer, H As Integer, strR As String
+    strR = strCarpeta
+Bucle:
+    i = InStr(strR, "\..")
+    If i > 0 Then
+        H = InStrRev(strR, "\", i - 1)
+        If H = 0 Then
+            MsgBox "No se pudo redireccionar"
+            GoTo HandleExit
+        End If
+        strR = Mid(strR, 1, H - 1) & Mid(strR, i + 3)
+        GoTo Bucle
+    End If
+    Redireccion2puntos = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function GetSelItems(lst As ListBox, Optional sSeparador As String = "|") As String
+    On Error GoTo HandleError
+    Dim sR As String, vIt As Variant
+    sR = sSeparador
+    For Each vIt In lst.ItemsSelected
+        sR = sR & lst.ItemData(vIt) & sSeparador
+    Next vIt
+    GetSelItems = sR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Sub SetSelItems(lst As ListBox, sSelitems As String, Optional sSeparador As String = "|", Optional bScrollToSelection As Boolean = True)
+    On Error GoTo HandleError
+    Dim vIt As Variant, i As Integer, j As Integer
+    Dim y As Long, z As Long
+    vIt = Split(sSelitems, sSeparador)
+    z = UBound(vIt)
+    For i = 0 To lst.ListCount - 1 ' To 0 Step -1
+        j = InStr(sSelitems, sSeparador & lst.ItemData(i) & sSeparador)
+        lst.Selected(i) = j > 0
+        If Not bScrollToSelection Then
+            If j > 0 Then
+                y = y + 1
+                If y > z - 2 Then Exit For
+            End If
+        End If
+        'If j = 1 Then Exit For
+    Next i
+    If bScrollToSelection Then
+        lst.SetFocus
+        Scroll_ListBox_Selected lst
+    End If
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Sub RequeryListAndSelItems(lst As ListBox)
+    On Error GoTo HandleError
+    Dim sSelitems As String
+    sSelitems = GetSelItems(lst)
+    lst.Requery
+    SetSelItems lst, sSelitems
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Public Function GuardaPosicionForm(frm As Form)
+    PonValorParam frm.Name & "_WindowLeft", frm.WindowLeft, 4
+    PonValorParam frm.Name & "_WindowTop", frm.WindowTop, 4
+End Function
+
+Public Function ColocaForm(frm As Form)
+    On Error GoTo HandleError
+    Dim lL As Long, lT As Long
+    lL = Nz(DameValorParam(frm.Name & "_WindowLeft"), 0)
+    If lL + frm.WindowLeft < 0 Then lL = 0
+    lT = Nz(DameValorParam(frm.Name & "_WindowTop"), 0)
+    If lT + frm.WindowTop < 0 Then lT = 0
+    'If lT <> 0 Then
+    frm.Move lL, lT
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Sub RegistroAnterior(frm As Form, ByRef lbl As Label)
+    On Error GoTo HandleError
+    Dim rs As Recordset
+    Set rs = frm.RecordsetClone
+    rs.Bookmark = frm.Bookmark
+    If rs.PercentPosition > 0 Then rs.MovePrevious
+    frm.Bookmark = rs.Bookmark
+HandleExit:
+    Exit Sub
+HandleError:
+    Select Case Err
+        Case 3021:
+            rs.MoveFirst
+            Resume Next
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Sub
+
+Public Sub RegistroSiguiente(frm As Form, ByRef lbl As Label)
+    On Error GoTo HandleError
+    Dim rs As Recordset
+    Set rs = frm.RecordsetClone
+    rs.Bookmark = frm.Bookmark
+    If (rs.PercentPosition * rs.RecordCount / 100) + 1 < rs.RecordCount Then rs.MoveNext
+    frm.Bookmark = rs.Bookmark
+HandleExit:
+    Exit Sub
+HandleError:
+    Select Case Err
+        Case 3021:
+            rs.MoveLast
+            Resume
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Sub
+
+Public Sub Pon_lblRegistros(frm As Form, ByRef lbl As Label)
+    On Error GoTo HandleError
+    Dim rs As Recordset, lCurrent As Long, lTotal As Long
+    Set rs = frm.RecordsetClone
+    rs.Bookmark = frm.Bookmark
+    lCurrent = (rs.PercentPosition * rs.RecordCount / 100) + 1
+    lTotal = rs.RecordCount
+    lbl.Caption = lCurrent & " de " & lTotal & " registros"
+HandleExit:
+    Exit Sub
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Sub
+
+Public Function Cerrar()
+    On Error GoTo Error_Cerrar
+    On Error Resume Next
+    Dim strRep As String, strForm As String
+    'Ver si hay un informe activo
+    strRep = Screen.ActiveReport.Name
+    If Err = 0 Then
+        DoCmd.Close acReport, strRep
+        Exit Function
+    End If
+    On Error GoTo Error_Cerrar
+    On Error Resume Next
+    strForm = Screen.ActiveForm.Name
+    If Err = 0 Then
+        If strForm = Nz(DameValorParam("AplicacionFormularioInicio"), "frmMenu") Then
+            Dim intResp As Integer
+            intResp = MsgBox("¿Cerrar Programa?", vbQuestion + vbOKCancel + vbDefaultButton1, "Salir del programa")
+            If intResp = vbOK Then
+                'Call Cerrar_Otra("R4") ' NO FUNCIONA..!!
+                DoCmd.Quit
+            End If
+        Else
+            DoCmd.Close acForm, strForm
+        End If
+    Else
+        DoCmd.Close ', CurrentObjectName 'MsgBox "No se encontró formulario para salir"
+    End If
+Exit_Cerrar:
+    Exit Function
+Error_Cerrar:
+    MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En Cerrar"
+    Resume Exit_Cerrar
+End Function
+
+Public Function ArrayToString(vArray As Variant, Optional sSeparador As String = ",") As String
+    Dim i As Integer, sR As String
+    vArray = Nz(vArray, "")
+    For i = 0 To UBound(vArray)
+        sR = sR & vArray(i) & sSeparador
+    Next i
+    If Len(sR) >= Len(sSeparador) And Len(sSeparador) > 0 Then
+        sR = RecDerTop(sR, Len(sSeparador), 0)
+    End If
+    ArrayToString = sR
+End Function
+
+
+Public Function GetRelativePath(ByVal fromPath As String _
+                       , ByVal toPath As String _
+                       , Optional bGetAbsolute As Boolean = False) As String
+                       
+    On Error GoTo HandleError
+    Dim arrFromPath As Variant
+    Dim arrToPath As Variant
+    Dim i As Long, j As Long
+    Dim relativePath As String
+    Dim newToPath As String
+    If Right(fromPath, 1) = "\" Then fromPath = Left(fromPath, Len(fromPath) - 1)
+    If Right(toPath, 1) = "\" Then toPath = Left(toPath, Len(toPath) - 1)
+    arrFromPath = Split(fromPath, "\")
+    arrToPath = Split(toPath, "\")
+    
+    i = 0
+    Do While i <= UBound(arrFromPath) And i <= UBound(arrToPath)
+        If arrFromPath(i) <> arrToPath(i) Then Exit Do
+        i = i + 1
+    Loop
+    
+    For j = i To UBound(arrToPath)
+        newToPath = newToPath & arrToPath(j) & "\"
+    Next j
+    
+    For j = i To UBound(arrFromPath)
+        relativePath = relativePath & "..\"
+    Next j
+    If bGetAbsolute Then relativePath = fromPath & "\" & relativePath
+    GetRelativePath = relativePath & newToPath
+    
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function ArrayToStringSep(vArray As Variant, Optional sSeparador As String = "|") As String
+    Dim i As Integer, sR As String
+    For i = 0 To UBound(vArray)
+        sR = sR & vArray(i) & sSeparador
+    Next i
+    If Len(sR) >= Len(sSeparador) Then
+        sR = RecDerTop(sR, Len(sSeparador), 0)
+    End If
+    ArrayToStringSep = sR
+End Function
+
+Public Function ListaToStringSep(lst As ListBox, iCol As Integer, Optional sSeparador As String = "|") As String
+    Dim vIt As Variant, sR As String
+    For Each vIt In lst.ItemsSelected
+        sR = sR & lst.Column(iCol, vIt) & sSeparador
+    Next vIt
+    If Len(sR) >= Len(sSeparador) Then
+        sR = RecDerTop(sR, Len(sSeparador), 0)
+    End If
+    ListaToStringSep = sR
+End Function
+
+Public Function ContieneItem(sItems As String, sItem As String, Optional sSeparador As String = "|") As Boolean
+    ContieneItem = InStr(sItems, sSeparador & sItem & sSeparador) > 0
+End Function
+
+Public Sub ActualizarAutonumericos(db As dao.Database)
+    On Error GoTo Error_ActualizarAutonumericos
+    Dim rs As Recordset, strSQL As String, lngIdMax As Long, i As Integer
+    Dim rs2 As Recordset
+    Set rs = db.OpenRecordset("SELECT * FROM _Tablas_ WHERE AutonumericoSN = True ORDER BY OrdenAnexar", dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = "SELECT TOP 1 " & rs("CampoAutonumerico") & " FROM " & rs("Tabla") & " ORDER BY " & rs("CampoAutonumerico") & " DESC"
+        Set rs2 = db.OpenRecordset(strSQL, dbOpenSnapshot)
+        If rs2.EOF Then
+            lngIdMax = 1
+        Else
+            lngIdMax = rs2(rs("CampoAutonumerico")) + 1
+        End If
+        'lngIdMax = Nz(DMax(rs("CampoAutonumerico"), rs("Tabla")), 0) + 1
+        strSQL = "INSERT INTO " & rs("Tabla") & " (" & rs("CampoAutonumerico") & ")"
+        strSQL = strSQL & " SELECT " & lngIdMax & " AS Id"
+        'strSQL = strSQL & " SELECT Nz(Dmax('" & rs("CampoAutonumerico") & "', '" & rs("Tabla") & "'),0)+1  AS Id"
+        db.Execute strSQL
+        strSQL = "DELETE * FROM " & rs("Tabla")
+        strSQL = strSQL & " WHERE " & rs("CampoAutonumerico") & "=" & lngIdMax
+        db.Execute strSQL
+        i = i + 1
+        rs.MoveNext
+    Wend
+    MsgBox i & " autonuméricos ajustados", vbInformation
+'    InsertLog i & " autonuméricos ajustados"
+Salir_ActualizarAutonumericos:
+    Exit Sub
+Error_ActualizarAutonumericos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ActualizarAutonumericos" & vbCrLf & Err.Description
+            Resume Salir_ActualizarAutonumericos
+    End Select
+End Sub
+
+Public Sub ActualizarAutonumerico(sTabla As String, sCampoAutonumerico As String)
+    On Error GoTo Error_ActualizarAutonumericos
+    Dim lngIdMax As Long, i As Integer, sSQL As String
+    Dim rs As Recordset
+    sSQL = "SELECT TOP 1 " & sCampoAutonumerico & " FROM " & sTabla & " ORDER BY " & sCampoAutonumerico & " DESC"
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        lngIdMax = 1
+    Else
+        lngIdMax = rs(sCampoAutonumerico) + 1
+    End If
+    sSQL = "INSERT INTO " & sTabla & " (" & sCampoAutonumerico & ")"
+    sSQL = sSQL & " SELECT " & lngIdMax & " AS Id"
+    CurrentDb.Execute sSQL
+    sSQL = "DELETE * FROM " & sTabla
+    sSQL = sSQL & " WHERE " & sCampoAutonumerico & "=" & lngIdMax
+    CurrentDb.Execute sSQL
+    i = i + 1
+    MsgBox i & " autonumérico ajustado en la tabla " & sTabla, vbInformation
+Salir_ActualizarAutonumericos:
+    Exit Sub
+Error_ActualizarAutonumericos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ActualizarAutonumericos" & vbCrLf & Err.Description
+            Resume Salir_ActualizarAutonumericos
+    End Select
+End Sub
+
+Public Sub pipi()
+    ActualizarAutonumerico "GD_Proyecto_PerfilTramos_Apoyos", "IdPTA"
+End Sub
+
+Public Function Column_List(lst As ListBox, X_mouse As Long) As Integer
+    On Error GoTo HandleError
+    Dim lWidth As Long, iColumnCount As Integer, sColumnWidths As String, vColWidth As Variant, lColW As Long, lTotW As Long
+    Dim i As Integer, iR As Integer, lColW_r As Long
+    iR = -1
+    lWidth = lst.Width
+    iColumnCount = lst.ColumnCount
+    sColumnWidths = lst.ColumnWidths
+    vColWidth = Split(sColumnWidths, ";")
+    If iColumnCount > UBound(vColWidth) + 1 Then
+        For i = 0 To UBound(vColWidth)
+            lTotW = lTotW + vColWidth(i)
+        Next i
+        lColW_r = (lWidth - lTotW) / (iColumnCount - (UBound(vColWidth) + 1))
+    End If
+    lTotW = 0
+    For i = 0 To iColumnCount - 1
+        If i <= UBound(vColWidth) Then
+            lColW = vColWidth(i)
+        Else
+            lColW = lColW_r
+        End If
+        lTotW = lTotW + lColW
+        If lTotW > X_mouse Then
+            iR = i
+            Exit For
+        End If
+    Next i
+    Column_List = iR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function Column_Cdr(cdr As Rectangle, X_mouse As Long) As Integer
+    On Error GoTo HandleError
+    Dim lWidth As Long, iColumnCount As Integer, sColumnWidths As String, vColumnWidths As Variant, vColWidth As Variant, lColW As Long, lTotW As Long
+    Dim i As Integer, iR As Integer, lColW_r As Long
+    iR = -1
+    lWidth = cdr.Width
+    sColumnWidths = cdr.Tag
+    vColWidth = Split(sColumnWidths, ";")
+    iColumnCount = UBound(vColWidth)
+    If iColumnCount > UBound(vColWidth) + 1 Then
+        For i = 0 To UBound(vColWidth)
+            lTotW = lTotW + vColWidth(i)
+        Next i
+        lColW_r = (lWidth - lTotW) / (iColumnCount - (UBound(vColWidth) + 1))
+    End If
+    lTotW = 0
+    For i = 0 To iColumnCount
+        If i <= UBound(vColWidth) Then
+            lColW = vColWidth(i)
+        Else
+            lColW = lColW_r
+        End If
+        lTotW = lTotW + lColW
+        If lTotW > X_mouse Then
+            iR = i
+            Exit For
+        End If
+    Next i
+    Column_Cdr = iR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function ColumnWidths_List(lst As ListBox) As String
+    On Error GoTo HandleError
+    Dim lWidth As Long, iColumnCount As Integer, sColumnWidths As String, vColWidth As Variant, lColW As Long, lTotW As Long
+    Dim i As Integer, iR As Integer, lColW_r As Long
+    iR = -1
+    lWidth = lst.Width
+    iColumnCount = lst.ColumnCount
+    sColumnWidths = lst.ColumnWidths
+    vColWidth = Split(sColumnWidths, ";")
+    If iColumnCount > UBound(vColWidth) + 1 Then
+        For i = 0 To UBound(vColWidth)
+            lTotW = lTotW + vColWidth(i)
+        Next i
+        lColW_r = (lWidth - lTotW) / (iColumnCount - (UBound(vColWidth) + 1))
+        While i < lst.ColumnCount
+            sColumnWidths = sColumnWidths & ";" & CStr(lColW_r)
+            i = i + 1
+        Wend
+    End If
+    ColumnWidths_List = sColumnWidths
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+
+Public Function PonQuery(sQueryName As String, sSQL As String)
+    On Error Resume Next
+    CurrentDb.QueryDefs(sQueryName).SQL = sSQL
+    If Err <> 0 Then
+        On Error GoTo HandleError
+        Dim qdf As New QueryDef
+        qdf.Name = sQueryName
+        qdf.SQL = sSQL
+        CurrentDb.QueryDefs.Append qdf
+    End If
+    PonQuery = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

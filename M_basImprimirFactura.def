@@ -1,0 +1,252 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub ImprimirFactura(lngIdFactura As Long, Optional intImprimir_VistaPrevia_PDF_Email As Integer = 2, Optional ByRef strPdfFac As String _
+                            , Optional intImprimirDOS As Integer = False, Optional intConfirmOverwritePDF As Integer = 88)
+    On Error GoTo Error_ImprimirFactura
+    Dim strNumeroDeFactura As String, i As Integer, stDocName As String, strSerie As String, strXML As String
+    Dim strDir As String, strFac As String
+    strNumeroDeFactura = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFactura), "")
+    If strNumeroDeFactura = "" Then
+        MsgBox " No se encontró IdFactura = " & lngIdFactura
+        Exit Sub
+    End If
+    If TBaiSN Then
+        If IsNull(DLookup("IdTBaiCadena", "tbFacturas_TBaiCadena", "IdFactura = " & lngIdFactura)) Then
+            If Not TBai_FacturaAlta(lngIdFactura) Then
+                MsgBox "No se generó registro de TicketBai", vbExclamation
+            Else
+                TBai_EnviosPendientesSend
+            End If
+        End If
+    End If
+    strSerie = Nz(DLookup("Serie", "tbFacturasCab", "IdFactura = " & lngIdFactura), "")
+    PonXML strXML, "Serie", strSerie
+    Actualiza_auxFacturasPagos lngIdFactura
+    
+    If Nz(DameValorParam("FacturasImpresionPor"), 1) = 2 Or intImprimirDOS Then
+        'MsgBox "No implementada la impresión directa a impresora"
+        If intImprimir_VistaPrevia_PDF_Email = 1 Then
+            If DCount("IdDetalle", "tbFacturasDet", "IdFactura = " & lngIdFactura) > Nz(DameValorParam("FacturasLineasDetalle"), 15) Then
+                For i = 1 To Nz(DameValorParam("FacturasNumCopias"), 1)
+                    ImprimirFacturaDOS lngIdFactura, 1
+                Next i
+            Else
+                For i = 1 To Nz(DameValorParam("FacturasNumCopias"), 1)
+                    ImprimirFacturaDOS lngIdFactura
+                Next i
+            End If
+        Else
+            ImprimirFacturaDOS lngIdFactura, , True
+        End If
+    Else
+        If intImprimir_VistaPrevia_PDF_Email >= 3 Then stDocName = Nz(DameValorParam("FacturasRPTpdf"), "")
+        If intImprimir_VistaPrevia_PDF_Email = 5 Then stDocName = Nz(DameValorParam("FacturasRPT"), "") 'Urrobi
+        If stDocName = "" Then stDocName = Nz(DameValorParam("FacturasRPT"), "rptFacturaA4")
+        
+        Select Case intImprimir_VistaPrevia_PDF_Email
+            Case 1
+                Dim strPrintWin As String, strPrintDef As String
+                strPrintDef = Application.Printer.DeviceName
+                strPrintWin = Nz(DameValorParam("FacturasImpresoraWindows"), strPrintDef)
+                If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintWin)
+                For i = 1 To Nz(DameValorParam("FacturasNumCopias"), 1)
+                    DoCmd.OpenReport stDocName, acViewNormal, , "IdFacturaCab = " & lngIdFactura, , strXML
+                Next i
+                If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintDef)
+            Case 2
+                DoCmd.OpenReport stDocName, acViewPreview, , "IdFacturaCab = " & lngIdFactura, , strXML
+            Case 3, 4
+'                strFac = DLookup("[NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura)
+'                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
+'                PrintReportAsPDF stDocName, "IdFacturaCab = " & lngIdFactura, strPdfFac, "Factura: " & strFac, , , intImprimir_VistaPrevia_PDF_Email = 3, strXML, intConfirmOverwritePDF
+                strFac = DLookup("[NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura)
+                Dim sCarpetaAgencia As String, sCodCli As String
+                sCodCli = Nz(DLookup("CodCliente", "tbFacturasCab", "IdFactura = " & lngIdFactura), 0)
+                If Nz(DLookup("Agencia", "tbClientes", "CodCliente = '" & sCodCli & "'"), False) = True Then
+                    sCarpetaAgencia = Trim(Nz(DLookup("[NombreCli] & ' ' & [ApellidosCli]", "tbClientes", "CodCliente = '" & sCodCli & "'"), ""))
+                    sCarpetaAgencia = NombreValido(sCarpetaAgencia) & "\"
+                    If Dir(DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaAgencia, vbDirectory) = "" Then MkDir DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaAgencia
+                End If
+                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaAgencia & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
+                PrintReportAsPDF stDocName, "IdFacturaCab = " & lngIdFactura, strPdfFac, "Factura: " & strFac, , , intImprimir_VistaPrevia_PDF_Email = 3, strXML, intConfirmOverwritePDF
+            Case 5
+                strFac = DLookup("[NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura)
+                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "Facturas\" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
+                PrintReportAsPDF stDocName, "IdFacturaCab = " & lngIdFactura, strPdfFac, "Factura: " & strFac, , , False, strXML
+        End Select
+        
+'
+'
+'        If DameValorParam("ImpresionInformes") = 1 Then
+'            For i = 1 To Nz(DameValorParam("FacturasNumCopias"), 1)
+'                DoCmd.OpenReport stDocName, acViewNormal, , "IdFacturaCab = " & lngIdFactura
+'            Next i
+'        Else
+'            DoCmd.OpenReport stDocName, acViewPreview, , "IdFacturaCab = " & lngIdFactura
+'        End If
+    End If
+    CurrentDb.Execute "UPDATE tbFacturasCab SET tbFacturasCab.Imprimida = Yes" _
+                    & " WHERE (((tbFacturasCab.IdFactura)=" & lngIdFactura & "));"
+    Call MarcarPagadaSN(lngIdFactura)
+    If intImprimir_VistaPrevia_PDF_Email < 3 And Nz(DameValorParam("FacturasPDFgenerarSiempre"), False) = True Then ImprimirFactura lngIdFactura, 3, , , False
+    
+Salir_ImprimirFactura:
+    Exit Sub
+Error_ImprimirFactura:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ImprimirFactura" & vbCrLf & Err.Description
+            Resume Salir_ImprimirFactura
+    End Select
+End Sub
+
+
+Public Function ImprimirFacturas(strCriteria As String) As Integer
+    Dim strSQL As String, rs As Recordset
+    On Error GoTo Error_ImprimirFacturas
+    strSQL = "SELECT IdFactura FROM tbFacturasCab WHERE " & strCriteria
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        ImprimirFactura rs("IdFactura")
+        rs.MoveNext
+    Wend
+Salir_ImprimirFacturas:
+    Exit Function
+Error_ImprimirFacturas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirFacturas"
+            
+    End Select
+    Resume Salir_ImprimirFacturas
+End Function
+
+
+
+Public Sub Actualiza_auxFacturasPagos(lngIdFacturaCab As Long)
+    CurrentDb.Execute "DELETE * FROM auxFacturasPagos WHERE IdFacturaCab = " & lngIdFacturaCab, dbFailOnError
+    Dim strSQL As String, stSQ As String, rs As Recordset, strCri As String, rsAux As Recordset
+    strCri = " = " & lngIdFacturaCab
+    strSQL = "SELECT tbCajaDet.Cantidad, tbCajaDet.Fecha, tbFPago.Descripcion"
+    strSQL = strSQL & " FROM (tbFPago RIGHT JOIN tbCajaDet ON tbFPago.CodFPago = tbCajaDet.CodFPago) LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet"
+    strSQL = strSQL & " WHERE (tbCajaDet.IdFrom " & strCri & " AND tbCajaDet.Origen='F')"
+    strSQL = strSQL & " OR (tbCajaDet.IdFParcial" & strCri & ")"
+    strSQL = strSQL & " AND Nz(tbFPago.FactorSumaAPagado,1)<>0"
+    stSQ = "SELECT DISTINCT IdFrom FROM tbFacturasDet"
+    stSQ = stSQ & " WHERE IdFactura " & strCri & " AND Origen='E'"
+    stSQ = stSQ & " ORDER BY IdFrom"
+    Set rs = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = strSQL & " OR (tbCajaDet.IdFrom =" & rs("IdFrom") & " AND tbCajaDet.Origen='E')"
+        rs.MoveNext
+    Wend
+    stSQ = "SELECT DISTINCT IdFrom FROM tbFacturasDet"
+    stSQ = stSQ & " WHERE IdFactura " & strCri & " AND Origen='T'"
+    stSQ = stSQ & " ORDER BY IdFrom"
+    Set rs = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = strSQL & " OR (tbCajaDet.IdFrom =" & rs("IdFrom") & " AND tbCajaDet.Origen='T')"
+        rs.MoveNext
+    Wend
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAux = CurrentDb.OpenRecordset("auxFacturasPagos", dbOpenDynaset)
+    While Not rs.EOF
+        rsAux.AddNew
+        rsAux("IdFacturaCab") = lngIdFacturaCab
+        rsAux("Fecha") = rs("Fecha")
+        rsAux("FormaPago") = rs("Descripcion")
+        rsAux("Pagado") = rs("Cantidad")
+        rsAux.Update
+        rs.MoveNext
+    Wend
+        
+End Sub
+
+
+Public Sub ImprimirFicha(lngIdFicha As Long, Optional intImprimir_VistaPrevia_PDF_Email As Integer = 2, Optional ByRef strPdfFac As String)
+    On Error GoTo Error_ImprimirFicha
+    Dim i As Integer, stDocName As String
+    Dim strDir As String, strFac As String
+    
+    If Nz(DameValorParam("FichasImpresionPor"), 1) = 2 Then
+        'MsgBox "No implementada la impresión directa a impresora"
+        If intImprimir_VistaPrevia_PDF_Email = 1 Then
+            If DCount("IdDetalle", "tbFichasDet", "IdFicha = " & lngIdFicha) > Nz(DameValorParam("FichasLineasDetalle"), 15) Then
+                For i = 1 To Nz(DameValorParam("FichasNumCopias"), 1)
+                    ImprimirFichaDOS lngIdFicha, 1
+                Next i
+            Else
+                For i = 1 To Nz(DameValorParam("FichasNumCopias"), 1)
+                    ImprimirFichaDOS lngIdFicha
+                Next i
+            End If
+        Else
+            ImprimirFichaDOS lngIdFicha, , True, True
+        End If
+    Else
+        stDocName = Nz(DameValorParam("CuentasRPT"), "rptCuentaA4")
+        
+        Select Case intImprimir_VistaPrevia_PDF_Email
+            Case 1
+                Dim strPrintWin As String, strPrintDef As String
+                strPrintDef = Application.Printer.DeviceName
+                strPrintWin = Nz(DameValorParam("FichasImpresoraWindows"), strPrintDef)
+                If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintWin)
+                For i = 1 To Nz(DameValorParam("FichasNumCopias"), 1)
+                    DoCmd.OpenReport stDocName, acViewNormal, , "tbFichasCab.IdFichaCab = " & lngIdFicha
+                Next i
+                If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintDef)
+            Case 2
+                DoCmd.OpenReport stDocName, acViewPreview, , "tbFichasCab.IdFichaCab = " & lngIdFicha
+            Case 3, 4
+                strFac = CStr(lngIdFicha)
+                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "fichas\" & SoloNum(strFac) & ".pdf"
+                PrintReportAsPDF stDocName, "tbFichasCab.IdFichaCab = " & lngIdFicha, strPdfFac, "Ficha: " & strFac, , , intImprimir_VistaPrevia_PDF_Email = 3
+        End Select
+        
+'
+'
+'        If DameValorParam("ImpresionInformes") = 1 Then
+'            For i = 1 To Nz(DameValorParam("FacturasNumCopias"), 1)
+'                DoCmd.OpenReport stDocName, acViewNormal, , "IdFacturaCab = " & lngIdFicha
+'            Next i
+'        Else
+'            DoCmd.OpenReport stDocName, acViewPreview, , "IdFacturaCab = " & lngIdFicha
+'        End If
+    End If
+    CurrentDb.Execute "UPDATE tbFacturasCab SET tbFacturasCab.Imprimida = Yes" _
+                    & " WHERE (((tbFacturasCab.IdFactura)=" & lngIdFicha & "));"
+    Call MarcarPagadaSN(lngIdFicha)
+Salir_ImprimirFicha:
+    Exit Sub
+Error_ImprimirFicha:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ImprimirFicha" & vbCrLf & Err.Description
+            Resume Salir_ImprimirFicha
+    End Select
+End Sub
+
+Public Function Habitacion_Factura(lIdFactura As Long) As String
+
+    On Error GoTo HandleError
+    Dim sHab As String, rs As Recordset, sSQL As String
+    sSQL = "SELECT DISTINCT Parcela" _
+            & " FROM tbFichasDet AS FD INNER JOIN tbFichasCab as FC ON FD.IdFichaCab = FC.IdFichaCab" _
+            & " WHERE FC.IdFactura = " & lIdFactura _
+            & " AND Parcela Is Not Null"
+    Set rs = CurrentDb.OpenRecordset(sSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        sHab = sHab & ", " & rs("Parcela")
+        rs.MoveNext
+    Wend
+    If Len(sHab) > 2 Then sHab = Mid(sHab, 3)
+    Habitacion_Factura = sHab
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox "Error nº " & Err & vbCrLf & Err.Description
+    Resume HandleExit
+End Function

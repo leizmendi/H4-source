@@ -1,0 +1,31 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim intAño As Integer, intMes As Integer, dt As Date
+    If IsOpenForm("frmPlaning") Then
+        intAño = Forms("frmPlaning")("txtAño")
+        intMes = Forms("frmPlaning")("cmbMes")
+    ElseIf IsOpenForm("frmPlaningH") Then
+        intAño = Year(Forms("frmPlaningH")("txtFechaIni"))
+        intMes = Month(Forms("frmPlaningH")("txtFechaIni"))
+    ElseIf IsOpenForm("frmPlaningG") Then
+        intAño = Year(Forms("frmPlaningG")("txtFechaIni"))
+        intMes = Month(Forms("frmPlaningG")("txtFechaIni"))
+    Else
+        intAño = Year(Date)
+        intMes = Month(Date)
+    End If
+    dt = CDate(intAño & "/" & intMes & "/01")
+    Me.lblTitulo.Caption = "Plan de Reservas " & Format(dt, "mmmm yyyy")
+    PrintPlanning intMes, intAño, Me, Nz(DameValorParam("ImprimirPlaningIdGrupoPl"), 0)
+End Sub
+
+Private Sub Report_Page()
+    'drwLineasVerticales Me
+End Sub

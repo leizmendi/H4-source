@@ -1,0 +1,1213 @@
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private mlngId As Long
+Private mlngIdFichaCab As Long
+Private mlngWuBookID As Long
+Private mdtFechaReserva As Date
+Private mdtFechaLlegada As Date
+Private mdtFechaSalida As Date
+Private mdtHoraLlegada As Date
+Private mstrMatriculaVehiculo As String
+Private mstrModeloVehiculo As String
+Private mstrTipoDocumento As String
+Private mdtFechaExpedicion As Date
+Private mstrSexoCliente As String
+Private mstrDNICliente As String
+Private mstrNombreCliente As String
+Private mstrApellidosCliente As String
+Private mstrDireccionCliente As String
+Private mstrTelefonoCliente As String
+Private mstrLocalidadCliente As String
+Private mstrCPCliente As String
+Private mstrProvinciaCliente As String
+Private mstrPaisCliente As String
+Private miEstadoFicha As Integer
+Private mstrNotas As String
+Private mbooIvaIncluido As Boolean
+Private mlngIdFactura As Long
+Private mbooNoFacturarExtras As Boolean
+Private miAdultos As Integer
+Private miNiños As Integer
+Private mlngParcelasCamping As Long
+Private mlngBungaloes As Long
+Private mbooConfirmadaReserva As Boolean
+Private mdtFechaNacimiento As Variant
+Private mlngIdCajaAper As Long
+Private mstrLugarNacimiento As String
+Private mlngIdAgencia As Long
+Private mstrAgencia As String
+Private mcurDto As Currency
+Private mstrEMail As String
+Private mlngNumeroPolicia As Long
+Private mbooVariasCuentasSN As Boolean
+Private mstrRegimen As String
+Private mstrDescripcionCliente As String
+Private mcurReservaImporteSolicitado As Currency
+Private mstrTarjetaCodigoSeguridad As String
+Private mstrNumeroTarjeta As String
+Private mstrCaducaTarjeta As String
+Private mstrTitularTarjeta As String
+Private mlngIdIdioma As Long
+Private mbooMarcarSN As Boolean
+Private mstrNotasParteG As String
+Private mstrDetalleEstancia As String
+Private mstrSuReferencia As String
+Private mlngIdProcedencia As Long
+Private mrstRecordset As Recordset
+Private mbooLoaded As Boolean
+Private mstrHuellaPlaning As String
+
+'Private mcFD() As cFichaDet
+Private Type DetallePlaning
+    IdTipoParcela As Long
+    Parcela As String
+    FechaD As Date
+    Fecha_H As Date
+    Pax As Integer
+    Cantidad As Integer
+End Type
+
+Private mDetalleP() As DetallePlaning
+
+
+Public Property Get id() As Long
+    id = mlngId
+End Property
+
+Public Property Get IdFichaCab() As Long
+    IdFichaCab = mlngIdFichaCab
+End Property
+
+Public Property Let IdFichaCab(rData As Long)
+    mlngIdFichaCab = rData
+End Property
+
+Public Property Get WuBookID() As Long
+    WuBookID = mlngWuBookID
+End Property
+
+Public Property Let WuBookID(rData As Long)
+    mlngWuBookID = rData
+End Property
+
+Public Property Get FechaReserva() As Date
+    FechaReserva = mdtFechaReserva
+End Property
+
+Public Property Let FechaReserva(rData As Date)
+    mdtFechaReserva = rData
+End Property
+
+Public Property Get FechaLlegada() As Date
+    FechaLlegada = mdtFechaLlegada
+End Property
+
+Public Property Let FechaLlegada(rData As Date)
+    mdtFechaLlegada = rData
+End Property
+
+Public Property Get FechaSalida() As Date
+    FechaSalida = mdtFechaSalida
+End Property
+
+Public Property Let FechaSalida(rData As Date)
+    mdtFechaSalida = rData
+End Property
+
+Public Property Get HoraLlegada() As Date
+    HoraLlegada = mdtHoraLlegada
+End Property
+
+Public Property Let HoraLlegada(rData As Date)
+    mdtHoraLlegada = rData
+End Property
+
+Public Property Get MatriculaVehiculo() As String
+    MatriculaVehiculo = mstrMatriculaVehiculo
+End Property
+
+Public Property Let MatriculaVehiculo(rData As String)
+    mstrMatriculaVehiculo = rData
+End Property
+
+Public Property Get ModeloVehiculo() As String
+    ModeloVehiculo = mstrModeloVehiculo
+End Property
+
+Public Property Let ModeloVehiculo(rData As String)
+    mstrModeloVehiculo = rData
+End Property
+
+Public Property Get TipoDocumento() As String
+    TipoDocumento = mstrTipoDocumento
+End Property
+
+Public Property Let TipoDocumento(rData As String)
+    mstrTipoDocumento = rData
+End Property
+
+Public Property Get FechaExpedicion() As Date
+    FechaExpedicion = mdtFechaExpedicion
+End Property
+
+Public Property Let FechaExpedicion(rData As Date)
+    mdtFechaExpedicion = rData
+End Property
+
+Public Property Get SexoCliente() As String
+    SexoCliente = mstrSexoCliente
+End Property
+
+Public Property Let SexoCliente(rData As String)
+    mstrSexoCliente = rData
+End Property
+
+Public Property Get DNICliente() As String
+    DNICliente = mstrDNICliente
+End Property
+
+Public Property Let DNICliente(rData As String)
+    mstrDNICliente = rData
+End Property
+
+Public Property Get NombreCliente() As String
+    NombreCliente = mstrNombreCliente
+End Property
+
+Public Property Let NombreCliente(rData As String)
+    mstrNombreCliente = rData
+End Property
+
+Public Property Get ApellidosCliente() As String
+    ApellidosCliente = mstrApellidosCliente
+End Property
+
+Public Property Let ApellidosCliente(rData As String)
+    mstrApellidosCliente = rData
+End Property
+
+Public Property Get DireccionCliente() As String
+    DireccionCliente = mstrDireccionCliente
+End Property
+
+Public Property Let DireccionCliente(rData As String)
+    mstrDireccionCliente = rData
+End Property
+
+Public Property Get TelefonoCliente() As String
+    TelefonoCliente = mstrTelefonoCliente
+End Property
+
+Public Property Let TelefonoCliente(rData As String)
+    mstrTelefonoCliente = rData
+End Property
+
+Public Property Get LocalidadCliente() As String
+    LocalidadCliente = mstrLocalidadCliente
+End Property
+
+Public Property Let LocalidadCliente(rData As String)
+    mstrLocalidadCliente = rData
+End Property
+
+Public Property Get CPCliente() As String
+    CPCliente = mstrCPCliente
+End Property
+
+Public Property Let CPCliente(rData As String)
+    mstrCPCliente = rData
+End Property
+
+Public Property Get ProvinciaCliente() As String
+    ProvinciaCliente = mstrProvinciaCliente
+End Property
+
+Public Property Let ProvinciaCliente(rData As String)
+    mstrProvinciaCliente = rData
+End Property
+
+Public Property Get PaisCliente() As String
+    PaisCliente = mstrPaisCliente
+End Property
+
+Public Property Let PaisCliente(rData As String)
+    mstrPaisCliente = rData
+End Property
+
+Public Property Get EstadoFicha() As Integer
+    EstadoFicha = miEstadoFicha
+End Property
+
+Public Property Let EstadoFicha(rData As Integer)
+    miEstadoFicha = rData
+End Property
+
+Public Property Get Notas() As String
+    Notas = mstrNotas
+End Property
+
+Public Property Let Notas(rData As String)
+    mstrNotas = rData
+End Property
+
+Public Property Get IVAIncluido() As Boolean
+    IVAIncluido = mbooIvaIncluido
+End Property
+
+Public Property Let IVAIncluido(rData As Boolean)
+    mbooIvaIncluido = rData
+End Property
+
+Public Property Get IdFactura() As Long
+    IdFactura = mlngIdFactura
+End Property
+
+Public Property Let IdFactura(rData As Long)
+    mlngIdFactura = rData
+End Property
+
+Public Property Get NoFacturarExtras() As Boolean
+    NoFacturarExtras = mbooNoFacturarExtras
+End Property
+
+Public Property Let NoFacturarExtras(rData As Boolean)
+    mbooNoFacturarExtras = rData
+End Property
+
+Public Property Get Adultos() As Integer
+    Adultos = miAdultos
+End Property
+
+Public Property Let Adultos(rData As Integer)
+    miAdultos = rData
+End Property
+
+Public Property Get Niños() As Integer
+    Niños = miNiños
+End Property
+
+Public Property Let Niños(rData As Integer)
+    miNiños = rData
+End Property
+
+Public Property Get ParcelasCamping() As Long
+    ParcelasCamping = mlngParcelasCamping
+End Property
+
+Public Property Let ParcelasCamping(rData As Long)
+    mlngParcelasCamping = rData
+End Property
+
+Public Property Get Bungaloes() As Long
+    Bungaloes = mlngBungaloes
+End Property
+
+Public Property Let Bungaloes(rData As Long)
+    mlngBungaloes = rData
+End Property
+
+Public Property Get ConfirmadaReserva() As Boolean
+    ConfirmadaReserva = mbooConfirmadaReserva
+End Property
+
+Public Property Let ConfirmadaReserva(rData As Boolean)
+    mbooConfirmadaReserva = rData
+End Property
+
+Public Property Get FechaNacimiento() As Date
+    FechaNacimiento = mdtFechaNacimiento
+End Property
+
+Public Property Let FechaNacimiento(rData As Date)
+    mdtFechaNacimiento = rData
+End Property
+
+Public Property Get IdCajaAper() As Long
+    IdCajaAper = mlngIdCajaAper
+End Property
+
+Public Property Let IdCajaAper(rData As Long)
+    mlngIdCajaAper = rData
+End Property
+
+Public Property Get LugarNacimiento() As String
+    LugarNacimiento = mstrLugarNacimiento
+End Property
+
+Public Property Let LugarNacimiento(rData As String)
+    mstrLugarNacimiento = rData
+End Property
+
+Public Property Get IdAgencia() As Long
+    IdAgencia = mlngIdAgencia
+End Property
+
+Public Property Let IdAgencia(rData As Long)
+    mlngIdAgencia = rData
+    Dim strN As String, strA As String
+    strN = Nz(DLookup("[NombreCli]", "tbClientes", "IdCliente = " & mlngIdAgencia), "")
+    strA = Nz(DLookup("[ApellidosCli]", "tbClientes", "IdCliente = " & mlngIdAgencia), "")
+    mstrAgencia = Trim(strN & " " & strA)
+End Property
+
+Public Property Get Agencia() As String
+    Agencia = mstrAgencia
+End Property
+
+Public Property Get Dto() As Currency
+    Dto = mcurDto
+End Property
+
+Public Property Let Dto(rData As Currency)
+    mcurDto = rData
+End Property
+
+Public Property Get EMail() As String
+    EMail = mstrEMail
+End Property
+
+Public Property Let EMail(rData As String)
+    mstrEMail = rData
+End Property
+
+Public Property Get NumeroPolicia() As Long
+    NumeroPolicia = mlngNumeroPolicia
+End Property
+
+Public Property Let NumeroPolicia(rData As Long)
+    mlngNumeroPolicia = rData
+End Property
+
+Public Property Get VariasCuentasSN() As Boolean
+    VariasCuentasSN = mbooVariasCuentasSN
+End Property
+
+Public Property Let VariasCuentasSN(rData As Boolean)
+    mbooVariasCuentasSN = rData
+End Property
+
+Public Property Get Regimen() As String
+    Regimen = mstrRegimen
+End Property
+
+Public Property Let Regimen(rData As String)
+    mstrRegimen = rData
+End Property
+
+Public Property Get DescripcionCliente() As String
+    DescripcionCliente = mstrDescripcionCliente
+End Property
+
+Public Property Let DescripcionCliente(rData As String)
+    mstrDescripcionCliente = rData
+End Property
+
+Public Property Get ReservaImporteSolicitado() As Currency
+    ReservaImporteSolicitado = mcurReservaImporteSolicitado
+End Property
+
+Public Property Let ReservaImporteSolicitado(rData As Currency)
+    mcurReservaImporteSolicitado = rData
+End Property
+
+Public Property Get TarjetaCodigoSeguridad() As String
+    TarjetaCodigoSeguridad = mstrTarjetaCodigoSeguridad
+End Property
+
+Public Property Let TarjetaCodigoSeguridad(rData As String)
+    mstrTarjetaCodigoSeguridad = rData
+End Property
+
+Public Property Get NumeroTarjeta() As String
+    NumeroTarjeta = mstrNumeroTarjeta
+End Property
+
+Public Property Let NumeroTarjeta(rData As String)
+    mstrNumeroTarjeta = rData
+End Property
+
+Public Property Get CaducaTarjeta() As String
+    CaducaTarjeta = mstrCaducaTarjeta
+End Property
+
+Public Property Let CaducaTarjeta(rData As String)
+    mstrCaducaTarjeta = rData
+End Property
+
+Public Property Get TitularTarjeta() As String
+    TitularTarjeta = mstrTitularTarjeta
+End Property
+
+Public Property Let TitularTarjeta(rData As String)
+    mstrTitularTarjeta = rData
+End Property
+
+Public Property Get IdIdioma() As Long
+    IdIdioma = mlngIdIdioma
+End Property
+
+Public Property Let IdIdioma(rData As Long)
+    mlngIdIdioma = rData
+End Property
+
+Public Property Get MarcarSN() As Boolean
+    MarcarSN = mbooMarcarSN
+End Property
+
+Public Property Let MarcarSN(rData As Boolean)
+    mbooMarcarSN = rData
+End Property
+
+Public Property Get NotasParteG() As String
+    NotasParteG = mstrNotasParteG
+End Property
+
+Public Property Let NotasParteG(rData As String)
+    mstrNotasParteG = rData
+End Property
+
+Public Property Get DetalleEstancia() As String
+    DetalleEstancia = mstrDetalleEstancia
+End Property
+
+Public Property Let DetalleEstancia(rData As String)
+    mstrDetalleEstancia = rData
+End Property
+
+Public Property Get SuReferencia() As String
+    SuReferencia = mstrSuReferencia
+End Property
+
+Public Property Let SuReferencia(rData As String)
+    mstrSuReferencia = rData
+End Property
+
+Public Property Get IdProcedencia() As Long
+    IdProcedencia = mlngIdProcedencia
+End Property
+
+Public Property Let IdProcedencia(rData As Long)
+    mlngIdProcedencia = rData
+End Property
+
+Private Property Get Recordset() As Recordset
+    Set Recordset = mrstRecordset
+End Property
+
+Private Property Set Recordset(rData As Recordset)
+    Set mrstRecordset = rData
+End Property
+
+Private Sub Load()
+    With Recordset
+        mlngId = Nz(.Fields("Id").value)
+        Me.IdFichaCab = Nz(.Fields("IdFichaCab").value)
+        Me.FechaReserva = Nz(.Fields("FechaReserva").value)
+        Me.FechaLlegada = Nz(.Fields("FechaLlegada").value)
+        Me.FechaSalida = Nz(.Fields("FechaSalida").value)
+        Me.HoraLlegada = Nz(.Fields("HoraLlegada").value)
+        Me.MatriculaVehiculo = Nz(.Fields("MatriculaVehiculo").value)
+        Me.ModeloVehiculo = Nz(.Fields("ModeloVehiculo").value)
+        Me.TipoDocumento = Nz(.Fields("TipoDocumento").value)
+        Me.FechaExpedicion = Nz(.Fields("FechaExpedicion").value)
+        Me.SexoCliente = Nz(.Fields("SexoCliente").value)
+        Me.DNICliente = Nz(.Fields("DNICliente").value)
+        Me.NombreCliente = Nz(.Fields("NombreCliente").value)
+        Me.ApellidosCliente = Nz(.Fields("ApellidosCliente").value)
+        Me.DireccionCliente = Nz(.Fields("DireccionCliente").value)
+        Me.TelefonoCliente = Nz(.Fields("TelefonoCliente").value)
+        Me.LocalidadCliente = Nz(.Fields("LocalidadCliente").value)
+        Me.CPCliente = Nz(.Fields("CPCliente").value)
+        Me.ProvinciaCliente = Nz(.Fields("ProvinciaCliente").value)
+        Me.PaisCliente = Nz(.Fields("PaisCliente").value)
+        Me.EstadoFicha = Nz(.Fields("EstadoFicha").value)
+        Me.Notas = Nz(.Fields("Notas").value)
+        Me.IVAIncluido = Nz(.Fields("IvaIncluido").value)
+        Me.IdFactura = Nz(.Fields("IdFactura").value)
+        Me.NoFacturarExtras = Nz(.Fields("NoFacturarExtras").value)
+        Me.Adultos = Nz(.Fields("Adultos").value)
+        Me.Niños = Nz(.Fields("Niños").value)
+        Me.ParcelasCamping = Nz(.Fields("ParcelasCamping").value)
+        Me.Bungaloes = Nz(.Fields("Bungaloes").value)
+        Me.ConfirmadaReserva = Nz(.Fields("ConfirmadaReserva").value)
+        Me.FechaNacimiento = Nz(.Fields("FechaNacimiento").value)
+        Me.IdCajaAper = Nz(.Fields("IdCajaAper").value)
+        Me.LugarNacimiento = Nz(.Fields("LugarNacimiento").value)
+        Me.IdAgencia = Nz(.Fields("IdAgencia").value)
+        Me.Dto = Nz(.Fields("Dto").value)
+        Me.EMail = Nz(.Fields("EMail").value)
+        Me.NumeroPolicia = Nz(.Fields("NumeroPolicia").value)
+        Me.VariasCuentasSN = Nz(.Fields("VariasCuentasSN").value)
+        Me.Regimen = Nz(.Fields("Regimen").value)
+        Me.DescripcionCliente = Nz(.Fields("DescripcionCliente").value)
+        Me.ReservaImporteSolicitado = Nz(.Fields("ReservaImporteSolicitado").value)
+        Me.TarjetaCodigoSeguridad = Nz(.Fields("TarjetaCodigoSeguridad").value)
+        Me.NumeroTarjeta = Nz(.Fields("NumeroTarjeta").value)
+        Me.CaducaTarjeta = Nz(.Fields("CaducaTarjeta").value)
+        Me.TitularTarjeta = Nz(.Fields("TitularTarjeta").value)
+        Me.IdIdioma = Nz(.Fields("IdIdioma").value)
+        Me.MarcarSN = Nz(.Fields("MarcarSN").value)
+        Me.NotasParteG = Nz(.Fields("NotasParteG").value)
+        Me.DetalleEstancia = Nz(.Fields("DetalleEstancia").value)
+        Me.SuReferencia = Nz(.Fields("SuReferencia").value)
+        Me.IdProcedencia = Nz(.Fields("IdProcedencia").value)
+        Me.WuBookID = Nz(.Fields("WuBookID").value)
+        mstrHuellaPlaning = Nz(DLookup("HuellaPlaning", "tbFichasCab_Totales", "IdFichaCab = " & Me.IdFichaCab), "")
+    End With
+    mbooLoaded = True
+
+'------------------
+'    Dim rs As Recordset, i As Integer
+'    Set rs = CurrentDb.OpenRecordset("SELECT IdFichaDet FROM tbFichasDet WHERE IdFichaCab = " & Me.IdFichaCab, dbOpenSnapshot)
+'    If rs.EOF Then
+'        ReDim mcFD(0)
+'        Set mcFD(0) = Nothing
+'    Else
+'        rs.MoveLast: rs.MoveFirst
+'        ReDim Preserve mcFD(rs.RecordCount - 1)
+'        While Not rs.EditMode
+'            Set mcFD(i) = New cFichaDet
+'            If mcFD(i).FindFirst("IdFichaDet = " & rs("IdFichaDet")) Then
+'            End If
+'            i = i + 1
+'            rs.MoveNext
+'        Wend
+'    End If
+End Sub
+
+Public Sub Update()
+    On Error GoTo HandleError
+    With Recordset
+        If mbooLoaded = True Then
+            .Edit
+        Else
+            .AddNew
+        End If
+        mlngId = Nz(.Fields("Id").value)
+        .Fields("IdFichaCab").value = Me.IdFichaCab
+        .Fields("WuBookID").value = Me.WuBookID
+        .Fields("FechaReserva").value = Me.FechaReserva
+        .Fields("FechaLlegada").value = Me.FechaLlegada
+        .Fields("FechaSalida").value = Me.FechaSalida
+        .Fields("HoraLlegada").value = NullIfZeroDate(Me.HoraLlegada)
+        .Fields("MatriculaVehiculo").value = NullIfEmptyString(Me.MatriculaVehiculo)
+        .Fields("ModeloVehiculo").value = NullIfEmptyString(Me.ModeloVehiculo)
+        .Fields("TipoDocumento").value = NullIfEmptyString(Me.TipoDocumento)
+        .Fields("FechaExpedicion").value = NullIfZeroDate(Me.FechaExpedicion)
+        .Fields("SexoCliente").value = NullIfEmptyString(Me.SexoCliente)
+        .Fields("DNICliente").value = NullIfEmptyString(Me.DNICliente)
+        .Fields("NombreCliente").value = NullIfEmptyString(Me.NombreCliente)
+        .Fields("ApellidosCliente").value = RecDerTop(Nz(Me.ApellidosCliente, ""), 0, 50)
+        .Fields("DireccionCliente").value = NullIfEmptyString(Me.DireccionCliente)
+        .Fields("TelefonoCliente").value = NullIfEmptyString(Me.TelefonoCliente)
+        .Fields("LocalidadCliente").value = NullIfEmptyString(Me.LocalidadCliente)
+        .Fields("CPCliente").value = RecDerTop(Nz(Me.CPCliente, ""), 0, 5)
+        .Fields("ProvinciaCliente").value = NullIfEmptyString(Me.ProvinciaCliente)
+        .Fields("PaisCliente").value = NullIfEmptyString(Me.PaisCliente)
+        .Fields("EstadoFicha").value = Me.EstadoFicha
+        .Fields("Notas").value = NullIfEmptyString(Me.Notas)
+        .Fields("IvaIncluido").value = Me.IVAIncluido
+        .Fields("IdFactura").value = Me.IdFactura
+        .Fields("NoFacturarExtras").value = Me.NoFacturarExtras
+        .Fields("Adultos").value = Me.Adultos
+        .Fields("Niños").value = Me.Niños
+        .Fields("ParcelasCamping").value = Me.ParcelasCamping
+        .Fields("Bungaloes").value = Me.Bungaloes
+        .Fields("ConfirmadaReserva").value = Me.ConfirmadaReserva
+        .Fields("FechaNacimiento").value = NullIfZeroDate(Me.FechaNacimiento)
+        .Fields("IdCajaAper").value = Me.IdCajaAper
+        .Fields("LugarNacimiento").value = NullIfEmptyString(Me.LugarNacimiento)
+        .Fields("IdAgencia").value = Me.IdAgencia
+        .Fields("Dto").value = Me.Dto
+        .Fields("EMail").value = NullIfEmptyString(Me.EMail)
+        .Fields("NumeroPolicia").value = Me.NumeroPolicia
+        .Fields("VariasCuentasSN").value = Me.VariasCuentasSN
+        .Fields("Regimen").value = NullIfEmptyString(Me.Regimen)
+        .Fields("DescripcionCliente").value = NullIfEmptyString(Me.DescripcionCliente)
+        .Fields("ReservaImporteSolicitado").value = Me.ReservaImporteSolicitado
+        If Len(Nz(Me.TarjetaCodigoSeguridad, "")) > 3 Then Me.TarjetaCodigoSeguridad = Left(Me.TarjetaCodigoSeguridad, 3)
+        .Fields("TarjetaCodigoSeguridad").value = NullIfEmptyString(Me.TarjetaCodigoSeguridad)
+        .Fields("NumeroTarjeta").value = NullIfEmptyString(Me.NumeroTarjeta)
+        .Fields("CaducaTarjeta").value = NullIfEmptyString(Me.CaducaTarjeta)
+        .Fields("TitularTarjeta").value = NullIfEmptyString(Me.TitularTarjeta)
+        .Fields("IdIdioma").value = Me.IdIdioma
+        .Fields("MarcarSN").value = Me.MarcarSN
+        .Fields("NotasParteG").value = NullIfEmptyString(Me.NotasParteG)
+        .Fields("DetalleEstancia").value = NullIfEmptyString(Me.DetalleEstancia)
+        .Fields("SuReferencia").value = NullIfEmptyString(Me.SuReferencia)
+        .Fields("IdProcedencia").value = Me.IdProcedencia
+        .Update
+    End With
+    mbooLoaded = True
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Public Sub AddNew()
+    On Error GoTo HandleError
+    mbooLoaded = False
+    If Recordset Is Nothing Then Set Recordset = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset, dbAppendOnly)
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+Public Function FindFirst(Optional Criteria As Variant) As Boolean
+    If IsMissing(Criteria) Then
+        Set Recordset = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset)
+        Recordset.MoveFirst
+        FindFirst = Not Recordset.EOF
+    Else
+        'Recordset.FindFirst Criteria
+        'FindFirst = Not Recordset.NoMatch
+        Dim strSQL As String
+        strSQL = "SELECT * FROM tbFichasCab WHERE " & Criteria
+        Set Recordset = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+        FindFirst = Not Recordset.EOF
+    End If
+    If FindFirst Then Load
+End Function
+Public Function FindLast(Optional Criteria As Variant) As Boolean
+    If IsMissing(Criteria) Then
+        Set Recordset = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset)
+        Recordset.MoveLast
+        FindLast = Not Recordset.EOF
+    Else
+        Dim strSQL As String
+        strSQL = "SELECT * FROM tbFichasCab WHERE " & Criteria
+        Set Recordset = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+        'Recordset.FindLast Criteria
+        'FindLast = Not Recordset.NoMatch
+        FindLast = Not Recordset.EOF
+    End If
+    If FindLast Then Load
+End Function
+Private Sub Class_Initialize()
+'    Set Recordset = CurrentDb.OpenRecordset("tbFichasCab", dbOpenDynaset)
+End Sub
+Private Sub Class_Terminate()
+    On Error Resume Next
+    Recordset.Close
+    Set Recordset = Nothing
+End Sub
+Function NullIfEmptyString(str As String) As Variant
+    Dim strTrimmed As String: strTrimmed = Trim(str)
+    If Len(strTrimmed) = 0 Then
+        NullIfEmptyString = Null
+    Else
+        NullIfEmptyString = strTrimmed
+    End If
+End Function
+
+Function NullIfZeroDate(dt As Date) As Variant
+    If dt = 0 Then
+        NullIfZeroDate = Null
+    Else
+        NullIfZeroDate = dt
+    End If
+End Function
+
+Public Property Get WuBookRooms() As Variant
+'The rooms argument is a KW structure, like this:
+'rooms= {
+'  '1': [quantity, board],
+'  '2': [quantity, board],
+'}
+
+
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, strRooms As String, curF As Currency, lngIdR As Long, intK As Integer
+    Dim vM() As Variant, vA As Variant, vQ(1) As Variant, i As Integer, curCant As Currency
+    strSQL = "SELECT tbFichasDet.IdFichaCab, wbRooms.id, Sum(tbFichasDet.[Cantidad]) AS k, ([Fecha_H]-[FechaInicio])/([FechaSalida]-[FechaLlegada]) AS FACTOR, wbRooms.shortname"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN ((tbParcelasTipo INNER JOIN tbFichasDet ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela) INNER JOIN wbRooms ON tbParcelasTipo.TypeCode = wbRooms.shortname) ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasDet.IdFichaCab = " & IdFichaCab
+    strSQL = strSQL & " GROUP BY tbFichasDet.IdFichaCab, wbRooms.id, ([Fecha_H]-[FechaInicio])/([FechaSalida]-[FechaLlegada]), wbRooms.shortname"
+    strSQL = strSQL & " ORDER BY wbRooms.id" ', tbFichasDet.[Cantidad], ([Fecha_H]-[FechaInicio])/([FechaSalida]-[FechaLlegada]);"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+        ReDim vM(rs.RecordCount - 1)
+    End If
+    While Not rs.EOF
+        If lngIdR = rs("id") And intK = rs("k") Then
+            curF = curF + rs("FACTOR")
+        Else
+            curF = rs("FACTOR")
+        End If
+        curCant = rs("k") * curF
+        If curCant >= 1 Then
+            
+            vQ(0) = Array("int", CInt(curCant))
+            vQ(1) = Array("string", "nb")
+            vA = Array("array", vQ)
+            vM(i) = Array(CStr(rs("id")), vA)
+            i = i + 1
+            'strRooms = strRooms & rs("Id") & "," & rs("k") & ","
+            curF = curF - 1
+        End If
+        If curF <= 0 Then
+            lngIdR = 0
+            intK = 0
+            curF = 0
+        Else
+            lngIdR = rs("id")
+            intK = rs("k")
+        End If
+        rs.MoveNext
+    Wend
+    If i > 0 Then ReDim Preserve vM(i - 1)
+    'If Len(strRooms) > 1 Then strRooms = Left(strRooms, Len(strRooms) - 1)
+    'WuBookRooms = strRooms
+    WuBookRooms = Array("struct", vM)
+    
+HandleExit:
+    Exit Property
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Property
+
+Public Property Get WuBookCustomer(Optional intCorrigeCustomerData As Integer = True) As Variant
+'Also the customer argument is a KV structure and it must contain the following keys:
+'lname (last name), fname (first name), email, city, phone, street, country, arrival_hour and notes (remarks).
+'The country parameter is the 2-digit country symbol, for example: IT,UK,FR,US,RU and so on.
+    On Error GoTo HandleError
+    Dim vM(8) As Variant, vQ As Variant, i As Integer
+    vQ = Array("string", ApellidosCliente):             vM(0) = Array("lname", vQ)
+    vQ = Array("string", NombreCliente):                vM(1) = Array("fname", vQ)
+    If intCorrigeCustomerData And EMail = "" Then
+        vQ = Array("string", "aaa@aaa.aaa"):            vM(2) = Array("email", vQ)
+    Else
+        vQ = Array("string", EMail):                    vM(2) = Array("email", vQ)
+    End If
+    vQ = Array("string", LocalidadCliente):             vM(3) = Array("city", vQ)
+    If intCorrigeCustomerData And TelefonoCliente = "" Then
+        vQ = Array("string", "000000000"):              vM(4) = Array("phone", vQ)
+    Else
+        vQ = Array("string", TelefonoCliente):          vM(4) = Array("phone", vQ)
+    End If
+    vQ = Array("string", DireccionCliente):             vM(5) = Array("street", vQ)
+    vQ = Array("string", DimeCountry(PaisCliente)):     vM(6) = Array("country", vQ)
+    vQ = Array("string", Format(HoraLlegada, "HH:NN")): vM(7) = Array("arrival_hour", vQ)
+    vQ = Array("string", Notas):                         vM(8) = Array("notes", vQ)
+    WuBookCustomer = Array("struct", vM)
+        
+HandleExit:
+    Exit Property
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Property
+
+Public Property Get WuBookAmount() As Currency
+    On Error GoTo HandleError
+    Dim curT As Currency
+    curT = Nz(DLookup("[TotalBase]+[TotalIVA]+[TotalRecEq]", "tbFichasCab_Totales", "IdFichaCab = " & IdFichaCab), 0)
+    WuBookAmount = curT
+       
+HandleExit:
+    Exit Property
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Property
+
+Public Function DimeCountry(strPais As String) As String
+    Dim strR As String
+    strR = Nz(DLookup("[ISO CODES]", "valCountries", "COUNTRY = '" & strPais & "'"), "")
+    If Len(strR) >= 2 Then strR = Left(strR, 2)
+    DimeCountry = strR
+End Function
+
+Public Function ResumenFicha(Optional intPrimeroPax As Integer = False) As String
+    On Error GoTo HandleError
+    Dim strR As String, strWB_Id As String
+    strR = IIf(Me.ConfirmadaReserva = False And Me.EstadoFicha = 1, "? ", "")
+    If intPrimeroPax Then strR = strR & " (" & Me.Adultos & IIf(Me.Niños <> 0, "+" & Me.Niños, "") & " pax) "
+    strR = strR & "·" & Me.NombreCliente & " " & Me.ApellidosCliente & "·"
+    strR = strR & IIf(Nz(Me.LocalidadCliente, "") <> "", " /" & Me.LocalidadCliente & "/", "")
+    strR = strR & IIf(Nz(Me.ProvinciaCliente, "") & Nz(Me.PaisCliente, "") <> "", " \" & Trim(Me.ProvinciaCliente & " " & Me.PaisCliente) & "\", "")
+    If Not intPrimeroPax Then strR = strR & " (" & Me.Adultos & IIf(Me.Niños <> 0, "+" & Me.Niños, "") & " pax) "
+    strR = strR & IIf(Nz(Me.Notas, "") <> "", " |" & Me.Notas & "|", "")
+    strR = strR & IIf(Nz(Me.NotasParteG, "") <> "", " !" & Me.NotasParteG & "!", "")
+    strWB_Id = Me.WuBookID
+    strR = strR & IIf(Len(Me.Agencia) > 0, " [" & Me.Agencia & "]", "") & IIf(Len(Me.SuReferencia) > 0, " [" & Me.SuReferencia & "]", "") & " {NºFicha->" & Me.IdFichaCab & IIf(Len(strWB_Id) > 3, " (WuBookID ..." & Right(Me.WuBookID, 3) & ")", "") & "}"
+    'strR = strR & IIf(Len(strWB_Id) > 3, " (WuBookID ..." & Right(Me.WuBookId, 3) & ")", "")
+    ResumenFicha = strR
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function Detalle_to_Planing(Optional lngIdF As Long = 0) As Integer
+    ' Se pasa un lngIdF  para procesar un IdFichaCab de una ficha ya borrada
+    On Error GoTo HandleError
+    If Me.EstadoFicha = 10 And Nz(DameValorParam("Planing_Detalle_to_Planing_FijosSN"), True) = False Then GoTo OK
+    If lngIdF = 0 Then lngIdF = Me.IdFichaCab
+    Dim rsF As Recordset, rsP As Recordset, strSQL As String, i As Integer, dtD As Date, dt As Date, iPaso As Integer, lngIdPl As Long
+    strSQL = "SELECT * FROM tbFichasDet"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdF
+    strSQL = strSQL & " AND IdTipoParcela Is Not Null"
+    Set rsF = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rsF.EOF Then
+        rsF.MoveLast
+        rsF.MoveFirst
+    End If
+        
+    If rsF.EOF Then ' No hay detalle con TipoPArcela
+        If Me.IdFichaCab > 0 Then
+            ReDim mDetalleP(1)
+            i = i + 1
+            mDetalleP(i).IdTipoParcela = 0
+            mDetalleP(i).Parcela = "-"
+            mDetalleP(i).FechaD = Nz(Me.FechaLlegada, Me.FechaSalida - 1)
+            mDetalleP(i).Fecha_H = Nz(Me.FechaSalida, Me.FechaLlegada + 1)
+            mDetalleP(i).Pax = 1
+            mDetalleP(i).Cantidad = 1
+        Else
+            ReDim mDetalleP(0)
+        End If
+    Else
+        ReDim mDetalleP(rsF.RecordCount)
+    End If
+    
+    While Not rsF.EOF
+        i = i + 1
+        mDetalleP(i).IdTipoParcela = rsF("IdTipoParcela")
+        mDetalleP(i).Parcela = Nz(rsF("Parcela"), "-")
+        mDetalleP(i).FechaD = Nz(rsF("FechaInicio"), rsF("Fecha_H") - 1)
+        mDetalleP(i).Fecha_H = rsF("Fecha_H")
+        mDetalleP(i).Pax = rsF("PlazasOcupadas")
+        mDetalleP(i).Cantidad = rsF("Cantidad")
+        rsF.MoveNext
+    Wend
+    
+    'Huella Planing
+    Dim strHuellaPlaning As String, jsc As Object
+    
+    'Set jsc = JsonConverter.ParseJson("[]")
+    i = 1
+    strHuellaPlaning = "{""EstadoFicha"":" & miEstadoFicha & ","
+    While i <= UBound(mDetalleP)
+        strHuellaPlaning = strHuellaPlaning & "[{""TP"":" & mDetalleP(i).IdTipoParcela & ","
+        strHuellaPlaning = strHuellaPlaning & """P"":""" & mDetalleP(i).Parcela & ""","
+        strHuellaPlaning = strHuellaPlaning & """FD"":""" & mDetalleP(i).FechaD & ""","
+        strHuellaPlaning = strHuellaPlaning & """FH"":""" & mDetalleP(i).Fecha_H & ""","
+        strHuellaPlaning = strHuellaPlaning & """Pax"":" & mDetalleP(i).Pax & ","
+        strHuellaPlaning = strHuellaPlaning & """Cant"":" & mDetalleP(i).Cantidad & "}]"
+        i = i + 1
+    Wend
+    strHuellaPlaning = strHuellaPlaning & "}"
+    'Debug.Print strHuellaPlaning
+    If strHuellaPlaning = mstrHuellaPlaning And strHuellaPlaning <> "" Then GoTo OK
+    
+    
+    strSQL = "UPDATE tbPlaningF SET CheckSN=False"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdF
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "SELECT tbPlaningF.* FROM tbPlaningF"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdF
+    Set rsF = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    Set rsP = CurrentDb.OpenRecordset("tbPlaning", dbOpenSnapshot)
+    i = 1
+    While i <= UBound(mDetalleP)
+        For dtD = mDetalleP(i).FechaD To mDetalleP(i).Fecha_H - 1
+            iPaso = 1
+Bucle1:
+            rsP.FindFirst "IdTipoParcela = " & mDetalleP(i).IdTipoParcela & _
+                         " AND Parcela = '" & mDetalleP(i).Parcela & "'" & _
+                         " AND Dia = " & CLng(dtD)
+            If rsP.NoMatch Then
+                If iPaso = 1 Then
+                    strSQL = "INSERT INTO tbPlaning (IdTipoParcela, Parcela, Dia)"
+                    strSQL = strSQL & " SELECT " & mDetalleP(i).IdTipoParcela & " As IdTP, " & _
+                                      "'" & mDetalleP(i).Parcela & "' AS Par, " & _
+                                      CLng(dtD) & " AS dia"
+                    CurrentDb.Execute strSQL, dbFailOnError
+                    rsP.Requery
+                    iPaso = 2
+                    GoTo Bucle1
+                Else
+                    MsgBox "No se añadió celda de planing" & "IdTipoParcela = " & mDetalleP(i).IdTipoParcela & _
+                         ", Parcela = '" & mDetalleP(i).Parcela & "'" & _
+                         ", Dia = " & Format(dtD, "dd/mm/yyyy"), vbExclamation
+                    GoTo HandleExit
+                End If
+            Else
+                lngIdPl = rsP("IdPl")
+            End If
+            rsF.FindFirst "IdPl = " & lngIdPl & " AND IdFichaCab = " & lngIdF & " AND CheckSN=False"
+            If rsF.NoMatch Then
+                rsF.AddNew
+                rsF("IdPl") = lngIdPl
+                rsF("IdFichaCab") = lngIdF
+            Else
+                rsF.Edit
+            End If
+            rsF("Cantidad") = mDetalleP(i).Cantidad
+            rsF("Pax") = mDetalleP(i).Pax
+            rsF("Entrada") = dtD = Me.FechaLlegada
+            rsF("EstadoFicha") = Me.EstadoFicha
+            rsF("ConfirmadaReserva") = Me.ConfirmadaReserva
+            rsF("CheckSN") = True
+            rsF.Update
+        Next dtD
+        ' Se añaden a recarga después....AñadeParcelaARecarga mDetalleP(i).Parcela, mDetalleP(i).IdTipoParcela
+        i = i + 1
+    Wend
+    'Construye IdFichaCabXML de Parcelas
+    If Parcelas_to_Planing(lngIdF) = False Then MsgBox "Error al actualizar planing-" & g_strPHs, vbExclamation
+    'Construye IdFichaCabXML de TipoParcelas
+    If TipoParcelas_to_Planing(lngIdF) = False Then MsgBox "Error al actualizar planing-tipo " & g_strPHs, vbExclamation
+    
+    'Marcar para recarga en planing las celdas que se han dejado libres desde la ficha
+    strSQL = "SELECT tbPlaning.Parcela, tbPlaning.IdTipoParcela FROM tbPlaning INNER JOIN tbPlaningF ON tbPlaning.IdPl = tbPlaningF.IdPl"
+    strSQL = strSQL & " WHERE tbPlaningF.IdFichaCab = " & lngIdF
+    'strSQL = strSQL & " AND tbPlaningF.CheckSN = False"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        AñadeParcelaARecarga rs("Parcela")
+        AñadeParcelaARecarga "", rs("IdTipoParcela")
+        rs.MoveNext
+    Wend
+    
+    strSQL = "DELETE tbPlaningF.* FROM tbPlaningF"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdF
+    strSQL = strSQL & " AND CheckSN = False"
+    CurrentDb.Execute strSQL, dbFailOnError
+        
+    strSQL = "DELETE tbPlaning.* FROM tbPlaning"
+    strSQL = strSQL & " WHERE (Parcela <> '-' AND IdF = 0)"
+    strSQL = strSQL & " OR (Parcela = '-' AND AsigS = 0 AND AsigN = 0 AND EntS = 0 AND CancS = 0) "
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE tbFichasCab_Totales SET HuellaPlaning = '" & strHuellaPlaning & "' WHERE IdFichaCab = " & Me.IdFichaCab
+    CurrentDb.Execute strSQL, dbFailOnError
+    mstrHuellaPlaning = strHuellaPlaning
+OK:
+    Detalle_to_Planing = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function CeldaParcela_to_Planing(lngIdPl As Long) As Integer
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset, strTagXML As String, i As Integer, intEstado As Integer, intConfirmada As Integer, lngIdF As Long
+    strSQL = "SELECT tbPlaningF.*"
+    strSQL = strSQL & " From tbPlaningF"
+    strSQL = strSQL & " WHERE tbPlaningF.IdPl=" & lngIdPl
+    strSQL = strSQL & " AND CheckSN=True"
+    strSQL = strSQL & " ORDER BY CStr(EstadoFicha) DESC" ' De esta manera si hay más de una ficha en la celda, las primeras son las canceladas '9' y si hay alguna no cancelada es la que se mostrará en el planing
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    intConfirmada = True
+    While Not rs.EOF
+        'PonXML strTagXML, "IdFichaCabOB", rs("IdFichaCab")
+        intEstado = rs("EstadoFicha")
+        intConfirmada = intConfirmada And rs("ConfirmadaReserva")
+        lngIdF = rs("IdFichaCab")
+        If rs("EstadoFicha") <> 9 Then i = i + 1
+        rs.MoveNext
+    Wend
+    If i > 1 Then
+        intEstado = -2
+        lngIdF = -2
+    ElseIf rs.RecordCount < 1 Then
+        intEstado = 0
+        lngIdF = 0
+    End If
+        
+    'PonXML strTagXML, "NumFichasOB", i
+    'strSQL = "UPDATE tbPlaning SET TagXML = " & ConComillas(strTagXML) &
+    strSQL = "UPDATE tbPlaning SET IdF = " & lngIdF & _
+            ", EstadoFicha = " & intEstado & _
+            ", ConfirmadaReserva = " & intConfirmada
+    strSQL = strSQL & " WHERE IdPl = " & lngIdPl
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+    CeldaParcela_to_Planing = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function Parcelas_to_Planing(lngIdF As Long) As Integer
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT DISTINCT tbPlaningF.IdPl"
+    strSQL = strSQL & " From tbPlaningF"
+    strSQL = strSQL & " WHERE tbPlaningF.IdFichaCab=" & lngIdF
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        Call CeldaParcela_to_Planing(rs("IdPl"))
+        rs.MoveNext
+    Wend
+    
+    
+    Parcelas_to_Planing = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+'Private Function CeldaTipoParcela_to_Planing(lngIdTipoParcela As Long, dtDia As Date) As Integer
+'    On Error GoTo HandleError
+'    Dim strSQL As String, rs As Recordset, strTagXML As String, i As Integer, intAsigS As Integer, intAsigN As Integer, intEntS As Integer, intCantT As Integer, intPaxT As Integer, iCanc As Integer
+'    Dim intComparteEspacio As Integer
+'    intComparteEspacio = Nz(DLookup("CompartirHabitacionSN", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), False)
+'
+'
+'    strSQL = "SELECT tbPlaningF.*, tbPlaning.Parcela"
+'    strSQL = strSQL & " From tbPlaningF INNER JOIN tbPlaning ON tbPlaning.IdPl = tbPlaningF.IdPl"
+'    strSQL = strSQL & " WHERE tbPlaning.IdTipoParcela=" & lngIdTipoParcela
+'    strSQL = strSQL & " AND tbPlaning.Dia=" & CLng(dtDia)
+'    strSQL = strSQL & " AND CheckSN=True"
+'    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+'    While Not rs.EOF
+'        If rs("EstadoFicha") = 9 Then
+'            iCanc = iCanc + 1
+'        Else
+'            If rs("Parcela") = "-" Then
+'                'PonXML strTagXML, "IdFichaCabN", rs("IdFichaCab")
+'                intAsigN = intAsigN + IIf(intComparteEspacio, rs("Pax"), rs("Cantidad"))
+'            Else
+'                'PonXML strTagXML, "IdFichaCabS", rs("IdFichaCab")
+'                intAsigS = intAsigS + IIf(intComparteEspacio, rs("Pax"), rs("Cantidad"))
+'            End If
+'            If rs("Entrada") = True Then
+'                intEntS = intEntS + IIf(intComparteEspacio, rs("Pax"), rs("Cantidad"))
+'                'PonXML strTagXML, "IdFichaCabE", rs("IdFichaCab")
+'            End If
+'            intCantT = intCantT + rs("Cantidad")
+'            intPaxT = intPaxT + rs("Pax")
+'            i = i + 1
+'        End If
+'        rs.MoveNext
+'    Wend
+'    'If intAsigN > 0 Then PonXML strTagXML, "NumFichasN", intAsigN
+'    'If intAsigS > 0 Then PonXML strTagXML, "NumFichasS", intAsigS
+'    'If intEntS > 0 Then PonXML strTagXML, "NumFichasE", intEntS
+'    strSQL = "SELECT * FROM tbPlaning" & _
+'             " WHERE IdTipoParcela = " & lngIdTipoParcela & _
+'             " AND Dia = " & CLng(dtDia) & _
+'             " AND Parcela = '-'"
+'    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+'    If rs.EOF Then
+'        rs.AddNew
+'        rs("IdTipoParcela") = lngIdTipoParcela
+'        rs("Dia") = dtDia
+'        rs("Parcela") = "-"
+'    Else
+'        rs.Edit
+'    End If
+'    rs("TagXML") = strTagXML
+'    rs("AsigN") = intAsigN
+'    rs("AsigS") = intAsigS
+'    rs("EntS") = intEntS
+'    rs("CantidadT") = intCantT
+'    rs("PaxT") = intPaxT
+'    rs("CancS") = iCanc
+'    rs.Update
+'    If g_SincroWB Then
+'        Dim lngIdRoom As Long, strTypeCode As String, intMaximo As Integer, strCri As String
+'        strTypeCode = Nz(DLookup("TypeCode", "tbParcelasTipo", "IdTipoParcela = " & lngIdTipoParcela), "")
+'        lngIdRoom = Nz(DLookup("id", "wbRooms", "shortname = """ & strTypeCode & """"), 0)
+'        strSQL = "SELECT IdTipoParcela FROM tbParcelasTipo WHERE TypeCode = '" & strTypeCode & "'"
+'        Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+'        While Not rs.EOF
+'            strCri = strCri & "IdTipoParcela = " & rs("IdTipoParcela") & " or "
+'            rs.MoveNext
+'        Wend
+'        If Len(strCri) > 4 Then
+'            strCri = RecDerTop(strCri, 4, 0)
+'        End If
+'        If lngIdRoom > 0 Then
+'            strSQL = "SELECT * FROM wbTabla WHERE IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtDia)
+'            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+'            If rs.EOF Then
+'                rs.AddNew
+'                rs("IdRoom") = lngIdRoom
+'                rs("Fecha") = CLng(dtDia)
+'            Else
+'                rs.Edit
+'            End If
+'            intMaximo = Nz(DCount("NombreParcela", "tbParcelas", strCri), 0)
+'            rs("availH4") = intMaximo - intCantT
+'            rs.Update
+'        End If
+'    End If
+'
+'
+'
+'    'strSQL = "UPDATE tbPlaning SET IdFichaCabXML = " & ConComillas(strTagXML) & _
+'             ", AsigN = " & intAsigN & _
+'             ", AsigS = " & intAsigS & _
+'             ", EntS = " & intEntS
+'    'strSQL = strSQL & " WHERE IdPl = " & lngIdPl
+'    'CurrentDb.Execute strSQL, dbFailOnError
+'
+'    CeldaTipoParcela_to_Planing = True
+'HandleExit:
+'    Exit Function
+'HandleError:
+'    MsgBox Err.Description
+'    Resume HandleExit
+'End Function
+
+Private Function TipoParcelas_to_Planing(lngIdF As Long) As Integer
+    On Error GoTo HandleError
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT DISTINCT tbPlaning.IdTipoParcela, tbPlaning.Dia"
+    strSQL = strSQL & " FROM tbPlaningF INNER JOIN tbPlaning ON tbPlaningF.IdPl = tbPlaning.IdPl"
+    strSQL = strSQL & " WHERE tbPlaningF.IdFichaCab=" & lngIdF
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        Call CeldaTipoParcela_to_Planing(rs("IdTipoParcela"), rs("Dia"))
+        rs.MoveNext
+    Wend
+    TipoParcelas_to_Planing = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Sub AñadeParcelaARecarga(strNombreParcela As String, Optional lngIdTipoParcela As Long = 0)
+    On Error GoTo HandleError
+    If Not IsOpenForm("frmPlaningG") Then Exit Sub
+    If strNombreParcela <> "" And strNombreParcela <> "-" Then
+        lngIdTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = " & ConComillas(strNombreParcela)), 0)
+    End If
+    If InStr(Forms("frmPlaningG")("lblRecargaParcelas").Caption, "[[" & strNombreParcela & "]]") = 0 Then
+        Forms("frmPlaningG")("lblRecargaParcelas").Caption = Forms("frmPlaningG")("lblRecargaParcelas").Caption & "[[" & strNombreParcela & "]]"
+    End If
+    If InStr(Forms("frmPlaningG")("lblRecargaParcelas").Caption, "{{" & lngIdTipoParcela & "}}") = 0 Then
+        Forms("frmPlaningG")("lblRecargaParcelas").Caption = Forms("frmPlaningG")("lblRecargaParcelas").Caption & "{{" & lngIdTipoParcela & "}}"
+    End If
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

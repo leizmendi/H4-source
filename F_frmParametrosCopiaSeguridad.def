@@ -1,0 +1,36 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnColor_Click()
+    Dim lngColor As Long
+    Me.Section(0).BackColor = adhChooseColor(Me.Section(0).BackColor)
+    'lngColor = adhChooseColor(Forms![frmMenu].Section(0).BackColor)
+End Sub
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Function DimeCarpeta(intDatImg As Integer)
+    Dim strDirImg As String, strCarDatos As String, strSQL As String
+    Select Case intDatImg
+        Case 1
+            strCarDatos = Nz(Me.Copia_Auto_SeguridadCarpeta, "")
+            If Dir(strCarDatos, vbDirectory) = "" Then strCarDatos = ""
+            strCarDatos = AbrirDialogo(, , , , "Indicar Carpeta de Copia de Seguridad Automática", "Carpeta Copia", strCarDatos, , , , , True, True)
+            If strCarDatos <> "" Then
+                If Right(strCarDatos, 1) <> "\" Then strCarDatos = strCarDatos & "\"
+                Me.Copia_Auto_SeguridadCarpeta = strCarDatos
+            End If
+    End Select
+    
+End Function

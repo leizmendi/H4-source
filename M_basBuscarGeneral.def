@@ -1,0 +1,144 @@
+Option Compare Database
+Option Explicit
+
+Public Function BuscarGeneral(Optional intRepetir As Integer = False, Optional intSalto As Integer = False)
+    Static strBuscar As String
+    Dim strBuscar2 As String
+'    Dim strControl As String, intSelStart As Integer, intSelLength As Integer, lngAP As Single
+'    Dim rs As Recordset, ctl As Control
+'    Static intBottom As Integer
+    On Error GoTo Error_BuscarGeneral
+'    Set rs = Screen.ActiveForm.RecordsetClone
+'    rs.Bookmark = Screen.ActiveForm.Bookmark
+'    lngAP = rs.AbsolutePosition
+'    Set ctl = Screen.ActiveControl
+'    strControl = ctl.Name
+'    intSelStart = ctl.SelStart
+'    intSelLength = ctl.SelLength
+    Dim strOpenArgs As String
+    Dim strForm As String
+    If intSalto Then GoTo Salto
+    If Screen.ActiveForm.Name Like "frmPanel*" Then
+        strForm = "frmPanel"
+    Else
+        strForm = Screen.ActiveForm.Name
+    End If
+    Select Case strForm
+        Case "frmFichas", "frmPanel", "frmMenu", "frmOtrosCampistas", "frmPlaning", "frmPlaningG", "frmPlaningH", "frmPlano"
+            If Not IsOpenForm("frmFichas") Then
+                DoCmd.OpenForm "frmFichas", , , "EstadoFicha Between 2 And 4"
+            Else
+                Forms("frmFichas").SetFocus
+                Select Case Forms("frmFichas").cmbEstadoFicha
+                    Case 2, 3, 4
+                        strOpenArgs = "Actuales"
+                    Case 1
+                        strOpenArgs = "Reservas"
+                    Case Else
+                        strOpenArgs = "Todas"
+                End Select
+            End If
+            DoCmd.OpenForm "frmBuscarFicha", , , , , acDialog, strOpenArgs
+            Exit Function
+        Case "frmClientes"
+            DoCmd.OpenForm "frmBuscaCliente", , , , , , "frmClientes"
+            Exit Function
+        Case "frmFacturas"
+            DoCmd.OpenForm "frmBuscarFactura", , , , , acDialog
+            Exit Function
+        Case "frmPresupuestos"
+            DoCmd.OpenForm "frmBuscarPresupuesto", , , , , acDialog
+            Exit Function
+        Case "frmExtractosBancos"
+            DoCmd.OpenForm "frmBuscarExtracto", , , , , acDialog
+            Exit Function
+        Case "frmMaestros"
+            Select Case Screen.ActiveForm.subfrm.SourceObject
+                Case "frmClientes"
+                    DoCmd.OpenForm "frmBuscaCliente", , , , , , "frmClientes"
+                    Exit Function
+            End Select
+        
+    End Select
+Salto:
+    If intRepetir = False Then
+        strBuscar2 = InputBox("Introduzca el texto que desea buscar..." & vbCrLf & vbCrLf & "(Para repetir búsqueda, puede pulsar F3)", "Buscar", strBuscar)
+        If strBuscar2 = "" Then Exit Function
+    Else
+        strBuscar2 = strBuscar
+    End If
+    
+'    If strBuscar2 = strBuscar And intBottom = False Then
+    If strBuscar2 = strBuscar Then
+        DoCmd.FindRecord ConAcentos(strBuscar2), acAnywhere, , acDown, , acAll, False
+    Else
+        DoCmd.FindRecord ConAcentos(strBuscar2), acAnywhere, , acSearchAll, , acAll, True
+    End If
+    strBuscar = strBuscar2
+    
+'    If intBottom = True Then
+'        intBottom = False
+'        Exit Function
+'    End If
+'    rs.Bookmark = Screen.ActiveForm.Bookmark
+'    If lngAP = rs.AbsolutePosition Then
+'        Set ctl = Screen.ActiveControl
+'        If strControl = ctl.Name Then
+'            If intSelStart = ctl.SelStart Then
+'                If intSelLength = ctl.SelLength Then
+'                    MsgBox "Se llegó al final de los registros"
+'                    intBottom = True
+ '               End If
+'            End If
+'        End If
+'    End If'
+
+Salir_BuscarGeneral:
+    Exit Function
+Error_BuscarGeneral:
+    Select Case Err
+'        Case 7951 ' El formulario activo no tiene recordset
+'            Set ctl = Screen.ActiveControl
+        Case 2475 ' no hay un formulario en la ventana activa
+            Resume Salir_BuscarGeneral
+        Case Else
+            MsgBox "Error nº " & Err & " En BuscarGeneral" & vbCrLf & Err.Description
+            Resume Salir_BuscarGeneral
+    End Select
+End Function
+
+Public Sub MarcarClientesXFechaEstancia(dtFechaEstancia As Date, Optional dtFechaHasta As Date = 0)
+    Dim strSQL As String
+    On Error GoTo Error_MarcarClientesXFechaEstancia
+    strSQL = "UPDATE tbClientes SET MarcarSN=False"
+    CurrentDb.Execute strSQL, dbFailOnError
+    If dtFechaHasta = 0 Then dtFechaHasta = dtFechaEstancia
+    
+    strSQL = "UPDATE tbFichasCab INNER JOIN tbClientes ON tbFichasCab.DNICliente = tbClientes.NIF"
+    strSQL = strSQL & " SET tbClientes.MarcarSN = True"
+    strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada<=" & CLng(dtFechaHasta) & " AND tbFichasCab.FechaSalida>=" & CLng(dtFechaEstancia) & ""
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+    strSQL = "UPDATE tbFichasCab INNER JOIN tbClientes ON tbFichasCab.IdAgencia = tbClientes.IdCliente"
+    strSQL = strSQL & " SET tbClientes.MarcarSN = True"
+    strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada<=" & CLng(dtFechaHasta) & " AND tbFichasCab.FechaSalida>=" & CLng(dtFechaEstancia) & ""
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+    strSQL = "UPDATE tbClientes INNER JOIN (tbFichasCab INNER JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab) ON tbClientes.NIF = tbPartesPolicia.DocIdEspaña"
+    strSQL = strSQL & " SET tbClientes.MarcarSN = True"
+    strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada<=" & CLng(dtFechaHasta) & " AND tbFichasCab.FechaSalida>=" & CLng(dtFechaEstancia) & ""
+    CurrentDb.Execute strSQL, dbFailOnError
+
+    strSQL = "UPDATE tbClientes INNER JOIN (tbFichasCab INNER JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab) ON tbClientes.NIF = tbPartesPolicia.DocIdExtranjeros"
+    strSQL = strSQL & " SET tbClientes.MarcarSN = True"
+    strSQL = strSQL & " WHERE tbFichasCab.FechaLlegada<=" & CLng(dtFechaHasta) & " AND tbFichasCab.FechaSalida>=" & CLng(dtFechaEstancia) & ""
+    CurrentDb.Execute strSQL, dbFailOnError
+Salir_MarcarClientesXFechaEstancia:
+    Exit Sub
+Error_MarcarClientesXFechaEstancia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en MarcarClientesXFechaEstancia" & vbCrLf & Err.Description
+            Resume Salir_MarcarClientesXFechaEstancia
+    End Select
+End Sub

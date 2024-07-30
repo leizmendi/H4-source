@@ -1,0 +1,114 @@
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Public gvList As Variant  ' la lista
+Public gsSep As String ' el separador
+
+
+Public Function DiElemento(intElem As Integer) As String
+    Dim i As Integer, j2 As Integer, j1 As Integer
+    Dim strLista As String
+    On Error GoTo Error_DiElemento
+    If IsNull(gvList) Then
+        DiElemento = ""
+        Exit Function
+    End If
+    strLista = CStr(gvList)
+    j1 = 1
+    Dim intPrimera As Integer
+    intPrimera = True
+    For i = 1 To intElem
+        If intPrimera Then
+            j1 = 1
+            intPrimera = False
+        Else
+            j1 = j2 + Len(gsSep)
+        End If
+        j2 = InStr(j1, strLista, gsSep)
+        If j2 = 0 Then Exit For
+    Next i
+    If i < intElem Then
+        DiElemento = ""
+    Else
+        If j2 = 0 Then
+            DiElemento = Mid(strLista, j1) 'right(strLista, Len(strLista) - (j1 + Len(gsSep) - 1))
+        Else
+            DiElemento = Mid(strLista, j1, j2 - j1)
+        End If
+    End If
+    
+Salir_DiElemento:
+    Exit Function
+Error_DiElemento:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Salir_DiElemento" & vbCrLf & Err.Description
+            Resume Salir_DiElemento
+    End Select
+End Function
+
+Public Sub PonElemento(intElem As Integer, strElem As String)
+    Dim i As Integer, j2 As Integer, j1 As Integer
+    Dim strLista As String
+    Dim kIni As Integer, kFin As Integer
+    On Error GoTo Error_PonElemento
+    If IsNull(gvList) Then
+        strLista = ""
+    Else
+        strLista = CStr(gvList)
+    End If
+    
+    j1 = 1
+    Dim intPrimera As Integer
+    intPrimera = True
+    For i = 1 To intElem - 1
+        If intPrimera Then
+            j1 = 1
+            intPrimera = False
+        Else
+            j1 = j2 + Len(gsSep)
+        End If
+        j2 = InStr(j1, strLista, gsSep)
+        If j2 = 0 Then Exit For
+    Next i
+    
+    'buscar inicio del elemento
+    If i <= intElem - 1 Then ' todavía no existe ese elemento (hay menos)
+        For i = i To intElem - 1
+            strLista = strLista & gsSep
+        Next i
+        strLista = strLista & strElem
+        gvList = strLista
+        Exit Sub
+    Else
+        kIni = j2 + Len(gsSep)
+    End If
+    'buscar fin del elemento
+    If intPrimera Then
+        j1 = 1
+        intPrimera = False
+    Else
+        j1 = j2 + Len(gsSep)
+    End If
+    j2 = InStr(j1, strLista, gsSep)
+    kFin = j2
+    strLista = Left(strLista, kIni - 1) & strElem
+    If kFin > 0 Then
+        strLista = strLista & Mid(gvList, kFin)
+    End If
+    gvList = strLista
+Salir_PonElemento:
+    Exit Sub
+Error_PonElemento:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Salir_PonElemento" & vbCrLf & Err.Description
+            Resume Salir_PonElemento
+    End Select
+End Sub

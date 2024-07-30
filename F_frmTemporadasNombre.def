@@ -1,0 +1,30 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim intAltDown As Integer
+    On Error Resume Next
+    intAltDown = (Shift And acAltMask) > 0
+    If intAltDown Then
+        If KeyCode = vbKeyS Then
+            DoCmd.Close
+        ElseIf KeyCode = vbKeyO Then
+            DoCmd.RunCommand acCmdDeleteRecord
+        End If
+    End If
+
+End Sub
+
+Private Sub Form_Load()
+    'Me.NombreTemporada.SetFocus
+    AjustarColumnas Me
+End Sub

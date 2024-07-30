@@ -1,0 +1,21 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+    If Not IsOpenForm("frmListadoProcedencia") Then
+        MsgBox "Se debe abrir Formulario de Listado de Procedencia"
+        Cancel = True
+        Exit Sub
+    End If
+    Dim dt As Date, dt2 As Date, i As Integer
+    dt = CDate(Forms("frmListadoProcedencia")("txtDesde"))
+    For dt2 = dt To dt + 6
+        i = i + 1
+        Me("txtDia" & i).ControlSource = dt2
+    Next dt2
+End Sub

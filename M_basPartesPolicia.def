@@ -1,0 +1,481 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function GenerarFicheroPartesPolicia(Optional dtHasta As Date = 0) As Integer
+    On Error GoTo Error_GenerarFicheroPartesPolicia
+    Dim rs As Recordset, strSQL As String, rsFichero As Recordset, i As Long, j As Long, lngIdPPF As Long
+    If dtHasta = 0 Then dtHasta = Date
+    strSQL = "SELECT * "
+    strSQL = strSQL & " FROM tbPartesPolicia"
+    strSQL = strSQL & " WHERE FechaLlegada <=#" & Format(dtHasta, "mm/dd/yyyy") & "#"
+    strSQL = strSQL & " AND IdPartePoliciaFichero Is Null"
+    strSQL = strSQL & " ORDER BY FechaLlegada, IdFichaCab, IdPartePolicia"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        MsgBox "No existen Partes de Viajero pendientes de enviar"
+        Exit Function
+    Else
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    Set rsFichero = CurrentDb.OpenRecordset("tbPartesPoliciaFicheros", dbOpenDynaset)
+    rsFichero.AddNew
+    rsFichero("CodEstablecimiento") = Right(Nz(DameValorParam("PartesPoliciaCodigoEstablecimiento"), ""), 10)
+    If rsFichero("CodEstablecimiento") = "" Then
+        MsgBox "Se debe indicar el Código asignado por la Policía al Establecimiento (Parámetros/Fichas de Policía)"
+        Exit Function
+    End If
+    rsFichero("NumFichero") = Nz(DMax("NumFichero", "tbPartesPoliciaFicheros", "CodEstablecimiento = '" & rsFichero("CodEstablecimiento") & "'"), 0) + 1
+    rsFichero("Establecimiento") = Nz(DameValorParam("PartesPoliciaNombreEstablecimiento"), "")
+    If rsFichero("Establecimiento") = "" Then
+        MsgBox "Se debe indicar el Nombre del Establecimiento (Parámetros/Fichas de Policía)"
+        Exit Function
+    End If
+    rsFichero("FechaHoraFichero") = Now()
+    rsFichero("Numregistros") = rs.RecordCount
+    lngIdPPF = rsFichero("IdPartePoliciaFichero")
+    rsFichero.Update
+    i = Nz(DMax("NumParte", "tbPartesPolicia"), 0)
+    j = 0
+    While Not rs.EOF
+        rs.Edit
+        If rs("NumParte") = 0 Then
+            i = i + 1
+            rs("NumParte") = i
+        End If
+        rs("IdPartePoliciaFichero") = lngIdPPF
+        rs.Update
+        j = j + 1
+        rs.MoveNext
+    Wend
+    If j <> rs.RecordCount Then
+        MsgBox "No coincide el nº de partes con los grabados en la cabecera", vbExclamation
+    End If
+    EscribirFicheroPolicia lngIdPPF
+    
+Salir_GenerarFicheroPartesPolicia:
+    Exit Function
+Error_GenerarFicheroPartesPolicia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarFicheroPartesPolicia" & vbCrLf & Err.Description
+            Resume Salir_GenerarFicheroPartesPolicia
+    End Select
+
+End Function
+
+Public Sub EscribirFicheroPolicia(lngIdPartePoliciaFichero As Long)
+    On Error GoTo Error_EscribirFicheroPolicia
+    Dim rs As Recordset, strSQL As String, strFile As String, strCarpeta As String, intR As Integer
+    Dim strMSG As String, i As Integer, intSegundaPasada As Integer
+    Dim strLin As String, j As Integer, z As Integer
+Inicio:
+    Set rs = CurrentDb.OpenRecordset("tbPartesPoliciaFicheros", dbOpenSnapshot)
+    strSQL = "SELECT * FROM tbPartesPoliciaFicheros"
+    strSQL = strSQL & " WHERE IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        MsgBox "No se encontró IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+        Exit Sub
+    End If
+    Dim strCodEnt As String
+    strCodEnt = Right(Nz(DameValorParam("PartesPoliciaCodigoEntidadEmisora"), ""), 10)
+    If strCodEnt <> rs("CodEstablecimiento") Then
+        intR = MsgBox("¿Modificar el código de establecimiento del fichero de " & rs("CodEstablecimiento") & " a " & strCodEnt & "?", vbYesNoCancel + vbQuestion)
+        If intR = vbCancel Then Exit Sub
+        If intR = vbNo Then
+            strCodEnt = rs("CodEstablecimiento")
+        Else
+            rs.Close
+            CurrentDb.Execute "UPDATE tbPartesPoliciaFicheros SET CodEstablecimiento = '" & strCodEnt & "' WHERE IdPartePoliciaFichero = " & lngIdPartePoliciaFichero, dbFailOnError
+            strSQL = "SELECT * FROM tbPartesPoliciaFicheros"
+            strSQL = strSQL & " WHERE IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            If rs.EOF Then
+                MsgBox "No se encontró IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+                Exit Sub
+            End If
+            
+        End If
+    End If
+    strFile = strCodEnt 'Nz(DameValorParam("PartesPoliciaCodigoEntidadEmisora"), "")
+    If strFile = "" Then
+        MsgBox "Se debe indicar el Código de Entidad Emisora asignado por la Policía (Parámetros/Fichas de Policía)"
+        Exit Sub
+    End If
+Carpeta:
+    strCarpeta = DimeCarpetaPolicia
+    strFile = strCarpeta & strFile & "." & Right(Format(rs("NumFichero"), "000"), 3) & Nz(DameValorParam("PartesPoliciaExtensionFichero"), "")
+    If Dir(strFile) <> "" And Not intSegundaPasada Then
+        intR = MsgBox("El fichero " & strFile & " ya existe. ¿Desea reemplazarlo?", vbQuestion + vbOKCancel)
+        If intR = vbCancel Then Exit Sub
+    End If
+
+    Open strFile For Output As #1
+    'Registro 1
+    strLin = "1|"
+    strLin = strLin & rs("CodEstablecimiento") & "|"
+    strLin = strLin & rs("Establecimiento") & "|"
+    strLin = strLin & Format(rs("FechaHoraFichero"), "yyyymmdd") & "|"
+    strLin = strLin & Format(rs("FechaHoraFichero"), "HHNN") & "|"
+    If intSegundaPasada = True Then
+        'strLin = strLin & Format(rs("NumRegistros") - i, "00000")
+        strLin = strLin & Format(rs("NumRegistros"), "00000")
+    Else
+        strLin = strLin & Format(rs("NumRegistros"), "00000")
+    End If
+    Print #1, strLin
+    'Registros 2
+    strSQL = "SELECT * "
+    strSQL = strSQL & " FROM tbPartesPolicia"
+    strSQL = strSQL & " WHERE IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+    strSQL = strSQL & " ORDER BY NumParte"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    j = 0
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        If IsNull(rs("FechaExpedicion")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Fecha de expedición no válida: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If Not IsNumeric(rs("FechaNacimientoAAAA")) Or Not IsNumeric(rs("FechaNacimientoMM")) Or Not IsNumeric(rs("FechaNacimientoDD")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Fecha de nacimiento no válida: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If IsNull(rs("Sexo")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Sexo no válido: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If IsNull(rs("FechaLlegada")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Fecha de llegada no válida: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If Nz(rs("Apellido2"), "") = "" And (IsNull(rs("Pais")) Or rs("Pais") = "España") Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Falta 2º apellido para Pais-España: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        strLin = "2|"
+        strLin = strLin & SoloNum(Nz(rs("DocIdEspaña"), ""), True) & "|"
+        strLin = strLin & SoloNum(Nz(rs("DocIdExtranjeros"), ""), True) & "|"
+        strLin = strLin & Nz(rs("TipoDocId"), "") & "|"
+        strLin = strLin & Format(rs("FechaExpedicion"), "yyyymmdd") & "|"
+        strLin = strLin & UCase(SinAcentos(rs("Apellido1"))) & "|"
+        strLin = strLin & UCase(SinAcentos(rs("Apellido2"))) & "|"
+        strLin = strLin & UCase(SinAcentos(rs("Nombre"))) & "|"
+        strLin = strLin & Nz(rs("Sexo"), "") & "|"
+        strLin = strLin & rs("FechaNacimientoAAAA") & rs("FechaNacimientoMM") & rs("FechaNacimientoDD") & "|"
+        strLin = strLin & UCase(SinAcentos(Nz(rs("Pais"), "ESPAÑA"))) & "|"
+        strLin = strLin & Format(rs("FechaLlegada"), "yyyymmdd")
+        Print #1, strLin
+        j = j + 1
+Siguiente:
+        SysCmd acSysCmdSetStatus, "Escribiendo fichero de policías: " & j & "/" & z
+        rs.MoveNext
+    Wend
+    Close #1
+    If j <> Nz(DLookup("NumRegistros", "tbPartesPoliciaFicheros", "IdPartePoliciaFichero=" & lngIdPartePoliciaFichero), 0) _
+    Or i <> Nz(DLookup("NumRegistros_Fallo", "tbPartesPoliciaFicheros", "IdPartePoliciaFichero=" & lngIdPartePoliciaFichero), 0) Then
+        strSQL = "UPDATE tbPartesPoliciaFicheros SET NumRegistros=" & j & ", NumRegistros_Fallo=" & i & " WHERE IdPartePoliciaFichero=" & lngIdPartePoliciaFichero
+        CurrentDb.Execute strSQL, dbFailOnError
+        intSegundaPasada = True
+        GoTo Inicio
+    End If
+    If i > 0 Then
+        MsgBox "Nº de partes no válidos: " & i & vbCrLf & strMSG
+    End If
+    MsgBox "Se generó fichero: " & strFile & vbCrLf & "Nº Partes incluidos: " & j
+Salir_EscribirFicheroPolicia:
+    SysCmd acSysCmdClearStatus
+    Exit Sub
+Error_EscribirFicheroPolicia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EscribirFicheroPolicia" & vbCrLf & Err.Description
+            Resume Salir_EscribirFicheroPolicia
+    End Select
+End Sub
+
+
+Public Function GenerarFicheroPartesPolicia_old(Optional dtHasta As Date = 0) As Integer
+    On Error GoTo Error_GenerarFicheroPartesPolicia_old
+    Dim rs As Recordset, strSQL As String, rsFichero As Recordset, i As Integer, j As Integer, lngIdPPF As Long
+    If dtHasta = 0 Then dtHasta = Date
+    strSQL = "SELECT * "
+    strSQL = strSQL & " FROM tbPartesPolicia"
+    strSQL = strSQL & " WHERE FechaLlegada <=#" & Format(dtHasta, "mm/dd/yyyy") & "#"
+    strSQL = strSQL & " AND IdPartePoliciaFichero Is Null"
+    strSQL = strSQL & " ORDER BY FechaLlegada, IdFichaCab, IdPartePolicia"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If rs.EOF Then
+        MsgBox "No existen Partes de Viajero pendientes de enviar"
+        Exit Function
+    Else
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    Set rsFichero = CurrentDb.OpenRecordset("tbPartesPoliciaFicheros", dbOpenDynaset)
+    rsFichero.AddNew
+    rsFichero("NumFichero") = Nz(DMax("NumFichero", "tbPartesPoliciaFicheros"), 0) + 1
+    rsFichero("CodEstablecimiento") = Nz(DameValorParam("PartesPoliciaCodigoEstablecimiento"), "")
+    If rsFichero("CodEstablecimiento") = "" Then
+        MsgBox "Se debe indicar el Código asignado por la Policía al Establecimiento (Parámetros/Fichas de Policía)"
+        Exit Function
+    End If
+    rsFichero("Establecimiento") = Nz(DameValorParam("PartesPoliciaNombreEstablecimiento"), "")
+    If rsFichero("Establecimiento") = "" Then
+        MsgBox "Se debe indicar el Nombre del Establecimiento (Parámetros/Fichas de Policía)"
+        Exit Function
+    End If
+    rsFichero("FechaHoraFichero") = Now()
+    rsFichero("Numregistros") = rs.RecordCount
+    lngIdPPF = rsFichero("IdPartePoliciaFichero")
+    rsFichero.Update
+    i = Nz(DMax("NumParte", "tbPartesPolicia"), 0)
+    j = 0
+    While Not rs.EOF
+        rs.Edit
+        If rs("NumParte") = 0 Then
+            i = i + 1
+            rs("NumParte") = i
+        End If
+        rs("IdPartePoliciaFichero") = lngIdPPF
+        rs.Update
+        j = j + 1
+        rs.MoveNext
+    Wend
+    If j <> rs.RecordCount Then
+        MsgBox "No coincide el nº de partes con los grabados en la cabecera", vbExclamation
+    End If
+    EscribirFicheroPolicia lngIdPPF
+    
+Salir_GenerarFicheroPartesPolicia_old:
+    Exit Function
+Error_GenerarFicheroPartesPolicia_old:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarFicheroPartesPolicia_old" & vbCrLf & Err.Description
+            Resume Salir_GenerarFicheroPartesPolicia_old
+    End Select
+
+End Function
+
+Public Sub EscribirFicheroPolicia_old(lngIdPartePoliciaFichero As Long)
+    On Error GoTo Error_EscribirFicheroPolicia_old
+    Dim rs As Recordset, strSQL As String, strFile As String, strCarpeta As String, intR As Integer
+    Dim strMSG As String, i As Integer, intSegundaPasada As Integer
+    Dim strLin As String
+Inicio:
+    Set rs = CurrentDb.OpenRecordset("tbPartesPoliciaFicheros", dbOpenSnapshot)
+    rs.FindFirst "IdPartePoLiciaFichero = " & lngIdPartePoliciaFichero
+    If rs.NoMatch Then
+        MsgBox "No se encontró IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+        Exit Sub
+    End If
+    strFile = Nz(DameValorParam("PartesPoliciaCodigoEntidadEmisora"), "")
+    If strFile = "" Then
+        MsgBox "Se debe indicar el Código de Entidad Emisora asignado por la Policía (Parámetros/Fichas de Policía)"
+        Exit Sub
+    End If
+Carpeta:
+    strCarpeta = Nz(DameValorParam("PartesPoliciaCarpetaFicheros"), "")
+    If strCarpeta = "" Then
+        PonValorParam "PartesPoliciaCarpetaFicheros", "C:\"
+        GoTo Carpeta
+    End If
+    If Right(strCarpeta, 1) <> "\" Then
+        strCarpeta = strCarpeta & "\"
+        PonValorParam "PartesPoliciaCarpetaFicheros", strCarpeta
+        GoTo Carpeta
+    End If
+    strFile = strCarpeta & strFile & "." & RecDerTop(Format(rs("NumFichero"), "000"), 0, 3)
+    If Dir(strFile) <> "" And Not intSegundaPasada Then
+        intR = MsgBox("El fichero " & strFile & " ya existe. ¿Desea reemplazarlo?", vbQuestion + vbOKCancel)
+        If intR = vbCancel Then Exit Sub
+    End If
+
+    Open strFile For Output As #1
+    'Registro 1
+    strLin = "1|"
+    strLin = strLin & rs("CodEstablecimiento") & "|"
+    strLin = strLin & rs("Establecimiento") & "|"
+    strLin = strLin & Format(rs("FechaHoraFichero"), "yyyymmdd") & "|"
+    strLin = strLin & Format(rs("FechaHoraFichero"), "HHNN") & "|"
+    If intSegundaPasada = True Then
+        strLin = strLin & Format(rs("NumRegistros") - i, "00000")
+    Else
+        strLin = strLin & Format(rs("NumRegistros"), "00000")
+    End If
+    Print #1, strLin
+    'Registros 2
+    strSQL = "SELECT * "
+    strSQL = strSQL & " FROM tbPartesPolicia"
+    strSQL = strSQL & " WHERE IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
+    strSQL = strSQL & " ORDER BY NumParte"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If IsNull(rs("FechaExpedicion")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Fecha de expedición no válida: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If Not IsNumeric(rs("FechaNacimientoAAAA")) Or Not IsNumeric(rs("FechaNacimientoMM")) Or Not IsNumeric(rs("FechaNacimientoDD")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Fecha de nacimiento no válida: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If IsNull(rs("Sexo")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Sexo no válido: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        If IsNull(rs("FechaLlegada")) Then
+            If intSegundaPasada = True Then GoTo Siguiente
+            i = i + 1
+            strMSG = strMSG & "Fecha de llegada no válida: Ficha Nº->" & rs("IdFichaCab") & vbCrLf
+            GoTo Siguiente
+        End If
+        strLin = "2|"
+        strLin = strLin & SoloNum(Nz(rs("DocIdEspaña"), "")) & "|"
+        strLin = strLin & SoloNum(Nz(rs("DocIdExtranjeros"), "")) & "|"
+        strLin = strLin & Nz(rs("TipoDocId"), "") & "|"
+        strLin = strLin & Format(rs("FechaExpedicion"), "yyyymmdd") & "|"
+        strLin = strLin & UCase(SinAcentos(rs("Apellido1"))) & "|"
+        strLin = strLin & UCase(SinAcentos(rs("Apellido2"))) & "|"
+        strLin = strLin & UCase(SinAcentos(rs("Nombre"))) & "|"
+        strLin = strLin & Nz(rs("Sexo"), "") & "|"
+        strLin = strLin & rs("FechaNacimientoAAAA") & rs("FechaNacimientoMM") & rs("FechaNacimientoDD") & "|"
+        strLin = strLin & UCase(SinAcentos(Nz(rs("Pais"), "ESPAÑA"))) & "|"
+        strLin = strLin & Format(rs("FechaLlegada"), "yyyymmdd")
+        Print #1, strLin
+Siguiente:
+        rs.MoveNext
+    Wend
+    Close #1
+    If intSegundaPasada = True Then Exit Sub
+    If i > 0 Then
+        MsgBox "Nº de partes no válidos: " & i & vbCrLf & strMSG
+        intSegundaPasada = True
+        GoTo Inicio
+    End If
+Salir_EscribirFicheroPolicia_old:
+    Exit Sub
+Error_EscribirFicheroPolicia_old:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en EscribirFicheroPolicia_old" & vbCrLf & Err.Description
+            Resume Salir_EscribirFicheroPolicia_old
+    End Select
+End Sub
+
+
+Public Function ValidarPartePolicia(lngIdParte As Long, Optional strMSG As String) As Integer
+    On Error GoTo Error_ValidarPartePolicia
+    Dim rs As Recordset, intError As Integer, intAviso As Integer
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbPartesPolicia WHERE IdPartePolicia = " & lngIdParte, dbOpenDynaset)
+    If rs.EOF Then
+        strMSG = "No se encontró IdPartePolicia = " & lngIdParte
+        intAviso = intAviso + 1
+        ValidarPartePolicia = False
+        GoTo Salir_ValidarPartePolicia
+    End If
+    If IsNull(rs("FechaExpedicion")) Then
+        rs.Edit
+        rs("FechaExpedicion") = #1/1/2001#
+        rs.Update
+        strMSG = strMSG & "Fecha de expedición no válida, se asignó Fecha de expedición: 01/01/2001" & vbCrLf
+        intAviso = intAviso + 1
+    End If
+    If Not IsNumeric(rs("FechaNacimientoAAAA")) Or Not IsNumeric(rs("FechaNacimientoMM")) Or Not IsNumeric(rs("FechaNacimientoDD")) Then
+        intError = intError + 1
+        strMSG = strMSG & "Fecha de nacimiento no válida" & vbCrLf
+    End If
+    If IsNull(rs("Sexo")) Then
+        intError = intError + 1
+        strMSG = strMSG & "Sexo no válido" & vbCrLf
+    End If
+    If IsNull(rs("FechaLlegada")) Then
+        intError = intError + 1
+        strMSG = strMSG & "Fecha de llegada no válida" & vbCrLf
+    End If
+    If Nz(rs("Apellido2"), "") = "" And (IsNull(rs("Pais")) Or rs("Pais") = "España") Then
+        intError = intError + 1
+        strMSG = strMSG & "Falta 2º apellido para Pais-España" & vbCrLf
+    End If
+    Dim strNom As String
+    strNom = Nz(rs("Nombre"), "")
+    If strNom <> SinCaracNoValidos(strNom) Then rs.Edit: rs("Nombre") = strNom: rs.Update
+    strNom = Nz(rs("Apellido1"), "")
+    If strNom <> SinCaracNoValidos(strNom) Then rs.Edit: rs("Apellido1") = strNom: rs.Update
+    strNom = Nz(rs("Apellido2"), "")
+    If strNom <> SinCaracNoValidos(strNom) Then rs.Edit: rs("Apellido2") = strNom: rs.Update
+Salir_ValidarPartePolicia:
+    ValidarPartePolicia = intError = 0
+    Exit Function
+Error_ValidarPartePolicia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ValidarPartePolicia" & vbCrLf & Err.Description
+            Resume Salir_ValidarPartePolicia
+    End Select
+End Function
+
+Public Function SinCaracNoValidos(strNom As String) As String
+    Dim strNoValidos As String, strR As String, i As Integer
+    strNoValidos = "*,.-'" & Chr(13) & Chr(10)
+    strR = strNom
+    For i = 1 To Len(strNoValidos)
+        strR = Replace(strR, Mid(strNoValidos, i, 1), "")
+    Next i
+dos_espacios:
+    strR = Replace(strR, "  ", " ")
+    If InStr(strR, "  ") > 0 Then GoTo dos_espacios
+    strR = Trim(strR)
+    SinCaracNoValidos = strR
+End Function
+
+Public Function DimeCarpetaPolicia() As String
+    On Error GoTo Error_DimeCarpetaPolicia
+    Dim strCarpeta As String
+Carpeta:
+    strCarpeta = Nz(DameValorParam("PartesPoliciaCarpetaFicheros"), "")
+    If strCarpeta = "" Then
+        PonValorParam "PartesPoliciaCarpetaFicheros", DirectorioDe(CurrentDb.Name) & "PartesPolicia\"
+        GoTo Carpeta
+    End If
+    If Right(strCarpeta, 1) <> "\" Then
+        strCarpeta = strCarpeta & "\"
+        PonValorParam "PartesPoliciaCarpetaFicheros", strCarpeta
+        GoTo Carpeta
+    End If
+    If Dir(RecDerTop(strCarpeta, 1, 0), vbDirectory) = "" Then MkDir RecDerTop(strCarpeta, 1, 0)
+    DimeCarpetaPolicia = strCarpeta
+Salir_DimeCarpetaPolicia:
+    Exit Function
+Error_DimeCarpetaPolicia:
+    Select Case Err
+        Case 76
+            PonValorParam "PartesPoliciaCarpetaFicheros", ""
+            Resume Carpeta
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeCarpetaPolicia" & vbCrLf & Err.Description
+            Resume Salir_DimeCarpetaPolicia
+    End Select
+End Function

@@ -1,0 +1,34 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gShift As Integer
+
+
+Private Sub ControlPanel_Click()
+    If gShift And acCtrlMask <> 0 Then
+        Dim intR As Integer, strSQL As String
+        intR = MsgBox("¿Modificar a " & IIf(Me.ControlPanel, "VERDADERO", "FALSO") & " a todas las " & g_strPHs & " del tipo " & Me.IdTipoParcela.Column(1) & "?", vbYesNo + vbQuestion)
+        If intR = vbYes Then
+            If Me.Dirty Then DoCmd.RunCommand acCmdSaveRecord
+            strSQL = "UPDATE tbParcelas SET ControlPanel =" & IIf(Me.ControlPanel, "True", "False") & " WHERE IdTipoParcela = " & Me.IdTipoParcela
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+    End If
+End Sub
+
+Private Sub ControlPanel_KeyDown(KeyCode As Integer, Shift As Integer)
+    gShift = Shift
+End Sub
+
+Private Sub ControlPanel_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+    Me.lblPH.Caption = g_strPH
+End Sub

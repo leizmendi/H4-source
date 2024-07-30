@@ -1,0 +1,68 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub lstPasos_Click()
+    If Me.lstPasos.ListIndex = -1 Then
+        Me.lblPasoDesc.Caption = "-"
+    Else
+        Me.lblPasoDesc.Caption = Me.lstPasos.Column(1) & vbCrLf & Me.lstPasos.Column(2)
+    End If
+End Sub
+
+Public Sub lstProcedimientos_AfterUpdate()
+    Dim strSQL As String
+    strSQL = "SELECT sysProcedimientosPasos.Paso, sysProcedimientosPasos.Descripción, sysProcedimientosPasos.Resultado"
+    strSQL = strSQL & " FROM sysProcedimientosPasos"
+    strSQL = strSQL & " WHERE IdProcedimiento=" & Nz(Me.lstProcedimientos, 0)
+    Me.lstPasos.RowSource = strSQL
+    Call lstPasos_Click
+    Me.lstPasos.ColumnCount = 2
+    Me.lblDescripcion = Nz(DLookup("Descripcion", "sysProcedimientos", "IdProcedimiento = " & Nz(Me.lstProcedimientos, 0)), "?")
+End Sub
+
+Private Sub btnProcedure_Click()
+On Error GoTo Err_btnProcedure_Click
+    Dim vIt As Variant, strSQL As String, strSelected As String, i As Integer, intCancel As Integer
+    'If Me.lstPasos.ListIndex = -1 Then Exit Sub
+    For Each vIt In Me.lstPasos.ItemsSelected
+        strSelected = strSelected & "|" & Me.lstPasos.Column(0, vIt) & "@"
+        
+        strSQL = "UPDATE sysProcedimientosPasos"
+        strSQL = strSQL & " SET Resultado = '-'"
+        strSQL = strSQL & " WHERE IdProcedimiento=" & Me.lstProcedimientos
+        strSQL = strSQL & " AND Paso = " & Me.lstPasos.Column(0, vIt)
+        CurrentDb.Execute strSQL, dbFailOnError
+        
+    Next vIt
+    If Me.lstProcedimientos = 1 Then
+        'strSQL = "UPDATE sysProcedimientosPasos"
+        'strSQL = strSQL & " SET Resultado = '-'"
+        'strSQL = strSQL & " WHERE IdProcedimiento=1"
+        'CurrentDb.Execute strSQL, dbFailOnError
+        
+        'If Not IsOpenForm("frmProcedimientos") Then DoCmd.OpenForm "frmProcedimientos"
+        'Forms("frmProcedimientos").SetFocus
+        'Forms("frmProcedimientos")("lstProcedimientos") = 1
+        'Call Forms("frmProcedimientos").lstProcedimientos_AfterUpdate
+        Me.lstPasos.ColumnCount = 3
+    End If
+    For i = 0 To Me.lstPasos.ListCount - 1
+        Me.lstPasos.Selected(i) = InStr(strSelected, "|" & Me.lstPasos.Column(0, i) & "@") > 0
+    Next i
+    For Each vIt In Me.lstPasos.ItemsSelected
+        RunProcedure Me, Me.lstProcedimientos, Me.lstPasos.Column(0, vIt), intCancel
+        Me.lstPasos.Requery
+        If intCancel Then GoTo Exit_btnProcedure_Click
+    Next vIt
+    Me.lstPasos.Requery
+Exit_btnProcedure_Click:
+    Exit Sub
+Err_btnProcedure_Click:
+    MsgBox Err.Description
+    Resume Exit_btnProcedure_Click
+End Sub

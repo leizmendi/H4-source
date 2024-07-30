@@ -1,0 +1,25 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call PuestoEnvioEmails_OS_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    GrabarParam Me
+End Sub
+
+Private Sub PuestoEnvioEmails_OS_AfterUpdate()
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "smtp") > 0 Then
+            ctl.Enabled = Nz(Me.PuestoEnvioEmails_OS, 1) = 2
+        End If
+    Next ctl
+End Sub

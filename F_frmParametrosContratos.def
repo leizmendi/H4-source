@@ -1,0 +1,44 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+
+Private Sub ContratosLineasDetalle_AfterUpdate()
+    If IsNull(Me.ContratosLineasDetalle) Then
+        Me.ContratosLineasDetalle = 10
+    End If
+End Sub
+
+Private Sub ContratosNumCopias_AfterUpdate()
+    If IsNull(Me.ContratosNumCopias) Then
+        Me.ContratosNumCopias = 1
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call ContratosImpresionPor_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub ContratosImpresionPor_AfterUpdate()
+    Dim intAct As Integer
+    Dim ctl As Control
+    If Me.ContratosImpresionPor = 1 Then
+        intAct = False
+    Else
+        intAct = True
+    End If
+    Me.ContratosLetraCN.Enabled = intAct
+    Me.ContratosMargenIzdo.Enabled = intAct
+    Me.ContratosMargenSup.Enabled = intAct
+    Me.ContratosImpresora.Enabled = intAct
+End Sub

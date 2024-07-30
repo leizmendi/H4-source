@@ -1,0 +1,60 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim glngColor As Long
+Private Sub Detalle_Print(Cancel As Integer, PrintCount As Integer)
+    If PrintCount > 1 Then Exit Sub
+    If glngColor = 16777215 Then
+        glngColor = 15263976
+    Else
+        glngColor = 16777215
+    End If
+    Me.Section(0).BackColor = glngColor
+End Sub
+
+Private Sub PieDelInforme_Format(Cancel As Integer, FormatCount As Integer)
+    Me.lblTotal_ph.Caption = "Total " & g_strPHs & ": "
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existen registros para la fecha indicada"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    'Establecer el origen del registro del informe................
+    Dim frm As Form
+    Me.lblPH.Caption = g_strPH
+    If Not IsOpenForm("frmListadoOcupacion") Then
+        MsgBox "Debe estar abierto frmListadoOcupacion"
+        Cancel = True
+    Else
+        Set frm = Forms("frmListadoOcupacion")
+    End If
+'    If frm("mrcOES") = 2 Then
+'        Me.lblTitulo.Caption = "Listado de Entradas"
+'        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+'        Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,1)"
+'        Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaLlegada = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#')"
+'    ElseIf frm("mrcOES") = 3 Then
+        Me.lblTitulo.Caption = "Listado de Salidas"
+        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+        Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,2)"
+        Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaSalida = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "#')"
+'    ElseIf frm("mrcOES") = 4 Then
+'        Me.lblTitulo.Caption = "Listado de Reservas"
+'        Me.lblTitulo2.Caption = Format(frm("txtDesde"), "dddd, d mmmm yyyy")
+'        Me.txtTotalParcelas.ControlSource = "=CuentaParcelas(#" & Format(frm("txtDesde"), "yyyy/mm/dd") & "#,3)"
+'        Me.txtTotalPax.ControlSource = "=DSum('[Adultos]+[Niños]','tbFichasCab','FechaLlegada = #" & Format(frm("txtDesde"), "mm/dd/yyyy") & "# AND EstadoFicha = 1')"
+'    End If
+    If frm("mrcOES") = 5 Then
+        Me.RecordSource = frm("lblSQL2").Caption
+    Else
+        Me.RecordSource = frm("lblSQL").Caption
+    End If
+    
+End Sub

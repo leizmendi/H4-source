@@ -1,0 +1,97 @@
+Option Compare Database
+Option Explicit
+
+    Public Sub SendSMS(strNumber As String, strMensaje As String, Optional intFirma As Integer = False, Optional intRespuesta As Integer = False)
+        On Error GoTo Error_SendSMS
+        Select Case Nz(DameValorParam("PuestoEnvioSMS_canal"), 0)
+            Case 0
+                MsgBox "No se ha seleccionado canal de envío de SMS", vbExclamation
+                Exit Sub
+            Case 1
+                Dim userName As String
+                Dim Sender As String
+                Dim hash As String
+                Dim strResponse As String
+                userName = Nz(DameValorParam("SMStxtLocalUserName"), "")
+                If userName = "" Then
+                    MsgBox "No se ha indicado nombre de usuario de textLocal en parámetros de envío de SMS", vbExclamation
+                    Exit Sub
+                End If
+                hash = Nz(DameValorParam("SMStxtLocalHash"), "")
+                If hash = "" Then
+                    MsgBox "No se ha indicado hash de textLocal en parámetros de envío de SMS", vbExclamation
+                    Exit Sub
+                End If
+                Sender = Nz(DameValorParam("SMStxtLocalRemite"), "")
+                If intFirma Then strMensaje = strMensaje & vbCrLf & vbCrLf & Nz(DameValorParam("SMSFirma"), "")
+                strResponse = SendSMS_textlocal(strNumber, strMensaje, userName, hash, Sender)
+                If intRespuesta Then
+                    If InStr(strResponse, """status""" & ":" & """success""") > 0 Then strResponse = "SMS enviado correctamente"
+                    MsgBox strResponse, vbInformation
+                End If
+            Case Else
+                MsgBox "Canal de envío de SMS no reconocido", vbExclamation
+                Exit Sub
+        End Select
+                        
+Salir_SendSMS:
+        Exit Sub
+Error_SendSMS:
+        Select Case Err
+            Case Else
+                MsgBox "error nº " & Err & " en SendSMS" & vbCrLf & Err.Description
+                Resume Salir_SendSMS
+        End Select
+    End Sub
+
+    Public Function SendSMS_textlocal(strNumber As String, strMensaje As String, strUserName As String, strHash As String, strSender As String) As String
+        On Error GoTo Error_SendSMS_textLocal
+        Dim userName As String
+        Dim Password As String
+        Dim result As String
+        Dim myURL As String
+        Dim Sender As String
+        Dim hash As String
+        Dim SendSMS_textLocal_textlocal  As String
+        'Dim numbers As String
+        'Dim Message As String
+        Dim postData As String
+        Dim winHttpReq As Object
+        userName = strUserName '"leizmendi@gmail.com"
+        'hash = "0+sqk3DAhlM-uELgetg8cr7Xs4tVuRijRdhIKrfu8X"
+        hash = strHash '"960da55134ef5cfe4c89e501133fe7a0a04ae369"
+        Sender = strSender '"Abauntz Software"
+        'numbers = "34677453430"
+        'Message = "This is your message"
+        If Len(strNumber) = 9 Then strNumber = "34" & strNumber
+        Set winHttpReq = CreateObject("WinHttp.WinHttpRequest.5.1")
+        
+        myURL = "http://api.txtlocal.com/send/?"
+        postData = "username=" + userName + "&hash=" + hash + "&message=" + strMensaje + "&numbers=" + strNumber + "&sender=" + Sender
+        
+        winHttpReq.Open "POST", myURL, False
+        winHttpReq.setRequestHeader "Content-Type", "application/x-www-form-urlencoded"
+        winHttpReq.Send (postData)
+        SendSMS_textlocal = winHttpReq.responseText
+        
+Salir_SendSMS_textLocal:
+        Exit Function
+Error_SendSMS_textLocal:
+        Select Case Err
+            Case Else
+                MsgBox "error nº " & Err & " en SendSMS_textLocal" & vbCrLf & Err.Description
+                Resume Salir_SendSMS_textLocal
+        End Select
+    End Function
+
+Public Sub pruebaSMS(strTelefono As String, strUserName As String, strHash As String, strSender As String)
+    Dim strMSG As String
+    strMSG = "Ad te suspiramus gementes et flentes"
+    strMSG = strMSG & vbCrLf & "in hac lacrimarum valle."
+    strMSG = strMSG & vbCrLf & "Eia ergo, advocata nostra,"
+    strMSG = strMSG & vbCrLf & "illos tuos misericordes oculos ad nos converte."
+    strMSG = strMSG & vbCrLf & "Et Iesum, benedictum fructum ventris tui,"
+    strMSG = strMSG & vbCrLf & "nobis post hoc exsilium ostende."
+    strMSG = strMSG & vbCrLf & "O clemens, o pia, o dulcis Virgo Maria."
+    MsgBox (SendSMS_textlocal(strTelefono, strMSG, strUserName, strHash, strSender))
+End Sub

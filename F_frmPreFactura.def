@@ -1,0 +1,85 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+    Dim gintReservaSN As Integer
+    Dim gintFichaSN As Integer
+    Dim gintFacturaSN As Integer
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnOpciones_Click()
+    Dim strForm As String
+    strForm = IIf((gintFichaSN Or gintReservaSN), "frmParametrosFichas", "frmParametrosFacturas")
+    DoCmd.OpenForm strForm, , , , , acDialog
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me, Me.Name & "_"
+    Me.FacturasLogoSN = DameValorParam("FacturasLogoSN")
+    Me.FacturasTiraLogosSN = DameValorParam("FacturasTiraLogosSN")
+    Call mrcImpMod_Click
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, intEmpresaSN As Integer, strFacturar_a_NIF As String, strSQL As String
+    strXML = Nz(Me.OpenArgs, "")
+    gintReservaSN = Nz(DimeXML(strXML, "Reserva"), "NO") = "SI"
+    gintFichaSN = Nz(DimeXML(strXML, "FichaEstancia"), "NO") = "SI"
+    gintFacturaSN = Nz(DimeXML(strXML, "Factura"), "NO") = "SI"
+    intEmpresaSN = Nz(DimeXML(strXML, "Empresa"), "NO") = "SI"
+    strFacturar_a_NIF = Nz(DimeXML(strXML, "Facturar_a_NIF"), "")
+    strSQL = "SELECT tbFacturasCab.IdFactura, tbFacturasCab.NumeroDeFactura, tbFacturasCab.FechaFactura, tbFacturasCab.NIF"
+    strSQL = strSQL & " From tbFacturasCab"
+    strSQL = strSQL & " WHERE NIF = " & ConComillas(strFacturar_a_NIF)
+    strSQL = strSQL & " ORDER BY tbFacturasCab.FechaFactura DESC , tbFacturasCab.NumeroDeFactura DESC;"
+    Me.cmbIdFac.RowSource = strSQL
+
+    Me.casFormatoTique = Nz(DimeXML(strXML, "FormatoTiqueSN"), "N") = "S"
+    Me.opt2.Visible = Not (gintFichaSN Or gintReservaSN)
+    Me.opt3.Visible = Not (gintFichaSN Or gintReservaSN)
+    Me.opt4.Visible = Not gintReservaSN
+    Me.opt5.Visible = Not gintReservaSN
+    If Not Me.opt5.Visible Then
+        Me.opt6.Top = Me.opt5.Top
+        Me.lblOp6.Top = Me.lblOp5.Top
+    End If
+    Me.opt6.Visible = Not gintFichaSN
+    Me.opt7.Visible = Not (gintFichaSN Or gintReservaSN)
+    Me.casEmpresa.Visible = intEmpresaSN
+    Me.FacturasLogoSN.Visible = gintFacturaSN
+    Me.FacturasTiraLogosSN.Visible = gintFacturaSN
+    Me.lblIndique.Caption = "Indique qué desea hacer con la " & IIf(gintFichaSN, "ficha", "factura")
+    If gintFichaSN = False Then
+        If gintReservaSN = False Then
+            Me.Caption = "Imprimir o modificar la factura"
+            Me.lblIndique.Caption = "Indique qué desea hacer con la factura"
+        Else
+            Me.Caption = "Imprimir-enviar la reserva"
+            Me.lblIndique.Caption = "Indique qué desea hacer con la reserva"
+        End If
+    Else
+        Me.Caption = "Imprimir la ficha de estancia"
+        Me.lblIndique.Caption = "Indique qué desea hacer con la ficha de estancia"
+    End If
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    GrabarParam Me, Me.Name & "_"
+End Sub
+
+Private Sub mrcImpMod_Click()
+    Me.casFormatoTique.Visible = Me.mrcImpMod = 1 Or Me.mrcImpMod = 4
+    Me.cmbIdFac.Visible = Me.mrcImpMod = 7
+End Sub

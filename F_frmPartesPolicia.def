@@ -1,0 +1,574 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim glngIdFichaCab As Long
+    Dim gdtFechaLlegada
+    Dim gintFirmar As Integer
+
+Private Sub altInfo_Click()
+    Dim intVer As Integer, ctl As Control
+    Me.altInfo.Tag = IIf(Me.altInfo.Tag = "2", "1", "2")
+    intVer = CInt(Me.altInfo.Tag)
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "Ver") > 1 Then
+            ctl.Visible = InStr(ctl.Tag, "Ver" & intVer) > 0
+        End If
+    Next ctl
+    
+End Sub
+
+Private Sub btn3M_Click()
+    On Error GoTo HandleError
+    If Me.btn3M.Caption = "Poli Check-In" Then GoTo PoliCheckIn
+    
+    DoCmd.OpenForm "frm3M", , , , , acDialog
+    If Not IsOpenForm("frm3M") Then Exit Sub
+    Dim strData As String
+    strData = Nz(Forms("frm3M")("txtOutput"), "")
+    DoCmd.Close acForm, "frm3M"
+    If strData = "" Then Exit Sub
+    Dim viaJ As Viajero, i As Integer
+    viaJ = DatosViajeroZLM(strData)
+    Me.FechaExpedicion = viaJ.dtFechaExpedicion
+EsFecha:
+    If IsDate(Me.FechaExpedicion) Then
+        If CDate(Me.FechaExpedicion) > Date Then
+            Me.FechaExpedicion = DateAdd("yyyy", -5, CDate(Me.FechaExpedicion))
+            GoTo EsFecha
+        End If
+    End If
+    Me.FechaNacimientoAAAA = Format(viaJ.dtFechaNacimiento, "yyyy")
+    Me.FechaNacimientoDD = Format(viaJ.dtFechaNacimiento, "dd")
+    Me.FechaNacimientoMM = Format(viaJ.dtFechaNacimiento, "MM")
+    i = InStr(viaJ.strApellidos, " ")
+    If i > 0 Then
+        Me.Apellido1 = Trim(Left(viaJ.strApellidos, i))
+        Me.Apellido2 = Trim(Mid(viaJ.strApellidos, i))
+    Else
+        Me.Apellido1 = viaJ.strApellidos
+    End If
+    Me.Nombre = viaJ.strNombre
+    Me.Pais = viaJ.strNacionalidad
+    Me.Sexo = viaJ.strSexo
+    Me.TipoDocId = viaJ.strTipoDoc
+    If viaJ.strNacionalidad = "España" Then
+        Me.DocIdEspaña = viaJ.strNumDoc
+        Me.DocIdExtranjeros = Null
+    Else
+        Me.DocIdEspaña = Null
+        Me.DocIdExtranjeros = viaJ.strNumDoc
+    End If
+    GoTo HandleExit
+PoliCheckIn:
+    Dim strResponse As String, json As Object
+    Dim intR As Integer, rs As Recordset
+    If Nz(Me.Nombre, "") <> "" Then
+        intR = MsgBox("¿Subir datos a Policheckin?", vbYesNo + vbQuestion)
+        If intR = vbYes Then
+            If Me.Dirty Then DoCmd.RunCommand acCmdSaveRecord
+            PoliCheckIn_PostParte Me.IdPartePolicia
+            GoTo HandleExit
+        End If
+    End If
+    strResponse = PoliCheckIn_GetLast()
+    If strResponse = "" Then
+        MsgBox "No se encontró ficha en servidor de Poli Check-In", vbExclamation
+        GoTo HandleExit
+    End If
+    Set json = JsonConverter.ParseJson(strResponse)
+    Me.TipoDocId = PoliCheckIn_DimeTipoDoc(json("documentType"))
+    Select Case Me.TipoDocId
+        Case "D"
+            Me.DocIdEspaña = json("documentId")
+            Me.DocIdExtranjeros = Null
+        Case Else
+            Me.DocIdExtranjeros = json("documentId")
+            Me.DocIdEspaña = Null
+    End Select
+    Me.FechaExpedicion = CDate(Left(json("expeditionDate"), 10))
+    Me.Nombre = json("firstName")
+    Me.Apellido1 = json("lastName1")
+    Me.Apellido2 = json("lastName2")
+    Me.Pais = json("nationality")
+    Me.Sexo = json("sex")
+    Me.FechaNacimientoAAAA = Format(CDate(Left(json("birthDate"), 10)) + 1, "yyyy")
+    Me.FechaNacimientoMM = Format(CDate(Left(json("birthDate"), 10)) + 1, "mm")
+    Me.FechaNacimientoDD = Format(CDate(Left(json("birthDate"), 10)) + 1, "dd")
+    strResponse = PoliCheckIn_Delete()
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnBorrar_Click()
+    On Error GoTo Error_btnBorrar_Click
+    Dim intR As Integer
+    If Me.AllowDeletions = False Then Exit Sub
+    intR = MsgBox("¿Borrar Ficha?", vbQuestion + vbOKCancel)
+    If intR = vbCancel Then Exit Sub
+    DoCmd.RunCommand acCmdDeleteRecord
+Salir_btnBorrar_Click:
+    Exit Sub
+Error_btnBorrar_Click:
+    Select Case Err
+        Case 2046
+            MsgBox "No se puede borrar, antes se debe desbloquear la ficha"
+            Resume Salir_btnBorrar_Click
+        Case Else
+            MsgBox "Error nº " & Err & " en btnBorrar_Click" & vbCrLf & Err.Description
+            Resume Salir_btnBorrar_Click
+    End Select
+End Sub
+
+Private Sub btnCopiarAFicha_Click()
+    On Error GoTo HandleError
+    If Not IsOpenForm("frmFichas") Then
+        MsgBox "No se encontró Formulario de Fichas abierto", vbExclamation
+        GoTo HandleExit
+    End If
+    Dim frm As Form, rsC As Recordset, intR As Integer
+    Set frm = Forms("frmFichas")
+    frm.TipoDocumento = IIf(Nz(Me.DocIdEspaña, "-") <> "-", "D", "P")
+    frm.DNICliente = IIf(Nz(Me.DocIdEspaña, "-") <> "-", Me.DocIdEspaña, Me.DocIdExtranjeros)
+    frm.FechaExpedicion = CDate(Me.FechaExpedicion)
+    frm.NombreCliente = Me.Nombre
+    frm.ApellidosCliente = Trim(Me.Apellido1 & " " & Me.Apellido2)
+    frm.PaisCliente = Me.Pais
+    frm.SexoCliente = Me.Sexo
+    'frm.FechaNacimiento = CDate(Left(Json("birthDate"), 10))
+    frm.FechaNacimiento = CDate(Me.FechaNacimientoAAAA & "/" & Me.FechaNacimientoMM & "/" & Me.FechaNacimientoDD)
+    'Comprobar si está en base de datos
+    Set rsC = CurrentDb.OpenRecordset("SELECT * FROM tbClientes WHERE NIF = " & ConComillas(frm.DNICliente), dbOpenSnapshot)
+    rsC.FindFirst "NIF = " & ConComillas(Nz(frm.DNICliente, ""))
+    If Not rsC.NoMatch Then
+        intR = MsgBox("Cliente existente en base de datos, ¿Obtener datos de su ficha?", vbYesNo + vbQuestion)
+        If intR = vbYes Then
+            Call frm.DNICliente_AfterUpdate
+        End If
+    End If
+        
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnFirmar_Click()
+    gintFirmar = True
+    btnImprimir_Click
+End Sub
+
+Private Sub btnIDSCAN_Click()
+    On Error GoTo Error_btnIDSCAN_Click
+    Dim strFile As String, strDefaultPath As String, intR As Integer, strXML As String
+    strDefaultPath = DirectorioDe(CurrentDb.Name) & Nz(DameValorParam("ICAR_CarpetaImagenes"), "icar\")
+    strFile = strDefaultPath & "P" & Me.IdPartePolicia & "_doc.jpg"
+    If Dir(strFile) <> "" Then
+        intR = MsgBox("¿Ver imagen guardada?" & vbCrLf & "Si se pulsa NO se escaneará un nuevo documento", vbYesNoCancel)
+        If intR = vbCancel Then Exit Sub
+        If intR = vbYes Then
+            PonXML strXML, "DocImagePath", strFile
+            DoCmd.OpenForm "frmICAR_doc", , , , , acDialog, strXML
+            Exit Sub
+        End If
+    End If
+    If Not IsOpenForm("frmICAR") Then
+        DoCmd.OpenForm "frmICAR", , , , , acDialog
+    Else
+        Forms("frmICAR")("imgICAR").Picture = ""
+        Forms("frmICAR")("txtOutput") = ""
+        Forms("frmICAR").Visible = True
+        Call Forms("frmICAR").btnEscanear_Click
+    End If
+Salir_btnIDSCAN_Click:
+    Exit Sub
+Error_btnIDSCAN_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnIDSCAN_Click" & vbCrLf & Err.Description
+            Resume Salir_btnIDSCAN_Click
+    End Select
+End Sub
+
+Private Sub btnImprimir_Click()
+    If Me.IdFichaCab = 0 Then Exit Sub
+    Dim strRPT As String, strCri As String, i As Integer, lngId As Long
+    Dim lngIdFichaCab As Long, lngIdPartePolicia As Long
+    If Me.Dirty Then
+        Me.AllowEdits = True
+        DoCmd.RunCommand acCmdSaveRecord
+    End If
+    ' asignar nº de parte
+    Dim strSQL As String, rs As Recordset
+    '''''''''''''''''''''
+    strSQL = "SELECT * FROM tbPartesPolicia WHERE NumParte=0"
+    If Me.mrcF_P <> 2 Then
+        strSQL = strSQL & "AND IdFichaCab = " & Me.IdFichaCab
+    Else
+        strSQL = strSQL & "AND IdPartePolicia = " & Me.IdPartePolicia
+    End If
+    strSQL = strSQL & " ORDER BY IdPartePolicia"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        rs.Edit
+        rs("NumParte") = Nz(DMax("NumParte", "tbPartesPolicia"), 0) + 1
+        rs.Update
+        rs.MoveNext
+    Wend
+    lngIdFichaCab = Me.IdFichaCab
+    If Me.mrcF_P <> 2 Then
+        lngId = Me.IdFichaCab
+        lngIdPartePolicia = 0
+    Else
+        lngId = Me.IdPartePolicia
+        lngIdPartePolicia = lngId
+    End If
+    Select Case DameValorParam("EntradaViajerosAW")
+    'If DameValorParam("EntradaViajerosAW") = 1 Then
+        Case 1
+            strRPT = Nz(DameValorParam("EntradaViajerosRPT"), "rptFichaEntradaViajeros")
+            If Me.mrcF_P = 1 Then
+                strCri = "IdFichaCab = " & Me.IdFichaCab
+            ElseIf Me.mrcF_P = 2 Then
+                If InStr(strRPT, "Grupo") = 0 Then
+                    strCri = "IdPartePolicia = " & Me.IdPartePolicia
+                    lngIdPartePolicia = Me.IdPartePolicia
+                Else
+                    lngIdPartePolicia = 0
+                End If
+            ElseIf Me.mrcF_P = 3 Then
+                'strRpt = "rptFichaEntradaViajerosGrupo"
+                strCri = "IdFichaCab = " & Me.IdFichaCab
+            End If
+            If gintFirmar Then
+                If Nz(DameValorParam("EntradaViajerosUnDocXViajero"), False) = False Or lngIdPartePolicia <> 0 Then
+                    FirmarEntradaViajeroRPT strRPT, lngIdFichaCab, lngIdPartePolicia
+                Else
+                    strSQL = "SELECT * FROM tbPartesPolicia WHERE IdFichaCab = " & lngIdFichaCab
+                    strSQL = strSQL & " ORDER BY IdPartePolicia"
+                    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                    While Not rs.EOF
+                        FirmarEntradaViajeroRPT strRPT, lngIdFichaCab, rs("IdPartePolicia")
+                        rs.MoveNext
+                    Wend
+                End If
+            Else
+                Dim strPrintWin As String, strPrintDef As String, strPrinter As String
+                strPrinter = Nz(DameValorParam("EntradaViajeros_Impresora"), "")
+                strPrintDef = Application.Printer.DeviceName
+                strPrintWin = Nz(DameValorParam("EntradaViajeros_Impresora"), strPrintDef)
+                If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintWin)
+                If DameValorParam("EntradaViajeros_Imp_VistaPrevia") = 1 Then
+                    DoCmd.OpenReport strRPT, , , strCri
+                Else
+                    DoCmd.OpenReport strRPT, acViewPreview, , strCri
+                End If
+                If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintDef)
+'            Else
+'                If gintFirmar Then
+'                    If ImprimirEntradaViajero_Wacom(strRPT, lngIdFichaCab, lngIdPartePolicia) = False Then
+'                        MsgBox "Falló captura de firma", vbExclamation
+'                    End If
+'                Else
+'                    DoCmd.OpenReport strRPT, acViewPreview, , strCri
+'                End If
+            End If
+        Case Else
+            FusionEntradaViajero lngId, Me.mrcF_P
+    End Select
+    gintFirmar = False
+End Sub
+
+Private Sub btnImprimirAuxiliar_Click()
+    On Error GoTo HandleError
+    If Me.IdFichaCab = 0 Then Exit Sub
+    Dim strRPT As String, strCri As String, i As Integer, lngId As Long
+    Dim lngIdFichaCab As Long, lngIdPartePolicia As Long, strSQL As String, sDocName As String
+    If Me.Dirty Then
+        Me.AllowEdits = True
+        DoCmd.RunCommand acCmdSaveRecord
+    End If
+    
+    lngIdFichaCab = Me.IdFichaCab
+    If Me.mrcF_P <> 2 Then
+        lngId = Me.IdFichaCab
+        lngIdPartePolicia = 0
+    Else
+        lngId = Me.IdPartePolicia
+        lngIdPartePolicia = lngId
+    End If
+    strRPT = Me.RptAuxiliar
+    i = InStrRev(strRPT, "_")
+    sDocName = Mid(strRPT, i + 1)
+    If Me.mrcF_P = 1 Then
+        strCri = "IdFichaCab = " & Me.IdFichaCab
+    Else
+        strCri = "IdPartePolicia = " & Me.IdPartePolicia
+    End If
+    
+    If Me.FirmarAuxiliarSN Then
+        If Nz(DameValorParam("EntradaViajerosUnDocXViajero"), False) = False Or lngIdPartePolicia <> 0 Then
+            FirmarEntradaViajeroRPT strRPT, lngIdFichaCab, lngIdPartePolicia, sDocName
+        Else
+            strSQL = "SELECT * FROM tbPartesPolicia WHERE IdFichaCab = " & lngIdFichaCab
+            strSQL = strSQL & " ORDER BY IdPartePolicia"
+            Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+            i = 0
+            While Not rs.EOF
+                i = i + 1
+                FirmarEntradaViajeroRPT strRPT, lngIdFichaCab, rs("IdPartePolicia"), sDocName & "_" & i
+                rs.MoveNext
+            Wend
+        End If
+    Else
+        Dim strPrintWin As String, strPrintDef As String, strPrinter As String
+        strPrinter = Nz(DameValorParam("EntradaViajeros_Impresora"), "")
+        strPrintDef = Application.Printer.DeviceName
+        strPrintWin = Nz(DameValorParam("EntradaViajeros_Impresora"), strPrintDef)
+        If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintWin)
+        If DameValorParam("EntradaViajeros_Imp_VistaPrevia") = 1 Then
+            DoCmd.OpenReport strRPT, , , strCri
+        Else
+            DoCmd.OpenReport strRPT, acViewPreview, , strCri
+        End If
+        If strPrintDef <> strPrintWin Then Application.Printer = Application.Printers(strPrintDef)
+    End If
+    gintFirmar = False
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox "Error nº " & Err & " en Imprimir Auxiliar" & vbCrLf & Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnModi_Click()
+    BloqueoFormulario Me
+End Sub
+
+Private Sub btnNuevo_Click()
+    On Error Resume Next
+    If Not Me.AllowAdditions Then BloqueoFormulario Me
+    DoCmd.GoToRecord acDataForm, Me.Name, acNewRec
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub DocIdEspaña_AfterUpdate()
+    Dim rs As Recordset
+    Dim i As Integer
+    
+    If IsNumeric(Me.DocIdEspaña) And Len(Me.DocIdEspaña) = 8 Then
+        'Me.DocIdEspaña = Format(Me.DocIdEspaña, "#,##0") & letra_dni(Me.DocIdEspaña)
+        Me.DocIdEspaña = Me.DocIdEspaña & letra_dni(Me.DocIdEspaña)
+        Call Comprobar_Datos
+    End If
+    If Len(Nz(Me.DocIdEspaña, "")) <= 1 Then Exit Sub
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbPartesPolicia WHERE DocIdEspaña = " & ConComillas(Me.DocIdEspaña) & " ORDER BY NumParte DESC", dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveFirst
+        Me.TipoDocId = rs("TipoDocId")
+        Me.FechaExpedicion = rs("FechaExpedicion")
+        Me.Apellido1 = rs("Apellido1")
+        Me.Apellido2 = rs("Apellido2")
+        Me.Nombre = rs("Nombre")
+        Me.Sexo = rs("Sexo")
+        Me.FechaNacimientoAAAA = rs("FechaNacimientoAAAA")
+        Me.FechaNacimientoMM = rs("FechaNacimientoMM")
+        Me.FechaNacimientoDD = rs("FechaNacimientoDD")
+        Me.Pais = rs("Pais")
+        Me.CPCliente = rs("CPCliente")
+        Me.TelefonoCliente = rs("TelefonoCliente")
+        Me.EMail = rs("EMail")
+    End If
+End Sub
+
+Public Function Comprobar_Datos()
+
+Dim db As Database
+Dim i As Integer
+Dim Nivel As String
+Dim numeros As String
+
+    Dim rs As Recordset
+    On Error GoTo Error_DNICliente_AfterUpdate
+    
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("tbClientes")
+    rs.FindFirst "NIF = " & ConComillas(Replace(Replace(Me.DocIdEspaña, ".", ""), "-", ""))
+    If rs.NoMatch Then
+        rs.FindFirst "NIF = " & ConComillas(Me.DocIdEspaña)
+    End If
+    If Not rs.NoMatch Then
+    
+        'Me.txtCodCli = rs("CodCliente")
+        Me.Nombre = rs("NombreCli")
+        Me.Apellido1 = rs("ApellidosCli")
+        If Me.DocIdEspaña > 1 Then
+            For i = Len(Me.Apellido1) To 1 Step -1
+                If Mid(Me.Apellido1, i, 1) = " " Then
+                    Me.Apellido2 = Trim(Mid(Me.Apellido1, i))
+                    Me.Apellido1 = Trim(Mid(Me.Apellido1, 1, i))
+                    Exit For
+                End If
+            Next i
+        End If
+        Me.DireccionCliente = rs("Direccion")
+        Me.LocalidadCliente = rs("Ciudad")
+        Me.ProvinciaCliente = rs("EdoOProv")
+        Me.Pais = rs("Pais")
+        'Me.TelefonoCliente = rs("Telefono")
+        'Me.CPCliente = rs("CodPostal")
+                
+        Nivel = rs("FechaNacimiento")
+        For i = 1 To 2
+            If Mid$(Nivel, i, 1) Like "#" Then _
+            numeros = numeros & Mid$(Nivel, i, 1)
+        Next i
+        Me.FechaNacimientoDD = numeros
+        numeros = ""
+        For i = 3 To 5
+        If Mid$(Nivel, i, 1) Like "#" Then _
+        numeros = numeros & Mid$(Nivel, i, 1)
+        Next i
+        Me.FechaNacimientoMM = numeros
+        numeros = ""
+        For i = 6 To 10
+        If Mid$(Nivel, i, 1) Like "#" Then _
+        numeros = numeros & Mid$(Nivel, i, 1)
+        Next i
+        Me.FechaNacimientoAAAA = numeros
+        
+        'Me.EMail = rs("EMail")
+        Me.TipoDocId = rs("TipoDocumento")
+        Me.Sexo = rs("SexoCliente")
+        Me.FechaExpedicion = rs("FechaExpedicion")
+        Me.FechaLlegada = Date
+        If Len(rs("Notas")) > 0 Then
+            MsgBox rs("Notas"), , "Notas del Cliente"
+        End If
+    End If
+    
+    'Dim lngIdFichaCab As Long
+  '  lngIdFichaCab = Nz(DLookup("IdFichaCab", "tbFichasCab", "DNICliente = '" & Me.DocIdEspaña & "' AND (EstadoFicha = 2 OR EstadoFicha = 3) AND IdFichaCab <>" & Me.IdFichaCab), 0)
+    'If lngIdFichaCab <> 0 Then
+    '    MsgBox "Atención, existe la ficha nº " & lngIdFichaCab & " del mismo cliente en estado " & IIf(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab) = 2, "actual", "facturada"), vbExclamation + vbOKOnly
+    'End If
+'Salir_DNICliente_AfterUpdate:
+  '  Exit Sub
+Error_DNICliente_AfterUpdate:
+    Select Case Err
+        'Case 2424
+        Case Else
+     '       MsgBox Err.Description & ", Error nº " & Err.Number _
+      '      & vbCrLf & "En DNICliente_AfterUpdate"
+    End Select
+End Function
+
+Private Sub DocIdExtranjeros_AfterUpdate()
+    Dim rs As Recordset
+    If Len(Nz(Me.DocIdExtranjeros, "")) <= 1 Then Exit Sub
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbPartesPolicia WHERE DocIdExtranjeros = " & ConComillas(Me.DocIdExtranjeros) & " ORDER BY NumParte DESC", dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveFirst
+        Me.TipoDocId = rs("TipoDocId")
+        Me.FechaExpedicion = rs("FechaExpedicion")
+        Me.Apellido1 = rs("Apellido1")
+        Me.Apellido2 = rs("Apellido2")
+        Me.Nombre = rs("Nombre")
+        Me.Sexo = rs("Sexo")
+        Me.FechaNacimientoAAAA = rs("FechaNacimientoAAAA")
+        Me.FechaNacimientoMM = rs("FechaNacimientoMM")
+        Me.FechaNacimientoDD = rs("FechaNacimientoDD")
+        Me.Pais = rs("Pais")
+    End If
+End Sub
+
+Private Sub FechaNacimientoAAAA_AfterUpdate()
+    On Error Resume Next
+    Dim v As Variant
+    v = IsDate(CDate(Me.FechaNacimientoAAAA & "/" & Me.FechaNacimientoMM & "/" & Me.FechaNacimientoDD))
+    If Err <> 0 Then
+        Me.FechaNacimientoDD = "00"
+        Me.FechaNacimientoMM = "00"
+    End If
+End Sub
+
+Private Sub Form_AfterUpdate()
+    If IsOpenForm("frmFichas") Then
+        'Call GrabaCliente(Forms("frmFichas"))
+    End If
+    Call GrabaCliente(Me)
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.IdFichaCab = glngIdFichaCab
+    Me.FechaLlegada = gdtFechaLlegada
+'    Me.NumParte = Nz(DMax("NumParte", "tbPartesPolicia"), 0) + 1
+End Sub
+
+Private Sub Form_Current()
+    BloqueoFormulario Me, Not Me.NewRecord
+'    If Me.NewRecord And Me.btn3M.Visible Then Call btn3M_Click
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, ""
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me, Me.Name & "_"
+    Me.EntradaViajerosVerDetalle = Nz(DameValorParam("EntradaViajerosVerDetalle"), True)
+    Me.btnFirmar.Visible = g_CapturaFirmas And Nz(DameValorParam("EntradaViajerosCapturaFirmaSN"), False) = True
+    Me.btnIDSCAN.Visible = g_ICAR
+    Me.btn3M.Visible = g_3M Or g_PoliCheckIn
+    If g_PoliCheckIn Then Me.btn3M.Caption = "Poli Check-In"
+    If Not Me.btnFirmar.Visible Then
+        Me.btnImprimir.Left = Me.mrcF_P.Left + (Me.mrcF_P.Width - Me.btnImprimir.Width) \ 2
+    Else
+        Me.btnImprimir.Left = Me.mrcF_P.Left
+    End If
+    
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, lngIdPartePolicia As Long
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdPartePolicia = Nz(DimeXML(strXML, "IdPartePolicia"), 0)
+    glngIdFichaCab = Nz(DimeXML(strXML, "IdFichaCab"), 0)
+    gdtFechaLlegada = Nz(DimeXML(strXML, "FechaLlegada"), Date)
+    If lngIdPartePolicia > 0 Then
+        Me.RecordSource = "SELECT * FROM tbPartesPolicia WHERE IdPartePolicia = " & lngIdPartePolicia
+        Me.Caption = "Entrada de viajeros: " & lngIdPartePolicia
+    ElseIf glngIdFichaCab > 0 Then
+        Me.RecordSource = "SELECT * FROM tbPartesPolicia WHERE IdFichaCab = " & glngIdFichaCab
+        Me.Caption = "Entrada de viajeros de la ficha: " & glngIdFichaCab
+    Else
+        Me.RecordSource = "SELECT * FROM tbPartesPolicia"
+    End If
+    'Me.DireccionCliente = DimeXML(strXML, "DireccionCliente")
+    'Me.LocalidadCliente = DimeXML(strXML, "LocalidadCliente")
+    'Me.CPCliente = DimeXML(strXML, "CPCliente")
+    'Me.ProvinciaCliente = DimeXML(strXML, "ProvinciaCliente")
+    'Me.TelefonoCliente = DimeXML(strXML, "TelefonoCliente")
+    'Me.EMail = DimeXML(strXML, "EMail")
+    
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False, Me.Name & "_"
+End Sub
+
+Private Sub NumParte_DblClick(Cancel As Integer)
+    BloqueoFormulario Me, False
+    Me.NumParte.Locked = False
+    Me.NumParte.BackColor = 16777215
+End Sub

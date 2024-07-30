@@ -1,0 +1,150 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim gstrOpenArg As String, gv As Variant
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnAdd_Click()
+    Me.btnAdd.Tag = "ADD"
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnF4_Click()
+    Dim strSQL As String
+    strSQL = "UPDATE sysBusquedas SET sysBusquedas.Predeterminada = False"
+    strSQL = strSQL & " WHERE (((sysBusquedas.CodBusqueda) Like'" & gstrOpenArg & "*') AND Predeterminada = True);"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysBusquedas SET sysBusquedas.Predeterminada = True"
+    strSQL = strSQL & " WHERE (((sysBusquedas.CodBusqueda)='" & Me.btnF4.Tag & "'));"
+    CurrentDb.Execute strSQL, dbFailOnError
+    CargaLista
+End Sub
+
+Private Sub btnF5_Click()
+    Static strBusq As String, intOtra As Integer
+    Dim strXML As String
+    PonXML strXML, "Titulo", "Busca en " & Me.lst.Column(1, 0) & ". Introduzca texto a buscar"
+    PonXML strXML, "Display", strBusq
+    DoCmd.OpenForm "frmTeclado", , , , , acDialog, strXML
+    If Not IsOpenForm("frmTeclado") Then Exit Sub
+    strBusq = Nz(Forms("frmTeclado")("txtDisplay"), "")
+    DoCmd.Close acForm, "frmTeclado"
+    If strBusq <> "" Then
+        Dim rs As Recordset
+        Set rs = CurrentDb.OpenRecordset(Me.lst.RowSource)
+        If Me.lst.ListIndex <> -1 Then
+            Select Case rs.Fields(0).Type
+                Case dbText
+                    rs.FindFirst rs(0).Name & " = '" & Me.lst & "'"
+                Case dbDate
+                    rs.FindFirst rs(0).Name & " = #" & Me.lst & "#"
+                Case Else
+                    rs.FindFirst rs(0).Name & " = " & Me.lst
+            End Select
+            If Not rs.NoMatch Then
+                rs.MoveNext
+            End If
+        End If
+        intOtra = False
+OtraVez:
+        While Not rs.EOF
+            If Not rs.EOF Then
+                If rs(1) Like "*" & ConAcentos(strBusq) & "*" Then
+                    Me.lst = rs(0)
+                    Exit Sub
+                End If
+            End If
+            rs.MoveNext
+        Wend
+        If Not intOtra Then
+            intOtra = True
+            rs.MoveFirst
+            GoTo OtraVez
+        End If
+    End If
+End Sub
+
+Private Sub btnOK_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    If Shift And acCtrlMask Or Shift And acAltMask Then Exit Sub
+    If KeyCode = vbKeyF4 Then Call btnF4_Click
+    If KeyCode = vbKeyF5 Then Call btnF5_Click
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim i As Integer, strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    gstrOpenArg = Nz(DimeXML(strXML, "CodBusqueda"), "")
+    gv = DimeXML(strXML, "ValorDefecto")
+    'i = InStr(Nz(Me.OpenArgs, ""), "¬")
+    'If i = 0 Then
+    '    gstrOpenArg = Nz(Me.OpenArgs, "")
+    'Else
+    '    gstrOpenArg = Left(Me.OpenArgs, i - 1)
+    '    gv = right(Me.OpenArgs, Len(Me.OpenArgs) - i)
+    'End If
+    Me.lst.ColumnHeads = Nz(DimeXML(strXML, "CabecerasLista"), True)
+    CargaLista
+    Me.btnAdd.Visible = gintAdd
+    Me.btnAdd.Tag = ""
+End Sub
+
+Public Sub CargaLista()
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT * FROM sysBusquedas WHERE CodBusqueda Like '" & gstrOpenArg & "*' AND Predeterminada = True"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then Exit Sub
+    rs.MoveFirst
+    If IsNull(rs("strSQL")) Then
+        Me.lst.RowSource = rs("strSELECT") & " " & rs("strFROM") & " " & rs("strWHERE") & " " & rs("strORDER")
+    Else
+        Me.lst.RowSource = rs("strSQL")
+    End If
+    Me.lst.ColumnCount = rs("NumColumnas")
+    Me.lst.BoundColumn = rs("ColumnaDependiente")
+    Me.lst.ColumnWidths = rs("AnchoColumnas")
+    If Nz(rs("ListaValoresSN"), False) = True Then
+        Me.lst.RowSourceType = "Lista de valores"
+    Else
+        Me.lst.RowSourceType = "Tabla/Consulta"
+    End If
+'    If rs("AnchoLst") > 0 Then
+'        Me.lst.Width = rs("AnchoLst") * 567
+'        Me.Width = Me.lst.Width
+'    End If
+'    If rs("AltoLst") > 0 Then
+'        Me.lst.Height = rs("AltoLst") * 567
+'        Me.Detalle.Height = Me.lst.Height
+'    End If
+    Me.Caption = rs("Titulo")
+    Me.lst.value = gv
+    If Len(rs("CodOtraBusqueda")) > 0 Then
+        Me.btnF4.Caption = Nz(rs("TextoOtra"), "")
+        Me.btnF4.Tag = rs("CodOtraBusqueda")
+    Else
+        Me.btnF4.Caption = ""
+        Me.btnF4.Tag = ""
+    End If
+End Sub
+
+Private Sub Lst_DblClick(Cancel As Integer)
+    Call btnAceptar_Click
+End Sub

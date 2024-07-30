@@ -1,0 +1,55 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function CambioDivisas(varReciboCant As Variant, varReciboMon As Variant, varEntregoMon As Variant) As Currency
+    Dim varResult As Variant
+    Dim sngReciboCant As Single
+    Dim lngReciboMon As Long
+    Dim lngEntregoMon As Long
+    Dim i As Integer
+    Dim strFormat As String
+    On Error GoTo Error_CambioDivisas
+    If IsNull(varReciboCant) Or IsNull(varReciboMon) Or IsNull(varEntregoMon) Then
+        CambioDivisas = 0
+        Exit Function
+    End If
+    sngReciboCant = CSng(varReciboCant)
+    lngReciboMon = CLng(varReciboMon)
+    lngEntregoMon = CLng(varEntregoMon)
+    varResult = sngReciboCant
+    If DLookup("PaisEuro", "valDivisas", "IdDivisa = " & lngReciboMon) = True And DLookup("PaisEuro", "valDivisas", "IdDivisa = " & lngEntregoMon) = True Then 'Cambio x Euros
+        varResult = varResult / DLookup("UnEuro", "valDivisas", "IdDivisa = " & lngReciboMon)
+        varResult = varResult * DLookup("UnEuro", "valDivisas", "IdDivisa = " & lngEntregoMon)
+    Else
+        varResult = varResult * (DLookup("ValorCambio", "valDivisas", "IdDivisa = " & lngReciboMon) / DLookup("Cantidad", "valDivisas", "IdDivisa = " & lngReciboMon))
+        varResult = varResult / (DLookup("ValorCambio", "valDivisas", "IdDivisa = " & lngEntregoMon) / DLookup("Cantidad", "valDivisas", "IdDivisa = " & lngEntregoMon))
+    End If
+    varResult = Nz(varResult, 0)
+    If Not IsNumeric(varResult) Then GoTo Error_CambioDivisas
+    i = DLookup("NumDecimales", "valDivisas", "IdDivisa = " & lngEntregoMon)
+    Select Case i
+        Case 0
+            strFormat = "#.##0"
+        Case 1
+            strFormat = "#.##0,0"
+        Case 2
+            strFormat = "#.##0,00"
+        Case 3
+            strFormat = "#.##0,000"
+    End Select
+    varResult = CLng(varResult * 10 ^ i) / 10 ^ i
+    CambioDivisas = CCur(varResult)
+Salir_CambioDivisas:
+    Exit Function
+Error_CambioDivisas:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En CambioDivisas"
+    End Select
+    CambioDivisas = 0
+    Resume Salir_CambioDivisas
+    Resume Next
+        
+End Function

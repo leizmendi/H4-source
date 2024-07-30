@@ -1,0 +1,37 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    On Error GoTo HandleError
+    Dim strXML As String, intSubeMas As Single
+    strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), "OK_Ops")
+    Me.lblCaption.Caption = Nz(DimeXML(strXML, "Prompt"), Me.lblCaption.Caption)
+    intSubeMas = Nz(DimeXML(strXML, "SubeMasSN"), "N") = "S"
+    If intSubeMas Then
+        Me.txtNumReservas = Nz(DimeXML(strXML, "ListCount"), 1)
+        Me.txtNumReservas.Visible = True
+    Else
+        Me.txtNumReservas.Visible = False
+    End If
+    Me.lblreservas.Visible = Me.txtNumReservas.Visible
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

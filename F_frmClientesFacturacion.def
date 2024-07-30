@@ -1,0 +1,446 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim gShift As Integer
+    
+Private Sub altFiltroClienteSN_AfterUpdate()
+    Carga_lstClientes
+End Sub
+
+Private Sub altOrdenClienteSN_AfterUpdate()
+    Me.altOrdenClienteSN.Caption = "Orden Cliente " & IIf(Me.altOrdenClienteSN, "S/n", "s/N")
+    Me.btnGenerarFactura.Enabled = Me.lstClientes <> 0 Or Me.altOrdenClienteSN = True
+    Carga_lstTiques
+End Sub
+
+Private Sub btnAddCli_Click()
+    DoCmd.OpenForm "frmClientes", , , , acFormAdd, acDialog
+    Me.lstClientes.Requery
+End Sub
+
+Private Sub btnAñoA_Click()
+    Me.txtAño = Me.txtAño + 1
+    Call txtAño_AfterUpdate
+End Sub
+
+Private Sub btnAñoB_Click()
+    Me.txtAño = Me.txtAño - 1
+    Call txtAño_AfterUpdate
+End Sub
+
+Private Sub btnBorrarFac_Click()
+    Dim intR As Integer, strSQL As String
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    intR = MsgBox("¿Borrar factura? Los tiques relacionados se marcarán como pendientes de facturar", vbOKCancel + vbQuestion + vbDefaultButton2)
+    If intR <> vbOK Then Exit Sub
+    strSQL = "UPDATE tbcli_TickCab SET IdFactura = -1 WHERE IdFactura = " & Me.lstFacturas
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "DELETE tbFacturasCab.* FROM tbFacturasCab WHERE IdFactura = " & Me.lstFacturas
+    CurrentDb.Execute strSQL, dbFailOnError
+    Carga_lstTiques
+    Carga_lstFacturas
+End Sub
+
+Private Sub btnCli_Click()
+    If Me.lstClientes.ListIndex = -1 Then Exit Sub
+    DoCmd.OpenForm "frmClientes", , , "IdCliente = " & Me.lstClientes, , acDialog
+    Me.lstClientes.Requery
+End Sub
+
+Private Sub btnConf_Click()
+    DoCmd.OpenForm "frmParametrosImpresionFacturas"
+End Sub
+
+Private Sub btnConfSMTP_Click()
+    DoCmd.OpenForm "frmParametrosSMTP", , , , , acDialog
+End Sub
+
+Private Sub btnEditNota_Click()
+    Me.txtNota.Locked = Not Me.txtNota.Locked
+    Me.txtNota.BackColor = IIf(Me.txtNota.Locked, RGB(216, 216, 216), vbWhite)
+End Sub
+
+Private Sub btnEditTick_Click()
+    Dim i As Integer, vIt As Variant
+    Dim strMDB_His As String, lngIdTickCab_His As Long, lngIdTickCab As Long
+    i = Me.lstTiques.ItemsSelected.Count
+    If i <> 1 Then
+        MsgBox "Para editarlo se debe seleccionar un (y sólo uno) tique", vbExclamation
+        Exit Sub
+    End If
+    DoCmd.OpenForm "frmTPV"
+    For Each vIt In Me.lstTiques.ItemsSelected
+        lngIdTickCab = Me.lstTiques.Column(0, vIt)
+        strMDB_His = Nz(DLookup("Mdb_Historico", "tbcli_TickCab", "IdTickCab = " & lngIdTickCab), "")
+        lngIdTickCab_His = Nz(DLookup("IdTickCab_Historico", "tbcli_TickCab", "IdTickCab = " & lngIdTickCab), 0)
+        If strMDB_His <> "" And lngIdTickCab_His <> 0 Then
+            Call Forms("frmTPV").CargaTicket(lngIdTickCab_His, True, False, strMDB_His)
+        Else
+            Call Forms("frmTPV").CargaTicket(lngIdTickCab, True, True)
+        End If
+    Next vIt
+        
+End Sub
+
+Private Sub btnEmail_Click()
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    EnviarFacturaXEmail Me.lstFacturas
+End Sub
+
+Private Sub btnFac_Click()
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    DoCmd.OpenForm "frmFacturas", , , "IdFactura = " & Me.lstFacturas, , acDialog
+    Me.lstFacturas.Requery
+End Sub
+
+Private Sub btnImpr_Click()
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    ImprimirFactura Me.lstFacturas
+End Sub
+
+Private Sub btnImpr2_Click()
+    If Me.lstTiques.ListIndex = -1 Then Exit Sub
+    Dim i As Integer, intR As Integer, vIt As Variant
+    i = Me.lstTiques.ItemsSelected.Count
+    If i > 1 Then
+        intR = MsgBox("¿Imprimir los " & i & " tiques seleccionados?", vbOKCancel + vbQuestion)
+        If intR = vbCancel Then Exit Sub
+    End If
+    Dim strMDB As String
+    strMDB = DLookup("DirectorioDeConexion", "1myConexionTablas", "NombreTabla = 'tbcli_TickCab'")
+    strMDB = strMDB & DLookup("FicheroDeConexion", "1myConexionTablas", "NombreTabla = 'tbcli_TickCab'")
+    For Each vIt In Me.lstTiques.ItemsSelected
+        'Imprimir_Tique Me.lstTiques.Column(0, vIt), strMDB, gShift
+    Next vIt
+End Sub
+
+Private Sub btnImpr2_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub btnPDF_Click()
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    DoCmd.Hourglass True
+    ImprimirFactura Me.lstFacturas, 3
+    DoCmd.Hourglass False
+End Sub
+
+Private Sub btnTiquePredet_Click()
+    If Me.lstTiques.ItemsSelected.Count <> 1 Then
+        MsgBox "Se debe seleccionar (sólo) un tique como predeterminado", vbExclamation
+        Exit Sub
+    End If
+    Dim intR As Integer, vIt As Variant, strSQL As String
+    For Each vIt In Me.lstTiques.ItemsSelected
+        intR = MsgBox("¿Marcar el tique " & Me.lstTiques.Column(2, vIt) & " como predeterminado para el cliente " & ExtraeLin(Me.lstTiques.Column(4, vIt), 1) & "?", vbOKCancel + vbQuestion)
+        If intR = vbOK Then
+            strSQL = "UPDATE tbClientes SET CopiarUltimoTiqueSNP = 3, IdTickCabPredet = " & Me.lstTiques.ItemData(vIt)
+            strSQL = strSQL & " WHERE Idcliente = " & Me.lstTiques.Column(1, vIt)
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+        Exit Sub
+    Next vIt
+End Sub
+
+Private Sub btnVistPre_Click()
+    If Me.lstFacturas.ListIndex = -1 Then Exit Sub
+    ImprimirFactura Me.lstFacturas, , True
+End Sub
+
+Private Sub btnVistPre2_Click()
+    If Me.lstTiques.ListIndex = -1 Then Exit Sub
+    Dim i As Integer, intR As Integer, vIt As Variant
+    i = Me.lstTiques.ItemsSelected.Count
+    If i > 1 Then
+        intR = MsgBox("¿Imprimir los " & i & " tiques seleccionados?", vbOKCancel + vbQuestion)
+        If intR = vbCancel Then Exit Sub
+    End If
+    Dim strMDB As String
+    strMDB = DLookup("DirectorioDeConexion", "1myConexionTablas", "NombreTabla = 'tbcli_TickCab'")
+    strMDB = strMDB & DLookup("FicheroDeConexion", "1myConexionTablas", "NombreTabla = 'tbcli_TickCab'")
+    For Each vIt In Me.lstTiques.ItemsSelected
+        'Imprimir_Tique Me.lstTiques.Column(0, vIt), strMDB, acCtrlMask, "***", , True
+    Next vIt
+End Sub
+
+Private Sub btnVistPre2_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+End Sub
+
+Private Sub casTiquesPendientesFacturar_AfterUpdate()
+    Call Carga_lstTiques
+End Sub
+
+Private Sub cmbMes_AfterUpdate()
+    Call Carga_lstTiques
+    Call Carga_lstClientes
+End Sub
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+Private Sub Form_Load()
+    BuruForm Me
+'    CentrarTodoFRM Me, Me.cdrCentrar
+    CargarParam Me
+    Me.tabFacs.value = Nz(DameValorParam(Me.Name & "_tabFacs"), 0)
+    Carga_lstClientes
+    Call lstClientes_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False
+End Sub
+
+Private Sub lstClientes_AfterUpdate()
+    If Me.lstClientes.ListIndex = -1 Then
+        Me.txtNota = ""
+    Else
+        Me.txtNota = DLookup("Notas", "tbClientes", "IdCliente = " & Me.lstClientes)
+    End If
+    
+    Carga_lstFacturas
+    Carga_lstTiques
+    Me.btnGenerarFactura.Enabled = Nz(Me.lstClientes, 0) <> 0 Or Nz(Me.altOrdenClienteSN, False) = True
+    Call lstFacturas_AfterUpdate
+End Sub
+
+Private Sub lstClientes_DblClick(Cancel As Integer)
+    Call btnCli_Click
+End Sub
+
+Public Sub Carga_lstFacturas()
+    Dim strSQL As String
+    strSQL = "SELECT tbFacturasCab.IdFactura, Serie & '-' & NumeroDeFactura AS [Nº Factura], Format(tbFacturasCab.FechaFactura,'dd/mm/yyyy') as Fecha, tbFacturasCab.NIF & ' ' & DireccionCliente as Cliente, LlenaIzq(Format([TotalBase]+[TotalIVA],'currency'),12) AS Importe"
+    strSQL = strSQL & " FROM tbFacturasCab"
+    strSQL = strSQL & " WHERE true"
+    strSQL = strSQL & " AND Serie & NumeroDeFactura Like '*" & Me.txtSerie & "*'"
+    strSQL = strSQL & " AND tbFacturasCab.NIF & ' ' & DireccionCliente Like '*" & Me.txtCliente & "*'"
+    If IsNumeric(Nz(Me.txtImporte, "?")) Then strSQL = strSQL & " AND [TotalBase]+[TotalIVA]=" & ComaPunto(Me.txtImporte)
+    If Not IsNull(Me.txtFechaFactura) Then strSQL = strSQL & " AND Format(FechaFactura,'dd/mm/yyyy') Like '*" & Me.txtFechaFactura & "*'"
+    If Me.lstClientes <> 0 Then strSQL = strSQL & " AND NIF = " & ConComillas(Nz(Me.lstClientes.Column(2), ""))
+    If Nz(Me.txtAño, "") <> "" Then strSQL = strSQL & " AND Year(FechaFactura)= " & Me.txtAño
+    strSQL = strSQL & " ORDER BY tbFacturasCab.FechaFactura DESC, tbFacturasCab.NumeroDeFactura DESC;"
+    Me.lstFacturas.RowSource = strSQL
+End Sub
+
+Public Sub Carga_lstTiques()
+    Dim strSQL As String, strW As String
+    strSQL = "SELECT tbcli_TickCab.IdTickCab, IdCliente, tbcli_TickCab.Serie &  NumTicket as [Nº Tique], tbcli_TickCab.Fecha, tbcli_TickCab_Cli.CabeceraTicket as Cliente, LlenaIzq(Format([TotalTicket],'currency'),12) AS Importe, tbFacturasCab.Serie & '-' & NumeroDeFactura AS [Nº Factura]"
+    strSQL = strSQL & " FROM (tbcli_TickCab INNER JOIN tbcli_TickCab_Cli ON tbcli_TickCab.IdTickCab = tbcli_TickCab_Cli.IdTickCab) LEFT JOIN tbFacturasCab ON tbcli_TickCab.IdFactura = tbFacturasCab.IdFactura"
+    strSQL = strSQL & " WHERE"
+    strW = " True"
+
+    If Me.lstClientes <> 0 Then strW = strW & " AND tbcli_TickCab_Cli.IdCliente = " & Me.lstClientes
+    If Nz(Me.txtAño, "") <> "" Then strW = strW & " AND Year(Fecha)=" & Me.txtAño
+    If Nz(Me.cmbMes, 0) <> 0 Then strW = strW & " AND Month(Fecha)=" & Me.cmbMes
+    If Nz(Me.casTiquesPendientesFacturar, False) = True Then strW = strW & " AND Nz(tbcli_TickCab.IdFactura,0)<=0"
+    strSQL = strSQL & strW & " ORDER BY"
+    If Me.altOrdenClienteSN = True Then strSQL = strSQL & " IdCliente,"
+    strSQL = strSQL & " Fecha, tbcli_TickCab.Serie, NumTicket"
+    Me.lstTiques.RowSource = strSQL
+'    Me.txtSuma = DSum("TotalTicket", "qry_tbcli_TickCab", strW)
+End Sub
+
+Private Sub lstFacturas_AfterUpdate()
+    Me.btnIncluirEnFactura.Caption = "Incluir en Factura" & IIf(Me.lstFacturas.ListIndex <> -1 And Me.lstClientes > 0, Me.lstFacturas.Column(1), "")
+    Me.btnIncluirEnFactura.Enabled = Me.lstFacturas.ListIndex <> -1 And Me.lstClientes > 0
+End Sub
+
+Private Sub lstFacturas_Click()
+    Dim i As Integer
+    For i = 1 To Me.lstTiques.ListCount - 1
+        Me.lstTiques.Selected(i) = CLng(Nz(DLookup("IdFactura", "tbcli_TickCab", "IdTickCab = " & Me.lstTiques.ItemData(i)), 0)) = Me.lstFacturas
+    Next i
+End Sub
+
+Private Sub lstFacturas_DblClick(Cancel As Integer)
+    Call btnFac_Click
+End Sub
+
+
+Private Sub tabFacs_Change()
+    PonValorParam Me.Name & "_tabFacs", Me.tabFacs.value, 4
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    Call Carga_lstFacturas
+    Call Carga_lstTiques
+    Call Carga_lstClientes
+End Sub
+Private Sub btnGenerarFactura_Click()
+On Error GoTo Err_btnGenerarFactura_Click
+    GenerarFactura False
+Exit_btnGenerarFactura_Click:
+    Exit Sub
+
+Err_btnGenerarFactura_Click:
+    MsgBox Err.Description
+    Resume Exit_btnGenerarFactura_Click
+    
+End Sub
+
+Private Sub btnIncluirEnFactura_Click()
+    GenerarFactura True
+End Sub
+
+Private Sub GenerarFactura(intIncluirEnFacturaExistente As Integer)
+    Dim lngIdAntCli As Long, lngIdAntFac As Long, varItem As Variant
+    Dim lngIdPriFac As Long, lngIdAntFac2 As Long
+    Dim i As Integer, datFF As Date, y As Integer, z As Integer
+    Dim intResp As Integer
+    Dim strSerie As String, strXML As String, datFF2 As Date
+    On Error GoTo Error_GenerarFactura
+    Me.lstTiques.Selected(0) = False
+    Me.lstTiques.Selected(-1) = False
+    i = 0
+    For Each varItem In Me.lstTiques.ItemsSelected
+        i = i + 1
+        If strSerie = "" Then
+            strSerie = Nz(DLookup("Serie", "tbcli_TickCab", "IdTickCab = " & Me.lstTiques.ItemData(varItem)), "")
+        End If
+        datFF2 = Nz(DLookup("Fecha", "tbcli_TickCab", "IdTickCab = " & Me.lstTiques.ItemData(varItem)), "")
+        If datFF2 > datFF Then datFF = datFF2
+    Next varItem
+    If i = 0 Then
+        MsgBox "No se ha seleccionado ningún tique"
+        Exit Sub
+    End If
+    If intIncluirEnFacturaExistente Then
+        If Me.lstFacturas.ListIndex = -1 Or (Me.lstClientes = 0 Or Me.lstClientes.ListIndex = -1) Then
+            MsgBox "Se debe seleccionar la factura en la que se quieren añadir los tiques seleccionados", vbInformation
+            GoTo Salir_GenerarFactura
+        End If
+        intResp = MsgBox("¿Incluir los Tiques (" & i & ") seleccionados en la factura existente: " & Me.lstFacturas.Column(1) & "?", vbQuestion + vbOKCancel)
+        lngIdAntFac = Me.lstFacturas
+        lngIdAntCli = Me.lstClientes
+    Else
+        PonXML strXML, "Serie", strSerie
+        PonXML strXML, "Fecha", Format(datFF, "dd/mm/yyyy")
+        DoCmd.OpenForm "frmPrefactura", , , , , acDialog, strXML
+        If Not IsOpenForm("frmPreFactura") Then Exit Sub
+        strSerie = Forms("frmPreFactura").txtSerie
+        datFF = CDate(Forms("frmPreFactura").txtFecha)
+        DoCmd.Close acForm, "frmPreFactura"
+        intResp = MsgBox("¿Generar factura de los Tiques (" & i & ") seleccionados?" & vbCrLf & "Serie de factura:  " & strSerie & vbCrLf & "Fecha de Factura:  " & Format(datFF, "dd/mm/yyyy"), vbQuestion + vbOKCancel)
+    End If
+    If intResp = vbCancel Then Exit Sub
+    y = 0
+    z = i
+    i = 0
+    For Each varItem In Me.lstTiques.ItemsSelected
+        'If Me.lstTiques.Column(1, varItem) <> lngIdAntCli And lngIdAntCli <> 0 Then
+        '    MsgBox "Solo se puede generar factura de 1 cliente al mismo tiempo"
+        '    GoTo Acabando
+        'End If
+        If Me.lstTiques.Column(1, varItem) <> lngIdAntCli Or lngIdAntCli = 0 Then
+
+            If intIncluirEnFacturaExistente Then 'Me.lstFacturas.ListIndex = -1 Or Me.lstClientes = 0 Then
+                'lngIdAntFac = Facturar_tbcli_Ticket(Me.lstTiques.Column(0, varItem), , Me.lstFacturas, True, True, strSerie, datFF)
+            Else
+                'lngIdAntFac = Facturar_tbcli_Ticket(Me.lstTiques.Column(0, varItem), , 0, , True, strSerie, datFF)
+            End If
+            lngIdAntCli = Me.lstTiques.Column(1, varItem)
+            If lngIdPriFac = 0 Then lngIdPriFac = lngIdAntFac
+        Else
+            'lngIdAntFac = Facturar_tbcli_Ticket(Me.lstTiques.Column(0, varItem), , lngIdAntFac, True, True, strSerie, datFF)
+        End If
+        If lngIdAntFac2 <> lngIdAntFac Then
+            'If lngIdAntFac2 <> 0 Then DescuentoEnFactura lngIdAntFac2
+            i = i + 1
+            lngIdAntFac2 = lngIdAntFac
+        End If
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Generando facturas desde Tiques: " & y & "/" & z
+    Next varItem
+Acabando:
+    'If lngIdAntFac2 <> 0 Then DescuentoEnFactura lngIdAntFac2
+
+    Dim iRow As Long
+    For iRow = 1 To Me.lstTiques.ListCount
+        Me.lstTiques.Selected(iRow) = False
+    Next iRow
+    Me.lstTiques.Requery
+    If i > 0 Then
+        'intResp = MsgBox("Se generaron " & i & " factura/s, ¿Desea " & IIf(Me.mrcPantImp = 1, "verlas", "imprimirlas") & " ahora?", vbQuestion + vbOKCancel)
+    Else
+        MsgBox "No se generaron facturas", vbExclamation
+    End If
+    Me.lstFacturas.Requery
+    Me.lstTiques.Requery
+Salir_GenerarFactura:
+    SysCmd acSysCmdClearStatus
+    'PendientesEnServidor_BorrarIguales
+    Exit Sub
+Error_GenerarFactura:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en GenerarFactura" & vbCrLf & Err.Description
+            Resume Salir_GenerarFactura
+    End Select
+End Sub
+
+
+Public Sub Carga_lstClientes(Optional intIncluirTodos As Integer = True) ', Optional intAño As Integer = 0, Optional intMes As Integer = 0)
+    Dim strSQL As String, strRow As String, rs As Recordset, rs0 As Recordset
+    strSQL = "SELECT DISTINCT tbClientes.IdCliente, Trim([NombreCli] & ' ' & [ApellidosCli]) AS Cliente, tbClientes.NIF"
+    strSQL = strSQL & " FROM tbClientes"
+    'If intAño <> 0 Or intMes <> 0 Then
+    If Nz(Me.altFiltroClienteSN, False) Then
+        'strSQL = strSQL & " INNER JOIN (tbcli_TickCab INNER JOIN tbcli_TickCab_Cli on tbcli_TickCab.IdTickCab = tbcli_TickCab_Cli.IdTickCab) ON tbClientes.IdCliente = tbcli_TickCab_Cli.IdCliente "
+        strSQL = strSQL & " INNER JOIN tbFichasCab ON tbClientes.NIF = tbFichasCab.DNICliente "
+    End If
+    strSQL = strSQL & " WHERE True"
+    'strSQL = strSQL & " AND Len([NombreCli] & ' ' & [ApellidosCli])>1"
+    If Nz(Me.altFiltroClienteSN, False) Then
+        strSQL = strSQL & " AND Year(tbFichasCab.FechaLlegada)=" & Me.txtAño
+        If Me.cmbMes <> 0 Then strSQL = strSQL & " AND Month(tbFichasCab.FechaLlegada)=" & Me.cmbMes
+    End If
+    If intIncluirTodos Then 'strRow = "0;'TODOS';'';"
+        strSQL = strSQL & " UNION SELECT TOP 1 0 as Id, ' T O D O S ' as Cli, '' as NIF FROM tbClientes"
+    End If
+    strSQL = strSQL & " ORDER BY Cliente"
+    'Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    'strSQL = "SELECT tbClientes.IdCliente" ', Trim([NombreCli] & ' ' & [ApellidosCli]) AS Cliente, tbClientes.NIF"
+    'strSQL = strSQL & " FROM tbClientes"
+    'strSQL = strSQL & " ORDER BY NombreCli, ApellidosCli"
+    'Set rs0 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    'If intIncluirTodos Then strRow = "0;'TODOS';'';"
+    'While Not rs0.EOF
+    '    rs.FindFirst "IdCliente = " & rs0("IdCliente")
+    '    If Not rs.NoMatch Then strRow = strRow & rs("IdCliente") & ";" & "'" & rs("Cliente") & "';" & "'" & rs("NIF") & "';"
+    '    rs0.MoveNext
+    'Wend
+    'Me.lstClientes.RowSource = strRow
+    Me.lstClientes.RowSource = strSQL
+    
+    
+End Sub
+
+Private Sub txtCliente_AfterUpdate()
+    Carga_lstFacturas
+End Sub
+
+Private Sub txtFechaFactura_AfterUpdate()
+    Carga_lstFacturas
+End Sub
+
+Private Sub txtImporte_AfterUpdate()
+    Carga_lstFacturas
+End Sub
+
+Private Sub txtNota_AfterUpdate()
+    Dim intR As Integer
+    intR = MsgBox("¿Actualizar Notas del Cliente?", vbOKCancel + vbQuestion)
+    If intR = vbOK Then CurrentDb.Execute "UPDATE tbClientes SET Notas = " & ConComillas(Me.txtNota) & " WHERE IdCliente = " & Me.lstClientes, dbFailOnError
+    Call btnEditNota_Click
+End Sub
+
+Private Sub txtSerie_AfterUpdate()
+    Carga_lstFacturas
+End Sub

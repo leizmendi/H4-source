@@ -1,0 +1,24 @@
+Option Compare Database
+Option Explicit
+
+
+Public Sub VerControles(obj As Object, strTag As String, intVer As Integer)
+    Dim ctl As Control
+    On Error GoTo Error_VerControles
+    
+    For Each ctl In obj.Controls
+        If ctl.Tag = strTag Then
+            ctl.Visible = intVer
+        End If
+    Next ctl
+
+Salir_VerControles:
+    Exit Sub
+Error_VerControles:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description
+            Resume Salir_VerControles
+    End Select
+
+End Sub

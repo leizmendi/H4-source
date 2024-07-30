@@ -1,0 +1,500 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim gdb As DAO.Database
+Dim grsClientes As Recordset
+Dim bNoBuscar As Integer
+Dim gstrTeclas As String, gstrBorrada As String
+
+Private Sub btnBuscar_Click()
+    DoCmd.OpenForm "frmFacturasLista"
+End Sub
+
+Private Sub btnCambiarColumnas_Click()
+    CambiarColumnas Me.SubfrmFacturasDet.Form
+End Sub
+
+Private Sub btnCli_Click()
+    Dim strXML As String
+    PonXML strXML, "FiltradoSN", "S"
+    DoCmd.OpenForm "frmClientes", acNormal, , "CodCliente = '" & Me.CodCliente & "'", , acDialog, strXML
+End Sub
+
+Private Sub btnDesgloseIVA_Click()
+    If Me.subfrmFacturasTotalesIvas.Visible = True Then
+        Me.subfrmFacturasTotalesIvas.Visible = False
+    Else
+        Me.subfrmFacturasTotalesIvas.Requery
+        Me.subfrmFacturasTotalesIvas.Visible = True
+    End If
+End Sub
+
+Private Sub btnEti_Click()
+    On Error GoTo Err_btnEti_Click
+    If Me.Dirty Then
+        RunCommand acCmdSaveRecord
+    End If
+    Dim strRPT As String, strCri As String
+    strRPT = "rptFacturaEti"
+    strCri = "IdFacturaCab = " & Me.IdFactura
+    If DameValorParam("ImpresionInformes") = 1 Then
+        DoCmd.OpenReport strRPT, , , strCri
+    Else
+        DoCmd.OpenReport strRPT, acViewPreview, , strCri
+    End If
+Exit_btnEti_Click:
+    Exit Sub
+
+Err_btnEti_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "Error nº " & Err & vbCrLf & " En btnEti_Click"
+            Resume Exit_btnEti_Click
+    End Select
+End Sub
+
+Private Sub btnFichaCliente_Click()
+    If Me.txtDirCliente.Locked Then Exit Sub
+    Call txtNIF_KeyDown(vbKeyF4, False)
+End Sub
+
+Private Sub btnFNF_Click()
+On Error GoTo Err_btnFNF_Click
+
+    MsgBox "Al cambiar la numeración y/o fecha de factura, tener en cuenta que se debe mantener una numeración y fecha de facturación correlativa"
+    Me.Serie.Enabled = True
+    Me.Serie.Locked = False
+    Me.txtNumeroDeFactura.Enabled = True
+    Me.txtNumeroDeFactura.Locked = False
+    Me.txtFechaFactura.Enabled = True
+    Me.txtFechaFactura.Locked = False
+    Me.txtNumeroDeFactura.SetFocus
+Exit_btnFNF_Click:
+    Exit Sub
+
+Err_btnFNF_Click:
+    MsgBox Err.Description
+    Resume Exit_btnFNF_Click
+    
+End Sub
+
+
+Private Sub btnImpr1_Click()
+    On Error GoTo Err_btnImpr1_Click
+    Dim stDocName As String
+    If IsNull(Me.IdFactura) Then Exit Sub
+    If Me.Dirty Then
+        RunCommand acCmdSaveRecord
+    End If
+    BloqueoFormulario Me, True
+    ImprimirFactura Me.IdFactura, 1
+Exit_btnImpr1_Click:
+    Exit Sub
+
+Err_btnImpr1_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "Error nº " & Err & vbCrLf & " En btnImpr1_Click"
+            Resume Exit_btnImpr1_Click
+    End Select
+End Sub
+
+Private Sub btnImpr2_Click()
+    On Error GoTo Err_btnImpr2_Click
+    Dim stDocName As String
+    If IsNull(Me.IdFactura) Then Exit Sub
+    If Me.Dirty Then
+        RunCommand acCmdSaveRecord
+    End If
+    BloqueoFormulario Me, True
+    ImprimirFactura Me.IdFactura, 2
+Exit_btnImpr2_Click:
+    Exit Sub
+
+Err_btnImpr2_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "Error nº " & Err & vbCrLf & " En btnImpr2_Click"
+            Resume Exit_btnImpr2_Click
+    End Select
+End Sub
+
+Private Sub btnImpr3_Click()
+    On Error GoTo Err_btnImpr3_Click
+    Dim stDocName As String
+    If IsNull(Me.IdFactura) Then Exit Sub
+    If Me.Dirty Then
+        RunCommand acCmdSaveRecord
+    End If
+    BloqueoFormulario Me, True
+    ImprimirFactura Me.IdFactura, 3
+Exit_btnImpr3_Click:
+    Exit Sub
+
+Err_btnImpr3_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "Error nº " & Err & vbCrLf & " En btnImpr3_Click"
+            Resume Exit_btnImpr3_Click
+    End Select
+
+End Sub
+
+Private Sub btnImpr4_Click()
+    On Error GoTo Err_btnImpr4_Click
+    Dim stDocName As String
+    If IsNull(Me.IdFactura) Then Exit Sub
+    If Me.Dirty Then
+        RunCommand acCmdSaveRecord
+    End If
+    BloqueoFormulario Me, True
+    If Not EnviarFacturaXEmail(Me.IdFactura) Then MsgBox "No se envió email", vbExclamation
+Exit_btnImpr4_Click:
+    Exit Sub
+
+Err_btnImpr4_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "Error nº " & Err & vbCrLf & " En btnImpr4_Click"
+            Resume Exit_btnImpr4_Click
+    End Select
+
+End Sub
+
+Private Sub btnImprimirRecibo_Click()
+    On Error Resume Next
+    If Me.lstPagos.ListIndex = -1 Then
+        MsgBox "Se debe seleccionar un pago para imprimir el recibo"
+        Exit Sub
+    End If
+    ImprimirRecibo Me.lstPagos
+End Sub
+
+Private Sub btnModi_Click()
+    Call BloqueoFormulario(Me, False)
+End Sub
+
+
+Private Sub btnPago_Click()
+On Error GoTo Error_btnPago_Click
+    If Me.Dirty Then
+        DoCmd.RunCommand acCmdSaveRecord
+    End If
+    Dim lngIdFrom As Long
+'    lngIdFrom = Nz(DLookup("IdFichaCab", "tbFichasCab", "IdFactura = " & Me.IdFactura), 0)
+'    If lngIdFrom <> 0 Then
+'        fNuevoPago "E", lngIdFrom
+'        GoTo Salir_btnPago_Click
+'    End If
+'    lngIdFrom = Nz(DLookup("IdTickCab", "tbTickCab", "IdFactura = " & Me.IdFactura), 0)
+'    If lngIdFrom <> 0 Then
+'        fNuevoPago "T", lngIdFrom
+'        GoTo Salir_btnPago_Click
+'    End If
+'''''''''''''''''''''''''''''''''''''''' En fNuevoPago se controla si la factura viene de Estancia o tique...
+    fNuevoPago "F", Me.IdFactura
+    MarcarPagadaSN Nz(Me.IdFactura, 0)
+    Me.Recalc
+Salir_btnPago_Click:
+    Me.lstPagos.Requery
+    Exit Sub
+Error_btnPago_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnPago_Click" & vbCrLf & Err.Description
+            Resume Salir_btnPago_Click
+    End Select
+End Sub
+
+
+Private Sub CodCliente_AfterUpdate()
+    Me.txtNIF = Nz(IIf(Me.CodCliente.Column(2) = "", "-", Me.CodCliente.Column(2)), "-")
+    Call txtNIF_AfterUpdate
+End Sub
+
+
+Private Sub Form_Activate()
+    DoCmd.Maximize
+End Sub
+
+
+Private Sub Form_AfterDelConfirm(status As Integer)
+    If status = acDeleteOK Then
+        Dim strSQL As String
+        strSQL = "UPDATE tbFichasCab SET tbFichasCab.IdFactura = 0"
+        strSQL = strSQL + " WHERE tbFichasCab.IdFactura=" & gstrBorrada
+        CurrentDb.Execute strSQL, dbFailOnError
+        If IsOpenForm("frmFichas") Then
+            If Forms("frmFichas").IdFactura = CLng(gstrBorrada) Then
+                Forms("frmFichas").IdFactura = 0
+            End If
+        End If
+    End If
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+'    On Error Resume Next
+    Dim v As Variant
+    'v = IsOpenCaja
+    'If v = False Then
+    '    MsgBox "Se debe abrir la caja"
+    '    Cancel = True
+    '    Exit Sub
+    'End If
+    'Me.IdCajaAper = CLng(v)
+    Dim strSerie As String
+    strSerie = Nz(DameValorParam("PuestoSerie"), "")
+    Me.Serie = strSerie
+    Me.txtNumeroDeFactura = DameNumeroFactura(strSerie)
+    Me.IvaIncluidoDetalle = DameValorParam("IVAIncluidoEnFacturasYFichas")
+End Sub
+
+
+Private Sub Form_Current()
+    On Error GoTo Error_Form_Current
+    CargaListas
+'    Me.txtIdFichaCab.Visible = Me.txtIdFichaCab > 0
+'    Me.txtNumTicket.Visible = Me.txtNumTicket > 0
+'    Me.txtBaseTotal = Me![TotalBase]
+'    Me.txtIVATotal = Me![TotalIVA]
+    If Me.Imprimida = False Or Me.NewRecord Then
+        BloqueoFormulario Me, False
+    Else
+        BloqueoFormulario Me, True
+    End If
+    If Me.NewRecord Then
+'        Me.txtIVA = " " 'DLookup("PrimeroDeIVA", "qryCuentaIVAs", "IdFactura = " & Me.IdFactura)
+'        Me.txtIVA.Visible = True
+        Me.btnDesgloseIVA.Visible = False
+        Me.subfrmFacturasTotalesIvas.Visible = False
+    Else
+        If DLookup("CuentaDeIVA", "qryCuentaIVAs", "IdFactura = " & Me.IdFactura) > 1 Then
+'            Me.txtIVA.Visible = False
+            Me.btnDesgloseIVA.Visible = True
+        Else
+'            Me.txtIVA = DLookup("PrimeroDeIVA", "qryCuentaIVAs", "IdFactura = " & Me.IdFactura)
+'            Me.txtIVA.Visible = True
+            Me.btnDesgloseIVA.Visible = False
+            Me.subfrmFacturasTotalesIvas.Visible = False
+        End If
+    End If
+    Me.txtNumeroDeFactura.Enabled = False
+    Me.txtNumeroDeFactura.Locked = True
+    Me.txtFechaFactura.Enabled = False
+    Me.txtFechaFactura.Locked = True
+    
+
+    'Me.subfrmFacturasTotalesIvas.Requery
+Salir_Form_Current:
+    Exit Sub
+Error_Form_Current:
+    Select Case Err
+        'Case 3075
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En Form_current"
+    End Select
+    Resume Salir_Form_Current
+            
+End Sub
+
+
+Private Sub Form_Delete(Cancel As Integer)
+    If Me.IdFactura <> DMax("IdFactura", "tbFacturasCab") Then
+        MsgBox "Sólo se puede borrar la última factura", vbExclamation
+        Cancel = True
+        Exit Sub
+    End If
+    gstrBorrada = Me.IdFactura
+Salir_Form_Delete:
+    Exit Sub
+Error_Form_Delete:
+    MsgBox "No se puede eliminar esta factura"
+    Cancel = True
+    Resume Salir_Form_Delete
+End Sub
+
+Public Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Call ControlTeclas(Me, KeyCode, Shift, gstrTeclas)
+End Sub
+
+Private Sub Form_Load()
+    gstrTeclas = "|CTRL_0|#txtDirCliente#"
+    gstrTeclas = gstrTeclas & "|CTRL_1|#SubfrmFacturasDet#"
+    gstrTeclas = gstrTeclas & "|CTRL_2|#Observaciones#"
+    gstrTeclas = gstrTeclas & "|CTRL_3|#lstPagos#"
+    gstrTeclas = gstrTeclas & "|CTRL_P|#btnImpri#¬"
+    gstrTeclas = gstrTeclas & "|F10|#btnCambiarColumnas#¬"
+    gstrTeclas = gstrTeclas & "|F11|#btnPago#¬"
+    CentrarTodoFRM Me, Me.cdrCentrar, , False
+End Sub
+
+
+
+
+Private Sub btnPrint_Click()
+On Error GoTo Err_btnPrint_Click
+
+    Dim stDocName As String
+    If IsNull(Me.IdFactura) Then Exit Sub
+    DoCmd.RunCommand acCmdSaveRecord
+    ImprimirFactura Me.IdFactura
+
+Exit_btnPrint_Click:
+    Exit Sub
+
+Err_btnPrint_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description
+            Resume Exit_btnPrint_Click
+    End Select
+    
+End Sub
+Private Sub btnImpri_Click()
+    On Error GoTo Err_btnImpri_Click
+    Dim stDocName As String
+    If IsNull(Me.IdFactura) Then Exit Sub
+    If Me.Dirty Then
+        RunCommand acCmdSaveRecord
+    End If
+FacturaNormal:
+    BloqueoFormulario Me, True
+    ImprimirFactura Me.IdFactura
+Exit_btnImpri_Click:
+    Exit Sub
+
+Err_btnImpri_Click:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & vbCrLf & "Error nº " & Err & vbCrLf & " En btnImpri_Click"
+            Resume Exit_btnImpri_Click
+    End Select
+    
+End Sub
+Private Sub IvaIncluidoDetalle_Click()
+    On Error Resume Next
+    DoCmd.RunCommand acCmdSaveRecord
+    Me![TotalBase] = DSum("Base", "qryFacturasTotalesTiposIVA", "IdFactura = " & Me.IdFactura)
+    Me.txtBaseTotal = Me![TotalBase]
+    Me![TotalIVA] = DSum("ImporteIVA", "qryFacturasTotalesTiposIVA", "IdFactura = " & Me.IdFactura)
+    Me.txtIVATotal = Me![TotalIVA]
+'    DoCmd.RunCommand acCmdSaveRecord
+    Call Form_Current
+End Sub
+
+Public Function MisBotones(strNombreBoton As String)
+    Select Case strNombreBoton
+        Case "btnImpri"
+            Call btnImpri_Click
+        Case "btnCambiarColumnas"
+            Call btnCambiarColumnas_Click
+        Case "btnPago"
+            Call btnPago_Click
+    End Select
+End Function
+
+Private Sub Serie_AfterUpdate()
+    Dim intR As Integer
+    If Nz(Me.IdFactura, 0) = Nz(DMax("IdFactura", "tbFacturasCab"), 0) Then
+        intR = MsgBox("¿Modificar número de factura según serie?", vbYesNo)
+        If intR = vbYes Then
+            Me.NumeroDeFactura = DameNumeroFactura(Nz(Me.Serie, ""))
+            Me.Recalc
+        End If
+    End If
+        
+End Sub
+
+Private Sub txtDirCliente_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim stDocName As String
+    If Me.AllowEdits = False Then Exit Sub
+    If KeyCode = vbKeyF4 Then
+        If Me.AllowEdits = False Then Exit Sub
+        Me.txtNIF = Nz(BuscaAyuda("CL1", Me.txtNIF, 1), Me.txtNIF)
+        Call txtNIF_AfterUpdate
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub txtNIF_AfterUpdate()
+    Dim rs As Recordset, strSQL As String
+    strSQL = "SELECT tbClientes.*"
+    strSQL = strSQL & " FROM tbClientes"
+    strSQL = strSQL & " WHERE (((tbClientes.NIF)=" & ConComillas(Me.txtNIF) & "));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then Exit Sub
+    rs.MoveFirst
+    Me.txtDirCliente = Trim(rs("NombreCli") & " " & rs("ApellidosCli"))
+    If Len(rs("Direccion")) > 0 Then
+        Me.txtDirCliente = Me.txtDirCliente & vbCrLf & rs("Direccion")
+    End If
+    Me.txtDirCliente = Me.txtDirCliente & vbCrLf
+    Me.txtDirCliente = Me.txtDirCliente & Trim(rs("CodPostal") & " " & rs("Ciudad"))
+    Me.txtDirCliente = Me.txtDirCliente & vbCrLf
+    Me.txtDirCliente = Me.txtDirCliente & Trim(rs("EdoOProv") & " " & rs("Pais"))
+    Me.CodCliente = rs("CodCliente")
+
+End Sub
+
+Private Sub txtNIF_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim stDocName As String
+    If Me.AllowEdits = False Then Exit Sub
+    If KeyCode = vbKeyF4 Then
+        If Me.AllowEdits = False Then Exit Sub
+        Me.txtNIF = Nz(BuscaAyuda("CL1", Me.txtNIF, 1), Me.txtNIF)
+        Call txtNIF_AfterUpdate
+        KeyCode = 0
+    End If
+End Sub
+
+Private Sub CargaListas()
+    Dim strSQL As String, stSQ As String, rs As Recordset
+    strSQL = "SELECT tbCajaDet.IdCajaDet, tbCajaDet.Fecha, tbCajaDet_Concepto.Concepto, tbFPago.Descripcion, LlenaIzq(Format([Cantidad],'Currency'),14) AS Expr1, tbCajaDet.IdFParcial"
+    strSQL = strSQL & " FROM (tbFPago RIGHT JOIN tbCajaDet ON tbFPago.CodFPago = tbCajaDet.CodFPago) LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet"
+    strSQL = strSQL & " WHERE (tbCajaDet.IdFrom =" & Nz(Me.IdFactura, 0) & " AND tbCajaDet.Origen='F')"
+    strSQL = strSQL & " OR (tbCajaDet.IdFParcial=" & Nz(Me.IdFactura, 0) & ")"
+    stSQ = "SELECT DISTINCT IdFrom FROM tbFacturasDet"
+    stSQ = stSQ & " WHERE IdFactura = " & Nz(Me.IdFactura, 0) & " AND Origen='E'"
+    stSQ = stSQ & " ORDER BY IdFrom"
+    Set rs = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = strSQL & " OR (tbCajaDet.IdFrom =" & rs("IdFrom") & " AND tbCajaDet.Origen='E')"
+        rs.MoveNext
+    Wend
+    stSQ = "SELECT DISTINCT IdFrom FROM tbFacturasDet"
+    stSQ = stSQ & " WHERE IdFactura = " & Nz(Me.IdFactura, 0) & " AND Origen='T'"
+    stSQ = stSQ & " ORDER BY IdFrom"
+    Set rs = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = strSQL & " OR (tbCajaDet.IdFrom =" & rs("IdFrom") & " AND tbCajaDet.Origen='T')"
+        rs.MoveNext
+    Wend
+    Me.lstPagos.RowSource = strSQL
+End Sub
+
+Public Sub CentrarTodo()
+    Dim ctl As Control, lngX0 As Long, lngDX As Long, lngY0 As Long, lngDY As Long
+    Me.Visible = False
+    DoCmd.Maximize
+    lngX0 = Me.cdrCentrar.Left
+    Me.cdrCentrar.Left = (Me.WindowWidth - Me.cdrCentrar.Width) \ 2
+    lngDX = Me.cdrCentrar.Left - lngX0
+    For Each ctl In Me.Controls
+        If ctl.Name <> "cdrCentrar" Then ctl.Left = ctl.Left + lngDX
+    Next ctl
+    lngY0 = Me.cdrCentrar.Top
+    Me.Detalle.Height = Me.WindowHeight
+    Me.cdrCentrar.Top = (Me.WindowHeight - Me.EncabezadoDelFormulario.Height - Me.cdrCentrar.Height) \ 2
+    lngDY = Me.cdrCentrar.Top - lngY0
+    For Each ctl In Me.Detalle.Controls
+        If ctl.Name <> "cdrCentrar" Then ctl.Top = ctl.Top + lngDY
+    Next ctl
+    Me.Detalle.Height = 0
+    Me.Visible = True
+End Sub

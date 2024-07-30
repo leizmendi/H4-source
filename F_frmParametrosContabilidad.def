@@ -1,0 +1,33 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnColor_Click()
+    Dim lngColor As Long
+    Me.Section(0).BackColor = adhChooseColor(Me.Section(0).BackColor)
+    'lngColor = adhChooseColor(Forms![frmMenu].Section(0).BackColor)
+End Sub
+Private Sub Form_Load()
+    CargarParam Me
+    AjustarColumnas Me.frmCuentasFPago.Form
+    AjustarColumnas Me.frmCuentasGruposIngresos.Form
+    AjustarColumnas Me.frmCuentasGastos.Form
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub TotalizacionTarjetasDescuentoTPV1_AfterUpdate()
+    Me.TotalizacionTarjetasDescuentoTPV1 = Me.TotalizacionTarjetasDescuentoTPV1 / 100
+End Sub
+
+Private Sub TotalizacionTarjetasDescuentoTPV2_AfterUpdate()
+    Me.TotalizacionTarjetasDescuentoTPV2 = Me.TotalizacionTarjetasDescuentoTPV2 / 100
+End Sub

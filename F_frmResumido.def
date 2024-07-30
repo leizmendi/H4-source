@@ -1,0 +1,54 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btn_3_Click()
+    Dim strXML As String
+    PonXML strXML, "FechaInicio", Me.txtDesde
+    DoCmd.OpenForm "frmPlaningG", , , , , , strXML
+End Sub
+
+Private Sub btnFecha_Click()
+    Dim varFecha As Variant
+    varFecha = adhDoCalendar(Me.txtDesde)
+    If IsDate(varFecha) Then Me.txtDesde = varFecha
+    Call txtDesde_AfterUpdate
+End Sub
+
+Private Sub Form_Load()
+    Call txtDesde_AfterUpdate
+    Call mrcLO_AfterUpdate
+End Sub
+
+Private Sub mrcLO_AfterUpdate()
+    If Me.mrcLO = 1 Then
+        Me.lblQry.Caption = "Libres"
+        Me.qryAuxResumido.SourceObject = "Consulta.qryAuxResumidoLibres"
+    Else
+        Me.lblQry.Caption = "Ocupadas"
+        Me.qryAuxResumido.SourceObject = "Consulta.qryAuxResumidoOcupadas"
+    End If
+End Sub
+
+Private Sub txtDesde_AfterUpdate()
+    Me.txtDesde = Format(CDate(Me.txtDesde), "dd/mm/yyyy")
+    Rellenar_auxResumido CDate(Me.txtDesde), CLng(Me.txtNumDias)
+    Me.qryAuxResumido.Requery
+End Sub
+
+Private Sub txtDesde_KeyDown(KeyCode As Integer, Shift As Integer)
+    If Shift And acCtrlMask Or Shift And acShiftMask Then Exit Sub
+    If KeyCode = vbKeyF4 Then
+        Call btnFecha_Click
+        KeyCode = 0
+    End If
+    
+End Sub
+
+Private Sub txtNumDias_AfterUpdate()
+    Call txtDesde_AfterUpdate
+End Sub

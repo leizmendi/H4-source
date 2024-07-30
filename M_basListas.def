@@ -1,0 +1,43 @@
+Option Compare Database
+
+'Devuelve, de una lista cuyos elemento estan separados por ; el elemento colocado
+'en la posicion indicada.
+'En caso de no existir dicho elemento (por ej, se pide el 3º, pero sólo hay dos)
+'si intOpUlti es True, se devuelve el último de la lista
+Public Function ElementoDeLista(varLista As Variant, intPos As Integer, intOpUlti As Integer) As String
+    Dim i As Integer, j As Integer, k As Integer
+    Dim strLista As String
+    On Error GoTo Error_ElementoDeLista
+    If IsNull(varLista) Or intPos < 1 Then
+        ElementoDeLista = ""
+        Exit Function
+    End If
+    strLista = CStr(varLista)
+    For i = 1 To intPos
+        k = j
+        j = InStr(k + 1, strLista, ";")
+        If j = 0 Then
+            Exit For
+        End If
+    Next i
+    If i < intPos Then
+        If intOpUlti = False Then
+            ElementoDeLista = ""
+            Exit Function
+        End If
+    End If
+    If j = 0 Then
+        ElementoDeLista = Right(strLista, Len(strLista) - k)
+    Else
+        ElementoDeLista = Mid(strLista, k + 1, j - k - 1)
+    End If
+Salir_ElementoDeLista:
+    Exit Function
+Error_ElementoDeLista:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ElementoDeLista " & vbCrLf & Err.Description
+    End Select
+    ElementoDeLista = ""
+    Resume Salir_ElementoDeLista
+End Function

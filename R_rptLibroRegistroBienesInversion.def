@@ -1,0 +1,33 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Explicit
+Option Compare Database
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    If Me.PERIODO_USO = 0 Then
+        Me.Section(0).BackColor = 14211288
+    Else
+        Me.Section(0).BackColor = vbWhite
+    End If
+        
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No hay registros que cumplan las condiciones"
+    Cancel = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim frm As Form
+    If IsOpenForm("frmListadosInversiones") Then
+        Set frm = Forms("frmListadosInversiones")
+    ElseIf IsOpenForm("frmMaestros") Then
+        If Forms("frmMaestros")("subfrm").SourceObject = "frmListadosInversiones" Then
+            Set frm = Forms("frmMaestros")("subfrm").Form
+        End If
+    End If
+    Me.lblSubTitulo.Caption = frm("lblTitulo").Caption
+End Sub

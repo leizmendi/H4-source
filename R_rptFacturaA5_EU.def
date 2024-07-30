@@ -1,0 +1,168 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+Dim FilasPorPágina As Byte
+
+Private Sub Detalle_Format(Cancel As Integer, FormatCount As Integer)
+    If Me.Cantidad = 0 Then
+       Me.Cantidad.Visible = False
+       Me.PrecioUnitario.Visible = False
+       Me.IMPORTE.Visible = False
+       Me.FechaInicio.Visible = False
+       Me.FechaFin.Visible = False
+       Me.Dias.Visible = False
+       Me.Concepto.Width = 11.5 * TC_CmToPoints
+    Else
+       Me!Cantidad.Visible = True
+       Me.PrecioUnitario.Visible = True
+       Me.IMPORTE.Visible = True
+       Me.FechaInicio.Visible = True
+       Me.FechaFin.Visible = True
+       Me.Dias.Visible = True
+       Me.Concepto.Width = 3.829 * TC_CmToPoints
+    End If
+    
+    If (Me!Fila = Me!PáginaPedido * (FilasPorPágina - 1) + 1) And Me!Fila <> Me!CuentaFilas Then
+        Me!Continúa.Visible = True
+        'Me.SaltoPagina1.Visible = True
+    End If
+
+    ' Show page break and hide controls in detail record.
+    With Me
+        If !Continúa.Visible Then
+            
+'            !Section(0).ForceNewPage = 2
+            !FechaInicio.Visible = False
+            !FechaFin.Visible = False
+            !Dias.Visible = False
+            !Cantidad.Visible = False
+            !PrecioUnitario.Visible = False
+            !Concepto.Visible = False
+            !IMPORTE.Visible = False
+            ' Increase value in Order Page.
+            .NextRecord = False
+            !PáginaPedido = Me!PáginaPedido + 1
+        Else
+            ' Increase row count if detail record is printed.
+            !Fila = Me!Fila + 1
+        End If
+    End With
+End Sub
+
+
+
+Private Sub EncabezadoDelGrupo0_Format(Cancel As Integer, FormatCount As Integer)
+    Me!Fila = 1
+    Me!PáginaPedido = 1
+
+    '  Hide Continued and DetailPageBreak controls.
+    Me!Continúa.Visible = False
+'    CambiaFormatoPtsEuros Me.PtsEuros, Me
+
+End Sub
+
+Private Sub EncabezadoDePágina_Format(Cancel As Integer, FormatCount As Integer)
+    '  At top of page, initialize controls in detail section.
+    
+    '  Set value of Row text box to 0.
+    '  Set Visible property to show controls in detail record
+    '  and hide Continued and DetailPageBreak controls.
+    With Me
+        !Fila = 0
+        !Continúa.Visible = False
+        !SaltoPagina1.Visible = False
+        !FechaInicio.Visible = True
+        !FechaFin.Visible = True
+        !Cantidad.Visible = True
+        !Concepto.Visible = True
+        !Dias.Visible = True
+        !PrecioUnitario.Visible = True
+        !IMPORTE.Visible = True
+    End With
+'    If Me![IvaIncluidoDetalle] = True Then
+'        Me.lblImporte.Caption = "(IVA incl.)   Importe"
+'    Else
+'        Me.lblImporte.Caption = "(+IVA)        Importe"
+'    End If
+End Sub
+
+Private Sub PieDelGrupo1_Format(Cancel As Integer, FormatCount As Integer)
+      Me!ImprimirPiePágina = True
+End Sub
+
+Private Sub PieDePágina_Format(Cancel As Integer, FormatCount As Integer)
+    On Error GoTo Error_PieDePágina_Format
+    '  Determine whether to print page footer.
+    
+    '  Print page footer if all detail records for
+    '  current order have been printed.
+    If Me!ImprimirPiePágina = True Then
+        Me.PrintSection = True
+        Me!ImprimirPiePágina = False
+    Else
+        '  Don't print page footer if all detail records
+        '  for current order haven't been printed.
+        Me.PrintSection = False
+    End If
+    If Me.txtAdelanto <> 0 And Nz(DameValorParam("FacturasVerAdelantos"), True) = True Then
+        Me.txtAdelanto.Visible = True
+        Me.txtPendiente.Visible = True
+    Else
+        Me.txtAdelanto.Visible = False
+        Me.txtPendiente.Visible = False
+    End If
+    Me.txtTotalPts.Visible = False 'Nz(DameValorParam("FacturasVerTotalPts"), True)
+    Dim lngW As Long, lngH As Long, lngL As Long
+    Call Me.subrptTiraLogos.Report.PonTiraLogos(lngH, lngW)
+    If lngH = 0 Then
+        Me.subrptTiraLogos.Visible = False
+    Else
+        'Colocar subInforme TiraLogo
+        Me.subrptTiraLogos.Width = lngW
+        Select Case Nz(DameValorParam("FacturasTiraLogosAlinH"), 1)
+            Case 1
+                lngL = 0
+            Case 2
+                lngL = (Me.Width - lngW) \ 2
+            Case 3
+                lngL = Me.Width - lngW
+        End Select
+        If lngL < 0 Then lngL = 0
+        Me.subrptTiraLogos.Left = lngL
+        '''''''''''''''''''''''''''''
+        If lngH + Me.subrptTiraLogos.Height > Me.PieDePágina.Height Then
+            Me.subrptTiraLogos.Top = Me.PieDePágina.Height - lngH
+            Me.subrptTiraLogos.Height = lngH
+        Else
+            Me.subrptTiraLogos.Height = lngH
+            Me.subrptTiraLogos.Top = Me.PieDePágina.Height - lngH - 10
+        End If
+        Me.subrptTiraLogos.Visible = True
+    End If
+Salir_PieDePágina_Format:
+    Exit Sub
+Error_PieDePágina_Format:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en PieDePágina_Format" & vbCrLf & Err.Description
+            Resume Salir_PieDePágina_Format
+    End Select
+End Sub
+
+Private Sub Report_NoData(Cancel As Integer)
+    MsgBox "No existe Factura"
+    Cancel = True
+End Sub
+
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim sngAltoMax As Single
+    PonLogoRpt Me, Me.LogoImagen, Nz(DameValorParam("FacturasLogoSN"), False), Me.CuadroCabecera.Top * 0.8, Me.Width, Nz(DameValorParam("FacturasLogoAlinH"), 2), Nz(DameValorParam("FacturasLogoAlinV"), 1)
+    FilasPorPágina = Nz(DameValorParam("FacturasLineasDetalle"), 15)
+    PonCabeceraFacRPT Me
+End Sub

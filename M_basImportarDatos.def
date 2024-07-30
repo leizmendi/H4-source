@@ -1,0 +1,70 @@
+Option Compare Database
+Option Explicit
+
+
+Public Function ImportarDatos()
+    Dim strRuta As String
+    Dim con As ADODB.Connection, rs As ADODB.Recordset, cm As ADODB.Command, fld As ADODB.Field
+    Dim rsTablas As dao.Recordset, strSQL As String, rs1 As dao.Recordset
+    Dim i As Integer, y As Long, z As Long, strR As String
+    On Error GoTo Error_ImportarDatos
+    strRuta = InputBox("Introduzca Ruta de fichero de datos")
+    If strRuta = "" Then Exit Function
+    Set rsTablas = CurrentDb.OpenRecordset("SELECT * FROM _TablasBorrarImportar ORDER BY OrdenBorrar", dbOpenSnapshot)
+    While Not rsTablas.EOF
+        CurrentDb.Execute "DELETE * FROM " & rsTablas("NombreTabla"), dbFailOnError
+        rsTablas.MoveNext
+    Wend
+    
+    Set con = New ADODB.Connection
+    With con
+        ' Cursor en Cliente para poder usar un DataGrid
+        '   .CursorLocation = adUseClient
+        ' Abro la conexión con la base de datos Neptuno.mdb usando su DSN
+           .Open "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" & strRuta
+    End With
+    Set rsTablas = CurrentDb.OpenRecordset("SELECT * FROM _TablasBorrarImportar ORDER BY OrdenImportar", dbOpenSnapshot)
+    While Not rsTablas.EOF
+        If rsTablas("OnErrorResumeNext") = True Then
+            On Error Resume Next
+        Else
+            On Error GoTo Error_ImportarDatos
+        End If
+        strSQL = "SELECT * FROM " & rsTablas("NombreTabla")
+        Set rs1 = CurrentDb.OpenRecordset(rsTablas("NombreTabla"))
+        If Len(rsTablas("CondicionImportar")) > 0 Then
+            strSQL = strSQL & " WHERE " & rsTablas("CondicionImportar")
+        End If
+        Set rs = con.Execute(strSQL, z)
+        y = 0
+        While Not rs.EOF
+            rs1.AddNew
+            For i = 0 To rs.Fields.Count - 1
+                rs1(rs(i).Name) = rs(i)
+            Next i
+            rs1.Update
+            rs.MoveNext
+            y = y + 1
+            SysCmd acSysCmdSetStatus, rsTablas("NombreTabla") & "-->" & y & "/" & z
+        Wend
+        If rsTablas("IniciarAutonum") >= 0 Then
+AumentarAutonum:
+            rs1.AddNew
+            While rs1(rsTablas("IniciarAutonum")) <= Nz(DMax(rs1(rsTablas("IniciarAutonum")).Name, rsTablas("NombreTabla")), 0)
+'                rs1.Delete
+                GoTo AumentarAutonum
+            Wend
+        End If
+        strR = strR & rsTablas("NombreTabla") & "-->" & y & "/" & z & vbCrLf
+        rsTablas.MoveNext
+    Wend
+    MsgBox strR
+Salir_ImportarDatos:
+    Exit Function
+Error_ImportarDatos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ImportarDatos" & vbCrLf & Err.Description
+            Resume Salir_ImportarDatos
+    End Select
+End Function

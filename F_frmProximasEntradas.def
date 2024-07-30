@@ -1,0 +1,52 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Function Carga_lstEntradas()
+    Dim sSQL As String, sIN As String, vIt As Variant, dtD As Date, dtH As Date
+    dtD = CDate(Me.txtFDesde)
+    dtH = CDate(Me.txtFHasta)
+    
+    sSQL = "SELECT tbFichasCab.IdFichaCab, tbFichasCab.FechaLlegada, [NombreCliente] & ' ' & [ApellidosCliente] AS Cliente, [Adultos] & IIf([Niños]=0,'',' + ' & [Niños]) AS Pax, tbParcelasTipo.TipoParcela" & _
+           " FROM tbParcelasTipo INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelasTipo.IdTipoParcela = tbFichasDet.IdTipoParcela" & _
+           " WHERE tbFichasCab.FechaLlegada>=" & CLng(dtD) & " And tbFichasCab.FechaLlegada<" & CLng(dtH) & _
+                " AND tbFichasCab.EstadoFicha=1"
+    If Me.lstTipoParcelas.ItemsSelected.Count > 0 Then
+        For Each vIt In Me.lstTipoParcelas.ItemsSelected
+            sIN = sIN & Me.lstTipoParcelas.ItemData(vIt) & ","
+        Next vIt
+        sIN = RecDerTop(sIN, 1, 0)
+        sSQL = sSQL & " AND tbParcelasTipo.IdTipoParcela In (" & sIN & ")"
+    End If
+    sSQL = sSQL & " ORDER BY tbFichasCab.FechaLlegada;"
+    Me.lstEntradas.RowSource = sSQL
+End Function
+
+Private Sub btnTodas_Click()
+    Dim vIt As Variant
+    For Each vIt In Me.lstTipoParcelas.ItemsSelected
+        Me.lstTipoParcelas.Selected(vIt) = False
+    Next vIt
+    Carga_lstEntradas
+End Sub
+
+Private Sub Form_Load()
+    SetSelItems Me.lstTipoParcelas, Nz(DameValorParam(Me.Name & "_TiposParcelaSelected"), "")
+    Carga_lstEntradas
+End Sub
+
+Private Sub lstEntradas_DblClick(Cancel As Integer)
+    If Me.lstEntradas.ListIndex <> -1 Then
+        AbrirFichaNum Me.lstEntradas
+        DoCmd.Close acForm, Me.Name
+    End If
+End Sub
+
+Private Sub lstTipoParcelas_Click()
+    Carga_lstEntradas
+    PonValorParam Me.Name & "_TiposParcelaSelected", GetSelItems(Me.lstTipoParcelas)
+End Sub

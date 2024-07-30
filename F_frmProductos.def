@@ -1,0 +1,30 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+Dim lngIdCat As Long
+
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    On Error Resume Next
+    Me.IdCategoria = lngIdCat
+    Me.Orden = Nz(DMax("Orden", "tbProductosRestaurante", "IdCategoria = " & lngIdCat), 0) + 1
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+'    Parent.ControlTeclas KeyCode
+End Sub
+
+Private Sub Form_Load()
+    If IsOpenForm("frmCartaRestaurante") Then
+        If Forms("frmCartaRestaurante")("lstCategorias").ListIndex <> -1 Then
+            lngIdCat = Forms("frmCartaRestaurante")("lstCategorias")
+            Me.RecordSource = "SELECT * FROM tbProductosRestaurante WHERE IdCategoria = " & Forms("frmCartaRestaurante")("lstCategorias")
+        Else
+            Me.RecordSource = "SELECT * FROM tbProductosRestaurante"
+        End If
+    End If
+End Sub

@@ -1,0 +1,78 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnOi_Click()
+    Dim bytDesde As Byte
+    On Error Resume Next
+    bytDesde = CByte(InputBox("Desde el carácter nº..."))
+    ImprimirTodosLosChar (bytDesde)
+    
+End Sub
+
+Private Sub btnPrueba_Click()
+    PruebaEntreLin
+End Sub
+
+Private Sub btnPuestos_Click()
+    DoCmd.OpenTable "Puestos"
+End Sub
+
+Private Sub Form_Load()
+    Me.ImprimirAlBlocDeNotas = DameValorParam("ImprimirAlBlocDeNotas")
+    Me.ImpresionInformes = DameValorParam("ImpresionInformes")
+End Sub
+
+Private Sub ImpresionInformes_AfterUpdate()
+    PonValorParam "ImpresionInformes", Me.ImpresionInformes, 4
+End Sub
+
+Private Sub ImprimirAlBlocDeNotas_AfterUpdate()
+    PonValorParam "ImprimirAlBlocDeNotas", Me.ImprimirAlBlocDeNotas, 1
+End Sub
+
+Private Sub Texto0_AfterUpdate()
+    On Error Resume Next
+    Me.Texto2 = Asc(Me.Texto0)
+End Sub
+
+Private Sub Texto4_AfterUpdate()
+    On Error Resume Next
+    Me.Texto6 = Chr(Me.Texto4)
+End Sub
+Private Sub PruebaEntreLin()
+    Dim strImpresoraFacturas  As String, strPathPrintTeam  As String, strPathPrintPort  As String
+    On Error GoTo Error_ParametrosIniFac
+    strImpresoraFacturas = Nz(DameValorParam("FacturasImpresora"), "")
+    strPathPrintTeam = DLookup("NombrePuesto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'")
+    If strPathPrintTeam = DLookup("NombrePuesto", "tbMiPuesto") Then
+        strPathPrintTeam = "c:\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'"), 1, True)
+    Else
+        strPathPrintTeam = "\\" & strPathPrintTeam & "\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraFacturas & "'"), 2, True)
+    End If
+    Open strPathPrintTeam & strPathPrintPort For Output As #1
+    Print #1, TraduceSE(Me.Comprimido);
+    Print #1, TraduceSE(Me.txtEntreLin) & Me.txtEntreLin
+    Print #1, "Línea 1"
+    Print #1, "Línea 2"
+    Print #1, "Línea 3"
+    Print #1, "Línea 4"
+    Close
+Salir_ParametrosIniFac:
+    Exit Sub
+Error_ParametrosIniFac:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ParametrosIniFac"
+            
+    End Select
+    
+    Resume Salir_ParametrosIniFac
+End Sub

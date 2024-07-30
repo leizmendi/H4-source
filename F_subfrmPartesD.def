@@ -1,0 +1,29 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnDescripcionCliente_Click()
+    Dim strOb As String, strSQL As String, strXML As String
+    If IsNull(Me.IdParteG) Then Exit Sub
+    PonXML strXML, "Titulo", "Descripción del cliente de la habitación " & Me.PH
+    PonXML strXML, "Texto", Nz(DLookup("DescripcionCliente", "tbFichasCab", "IdFichacab = " & Me.IdFichaOcupa + Me.IdFichaSale), "-")
+    DoCmd.OpenForm "frmFichasObservaciones", , , , , acDialog, strXML
+    If Not IsOpenForm("frmFichasObservaciones") Then Exit Sub
+    strOb = Nz(Forms("frmFichasObservaciones")("Observaciones"), " ")
+    DoCmd.Close acForm, "frmFichasObservaciones"
+    strSQL = "UPDATE tbFichasCab SET DescripcionCliente = " & ConComillas(strOb) & " WHERE IdFichaCab = " & Me.IdFichaOcupa + Me.IdFichaSale
+    CurrentDb.Execute strSQL, dbFailOnError
+    Me.Recalc
+End Sub
+
+Private Sub Form_Load()
+    Me.lblPH.Caption = g_strPH
+End Sub

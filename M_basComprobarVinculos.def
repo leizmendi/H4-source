@@ -1,0 +1,627 @@
+Option Compare Database
+Option Explicit
+    Global g_ICAR As Integer, g_3M As Integer, g_PoliCheckIn As Integer, _
+           g_Contable As Integer, g_SincroAH As Integer, g_SincroSM As Integer, g_SincroWB As Integer, _
+           g_CapturaFirmas As Integer, g_Multiempresa  As Integer, _
+           g_PlanoSituacionParcelas As Integer, g_Fijos As Integer, _
+           g_intModulosCargadosSN As Integer
+           
+
+Public Sub CargaModulos()
+    Dim strSQL As String, strActivaModulo(0 To 5) As String, i As Integer
+    g_ICAR = Nz(DameValorParam("Modulos_ICAR"), False)
+    g_3M = Nz(DameValorParam("Modulos_3M"), False)
+    g_SincroAH = Nz(DameValorParam("Modulos_SincroAH"), False)
+    g_SincroSM = Nz(DameValorParam("Modulos_SincroSM"), False)
+    g_SincroWB = Nz(DameValorParam("Modulos_SincroWB"), False)
+    strActivaModulo(0) = "Desactivar = " & IIf(g_SincroWB, "False", "True") & " WHERE Modulo = 'SIN'"
+    g_Contable = Nz(DameValorParam("Modulos_Contable"), False)
+    strActivaModulo(1) = "Desactivar = " & IIf(g_Contable, "False", "True") & " WHERE Modulo = 'CON'"
+    g_CapturaFirmas = Nz(DameValorParam("Modulos_CapturaFirmas"), False)
+    g_Multiempresa = Nz(DameValorParam("Modulos_MultiEmpresa"), False)
+    strActivaModulo(2) = "Desactivar = " & IIf(g_Multiempresa, "False", "True") & " WHERE Modulo = 'MUL'"
+    g_PlanoSituacionParcelas = Nz(DameValorParam("Modulos_PlanoSituacionParcelas"), False)
+    strActivaModulo(3) = "Desactivar = " & IIf(g_PlanoSituacionParcelas, "False", "True") & " WHERE Modulo = 'PLA'"
+    g_Fijos = Nz(DameValorParam("Modulos_Fijos"), False)
+    strActivaModulo(4) = "Desactivar = " & IIf(g_Fijos, "False", "True") & " WHERE Modulo = 'FIJ'"
+    g_PoliCheckIn = Nz(DameValorParam("Modulos_PoliCheckIn"), False)
+    strActivaModulo(5) = "Desactivar = " & IIf(g_PoliCheckIn, "False", "True") & " WHERE Modulo = 'POL'"
+    g_intModulosCargadosSN = True
+       
+    
+    For i = 0 To 5
+        strSQL = "UPDATE sysFormsGX SET " & strActivaModulo(i)
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE sysMenus2 SET " & strActivaModulo(i)
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE sysListasVarias SET " & strActivaModulo(i)
+        CurrentDb.Execute strSQL, dbFailOnError
+    Next i
+    Dim rs As Recordset
+    strSQL = "SELECT IdFormsG FROM sysFormsG"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        Reordenar "sysFormsGX", "Ord", "IdFormsG = " & rs("IdFormsG") & " AND Nz(Desactivar,False) = False"
+        rs.MoveNext
+    Wend
+    strSQL = "SELECT Menu FROM sysMenus1 WHERE Activado"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        Reordenar "sysMenus2", "Orden", "Menu = " & rs("Menu") & " AND Orden > 0 AND Nz(Desactivar,False) = False"
+        rs.MoveNext
+    Wend
+    strSQL = "SELECT DISTINCT Referencia FROM sysListasVarias WHERE Nz(Modulo,'') <>''"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        Reordenar "sysListasVarias", "Orden", "Referencia = '" & rs("Referencia") & "' AND Nz(Desactivar,False) = False"
+        rs.MoveNext
+    Wend
+    
+End Sub
+
+
+Public Function Autoexec()
+    Dim strMSG As String, intR As Integer
+    If ComprobarVinculos = False Then
+        MsgBox "Se cierra la aplicación"
+        DoCmd.Quit
+        Exit Function
+    End If
+    Call CargaModulos
+    Call ComprobarOpciones
+    Call Titulo_e_Icono
+    Call TipoAplicacion
+    Call ComprobarCaja
+    Call GenerarMenus2
+    Call ComprobarCampos
+    Call ComprobarUpdates
+    Call Pon_glngMiPuesto
+    DoCmd.OpenForm Nz(DameValorParam("AplicacionFormularioInicio"), "frmMenu")
+    Application.CommandBars.ActiveMenuBar.Enabled = True
+    If g_SincroWB Then
+        If Nz(DameValorParam("WiredWuBookImportarAlInicioSN"), True) Then
+            intR = MsgBox("¿Importar ahora reservas de WuBook?", vbYesNo + vbQuestion + vbDefaultButton2)
+            If intR = vbYes Then
+                SincroWuBook True, strMSG
+                Dim dtFMin As Date, dtFMax As Date
+                ComprobarReservasWB_EntreFechas Date - 15, Date, False, dtFMin, dtFMax
+            End If
+        End If
+    End If
+    Call ReservasSinConfirmar
+    'Call EnviaRecordatorios
+    If Nz(DameValorParam("NotificacionesEnviarAlInicioSN"), False) Then EnviaNotificaciones
+    Call G_PonFecha_H_Where("Nz(FechaSalida,0)=0")
+
+End Function
+
+Public Function ComprobarVinculos()
+    Dim strCurDir As String, intR As Integer, strSQL As String, strCurUd As String
+    Dim strCarDatos As String, strCarParam As String
+    strCurDir = DirectorioDe(CurrentDb.Name)
+    If strCurDir = DLookup("DirectorioDeConexion", "1myConexionTablas", "NombreTabla = '-X-X-'") Then
+        'PonSetting "Aplicacion", "CarpetaActual", strCurDir
+        PonValorParam "AplicacionCarpetaActual", strCurDir
+        ComprobarVinculos = True
+    Else
+        DoCmd.OpenForm "frm1"
+        'strCarDatos = Nz(DameSetting("Aplicacion", "CarpetaDatos"), "")
+        strCarDatos = strCurDir
+        strCarDatos = AbrirDialogo(, , , , "Indicar Carpeta de Datos", "Carpeta Datos", strCarDatos, , , , , True, True)
+        DoCmd.Close acForm, "frm1"
+        If strCarDatos <> "" Then
+            If Right(strCarDatos, 1) <> "\" Then strCarDatos = strCarDatos & "\"
+        Else
+            Exit Function
+        End If
+        
+        DoCmd.OpenForm "frm1"
+        strCarParam = AbrirDialogo(, , , , "Indicar Carpeta de Parámetros", "Carpeta Parámetros", strCarDatos, , , , , True, True)
+        DoCmd.Close acForm, "frm1"
+        If strCarDatos <> "" Then
+            If Right(strCarParam, 1) <> "\" Then strCarParam = strCarParam & "\"
+        Else
+            Exit Function
+        End If
+        
+        
+        ReconectarTablasYaVinculadas strCarDatos, strCarParam
+        intR = MsgBox("¿Volver a vincular la próxima vez que se inice el programa?", vbDefaultButton2 + vbYesNo + vbQuestion)
+        If intR = vbNo Then
+            strSQL = "UPDATE 1myConexionTablas SET [1myConexionTablas].DirectorioDeConexion = '" & strCurDir & "'"
+            strSQL = strSQL & " WHERE ((([1myConexionTablas].NombreTabla)='-X-X-'));"
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+        PonValorParam "AplicacionCarpetaActual", strCurDir
+        PonValorParam "AplicacionCarpetaDatos", strCarDatos
+        PonValorParam "AplicacionCarpetaParametros", strCarParam
+    End If
+    ComprobarVinculos = True
+End Function
+Private Function miDirectorioDe(strFullPath As String) As String
+    Dim i As Integer
+    On Error GoTo Error_miDirectorioDe
+    For i = Len(strFullPath) To 1 Step -1
+        If Mid(strFullPath, i, 1) = "\" Then
+            miDirectorioDe = Left(strFullPath, i)
+            Exit For
+        End If
+    Next i
+Salir_miDirectorioDe:
+    Exit Function
+Error_miDirectorioDe:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº: " & Err & " en miDirectorioDe" & vbCrLf & Err.Description
+    End Select
+    Resume Salir_miDirectorioDe
+End Function
+
+
+Public Function ComprobarOpciones()
+    On Error GoTo Error_ComprobarOpciones
+    Dim rs As Recordset, v As Variant, vOld As Variant, intCambiar As Integer
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM SysOpciones WHERE Activar = True")
+    While Not rs.EOF
+        vOld = Application.GetOption(rs("ArgumentoOpcion"))
+        intCambiar = False
+        Select Case rs("TipoOpcion")
+            Case 1
+                If vOld <> rs("OP_SN") Then
+                    v = rs("OP_SN")
+                    intCambiar = True
+                End If
+            Case 2
+                If vOld <> rs("OP_TXT") Then
+                    v = rs("OP_TXT")
+                    intCambiar = True
+                End If
+            Case 3
+                If vOld <> rs("OP_NUM") Then
+                    v = rs("OP_NUM")
+                    intCambiar = True
+                End If
+        End Select
+        rs.Edit
+        If intCambiar = False Then
+            rs("Cambiado") = False
+        Else
+            SetOption rs("ArgumentoOpcion"), v
+            rs("Cambiado") = True
+            Select Case rs("TipoOpcion")
+                Case 1
+                    rs("OP_SN_OLD") = vOld
+                Case 2
+                    rs("OP_TXT_OLD") = vOld
+                Case 3
+                    rs("OP_NUM_OLD") = vOld
+            End Select
+        End If
+        rs.Update
+        rs.MoveNext
+    Wend
+Salir_ComprobarOpciones:
+    Exit Function
+Error_ComprobarOpciones:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ComprobarOpciones" & vbCrLf & Err.Description
+            Resume Salir_ComprobarOpciones
+    End Select
+    
+End Function
+Public Function ReponerOpciones()
+    On Error GoTo Error_ReponerOpciones
+    Dim rs As Recordset, v As Variant, intCambiar As Integer
+    
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM SysOpciones WHERE Activar = True AND Cambiado = True")
+    While Not rs.EOF
+        Select Case rs("TipoOpcion")
+            Case 1
+                v = rs("OP_SN_OLD")
+            Case 2
+                v = rs("OP_TXT_OLD")
+            Case 3
+                v = rs("OP_NUM_OLD")
+        End Select
+        SetOption rs("ArgumentoOpcion"), v
+        rs.MoveNext
+    Wend
+Salir_ReponerOpciones:
+    Exit Function
+Error_ReponerOpciones:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en ReponerOpciones" & vbCrLf & Err.Description
+            Resume Salir_ReponerOpciones
+    End Select
+    
+End Function
+
+Public Function Titulo_e_Icono()
+    Dim intX As Integer
+    Dim strPath As String, strTitulo As String, strIco As String
+    On Error GoTo Error_Titulo_e_Icono
+    strTitulo = Nz(DameValorParam("AplicacionTitulo"), "C4")
+    intX = AddPropAp("AppTitle", dbText, strTitulo)
+    strPath = miDirectorioDe(CurrentDb.Name)
+    strIco = Nz(DameValorParam("AplicacionIcono"), "C4.ico")
+    If Dir(strIco) = "" Then
+        strIco = strPath & strIco
+    End If
+    intX = AddPropAp("AppIcon", dbText, strIco)
+    RefreshTitleBar
+Salir_Titulo_e_Icono:
+    Exit Function
+Error_Titulo_e_Icono:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Titulo_e_Icono" & vbCrLf & Err.Description
+            Resume Salir_Titulo_e_Icono
+    End Select
+End Function
+
+Public Function AddPropAp(strName As String, varType As Variant, varValue As Variant) As Integer
+    Dim dbs As Database, prp As Object
+    Const conPropNotFoundError = 3270
+
+    Set dbs = CurrentDb
+    On Error GoTo AddProp_Err
+    dbs.Properties(strName) = varValue
+
+AddPropAp = True
+
+AddProp_Bye:
+    Exit Function
+
+AddProp_Err:
+    If Err = conPropNotFoundError Then
+        Set prp = dbs.CreateProperty(strName, varType, varValue)
+        dbs.Properties.Append prp
+        Resume Next
+    Else
+        AddPropAp = False
+        Resume AddProp_Bye
+    End If
+End Function
+
+Public Function TipoAplicacion()
+    Dim strTipo As String
+    Select Case Nz(DameValorParam("AplicacionTipo"), "-")
+        Case "H4"
+            g_strPH = "Habitación"
+            g_strPHs = "Habitaciones"
+            g_strPH_s = "Habitación/es"
+            strTipo = "Habitaciones - Tipos"
+        Case "C4"
+            g_strPH = "Parcela"
+            g_strPHs = "Parcelas"
+            g_strPH_s = "Parcela/s"
+            strTipo = "Parcelas - Tipos"
+        Case Else
+            g_strPH = "Parcela-Habitación"
+            g_strPHs = "Parcelas-Habitaciones"
+            g_strPH_s = "Parcela/s-Habitación/es"
+            strTipo = "Par. Hab.- Tipos"
+    End Select
+    Dim strSQL As String
+    strSQL = "UPDATE sysMenus2 SET Leyenda = " & ConComillas(g_strPHs) & " WHERE NombreObjeto = 'frmParcelasG'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysMenus2 SET Leyenda = 'Tipos de " & (g_strPH) & "' WHERE NombreObjeto = 'frmParcelasTipo'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysMenus2 SET Activado = " & IIf(InStr(g_strPH, "Parcela") > 0, "True", "False") & " WHERE NombreObjeto = 'frmSituacionActual' OR NombreObjeto = 'frmOtrosCampistas'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysListasVarias SET Referencia = '" & IIf(InStr(g_strPH, "Parcela") > 0, "GESTI", "XXXXX") & "' WHERE NombreObjeto = 'frmSituacionActual' OR NombreObjeto = 'frmOtrosCampistas'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+    strSQL = "TRANSFORM Sum(auxRegistroVentas.Base) AS Total"
+    strSQL = strSQL & " SELECT tbParcelas.NombreParcela AS [" & g_strPH & "], Sum(auxRegistroVentas.Base) AS [Total Base]"
+    strSQL = strSQL & " FROM auxRegistroVentas INNER JOIN tbParcelas ON auxRegistroVentas.Parcela = tbParcelas.NombreParcela"
+    strSQL = strSQL & " WHERE (((tbParcelas.NombreParcela) Is Not Null) And ((auxRegistroVentas.linea) > 0) And ((auxRegistroVentas.FechaH) Is Not Null))"
+    strSQL = strSQL & " GROUP BY tbParcelas.NombreParcela"
+    strSQL = strSQL & " PIVOT Format([FechaH],'mm') & '-' & Format([FechaH],'mmmm');"
+    CurrentDb.QueryDefs("qryRegistroVentas_X_Parcela").SQL = strSQL
+    strSQL = "TRANSFORM Count(auxOcupacion.FechaDia) AS [Total Noches]"
+    strSQL = strSQL & " SELECT auxOcupacion.PH AS [" & g_strPH & "], Count(auxOcupacion.FechaDia) AS Noches"
+    strSQL = strSQL & " FROM auxOcupacion"
+    strSQL = strSQL & " GROUP BY auxOcupacion.PH"
+    strSQL = strSQL & " PIVOT Format([FechaDia],'mm') & '-' & Format([FechaDia],'mmmm');"
+    CurrentDb.QueryDefs("qryRegistroVentas_X_Mes_Parcela_Noches").SQL = strSQL
+    
+    strSQL = "UPDATE sysFormsGX SET Concepto = " & ConComillas(g_strPHs)
+    strSQL = strSQL & " WHERE IdFormsG = 1 AND Id = 5"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysFormsGX SET Concepto = " & ConComillas(strTipo)
+    strSQL = strSQL & " WHERE IdFormsG = 1 AND Id = 6"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysFormsGX SET Concepto = " & ConComillas("Grupos " & g_strPHs & " Planing")
+    strSQL = strSQL & " WHERE IdFormsG = 1 AND Id = 7"
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+'    strSQL = "SELECT tbPartesG.IdParteG, tbParcelas.NombreParcela AS " & g_strPH & ", IIf([IdFichaEntra]<>0,'Entra: ' & [IdFichaEntra] & '-->' & DLookUp('NombreCliente','tbFichasCab','IdFichaCab = ' & [IdFichaEntra]) & ' ' & DLookUp('ApellidosCliente','tbFichasCab','IdFichaCab = ' & [IdFichaEntra]) & Chr(13) & Chr(10),'') & IIf([IdFichaSale]<>0,'Sale: ' & [IdFichaSale] & '-->' & DLookUp('NombreCliente','tbFichasCab','IdFichaCab = ' & [IdFichaSale]) & ' ' & DLookUp('ApellidosCliente','tbFichasCab','IdFichaCab = ' & [IdFichaSale]) & Chr(13) & Chr(10),'') & IIf([IdFichaOcupa]<>0,'Ocupa: ' & [IdFichaOcupa] & '-->' & DLookUp('NombreCliente','tbFichasCab','IdFichaCab = ' & [IdFichaOcupa]) & ' ' & DLookUp('ApellidosCliente','tbFichasCab','IdFichaCab = ' & [IdFichaOcupa]) & Chr(13) & Chr(10),'') AS Situación, tbPartesG.Sabanas AS Sábanas, tbPartesG.Observaciones"
+'    strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbPartesG ON tbParcelas.NombreParcela = tbPartesG.PH"
+'    strSQL = strSQL & " WHERE (((tbPartesG.Fecha) = [Forms]![frmParteG]![txtDesde]))"
+'    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+'
+'    CurrentDb.QueryDefs("qryPartesG").SQL = strSQL
+
+End Function
+
+Public Function CompactarYReparar(strMDB As String) As Integer
+    On Error GoTo Error_CompactarYReparar
+    Dim strLDB As String, strOLD As String, strDir As String, strBSN As String
+    Dim intCopiarOLD As Integer
+    strLDB = RecDerTop(strMDB, 3, 0) & "ldb"
+    If Dir(strLDB) <> "" Then
+        MsgBox "No se pudo compactar y reparar " & strMDB & " por estar actualmente en uso"
+        CompactarYReparar = False
+        Exit Function
+    End If
+    strDir = DirectorioDe(strMDB)
+    strBSN = Mid(strMDB, Len(strDir) + 1)
+    'strOLD = RecDerTop(strMDB, 3, 0) & "old"
+    strOLD = strDir & "OLD\" & RecDerTop(strBSN, 3, 0) & "old"
+    If Dir(strMDB & "_REP") <> "" Then Kill strMDB & "_REP"
+    Application.CompactRepair strMDB, strMDB & "_REP"
+    intCopiarOLD = 1
+    FileCopy strMDB, strOLD
+    intCopiarOLD = 0
+    FileCopy strMDB & "_REP", strMDB
+    Kill strMDB & "_REP"
+    CompactarYReparar = True
+Salir_CompactarYReparar:
+    Exit Function
+Error_CompactarYReparar:
+    Select Case Err
+        Case 76
+            If intCopiarOLD = 1 Then
+                MkDir strDir & "OLD"
+                Resume
+            End If
+            MsgBox "Error nº " & Err & " en CompactarYReparar" & vbCrLf & Err.Description
+            Resume Salir_CompactarYReparar
+        Case Else
+            MsgBox "Error nº " & Err & " en CompactarYReparar" & vbCrLf & Err.Description
+            Resume Salir_CompactarYReparar
+    End Select
+            
+
+End Function
+
+
+Public Function PonCurUd(strCurUd As String)
+    PonValorParam "AplicacionCurrentUd", strCurUd, 10
+    PonValorParam "CopiaSeguridadCarpeta", strCurUd & Mid(DameValorParam("CopiaSeguridadCarpeta"), 4)
+    PonValorParam "Copia_Auto_SeguridadCarpeta", strCurUd & Mid(DameValorParam("Copia_Auto_SeguridadCarpeta"), 4)
+    PonValorParam "CopiaSeguridadComando", strCurUd & Mid(DameValorParam("CopiaSeguridadComando"), 4)
+    PonValorParam "CopiaSeguridadComandoRestaurar", strCurUd & Mid(DameValorParam("CopiaSeguridadComandoRestaurar"), 4)
+    If Left(DameValorParam("AplicacionComandoH4"), 1) = Chr(34) Then
+        PonValorParam "AplicacionComandoH4", Chr(34) & strCurUd & Mid(DameValorParam("AplicacionComandoH4"), 5)
+    Else
+        PonValorParam "AplicacionComandoH4", strCurUd & Mid(DameValorParam("AplicacionComandoH4"), 4)
+    End If
+    PonValorParam "H4FicheroH4DAT_MDB", strCurUd & Mid(DameValorParam("H4FicheroH4DAT_MDB"), 4)
+    PonValorParam "H4FicheroH4_MDB", strCurUd & Mid(DameValorParam("H4FicheroH4_MDB"), 4)
+End Function
+
+Public Sub ComprobarResolucion(Optional intForzar As Integer = False)
+    Dim lngW As Long, lngH As Long
+    ScreenResolution lngW, lngH
+    If lngW < 1024 Or lngH < 768 Then
+        MsgBox "La resolución mínima soportado por el programa es de 1024 X 768"
+        DoCmd.Quit
+        Exit Sub
+    End If
+    If intForzar = False Then If lngW = DameSetting("Aplicacion", "ResolucionAncho", 0) And lngH = DameSetting("Aplicacion", "ResolucionAlto", 0) Then Exit Sub
+    Dim frm As Form, strForm As String
+    strForm = "frmPlaningH"
+BuclePlaning:
+    DoCmd.OpenForm strForm, acDesign, , , , acHidden
+    Set frm = Forms(strForm)
+    frm.subfrmPlanning.Width = lngW * 15 - frm.subfrmPlanning.Left - 500
+    frm.btnPrint.Left = frm.subfrmPlanning.Left + frm.subfrmPlanning.Width - frm.btnPrint.Width
+    frm.Width = frm.subfrmPlanning.Left + frm.subfrmPlanning.Width
+    frm.subfrmPlanning.Height = lngH * 15 - frm.subfrmPlanning.Top - 1500
+    frm.Section(0).Height = frm.subfrmPlanning.Top + frm.subfrmPlanning.Height
+    DoCmd.Close acForm, frm.Name, acSaveYes
+    Select Case strForm
+        Case "frmPlaningH"
+            strForm = "frmPlaning"
+            GoTo BuclePlaning
+    End Select
+    strForm = "frmMaestros"
+    Dim intReOpen As Integer
+BucleMaestros:
+    If Not IsOpenForm(strForm) Then
+        DoCmd.OpenForm strForm, acDesign, , , , acHidden
+        Set frm = Forms(strForm)
+        frm.subfrm.Width = lngW * 15 - frm.subfrm.Left - 500
+        frm.Width = frm.subfrm.Left + frm.subfrm.Width
+        frm.subfrm.Height = lngH * 15 - frm.subfrm.Top - 1500
+        frm.Section(0).Height = frm.subfrm.Top + frm.subfrm.Height
+        DoCmd.Close acForm, frm.Name, acSaveYes
+    Else
+        DoCmd.Close acForm, strForm, acSaveYes
+        intReOpen = True
+        GoTo BucleMaestros
+    End If
+    If intReOpen Then DoCmd.OpenForm strForm
+    
+    Set frm = Nothing
+    MsgBox lngW & " X " & lngH
+    PonSetting "Aplicacion", "ResolucionAncho", lngW
+    PonSetting "Aplicacion", "ResolucionAlto", lngH
+    
+End Sub
+
+
+Public Function Licencia(Optional ByRef dtHasta As Date) As String
+    On Error GoTo Error_Licencia
+    Licencia = Nz(DameValorParam("LicenciaID"), "")
+    dtHasta = Nz(DameValorParam("LicenciaHasta"), 0)
+Salir_Licencia:
+    Exit Function
+Error_Licencia:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Licencia" & vbCrLf & Err.Description
+            Resume Salir_Licencia
+    End Select
+End Function
+
+Public Function LicenciaNota() As String
+    On Error GoTo Error_LicenciaNota
+    Dim strL As String, dtH As Date, strR As String
+    strL = Licencia(dtH)
+    If strL = "" Then
+        strR = "El programa no dispone de un ID de licencia. Contacte con abauntzsoftware.com"
+    ElseIf dtH = 0 Then
+        strR = "Debe registrar la su licencia. Contacte con abauntzsoftware.com"
+    Else
+        strR = "LicenciaID: " & strL
+        If dtH <> 0 Then strR = strR & ", válida hasta " & Format(dtH, "short date")
+    End If
+    LicenciaNota = strR
+    
+Salir_LicenciaNota:
+    Exit Function
+Error_LicenciaNota:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LicenciaNota" & vbCrLf & Err.Description
+            Resume Salir_LicenciaNota
+    End Select
+End Function
+
+
+Public Sub ComprobarUpdates()
+    On Error GoTo HandleError
+    Dim sCUpdate As String, sFUpdate As String, iObjType As AcObjectType, sObjName As String
+    Dim sFImport As String, sCUpdated As String, sCSaved As String, i As Integer, f As Integer, sMsg As String
+    Dim bScript As Boolean
+    sCUpdate = DirectorioDe(CurrentDb.Name) & "Update"
+    If Dir(sCUpdate, vbDirectory) = "" Then MkDir sCUpdate
+    sCUpdate = sCUpdate & "\"
+    
+    Dim sFiles As String, vFiles As Variant
+    sFUpdate = Dir(sCUpdate & "*.def")
+    While sFUpdate <> ""
+        sFiles = sFiles & "," & sFUpdate
+        sFUpdate = Dir()
+    Wend
+    If sFiles = "" Then GoTo HandleExit
+    
+    sCUpdated = sCUpdate & "Updated"
+    If Dir(sCUpdated, vbDirectory) = "" Then MkDir sCUpdated
+    sCUpdated = sCUpdated & "\" & Format(Date, "yyyy_mm_dd")
+    If Dir(sCUpdated, vbDirectory) = "" Then MkDir sCUpdated
+    sCUpdated = sCUpdated & "\"
+    
+    sCSaved = sCUpdate & "Saved"
+    If Dir(sCSaved, vbDirectory) = "" Then MkDir sCSaved
+    sCSaved = sCSaved & "\" & Format(Date, "yyyy_mm_dd")
+    If Dir(sCSaved, vbDirectory) = "" Then MkDir sCSaved
+    sCSaved = sCSaved & "\"
+    
+    
+    sFiles = Mid(sFiles, 2)
+    vFiles = Split(sFiles, ",")
+    For f = 0 To UBound(vFiles)
+        bScript = False
+        sFUpdate = vFiles(f)
+        Select Case Left(sFUpdate, 2)
+            Case "F_"
+                iObjType = acForm
+            Case "R_"
+                iObjType = acReport
+            Case "Q_"
+                iObjType = acQuery
+            Case "S_"
+                iObjType = acMacro
+            Case "M_"
+                iObjType = acModule
+            Case "K_"
+                bScript = True
+            Case Else
+                MsgBox "No se reconoció el tipo de archivo a importar: " & sFUpdate, vbExclamation
+                GoTo HandleExit
+        End Select
+        i = InStrRev(sFUpdate, ".")
+        sObjName = Mid(sFUpdate, 3, i - 3)
+        MensajeBusyBox "Actualizando " & f + 1 & "/" & UBound(vFiles) + 1 & " : " & sFUpdate, "Actualizando H4", , True
+        If Dir(sCSaved & sFUpdate) <> "" Then
+            i = 0
+            While Dir(sCSaved & sFUpdate & "_" & i) <> ""
+                i = i + 1
+            Wend
+            FileCopy sCSaved & sFUpdate, sCSaved & sFUpdate & "_" & i
+        End If
+        If Not bScript Then
+            SaveAsText iObjType, sObjName, sCSaved & sFUpdate
+            LoadFromText iObjType, sObjName, sCUpdate & sFUpdate
+        Else
+            ExecuteAllScriptsFromJSON sCUpdate & sFUpdate
+        End If
+        sMsg = sMsg & ", " & sObjName
+        FileCopy sCUpdate & sFUpdate, sCUpdated & sFUpdate
+        Kill sCUpdate & sFUpdate
+    Next f
+    sMsg = Mid(sMsg, 3)
+    MensajeBusyBox "Se actualizaron " & f & " objetos: " & sMsg, "Actualizado H4", True
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Sub ExecuteAllScriptsFromJSON(jsonPath As String)
+    On Error GoTo HandleError
+    Dim FSO As Object
+    Dim TextFile As Object
+    Dim FileContent As String
+    Dim JSON As Object
+    Dim Key As Variant
+    Dim Script As String
+    
+    'Crear un nuevo objeto FileSystemObject
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    'Abrir el archivo
+    Set TextFile = FSO.OpenTextFile(jsonPath, 1)
+    'Leer el contenido del archivo
+    FileContent = TextFile.ReadAll
+    'Cerrar el archivo
+    TextFile.Close
+    
+    'Deserializar el JSON
+    Set JSON = JsonConverter.ParseJson(FileContent)
+    
+    'Recorrer todas las claves del diccionario JSON
+    For Each Key In JSON.Keys
+        Script = JSON(Key)
+        Script = Replace(Script, "''", """")
+        'Ejecutar el script en la base de datos u otro sistema
+        'Nota: Asegúrate de que es seguro ejecutar el script antes de hacerlo.
+        'Por motivos de seguridad, deberías verificar y limpiar cualquier input que vaya a ser ejecutado.
+        On Error Resume Next
+        CurrentDb.Execute Script, dbFailOnError
+        If Err.Number <> 0 Then
+            MsgBox "Error al ejecutar el script de la clave " & Key & ": " & Err.Description, vbExclamation
+            Err.Clear
+        End If
+        On Error GoTo HandleError
+    Next Key
+    
+    'Limpiar
+    Set FSO = Nothing
+    Set TextFile = Nothing
+    Set JSON = Nothing
+    
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub

@@ -1,0 +1,18 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Close()
+    If IsOpenForm("frmListaSD_Puntear") Then Forms("frmListaSD_Puntear").Visible = True
+End Sub
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim sngAltoMax As Single
+    PonLogoRpt Me, Me.LogoImagen, Nz(DameValorParam("ListaServiciosLogoSN"), False), Me.CuadroCabecera.Top * 0.8, Me.Width, Nz(DameValorParam("FacturasLogoAlinH"), 2), Nz(DameValorParam("FacturasLogoAlinV"), 1)
+    If IsOpenForm("frmListaSD_Puntear") Then Forms("frmListaSD_Puntear").Visible = False
+End Sub

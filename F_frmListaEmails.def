@@ -1,0 +1,45 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    
+    
+Private Sub btnConfigNotif_Click()
+    Dim strXML As String
+    PonXML strXML, "IdFichaCab", Me.btnConfigNotif.Tag
+    DoCmd.OpenForm "frmListaNotificaciones", , , , , acDialog, strXML
+End Sub
+
+Private Sub btnVer_Click()
+    If Me.lstEmails.ListIndex = -1 Then Exit Sub
+    DoCmd.OpenForm "frmEnviosEmail", , , "IdEnvioEmail = " & Me.lstEmails, , acDialog
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strSQL As String, strXML As String, lngIdFactura As Long, lngIdFichaCab As Long, strEmail As String, strW As String
+    strXML = Nz(Me.OpenArgs, "")
+    lngIdFactura = Nz(DimeXML(strXML, "IdFactura"), 0)
+    lngIdFichaCab = Nz(DimeXML(strXML, "IdFichacab"), 0)
+    strEmail = Nz(DimeXML(strXML, "Email"), "")
+    strSQL = "SELECT [tbEnviosEmail].[IdEnvioEmail], [tbEnviosEmail].[Ahora] AS [Fecha enviado], [tbEnviosEmail].[To], [tbEnviosEmail].[Asunto], Nz(Dlookup('NumeroDeFactura', 'tbFacturasCab', 'IdFactura=' & IdFactura),'-') as Factura, Iif(IdFichaCab=0,'-',IdFichaCab) as Ficha"
+    strSQL = strSQL & " FROM tbEnviosEmail WHERE True "
+    If lngIdFactura <> 0 Then strW = "IdFactura = " & lngIdFactura
+    If lngIdFichaCab <> 0 Then
+        strW = IIf(strW = "", "", strW & " OR ") & "IdFichacab = " & lngIdFichaCab
+        Me.btnConfigNotif.Visible = True
+        Me.btnConfigNotif.Tag = lngIdFichaCab
+    Else
+        Me.btnConfigNotif.Visible = False
+    End If
+    If strEmail <> "" Then strW = IIf(strW = "", "", strW & " OR ") & "To Like '*" & strEmail & "*'"
+    If strW <> "" Then strSQL = strSQL & " AND(" & strW & ")"
+    strSQL = strSQL & " ORDER BY [Ahora] DESC; "
+    Me.lstEmails.RowSource = strSQL
+End Sub
+
+Private Sub lstEmails_DblClick(Cancel As Integer)
+    Call btnVer_Click
+End Sub

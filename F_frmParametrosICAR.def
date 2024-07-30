@@ -1,0 +1,29 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnColor_Click()
+    Dim lngColor As Long
+    Me.Section(0).BackColor = adhChooseColor(Me.Section(0).BackColor)
+    'lngColor = adhChooseColor(Forms![frmMenu].Section(0).BackColor)
+End Sub
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub

@@ -1,0 +1,91 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+Option Compare Database
+Option Explicit
+
+
+Private Sub Apartado_Enter()
+    Me.Apartado.Requery
+End Sub
+
+
+Private Sub CodNombreGrupo_BeforeUpdate(Cancel As Integer)
+    If Not IsNull(DLookup("id", "tbGruposDeIngresos", "CodNombreGrupo = '" & UCase(Me.CodNombreGrupo) & "' AND id <> " & Me.id)) Then
+        MsgBox "Ya existe un Código de Grupo " & UCase(Me.CodNombreGrupo)
+        Cancel = True
+    End If
+End Sub
+
+Private Sub Descripción_BeforeUpdate(Cancel As Integer)
+    If Not IsNull(DLookup("id", "tbGruposDeIngresos", "DescripcionGrupo = '" & UCase(Me.Descripción) & "' AND id <> " & Me.id)) Then
+        MsgBox "Ya existe un Grupo denominado " & UCase(Me.Descripción)
+        Cancel = True
+    End If
+End Sub
+
+
+
+Private Sub Form_Current()
+    Call Mixto_AfterUpdate
+End Sub
+
+Public Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    ControlTeclas Me, KeyCode, Shift, ""
+End Sub
+
+Private Sub Form_Load()
+    If Me.CurrentView = 2 Then AjustarColumnas Me
+End Sub
+
+Private Sub Mixto_AfterUpdate()
+    Dim intRes As Integer
+    If Me.Mixto = True Then
+        Me.Subformulario_tbGruposMixtosIngresos.Visible = True
+        Me.txtTotalRepartir.Visible = True
+    Else
+        If DCount("CodMixto", "tbGruposMixtosIngresos", "CodMixto = '" & Me.CodNombreGrupo & "'") > 0 Then
+            intRes = MsgBox("Se borrarán los registros del reparto", vbExclamation + vbOKCancel)
+            If intRes = vbCancel Then
+                Me.Mixto = True
+                Exit Sub
+            End If
+            CurrentDb.Execute "DELETE * FROM tbGruposMixtosIngresos WHERE CodMixto = '" & Me.CodNombreGrupo & "'", dbFailOnError
+        End If
+        Me.Subformulario_tbGruposMixtosIngresos.Visible = False
+        Me.txtTotalRepartir.Visible = False
+    End If
+End Sub
+
+Private Sub Predeterminado_AfterUpdate()
+    Dim db As DAO.Database
+    Dim strSQL As String
+    If Me.Predeterminado = True Then
+        strSQL = "UPDATE tbGruposDeIngresos SET tbGruposDeIngresos.Predeterminado = False"
+        strSQL = strSQL + " WHERE (((tbGruposDeIngresos.CodNombreGrupo)<>'" & Me.CodNombreGrupo & "'))"
+        Set db = CurrentDb
+        db.Execute (strSQL)
+        'Me.Requery
+    End If
+End Sub
+
+Private Sub Predeterminado_2_AfterUpdate()
+    Dim db As DAO.Database
+    Dim strSQL As String
+    If Me.Predeterminado_2 = True Then
+        strSQL = "UPDATE tbGruposDeIngresos SET tbGruposDeIngresos.Predeterminado_2 = False"
+        strSQL = strSQL + " WHERE (((tbGruposDeIngresos.CodNombreGrupo)<>'" & Me.CodNombreGrupo & "'))"
+        Set db = CurrentDb
+        db.Execute (strSQL)
+        'Me.Requery
+    End If
+End Sub

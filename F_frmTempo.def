@@ -1,0 +1,123 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+
+Public Sub CargaAño(intAño As Integer)
+    Dim dt As Date
+    Dim rs As Recordset, strNum As String
+    Dim strSQL As String, intSP As Integer, v As Variant
+Ini:
+    On Error Resume Next
+    intSP = Nz(DameValorParam("TemporadasVisualizarEspeciales"), False)
+    If Err <> 0 Then
+        PonValorParam "TemporadasVisualizarEspeciales", True, 1
+        GoTo Ini
+    End If
+    On Error GoTo Error_CargaAño
+    DoCmd.Hourglass True
+    strSQL = "SELECT tbTempoDias.*, tbTemporadasNombre.Color, tbTemporadasNombre.NombreTemporada"
+    strSQL = strSQL & " FROM tbTempoDias LEFT JOIN tbTemporadasNombre ON tbTempoDias.IdTempo = tbTemporadasNombre.IdTemporadaNombre"
+    strSQL = strSQL & " WHERE Year(Dia)=" & intAño
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        DoCmd.Hourglass False
+        DoCmd.Hourglass True
+        Set rs = CurrentDb.OpenRecordset("tbTempoDias", dbOpenDynaset)
+        For dt = CDate(intAño & "/01/01") To CDate(intAño & "/12/31")
+            rs.AddNew
+            rs("Dia") = dt
+            rs("IdTempo") = QueTemporadaEs(dt)
+            rs.Update
+        Next dt
+        GoTo Ini
+    End If
+    If EsBisiesto(intAño) Then
+        Me.lbl060.Visible = True
+    Else
+        Me.lbl060.Visible = False
+    End If
+    While Not rs.EOF
+        strNum = Format((Month(rs("Dia")) - 1) * 31 + Day(rs("Dia")), "000")
+        Me("lbl" & strNum).BackColor = Nz(rs("Color"), 0)
+        Me("lbl" & strNum).ControlTipText = Nz(rs("NombreTemporada"), "")
+        Me("lbl" & strNum).SpecialEffect = 0
+        If intSP = True Then
+            Select Case Weekday(rs("Dia"))
+                Case vbSunday, vbSaturday
+                    Me("lbl" & strNum).SpecialEffect = 2
+            End Select
+            v = DLookup("Festivo", "tbFestivos", "FFiesta = #" & Format(rs("Dia"), "mm/dd/yyyy") & "#")
+            If Not IsNull(v) Then
+                Me("lbl" & strNum).SpecialEffect = 2
+                Me("lbl" & strNum).ControlTipText = rs("NombreTemporada") & " (" & v & ")"
+            End If
+        End If
+        rs.MoveNext
+    Wend
+    DoCmd.Hourglass False
+Salir_CargaAño:
+    Exit Sub
+Error_CargaAño:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CargaAño" & vbCrLf & Err.Description
+            Resume Salir_CargaAño
+    End Select
+End Sub
+
+Private Sub btnCambiar_Click()
+    Dim i As Integer
+    DoCmd.OpenForm "frmTempoCambio", , , , , acDialog
+    If IsOpenForm("frmTempoCambio") Then
+        Dim strSQL As String
+        'strSQL = "UPDATE tbTempoDias SET IdTempo = " & Forms("frmTempoCambio")("cmbIdTempo")
+        'strSQL = strSQL & " WHERE Dia Between #" & Format(Forms("frmTempoCambio")("txtDesde"), "mm/dd/yyyy") & "# AND #" & Format(Forms("frmTempoCambio")("txtHasta"), "mm/dd/yyyy") & "#"
+        strSQL = "UPDATE tbTempoDias LEFT JOIN tbFestivos ON tbTempoDias.Dia = tbFestivos.FFiesta SET IdTempo = " & Forms("frmTempoCambio")("cmbIdTempo")
+         
+        strSQL = strSQL & " WHERE Dia Between #" & Format(Forms("frmTempoCambio")("txtDesde"), "mm/dd/yyyy") & "# AND #" & Format(Forms("frmTempoCambio")("txtHasta"), "mm/dd/yyyy") & "#"
+        strSQL = strSQL & " AND (True"
+        For i = 1 To 7
+            If Forms("frmTempoCambio")("casD" & i) = False Then
+                strSQL = strSQL & " AND WeekDay(Dia) <> " & i
+            End If
+        Next i
+        If Forms("frmTempoCambio")("casDFestivo") = True Then strSQL = strSQL & " OR tbFestivos.FFiesta Is Not Null"
+        strSQL = strSQL & ")"
+        CurrentDb.Execute strSQL, dbFailOnError
+        If Forms("frmTempoCambio")("casDVispera") = True Then
+            strSQL = "UPDATE tbTempoDias LEFT JOIN tbFestivos ON (tbTempoDias.Dia +1) = tbFestivos.FFiesta SET IdTempo = " & Forms("frmTempoCambio")("cmbIdTempo")
+            strSQL = strSQL & " WHERE Dia Between #" & Format(Forms("frmTempoCambio")("txtDesde"), "mm/dd/yyyy") & "# AND #" & Format(Forms("frmTempoCambio")("txtHasta"), "mm/dd/yyyy") & "#"
+            strSQL = strSQL & " AND tbFestivos.FFiesta Is Not Null"
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+        
+        DoCmd.Close acForm, "frmTempoCambio"
+        Call txtAño_AfterUpdate
+    End If
+End Sub
+
+Private Sub Form_Load()
+    Me.TemporadasVisualizarEspeciales = DameValorParam("TemporadasVisualizarEspeciales")
+    Me.TemporadasCambioPrecioAutomatico = DameValorParam("TemporadasCambioPrecioAutomatico")
+    Me.txtAño = Year(Date)
+    Call txtAño_AfterUpdate
+End Sub
+
+Private Sub TemporadasCambioPrecioAutomatico_AfterUpdate()
+    PonValorParam "TemporadasCambioPrecioAutomatico", Me.TemporadasCambioPrecioAutomatico, 1
+End Sub
+
+Private Sub TemporadasVisualizarEspeciales_AfterUpdate()
+    PonValorParam "TemporadasVisualizarEspeciales", Me.TemporadasVisualizarEspeciales, 1
+    Call txtAño_AfterUpdate
+End Sub
+
+Private Sub txtAño_AfterUpdate()
+    CargaAño (CInt(Me.txtAño))
+    Me.Caption = "Temporadas año " & Me.txtAño
+End Sub

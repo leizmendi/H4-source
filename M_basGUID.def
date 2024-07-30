@@ -1,0 +1,27 @@
+Option Compare Database
+Option Explicit
+
+Declare Function CoCreateGuid Lib "ole32" (ByRef GUID As Byte) As Long
+
+Public Function DameGUID() As String
+    On Error GoTo HandleError
+       Dim id(0 To 15) As Byte
+       Dim n As Long
+       Dim GUID As String
+       Dim Res As Long
+       Res = CoCreateGuid(id(0))
+
+       For n = 0 To 15
+           GUID = GUID & IIf(id(n) < 16, "0", "") & Hex$(id(n))
+           If Len(GUID) = 8 Or Len(GUID) = 13 Or Len(GUID) = 18 Or Len(GUID) = 23 Then
+               GUID = GUID & "-"
+           End If
+       Next n
+       DameGUID = GUID
+       
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description & vbCrLf & "No se generó GUID", vbExclamation
+    Resume HandleExit
+End Function

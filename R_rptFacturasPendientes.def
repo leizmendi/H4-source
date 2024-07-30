@@ -1,0 +1,14 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Report_Open(Cancel As Integer)
+    If IsOpenForm("frmFacturasPendientesPago") Then
+        Me.RecordSource = Forms("frmFacturasPendientesPago")("lstFacturas").RowSource
+        Me.lblSubTitulo.Caption = Forms("frmFacturasPendientesPago")("lblSeleccion").Caption
+    End If
+End Sub

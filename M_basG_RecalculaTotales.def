@@ -1,0 +1,153 @@
+Option Compare Database
+Option Explicit
+
+Public Sub G_RecalculaTotales(lngIdFichaCab As Variant, Optional intToPlaning As Integer = True, Optional intAsignarServiciosDia As Integer = True)
+    Dim rs As Recordset, rs2 As Recordset
+    Dim v As Variant, strSQL As String
+    On Error GoTo Error_G_RecalculaTotales
+    If IsNull(lngIdFichaCab) Then Exit Sub
+    lngIdFichaCab = CLng(lngIdFichaCab)
+    Call G_PonFecha_H(CLng(lngIdFichaCab))
+    If intToPlaning Then
+        Dim cF As New cFichaCab
+        cF.FindFirst "IdFichaCab = " & lngIdFichaCab
+        cF.Detalle_to_Planing
+    End If
+    'Call FichaAlPlani(CLng(lngIdFichaCab))
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab_Totales", dbOpenDynaset)
+    rs.FindFirst "IdFichaCab = " & lngIdFichaCab
+    If rs.NoMatch Then
+        rs.AddNew
+        rs("IdFichaCab") = lngIdFichaCab
+    Else
+        rs.Edit
+    End If
+    strSQL = "SELECT * FROM qryFichaSumaTotal WHERE IdFichaCab = " & lngIdFichaCab
+    Set rs2 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs2.EOF Then
+        rs("TotalBase") = 0
+        rs("TotalIVA") = 0
+        rs("IVA_G") = Null
+    Else
+        rs("TotalBase") = Redondea(rs2("SumaDeImporteBase"), 2)
+        rs("TotalIVA") = Redondea(rs2("SumaDeImporteIVA"), 2)
+        If Nz(DLookup("CuentaDeIVA", "qryFichasCuentaIVAs", "IdFichaCab = " & lngIdFichaCab), 0) = 1 Then
+            rs("IVA_G") = DLookup("IVA", "tbFichasDet", "IdFichaCab = " & lngIdFichaCab)
+        Else
+            rs("IVA_G") = Null
+        End If
+    End If
+    rs("Total_Pagado") = TotalFichaPagos(CLng(lngIdFichaCab))
+    rs("Total_Facturado") = TotalFichaFacturado(CLng(lngIdFichaCab))
+    
+    rs.Update
+    
+    ''PAX
+    'strSQL = "SELECT DISTINCT tbFichasDet.IdFichaCab, tbFichasDet.PlazasOcupadas, tbFichasDet.Parcela"
+    'strSQL = strSQL & " From tbFichasDet"
+    'strSQL = strSQL & " WHERE IdFichaCab=" & lngIdFichaCab
+    'CurrentDb.QueryDefs("qryPlazasOcupadas_Ficha").SQL = strSQL
+    If DSum("PlazasOcupadas", "qryPlazasOcupadas_Ficha", "IdFichaCab = " & lngIdFichaCab) <> DLookup("[Adultos]+[Niños]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab) Then
+        strSQL = "UPDATE tbFichasCab SET Adultos =" & DSum("PlazasOcupadas", "qryPlazasOcupadas_Ficha", "IdFichaCab = " & lngIdFichaCab) - DLookup("[Niños]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab)
+        strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    If intAsignarServiciosDia Then AsignarServiciosDia CLng(lngIdFichaCab)
+Salir_G_RecalculaTotales:
+    Exit Sub
+Error_G_RecalculaTotales:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en G_RecalculaTotales" & vbCrLf & Err.Description
+            Resume Salir_G_RecalculaTotales
+    End Select
+End Sub
+
+Public Function G_RecalculaTotales_ALL()
+    Dim rs As Recordset, y As Long, z As Long
+    Set rs = CurrentDb.OpenRecordset("tbFichasCab")
+    rs.MoveLast
+    rs.MoveFirst
+    z = rs.RecordCount
+    While Not rs.EOF
+        DoEvents
+        G_RecalculaTotales rs("IdFichaCab"), False, False
+        y = y + 1
+        SysCmd acSysCmdSetStatus, y & "/" & z
+        rs.MoveNext
+    Wend
+    SysCmd acSysCmdClearStatus
+End Function
+
+Public Function CarpetaImagenes() As String
+    CarpetaImagenes = Nz(DameValorParam("AplicacionCarpetaDatos"), "") & Nz(DameValorParam("AplicacionCarpetaImagenes"), "")
+End Function
+
+Public Sub G_PonFecha_H(lngIdFichaCab As Long)
+    Dim rs As Recordset
+    Dim dtH As Date, strSQL As String
+    On Error GoTo Error_G_PonFecha_H
+    strSQL = "SELECT tbFichasCab.FechaLlegada, tbFichasCab.FechaSalida, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, tbFichasDet.Fecha_H"
+    strSQL = strSQL & " FROM tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE tbFichasCab.IdFichaCab=" & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        If Nz(rs("FechaFin"), 0) <> 0 Then
+            dtH = rs("FechaFin")
+        ElseIf Nz(rs("FechaSalida"), 0) <> 0 Then
+            dtH = rs("FechaSalida")
+        ElseIf Nz(rs("FechaInicio"), 0) <> 0 Then
+            dtH = rs("FechaInicio") + 1
+        ElseIf Nz(rs("FechaLlegada"), 0) <> 0 Then
+            dtH = rs("FechaLlegada") + 1
+        Else
+            dtH = Date + 1
+        End If
+        rs.Edit
+        rs("Fecha_H") = dtH
+        rs.Update
+        rs.MoveNext
+    Wend
+
+Salir_G_PonFecha_H:
+    Exit Sub
+Error_G_PonFecha_H:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en G_PonFecha_H" & vbCrLf & Err.Description
+            Resume Salir_G_PonFecha_H
+    End Select
+End Sub
+
+Public Function G_PonFecha_H_Where(Optional strWHERE As String = "")
+    On Error GoTo HandleError
+    Dim rs As Recordset, y As Long, z As Long, strSQL As String
+    strSQL = "SELECT * FROM tbFichasCab"
+    If strWHERE <> "" Then strSQL = strSQL & " WHERE " & strWHERE
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    
+    While Not rs.EOF
+        DoEvents
+        G_PonFecha_H rs("IdFichaCab")
+        rs.MoveNext
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "PonFecha_H_Where " & y & "/" & z
+    Wend
+    
+HandleExit:
+    SysCmd acSysCmdClearStatus
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Sub popo()
+    G_PonFecha_H_Where
+    
+End Sub

@@ -1,0 +1,101 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Dim gintPuertoAbierto As Integer, gintPort As Integer
+
+Private Sub btnAbrirCerrarPuerto_Click()
+    Dim intNumPuerto As Integer
+    Me.TimerInterval = 0
+    intNumPuerto = SpNz(Me.TRESM_PUERTO_SERIE, 0)
+    If intNumPuerto = 0 Then Exit Sub
+    If gintPuertoAbierto Then
+        CommClose intNumPuerto
+        gintPuertoAbierto = False
+    Else
+        gintPuertoAbierto = AbrirPuerto(intNumPuerto)
+        If gintPuertoAbierto Then
+            gintPort = intNumPuerto
+            Me.TimerInterval = 1000
+        End If
+    End If
+    Me.txtElPuertoDice = Me.txtElPuertoDice & "COM " & intNumPuerto & " " & IIf(gintPuertoAbierto, "ABIERTO", "CERRADO") & vbCrLf
+    Me.btnAbrirCerrarPuerto.Caption = IIf(gintPuertoAbierto, "Cerrar", "Abrir") & " Puerto"
+End Sub
+
+Private Sub Comando58_Click()
+    Me.txtElPuertoDice = Null
+    Dim ctl As Control
+    For Each ctl In Me.Controls
+        If InStr(ctl.Tag, "out") > 0 Then ctl.value = Null
+    Next ctl
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Timer()
+    LeerPuerto
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Public Function AbrirPuerto(intNumPuerto As Integer) As Integer
+    Dim lngStatus As Long, strError As String
+    
+    CommClose intNumPuerto
+    lngStatus = CommOpen(intNumPuerto, "COM" & CStr(intNumPuerto), _
+        "baud=9600 parity=N data=8 stop=1")
+    
+    If lngStatus <> 0 Then
+    ' Handle error.
+        lngStatus = CommGetError(strError)
+        MsgBox "COM Error: " & strError
+        CommClose intNumPuerto
+        AbrirPuerto = False
+    Else
+        AbrirPuerto = True
+    End If
+
+End Function
+
+Public Sub LeerPuerto()
+    Dim strData As String, lngStatus As Long, k As Integer
+    Dim viaD As Viajero
+    If gintPuertoAbierto Then
+    
+        'Do While InStr(strData, vbCr) = 0 And k < 1000
+        Do While strData = "" And k < 1000
+            lngStatus = CommRead(gintPort, strData, 0)
+            k = k + 1
+            'Me.lblDisplay.Caption = k & ", " & strData
+        Loop
+    End If
+    If strData <> "" Then
+        strData = Mid(strData, 8, Len(strData) - 9)
+        strData = Replace(strData, Chr(13), vbCrLf)
+        If InStr(strData, vbCrLf) = 1 Then strData = Mid(strData, 3)
+        Me.txtElPuertoDice = Me.txtElPuertoDice & strData & vbCrLf
+        Me.txtElPuertoDice = Me.txtElPuertoDice & LineasDeStr(strData) & " líneas" & vbCrLf
+        viaD = DatosViajeroZLM(strData)
+        Me.TipoDoc = viaD.strTipoDoc
+        Me.NumDoc = viaD.strNumDoc
+        Me.Nacionalidad = viaD.strNacionalidad
+        Me.Nombre = viaD.strNombre
+        Me.Apellidos = viaD.strApellidos
+        Me.Sexo = viaD.strSexo
+        Me.FNacimiento = viaD.dtFechaNacimiento
+        Me.FExpedicion = viaD.dtFechaExpedicion
+    End If
+    If lngStatus > 0 Then
+        'Me.txtElPuertoDice = Me.txtElPuertoDice & strData
+    End If
+End Sub

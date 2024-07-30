@@ -1,0 +1,36 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+' From Access 97 Developer's Handbook
+' by Litwin, Getz, and Gilbert (Sybex)
+' Copyright 1997.  All rights reserved.
+
+Const adhcCalcForm = "frmCalc"
+
+Function adhDoCalc()
+    
+    ' Load frmCalc in dialog mode, and return the
+    ' calculated value at the end of the use session.
+    
+    ' From Access 97 Developer's Handbook
+    ' by Litwin, Getz, and Gilbert (Sybex)
+    ' Copyright 1997.  All rights reserved.
+
+    DoCmd.OpenForm FormName:=adhcCalcForm, WindowMode:=acDialog
+    If isOpen(adhcCalcForm) Then
+        ' Retrieve the return value,
+        ' then close the form.
+        adhDoCalc = Forms(adhcCalcForm).value
+        DoCmd.Close acForm, adhcCalcForm
+    Else
+        adhDoCalc = Null
+    End If
+End Function
+
+Private Function isOpen(strName As String, _
+ Optional intObjectType As Variant = acForm)
+    ' Returns True if strName is open, False otherwise.
+    ' Assume the caller wants to know about a form.
+    isOpen = (SysCmd(acSysCmdGetObjectState, _
+     intObjectType, strName) <> 0)
+End Function

@@ -1,0 +1,212 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+    Dim db As Database
+    Dim rs As Recordset
+    Dim intCont As Integer, intAct As Integer
+
+
+Private Sub btnAdelante_Click()
+    On Error GoTo Salir_btnAdelante_Click
+    If rs.EOF Then Exit Sub
+    rs.MoveNext
+    If rs.EOF Then Exit Sub
+    If intAct < intCont Then
+        intAct = intAct + 1
+    End If
+    SincronizarFicha
+Salir_btnAdelante_Click:
+    Exit Sub
+End Sub
+
+Private Sub btnAdelante_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyRight
+                Me.btnFin.SetFocus
+            Case vbKeyLeft
+                Me.btnBuscarCliente.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnAtras_Click()
+    On Error GoTo Salir_btnAtras_Click
+    If rs.BOF Then Exit Sub
+    rs.MovePrevious
+    If rs.BOF Then Exit Sub
+    If intAct > 1 Then
+        intAct = intAct - 1
+    End If
+    SincronizarFicha
+Salir_btnAtras_Click:
+    Exit Sub
+End Sub
+
+Private Sub btnAtras_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyRight
+                Me.btnBuscarCliente.SetFocus
+            Case vbKeyLeft
+                Me.btnInicio.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnBuscarCliente_Click()
+    Dim strSQL As String
+    Dim strMensaje As String
+    
+    On Error GoTo Error_btnBuscarCliente_Click
+    If Me.txtFicha = "" Then Me.txtFicha = "*"
+    If Me.txtDNI = "" Then Me.txtDNI = "*"
+    If Me.txtNombre = "" Then Me.txtNombre = "*"
+    
+    strSQL = "SELECT tbFacturasCab.IdFactura"
+    strSQL = strSQL & " FROM tbFacturasCab WHERE true"
+    
+    If Me.txtDNI <> "*" Then
+        strSQL = strSQL & " AND([NIF] Like '*" & Me![txtDNI] & "*')"
+    End If
+    If Me.txtNombre <> "*" Then
+        strSQL = strSQL & " AND(([DireccionCliente]) Like '*" & Me![txtNombre] & "*') "
+    End If
+    If Me.txtFicha <> "*" Then
+        strSQL = strSQL & " AND (NumerodeFactura Like  " & ConComillas("*" & Me.txtFicha & "*") & ")"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then
+        strMensaje = "No se encontró ninguna Factura que cumpla las condiciones de búsqueda"
+        MsgBox strMensaje
+        Exit Sub
+    Else
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    intCont = rs.RecordCount
+    intAct = 1
+    SincronizarFicha
+Salir_btnBuscarCliente_Click:
+    Exit Sub
+Error_btnBuscarCliente_Click:
+    Select Case Err
+    
+        Case Else
+            MsgBox Err.Description
+            Resume Salir_btnBuscarCliente_Click
+            Resume Next
+    End Select
+End Sub
+
+Public Sub SincronizarFicha()
+    Dim rsAux As Recordset
+    Dim varMarca As Variant, strCriteria As String
+    If Not IsOpenForm("frmFacturas") Then
+        DoCmd.OpenForm "frmFacturas", , , strCriteria
+    End If
+    Set rsAux = Forms![frmFacturas].RecordsetClone
+    rsAux.FindFirst "IdFactura = " & rs("IdFactura")
+    varMarca = rsAux.Bookmark
+    Forms![frmFacturas].Bookmark = varMarca
+    If intCont = 1 Then
+        DoCmd.Close acForm, Me.Name
+    Else
+        Me.lblSeEncontraron.Caption = intAct & " de " & intCont
+    End If
+    
+End Sub
+
+
+Private Sub btnBuscarCliente_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyDown Or KeyCode = vbKeyLeft Or KeyCode = vbKeyRight Then
+        Select Case KeyCode
+            Case vbKeyDown
+                Me.btnCerrar.SetFocus
+            Case vbKeyRight
+                Me.btnAdelante.SetFocus
+            Case vbKeyLeft
+                Me.btnAtras.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnCerrar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnCerrar_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyUp Then
+        Me.btnBuscarCliente.SetFocus
+    End If
+
+End Sub
+
+
+Private Sub btnFin_Click()
+    On Error Resume Next
+    rs.MoveLast
+    intAct = rs.RecordCount
+    SincronizarFicha
+End Sub
+
+Private Sub btnFin_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyRight Or KeyCode = vbKeyLeft Then
+        Select Case KeyCode
+            Case vbKeyLeft
+                Me.btnAdelante.SetFocus
+            Case vbKeyRight
+                Me.btnInicio.SetFocus
+        End Select
+    End If
+End Sub
+
+Private Sub btnInicio_Click()
+    On Error Resume Next
+    rs.MoveFirst
+    intAct = 1
+    SincronizarFicha
+
+End Sub
+
+Private Sub btnInicio_KeyDown(KeyCode As Integer, Shift As Integer)
+    If KeyCode = vbKeyRight Or KeyCode = vbKeyLeft Then
+        Select Case KeyCode
+            Case vbKeyLeft
+                Me.btnFin.SetFocus
+            Case vbKeyRight
+                Me.btnAtras.SetFocus
+        End Select
+    End If
+End Sub
+
+
+Private Sub Form_Open(Cancel As Integer)
+    Me.Caption = "Buscar Factura"
+End Sub
+
+Private Sub txtDNI_AfterUpdate()
+    NuloNo Me.txtDNI
+    If IsNumeric(Me.txtDNI) And Len(Me.txtDNI) = 8 Then
+        Me.txtDNI = Format(Me.txtDNI, "#,##0") & "-" & letra_dni(Me.txtDNI)
+    End If
+End Sub
+
+Private Sub txtFicha_AfterUpdate()
+    If IsNumeric(Me.txtFicha) Then Me.txtFicha = Format(Me.txtFicha, "00000") & "/" & Format(Date, "yyyy")
+End Sub
+
+Private Sub txtNombre_AfterUpdate()
+    NuloNo Me.txtNombre
+End Sub
+
+Public Sub NuloNo(ctl As Control)
+    If IsNull(ctl) Then
+        ctl = ""
+    End If
+End Sub

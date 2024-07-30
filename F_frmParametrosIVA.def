@@ -1,0 +1,28 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Explicit
+Option Compare Database
+
+Private Sub btnTiposIVA_Click()
+    DoCmd.OpenForm "frmTiposIVA", acFormDS
+End Sub
+
+
+Private Sub Form_Load()
+    CargarParam Me
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub IVAIncluidoEnPreciosSD_AfterUpdate()
+    Dim strSQL As String
+    strSQL = "UPDATE sysAnchuras SET VisibleColumna = " & IIf(Me.IVAIncluidoEnPreciosSD = 3, "True", "False")
+    strSQL = strSQL & " WHERE Formulario = 'frmGruposDeIngresos' AND Campo = 'IVAincSN'"
+    CurrentDb.Execute strSQL, dbFailOnError
+End Sub

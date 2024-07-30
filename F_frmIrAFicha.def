@@ -1,0 +1,33 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnOK_Click()
+    If Not IsNumeric(Me.txtIdFicha) Then Exit Sub
+    If IsNull(DLookup("IdFichaCab", "tbFichasCab", "IdFichaCab = " & Me.txtIdFicha)) Then
+        MsgBox "No se encontró la ficha nº " & Me.txtIdFicha
+        Exit Sub
+    End If
+    Me.Visible = False
+    'DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me.txtIdFicha
+End Sub
+
+Private Sub txtIdFicha_AfterUpdate()
+    Me.txtIdFicha = CLng(Me.txtIdFicha)
+End Sub
+
+Private Sub txtIdFicha_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.txtIdFicha) Then
+        MsgBox "Debe ser un número"
+        Cancel = True
+'        DoCmd.RunCommand acCmdUndo
+    End If
+End Sub

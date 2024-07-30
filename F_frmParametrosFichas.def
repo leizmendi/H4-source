@@ -1,0 +1,315 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+
+Private Sub btnAddFile_Click()
+    Dim strFile As String, strF As String
+    strFile = DimeFicheros()
+    If strFile <> "" Then
+        Dim i As Integer
+        For i = 1 To LineasDeStr(strFile)
+            strF = ExtraeLin(strFile, i) & ";"
+            If InStr(Me.lstAdjuntarFicheros.RowSource, strF) = 0 Then Me.lstAdjuntarFicheros.RowSource = Me.lstAdjuntarFicheros.RowSource & strF
+        Next i
+    End If
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+    PonVP_AdjuntarFicheros
+End Sub
+
+Private Sub btnBorrarDatosTarjetasOld_Click()
+    Dim strSQL As String, intR As Integer, lC As Long
+    lC = DCount("IdFichaCab", "tbFichasCab", "EstadoFicha = 5 AND NumeroTarjeta Is Not Null")
+    If lC = 0 Then
+        MsgBox "No se encontraron datos de tarjetas en fichas antiguas", vbInformation
+        Exit Sub
+    End If
+    intR = MsgBox("Se borrarán todos los datos de " & lC & " tarjetas de clientes de fichas ya antiguas y cerradas", vbOKCancel + vbExclamation)
+    If intR = vbOK Then
+        strSQL = "UPDATE tbFichasCab SET NumeroTarjeta = Null, CaducaTarjeta = Null, TitularTarjeta = Null, TarjetaCodigoSeguridad=Null"
+        strSQL = strSQL & " WHERE EstadoFicha = 5"
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE tbFichasCab INNER JOIN wbReservations ON tbFichasCab.WuBookID = wbReservations.reservation_code SET wbReservations.cc_data = null ;"
+        strSQL = strSQL & " WHERE EstadoFicha = 5"
+        CurrentDb.Execute strSQL, dbFailOnError
+        
+        MsgBox "Datos de tarjetas de fichas antiguas eliminados correctamente", vbInformation
+    End If
+    
+    
+End Sub
+
+Private Sub btnCerrarFicha_Click()
+    If Me.cmbEstadoFicha.ListIndex = -1 Then Exit Sub
+    Dim strCaption As String
+    strCaption = InputBox("Texto del botón para estado de ficha " & Me.cmbEstadoFicha.Column(1), "Título del botón", Me.btnCerrarFicha.Caption)
+    PonValorParam "Fichas_btnCerrarFichaCaption_" & Me.cmbEstadoFicha, strCaption
+    PonCaptions
+End Sub
+
+Private Sub btnDelFile_Click()
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    Dim strDelFile As String, i As Integer
+    strDelFile = Me.lstAdjuntarFicheros & ";"
+    i = InStr(Me.lstAdjuntarFicheros.RowSource, strDelFile)
+    Me.lstAdjuntarFicheros.RowSource = Replace(Me.lstAdjuntarFicheros.RowSource, strDelFile, "")
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+    PonVP_AdjuntarFicheros
+End Sub
+
+Private Sub btnImprimirEntrada_Click()
+    If Me.cmbEstadoFicha.ListIndex = -1 Then Exit Sub
+    Dim strCaption As String
+    strCaption = InputBox("Texto del botón para estado de ficha " & Me.cmbEstadoFicha.Column(1), "Título del botón", Me.btnImprimirEntrada.Caption)
+    PonValorParam "Fichas_btnImprimirEntradaCaption_" & Me.cmbEstadoFicha, strCaption
+    PonCaptions
+End Sub
+
+Private Sub btnOpenFile_Click()
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    OpenFile Me.lstAdjuntarFicheros
+End Sub
+
+Private Sub btnVerConf_Click()
+    Pon_qryReserva Nz(DMax("IdFichaCab", "tbFichasCab"), 0), True
+    DoCmd.OpenReport Me.FichasConfirmacionRPT, acViewPreview, , "IdFichaCab = " & Nz(DMax("IdFichaCab", "tbFichasCab"), 0)
+End Sub
+
+Private Sub btnVerCuen_Click()
+    Dim lngId As Long, strCrit As String, intCancel As Integer
+    ComprobarParam Me, intCancel
+    If intCancel Then Exit Sub
+    lngId = Nz(DMax("IdFichaCab", "tbFichasCab"), 0)
+    If lngId > 0 Then
+        strCrit = "tbFichasCab.IdFichaCab = " & lngId
+    End If
+    DoCmd.OpenReport Me.CuentasRPT, acViewPreview, , strCrit
+End Sub
+
+
+Private Sub btnVerFicha_Click()
+    Dim lngId As Long, strCrit As String, intCancel As Integer
+    ComprobarParam Me, intCancel
+    If intCancel Then Exit Sub
+    lngId = Nz(DMax("IdFichaCab", "tbFichasCab"), 0)
+    If lngId > 0 Then
+        strCrit = "tbFichasCab.IdFichaCab = " & lngId
+    End If
+    DoCmd.OpenReport Me.FichasRPT, acViewPreview, , strCrit
+End Sub
+
+Private Sub cmbEstadoFicha_AfterUpdate()
+    Call PonCaptions
+End Sub
+
+Private Sub cmbIdioma_AfterUpdate()
+    If Me.cmbIdioma.ListIndex = -1 Then
+        Me.FichasSMSRecordatorioEntrada = Nz(DameValorParam("FichasSMSRecordatorioEntrada"), "")
+        Me.FichasRecordatorioAsuntoEmail = Nz(DameValorParam("FichasRecordatorioAsuntoEmail"), "")
+    Else
+        Me.FichasSMSRecordatorioEntrada = Nz(DameValorParam("FichasSMSRecordatorioEntrada_IdIdioma_" & Me.cmbIdioma), "")
+        Me.FichasRecordatorioAsuntoEmail = Nz(DameValorParam("FichasRecordatorioAsuntoEmail_IdIdioma_" & Me.cmbIdioma), "")
+    End If
+End Sub
+
+Private Sub cmbTipoConfirmacion_AfterUpdate()
+    If Me.cmbTipoConfirmacion.ListIndex = -1 Then
+        Me.FichasConfirmacionSaludosYConsejos = Nz(DameValorParam("FichasConfirmacionSaludosYConsejos"), "")
+        Me.FichasConfirmacionMensajeEmail = Nz(DameValorParam("FichasConfirmacionMensajeEmail"), "")
+    Else
+        Me.FichasConfirmacionSaludosYConsejos = Nz(DameValorParam("FichasConfirmacionSaludosYConsejos_Tipo_" & Me.cmbTipoConfirmacion), "")
+        Me.FichasConfirmacionMensajeEmail = Nz(DameValorParam("FichasConfirmacionMensajeEmail_Tipo_" & Me.cmbTipoConfirmacion), "")
+    End If
+End Sub
+
+Private Sub FichasConfirmacionAW_AfterUpdate()
+    Dim ctl As Control, strTagON As String
+    strTagON = IIf(Me.FichasConfirmacionAW = 1, "_FConfA", "_FConfW")
+    Me.FichasConfirmacionWordEditarSN.Visible = Me.FichasConfirmacionAW = 2
+    For Each ctl In Me.pge3.Controls
+        If InStr(ctl.Tag, "_FConf") > 0 Then
+            ctl.Enabled = InStr(ctl.Tag, strTagON) > 0
+        End If
+    Next ctl
+End Sub
+
+Private Sub FichasConfirmacionMensajeEmail_AfterUpdate()
+    If Me.cmbTipoConfirmacion.ListIndex = -1 Then
+        PonValorParam "FichasConfirmacionMensajeEmail", Me.FichasConfirmacionMensajeEmail, 12
+    Else
+        PonValorParam "FichasConfirmacionMensajeEmail_Tipo_" & Me.cmbTipoConfirmacion, Me.FichasConfirmacionMensajeEmail, 12
+    End If
+End Sub
+
+Private Sub FichasConfirmacionSaludosYConsejos_AfterUpdate()
+    If Me.cmbTipoConfirmacion.ListIndex = -1 Then
+        PonValorParam "FichasConfirmacionSaludosYConsejos", Me.FichasConfirmacionSaludosYConsejos, 12
+    Else
+        PonValorParam "FichasConfirmacionSaludosYConsejos_Tipo_" & Me.cmbTipoConfirmacion, Me.FichasConfirmacionSaludosYConsejos, 12
+    End If
+End Sub
+
+Private Sub FichasEmailFormatoHTML_SN_AfterUpdate()
+    Me.FichasConfirmacionMensajeEmail.TextFormat = IIf(Nz(Me.FichasEmailFormatoHTML_SN, False) = False, acTextFormatPlain, acTextFormatHTMLRichText)
+    Me.FichasSMSRecordatorioEntrada.TextFormat = IIf(Nz(Me.FichasEmailFormatoHTML_SN, False) = False, acTextFormatPlain, acTextFormatHTMLRichText)
+End Sub
+
+Private Sub FichasLineasDetalle_AfterUpdate()
+    If IsNull(Me.FichasLineasDetalle) Then
+        Me.FichasLineasDetalle = 10
+    End If
+End Sub
+
+Private Sub FichasNumCopias_AfterUpdate()
+    If IsNull(Me.FichasNumCopias) Then
+        Me.FichasNumCopias = 1
+    End If
+End Sub
+
+Private Sub FichasRecordatorioAsuntoEmail_AfterUpdate()
+    If Me.cmbIdioma.ListIndex = -1 Then
+        PonValorParam "FichasRecordatorioAsuntoEmail", Me.FichasRecordatorioAsuntoEmail, 12
+    Else
+        PonValorParam "FichasRecordatorioAsuntoEmail_IdIdioma_" & Me.cmbIdioma, Me.FichasRecordatorioAsuntoEmail, 12
+    End If
+End Sub
+
+Private Sub FichasSMSRecordatorioEntrada_AfterUpdate()
+    If Me.cmbIdioma.ListIndex = -1 Then
+        PonValorParam "FichasSMSRecordatorioEntrada", Me.FichasSMSRecordatorioEntrada, 12
+    Else
+        PonValorParam "FichasSMSRecordatorioEntrada_IdIdioma_" & Me.cmbIdioma, Me.FichasSMSRecordatorioEntrada, 12
+    End If
+End Sub
+
+Private Sub FichasSMSRecordatorioIncluirEnlaceSN_AfterUpdate()
+    Me.lblNotaCheckinRemoto.Visible = Nz(Me.FichasSMSRecordatorioIncluirEnlaceSN, False)
+End Sub
+
+Private Sub FichasVerLST_FRM_AfterUpdate()
+    Me.FichasAlAñadirDetalleBucleSN.Enabled = Me.FichasVerLST_FRM = 1
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call FichasImpresionPor_AfterUpdate
+    Call FichasVerLST_FRM_AfterUpdate
+    Call FichasConfirmacionAW_AfterUpdate
+    Call cmbTipoConfirmacion_AfterUpdate
+    Call cmbIdioma_AfterUpdate
+    Call FichasEmailFormatoHTML_SN_AfterUpdate
+    CargarImpresorasCmb Me.FichasImpresoraWindows
+    Call PonCaptions
+    'Me.lstAdjuntarFicheros.RowSource = Nz(DameValorParam("FichasConfirmacionAdjuntarFicheros"), "")
+    Me.FichasSMSRecordatorioIncluirEnlaceSN.Visible = g_PoliCheckIn
+    Call FichasSMSRecordatorioIncluirEnlaceSN_AfterUpdate
+    On Error Resume Next
+    Dim str As String
+    str = Parent.Caption
+    If Err = 0 Then Me.btnSalir.Visible = False
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub FichasImpresionPor_AfterUpdate()
+    Dim intAct As Integer
+    Dim ctl As Control
+    If Me.FichasImpresionPor = 1 Then
+        intAct = False
+    Else
+        intAct = True
+    End If
+    Me.FichasLetraCN.Enabled = intAct
+    Me.FichasMargenIzdo.Enabled = intAct
+    Me.FichasMargenSup.Enabled = intAct
+    Me.FichasImpresora.Enabled = intAct
+    Me.FichasImpresoraWindows.Enabled = Not intAct
+    Me.CuentasRPT.Enabled = Not intAct
+    Me.btnVerCuen.Enabled = Not intAct
+End Sub
+
+
+Public Function ActivaSXD_AC(Optional strCtl As String = "")
+    Dim ctl As Control, strCtl2 As String, strSQL As String
+    If strCtl = "" Then
+        Set ctl = Screen.ActiveControl
+    Else
+        Set ctl = Me.Controls(strCtl)
+    End If
+    If ctl.Name Like "SXDver*" Then
+    Else
+        Exit Function
+    End If
+    'strCtl2 = "txt" & Mid(ctl.Name, 7)
+    'Me(strCtl2).Enabled = ctl.Value = True
+    strSQL = "UPDATE sysAnchuras SET VisibleColumna = " & IIf(ctl.value = True, "True", "False")
+    strSQL = strSQL & " WHERE Formulario = 'subfrmFichasDetServiciosXDia' AND Campo = '" & Mid(ctl.Name, 7) & "'"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE sysAnchuras SET VisibleColumna = " & IIf(ctl.value = True, "True", "False")
+    strSQL = strSQL & " WHERE Formulario = 'frmServiciosDiarios' AND Campo Like '" & Mid(ctl.Name, 7) & "*'"
+    CurrentDb.Execute strSQL, dbFailOnError
+End Function
+
+Public Sub PonCaptions()
+    Select Case Me.cmbEstadoFicha.value
+        Case 10
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_10"), "Cerrar Ficha -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_10"), "Imprimir &Contrato")
+        Case 1
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_1"), "Actual -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_1"), "Confirmar &Reserva")
+        Case 2
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_2"), "Cerrar Ficha -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_2"), "Imprimir Albarán")
+        Case 3
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_3"), "Cerrar Ficha -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_3"), "Imprimir &Entrada")
+        Case 4
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_4"), "Cerrar Ficha -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_4"), "Imprimir &Entrada")
+        Case 5
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_5"), "Actual -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_5"), "Imprimir &Entrada")
+        Case 6
+            Me.btnCerrarFicha.Caption = SpNz(DameValorParam("Fichas_btnCerrarFichaCaption_6"), "Cerrar Ficha -F5-")
+            Me.btnImprimirEntrada.Caption = SpNz(DameValorParam("Fichas_btnImprimirEntradaCaption_6"), "Imprimir &Entrada")
+    End Select
+End Sub
+
+Private Sub lstAdjuntarFicheros_Click()
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+End Sub
+
+Private Sub lstAdjuntarFicheros_DblClick(Cancel As Integer)
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    OpenFile Me.lstAdjuntarFicheros
+End Sub
+
+
+Public Sub PonVP_AdjuntarFicheros()
+    If Me.tabMain.value = 2 Then
+        PonValorParam "FichasConfirmacionAdjuntarFicheros", IIf(Me.lstAdjuntarFicheros.RowSource = "", Null, Me.lstAdjuntarFicheros.RowSource), 12
+    ElseIf Me.tabMain.value = 3 Then
+        PonValorParam "FichasRecordatorioAdjuntarFicheros", IIf(Me.lstAdjuntarFicheros.RowSource = "", Null, Me.lstAdjuntarFicheros.RowSource), 12
+    End If
+End Sub
+
+Private Sub tabMain_Change()
+    Me.lstAdjuntarFicheros.Visible = Me.tabMain.value >= 2
+    Me.btnAddFile.Visible = Me.tabMain.value >= 2
+    Me.btnDelFile.Visible = Me.tabMain.value >= 2
+    Me.btnOpenFile.Visible = Me.tabMain.value >= 2
+    If Me.tabMain.value = 2 Then
+        Me.lstAdjuntarFicheros.RowSource = Nz(DameValorParam("FichasConfirmacionAdjuntarFicheros"), "")
+    ElseIf Me.tabMain.value = 3 Then
+        Me.lstAdjuntarFicheros.RowSource = Nz(DameValorParam("FichasRecordatorioAdjuntarFicheros"), "")
+    End If
+    
+End Sub

@@ -1,0 +1,87 @@
+Option Compare Database
+Option Explicit
+
+Public Sub Generar_auxServiciosComedor(dtFecha As Date, intSer As Integer, intNumDias As Integer)
+    On Error GoTo Error_Generar_auxServiciosComedor
+    Dim strSer As String, dt As Date
+    Dim i As Integer
+    CurrentDb.Execute "DELETE * FROM auxServiciosComedor", dbFailOnError
+    For dt = dtFecha To dtFecha + intNumDias - 1
+        If intSer = 0 Then
+            For i = 1 To 5
+                Select Case i
+                    Case 1: strSer = "Desayunos"
+                    Case 2: strSer = "Picnic"
+                    Case 3: strSer = "Comidas"
+                    Case 4: strSer = "Cenas"
+                    Case 5: strSer = "Pernoctaciones"
+                End Select
+                If Nz(DameValorParam("SXDver" & strSer), True) Then Añade_auxServicios dt, i
+            Next i
+        Else
+            Añade_auxServicios dt, intSer
+        End If
+    Next dt
+Salir_Generar_auxServiciosComedor:
+    Exit Sub
+Error_Generar_auxServiciosComedor:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Generar_auxServiciosComedor" & vbCrLf & Err.Description
+            Resume Salir_Generar_auxServiciosComedor
+    End Select
+End Sub
+
+Public Sub PonListaServicios(ctl As Control, Optional intTodos As Integer = False)
+    Dim strRow As String
+    If intTodos Then strRow = strRow & "0;""Todos"";"
+    If Nz(DameValorParam("SXDverDesayunos"), True) Then strRow = strRow & "1;""Desayunos"";"
+    If Nz(DameValorParam("SXDverPicnic"), True) Then strRow = strRow & "2;""Picnic"";"
+    If Nz(DameValorParam("SXDverComidas"), True) Then strRow = strRow & "3;""Comidas"";"
+    If Nz(DameValorParam("SXDverCenas"), True) Then strRow = strRow & "4;""Cenas"";"
+    If Nz(DameValorParam("SXDverPernoctaciones"), True) Then strRow = strRow & "5;""Noches"";"
+    ctl.RowSource = strRow
+End Sub
+
+
+Public Sub Añade_auxServicios(dtFecha As Date, intSer As Integer)
+    On Error GoTo Error_Añade_auxServicios
+    Dim rs As Recordset, strSQL As String, rsAux As Recordset, strSer As String
+    strSQL = "SELECT tbFichasDetServiciosXDia.Fecha,  [NombreCliente] & ' ' & [ApellidosCliente] & IIf(Not IsNull([IdCliente]),' (' & Trim([NombreCli] & ' ' & [ApellidosCli]) & ')','') AS Grupo, tbFichasDetServiciosXDia.IdFichaCab, "
+
+
+    Select Case intSer
+        Case 1: strSer = "Desayunos"
+        Case 2: strSer = "Picnic"
+        Case 3: strSer = "Comidas"
+        Case 4: strSer = "Cenas"
+        Case 5: strSer = "Pernoctaciones"
+    End Select
+    strSQL = strSQL & " (tbFichasDetServiciosXDia." & strSer & ") AS Servicios"
+    strSQL = strSQL & ", tbFichasDetServiciosXDia.Notas"
+    strSQL = strSQL & " FROM (tbFichasCab INNER JOIN tbFichasDetServiciosXDia ON tbFichasCab.IdFichaCab = tbFichasDetServiciosXDia.IdFichaCab) LEFT JOIN tbClientes ON tbFichasCab.IdAgencia = tbClientes.IdCliente"
+    strSQL = strSQL & " WHERE tbFichasDetServiciosXDia.Fecha = " & CLng(dtFecha)
+    strSQL = strSQL & " AND Nz(" & strSer & ",0)<>0"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    Set rsAux = CurrentDb.OpenRecordset("auxServiciosComedor", dbOpenDynaset)
+    While Not rs.EOF
+        rsAux.AddNew
+        rsAux("Fecha") = dtFecha
+        rsAux("Servicio") = strSer
+        rsAux("IdFichaCab") = rs("IdFichaCab")
+        rsAux("Grupo") = RecDerTop(rs("Grupo"), 0, 100)
+        rsAux("Pax") = rs("Servicios")
+        rsAux("Notas") = DimeXML(Nz(rs("Notas"), ""), strSer)
+        rsAux("OrdServicio") = intSer
+        rsAux.Update
+        rs.MoveNext
+    Wend
+Salir_Añade_auxServicios:
+    Exit Sub
+Error_Añade_auxServicios:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Añade_auxServicios" & vbCrLf & Err.Description
+            Resume Salir_Añade_auxServicios
+    End Select
+End Sub

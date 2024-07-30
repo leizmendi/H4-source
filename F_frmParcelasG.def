@@ -1,0 +1,35 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnGenerar_Click()
+    Dim i As Integer, frm As Form
+    On Error Resume Next
+    Set frm = Me.subfrmParcelas.Form
+    For i = 0 To frm.Controls.Count - 1
+        frm(i).ColumnHidden = False
+    Next i
+    DoCmd.OpenForm "frmGenPar", , , , , acDialog
+End Sub
+
+Private Sub btnGenerarPanel_Click()
+    GenerarfrmPanel
+End Sub
+
+Private Sub btnGruposPlanning_Click()
+    DoCmd.OpenForm "frmGruposPlaning", , , , , acDialog
+End Sub
+
+Private Sub btnTiposParcelas_Click()
+    DoCmd.OpenForm "frmParcelasTipo", , , , , acDialog
+End Sub
+
+Private Sub Form_Load()
+    Me.Caption = g_strPHs
+    Me.lblPH.Caption = g_strPHs
+End Sub

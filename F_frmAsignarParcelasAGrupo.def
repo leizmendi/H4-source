@@ -1,0 +1,81 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim glngIdGrupoPlaning As Long
+    
+Private Sub btnAsignar_Click()
+    Dim rs As Recordset
+    Dim varItem As Variant, intMaximoParcelasXGrupo As Integer
+    If Me.lstDisponibles.ListIndex = -1 Then Exit Sub
+    If glngIdGrupoPlaning = 0 Then Exit Sub
+    Set rs = CurrentDb.OpenRecordset("tbGruposPlaning_Parcelas")
+    intMaximoParcelasXGrupo = 100 'Nz(DameValorParam("PlaningMaximoParcelasXGrupo"), 15)
+    For Each varItem In Me.lstDisponibles.ItemsSelected
+        If DCount("IdParcela", "tbGruposPlaning_Parcelas", "IdGrupoPlaning = " & glngIdGrupoPlaning) >= intMaximoParcelasXGrupo Then
+            MsgBox "No se pueden incluir más de " & intMaximoParcelasXGrupo & " " & g_strPHs & " en cada Grupo"
+            Me.lstAsignadas.Requery
+            Exit Sub
+        End If
+        rs.AddNew
+        rs("IdGrupoPlaning") = glngIdGrupoPlaning
+        rs("IdParcela") = Me.lstDisponibles.Column(0, varItem)
+        On Error Resume Next
+        rs.Update
+    Next varItem
+'    Me.lstDisponibles.Requery
+    Me.lstAsignadas.Requery
+End Sub
+
+
+Private Sub btnQuitar_Click()
+    'On Error Resume Next
+    'DoCmd.GoToControl "SubfrmFichasDetParcelas"
+    'DoCmd.RunCommand acCmdDeleteRecord
+    Dim db As DAO.Database
+    Dim strSQL As String
+    Dim varItem As Variant
+    On Error Resume Next
+    If Me.lstAsignadas.ListIndex = -1 Then Exit Sub
+    If glngIdGrupoPlaning = 0 Then Exit Sub
+    Set db = CurrentDb
+    For Each varItem In Me.lstAsignadas.ItemsSelected
+        strSQL = "DELETE tbGruposPlaning_Parcelas.Id"
+        strSQL = strSQL & " FROM tbGruposPlaning_Parcelas"
+        strSQL = strSQL & " WHERE (((tbGruposPlaning_Parcelas.Id)=" & Me.lstAsignadas.Column(0, varItem) & "));"
+        db.Execute strSQL
+    Next varItem
+'    Me.lstDisponibles.Requery
+    Me.lstAsignadas.Requery
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, strGrupo As String, strSQL As String
+    strXML = Nz(Me.OpenArgs, "")
+    glngIdGrupoPlaning = Nz(DimeXML(strXML, "IdGrupoPlaning"), 0)
+    strGrupo = Nz(DLookup("GrupoP", "tbGruposPlaning", "IdGrupoPlaning = " & glngIdGrupoPlaning), "¿?")
+    Me.lblAsignadas.Caption = "Asignadas a Grupo: " & strGrupo
+    Me.Caption = "Asignar Parcelas a Grupo de Planning: " & strGrupo
+    strSQL = "SELECT tbGruposPlaning_Parcelas.Id, tbGruposPlaning_Parcelas.IdParcela, tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.NombreParcela"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    strSQL = strSQL & " WHERE tbGruposPlaning_Parcelas.IdGrupoPlaning=" & glngIdGrupoPlaning
+    Me.lstAsignadas.RowSource = strSQL
+    
+    
+End Sub
+
+Private Sub lstAsignadas_DblClick(Cancel As Integer)
+    Call btnQuitar_Click
+End Sub
+
+Private Sub lstDisponibles_DblClick(Cancel As Integer)
+    Call btnAsignar_Click
+End Sub

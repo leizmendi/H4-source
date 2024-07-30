@@ -1,0 +1,23 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAdd_Click()
+    BloqueoFormulario Me, False
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    BloqueoFormulario Me, True
+    PartesG_Habitaciones_AfterUpdate
+End Sub
+
+Private Sub PartesG_Habitaciones_AfterUpdate()
+    Call PonValorParam("PartesG_Habitaciones", Nz(Me.PartesG_Habitaciones, True))
+    Me.rptParteG_EmpleadosSN.Visible = Nz(Me.PartesG_Habitaciones, False) = True
+    Me.rptParteG_SalasSN.Visible = Nz(Me.PartesG_Habitaciones, False) = True
+End Sub

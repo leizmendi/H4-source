@@ -1,0 +1,39 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+Option Compare Database
+Option Explicit
+    Dim gintReservaSN As Integer
+    Dim gintFichaSN As Integer
+    Dim gintFacturaSN As Integer
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub btnOpciones_Click()
+    Dim strForm As String
+    'strForm = IIf((gintFichaSN Or gintReservaSN), "frmParametrosFichas", "frmParametrosFacturas")
+    'DoCmd.OpenForm strForm, , , , , acDialog
+End Sub
+
+Private Sub Form_Load()
+ '   CargarParam Me, Me.Name & "_"
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String, intEmpresaSN As Integer
+    strXML = Nz(Me.OpenArgs, "")
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+'    GrabarParam Me, Me.Name & "_"
+End Sub

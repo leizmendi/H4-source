@@ -1,0 +1,1003 @@
+Option Compare Database
+Option Explicit
+
+Private Const LF_FACESIZE = 32
+
+Private Type RECT
+  Left As Long
+  Right As Long
+  Top As Long
+  Bottom As Long
+End Type
+
+Private Type Size
+        cx As Long
+        cy As Long
+End Type
+
+Private Type SizeX2
+        cx As Long
+        cy As Long
+        widthX As Long
+        widthY As Long
+End Type
+
+Private Type LOGFONT
+        lfHeight As Long
+        lfWidth As Long
+        lfEscapement As Long
+        lfOrientation As Long
+        lfWeight As Long
+        lfItalic As Byte
+        lfUnderline As Byte
+        lfStrikeOut As Byte
+        lfCharSet As Byte
+        lfOutPrecision As Byte
+        lfClipPrecision As Byte
+        lfQuality As Byte
+        lfPitchAndFamily As Byte
+        lfFaceName As String * LF_FACESIZE
+End Type
+
+Private Type RGBQUAD
+        rgbBlue As Byte
+        rgbGreen As Byte
+        rgbRed As Byte
+        rgbReserved As Byte
+End Type
+
+Private Type BITMAP
+  bmType As Long
+  bmWidth As Long
+  bmHeight As Long
+  bmWidthBytes As Long
+  bmPlanes As Integer
+  bmBitsPixel As Integer
+  bmBits As Long
+End Type
+
+Private Type BITMAPINFOHEADER '40 bytes
+        biSize As Long
+        biWidth As Long
+        biHeight As Long
+        biPlanes As Integer
+        biBitCount As Integer
+        biCompression As Long
+        biSizeImage As Long
+        biXPelsPerMeter As Long
+        biYPelsPerMeter As Long
+        biClrUsed As Long
+        biClrImportant As Long
+End Type
+
+Private Type BITMAPINFO
+        bmiHeader As BITMAPINFOHEADER
+        bmiColors(1) As RGBQUAD
+        ' we need two colors for monochrome bitmap
+End Type
+
+Private Type BITMAPFILEHEADER    '14 bytes
+  bfType As Integer
+  bfSize As Long
+  bfReserved1 As Integer
+  bfReserved2 As Integer
+  bfOffBits As Long
+End Type
+
+Private Declare Sub apiCopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
+    (destination As Any, source As Any, ByVal Length As Long)
+
+Private Declare Function apiCreateBitmap Lib "gdi32" Alias "CreateBitmap" _
+(ByVal nWidth As Long, ByVal nHeight As Long, ByVal nPlanes As Long, _
+ByVal nBitCount As Long, lpBits As Any) As Long
+
+Private Declare Function apiGlobalAlloc Lib "kernel32" Alias "GlobalAlloc" _
+(ByVal wFlags As Long, ByVal dwBytes As Long) As Long
+
+Private Declare Function apiGlobalFree Lib "kernel32" Alias "GlobalFree" _
+(ByVal hMem As Long) As Long
+
+Private Declare Function apiGlobalLock Lib "kernel32" Alias "GlobalLock" _
+(ByVal hMem As Long) As Long
+
+Private Declare Function apiGlobalUnlock Lib "kernel32" Alias "GlobalUnlock" _
+(ByVal hMem As Long) As Long
+
+Private Declare Function apiGetStockObject Lib "gdi32" Alias "GetStockObject" _
+(ByVal nIndex As Long) As Long
+
+Private Declare Function apiGetDIBits Lib "gdi32" Alias "GetDIBits" (ByVal aHDC As Long, _
+ByVal hBitmap As Long, ByVal nStartScan As Long, ByVal nNumScans As Long, _
+lpBits As Any, lpBI As BITMAPINFO, ByVal wUsage As Long) As Long
+
+Private Declare Function apiSetDIBits Lib "gdi32" Alias "SetDIBits" (ByVal hdc As Long, _
+ByVal hBitmap As Long, ByVal nStartScan As Long, ByVal nNumScans As Long, _
+lpBits As Any, lpBI As BITMAPINFO, ByVal wUsage As Long) As Long
+
+Private Declare Function apiCreateIC Lib "gdi32" Alias "CreateICA" _
+(ByVal lpDriverName As String, ByVal lpDeviceName As String, _
+ByVal lpOutput As String, lpInitData As Any) As Long
+
+Private Declare Function apiSelectObject Lib "gdi32" _
+ Alias "SelectObject" (ByVal hdc As Long, ByVal hObject As Long) As Long
+
+Private Declare Function apiSetTextAlign Lib "gdi32" Alias "SetTextAlign" _
+(ByVal hdc As Long, ByVal wFlags As Long) As Long
+
+Private Declare Function apiSetTextColor Lib "gdi32" Alias "SetTextColor" _
+(ByVal hdc As Long, ByVal crColor As Long) As Long
+
+Private Declare Function apiSetBkColor Lib "gdi32" Alias "SetBkColor" _
+(ByVal hdc As Long, ByVal crColor As Long) As Long
+
+Private Declare Function apiGetTextExtentPoint32 Lib "gdi32" _
+Alias "GetTextExtentPoint32A" _
+(ByVal hdc As Long, ByVal lpSZ As String, ByVal cbString As Long, _
+lpsize As Size) As Long
+
+Private Declare Function apiTextOut Lib "gdi32" Alias "TextOutA" (ByVal hdc As _
+Long, ByVal X As Long, ByVal y As Long, ByVal lpString As String, ByVal _
+nCount As Long) As Long
+
+Private Declare Function apiCreateFontIndirect Lib "gdi32" Alias _
+        "CreateFontIndirectA" (lpLogFont As LOGFONT) As Long
+
+Private Declare Function apiGetDC Lib "user32" _
+  Alias "GetDC" (ByVal Hwnd As Long) As Long
+
+Private Declare Function apiReleaseDC Lib "user32" _
+  Alias "ReleaseDC" (ByVal Hwnd As Long, _
+  ByVal hdc As Long) As Long
+
+Private Declare Function apiCreateCompatibleDC Lib "gdi32" _
+  Alias "CreateCompatibleDC" (ByVal hdc As Long) As Long
+
+Private Declare Function apiDeleteDC Lib "gdi32" _
+  Alias "DeleteDC" (ByVal hdc As Long) As Long
+
+Private Declare Function apiBitBlt Lib "gdi32" _
+  Alias "BitBlt" (ByVal hDestDC As Long, ByVal X As Long, ByVal y As Long, _
+  ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, _
+  ByVal xSrc As Long, ByVal ySrc As Long, ByVal dwRop As Long) As Long
+
+Private Declare Function apiDeleteObject Lib "gdi32" _
+  Alias "DeleteObject" (ByVal hObject As Long) As Long
+
+Private Declare Function apiGetObject Lib "gdi32" Alias "GetObjectA" _
+(ByVal hObject As Long, ByVal nCount As Long, lpObject As Any) As Long
+
+Private Declare Function apiGetDeviceCaps Lib "gdi32" _
+  Alias "GetDeviceCaps" (ByVal hdc As Long, ByVal nIndex As Long) As Long
+
+Private Declare Function apiMoveToEx Lib "gdi32" Alias "MoveToEx" _
+(ByVal hdc As Long, ByVal X As Long, ByVal y As Long, lpPoint As Any) As Long
+'above was lpPoint as POINTAPI, changed to Any to allow NULL
+
+' For Terry Kreft's API Colro Dialog Function
+Private Const CC_SOLIDCOLOR = &H80
+
+Private Type COLORSTRUC
+  lStructSize As Long
+  Hwnd As Long
+  hInstance As Long
+  rgbResult As Long
+  lpCustColors As String
+  flags As Long
+  lCustData As Long
+  lpfnHook As Long
+  lpTemplateName As String
+End Type
+
+Private Declare Function ChooseColor Lib "comdlg32.dll" Alias "ChooseColorA" _
+  (pChoosecolor As COLORSTRUC) As Long
+
+Private Declare Function GetTempPath Lib "kernel32" _
+Alias "GetTempPathA" (ByVal nBufferLength As Long, _
+ByVal lpBuffer As String) As Long
+
+Private Declare Function GetTempFileName _
+  Lib "kernel32" Alias "GetTempFileNameA" _
+  (ByVal lpszPath As String, _
+  ByVal lpPrefixString As String, _
+  ByVal wUnique As Long, _
+  ByVal lpTempFileName As String) As Long
+ 
+Private Const MAX_PATH = 260
+
+Private Const BLACKNESS = &H42 ' (DWORD) dest = BLACK
+  'Number of pixels per logical inch along the screen width.
+Private Const LOGPIXELSX = 88
+  'Number of pixels per logical inch along the screen height.
+Private Const LOGPIXELSY = 90
+  'Width and height, in pixels, of the screen of the monitor.
+  'DIB color table identifiers
+Private Const DIB_RGB_COLORS = 0 '  color table in RGBs
+  'TextAlign Flags
+Private Const TA_UPDATECP = 1
+Private Const PI = 3.14159265
+
+Private Const PI_180 = PI / 180#
+  'Use True Type Fonts ONLY!
+Private Const OUT_TT_ONLY_PRECIS = 7
+
+Private Const PathLen = 255
+
+Private Const DEFAULT_PALETTE = 15
+  'Global Memory Flags
+Private Const GMEM_MOVEABLE = &H2
+Private Const GMEM_ZEROINIT = &H40
+ 
+
+
+
+
+Function fCmdButTextPic(ctl As CommandButton, ByVal BGColor As Long) As Boolean
+'*******************************************
+'DEVELOPED AND TESTED UNDER MICROSOFT ACCESS 97 VBA ONLY
+'Supports TRUE TYPE FONTS ONLY!
+'
+'Copyright: Stephen Lebans 1999  - May not be resold
+'           Shareware - Cost $0.01
+'           Please include this header in its entirety if you use
+'           this function within your code.
+'
+'Name:      fCmdBut (Function) Design View
+'           fCmdButTextPic(function) Form View at Runtime
+'
+'Version:   1.0a
+'
+'Purpose:   Simulates a BackGround Color property for
+'           Command Button Controls. It does this by
+'           rendering the Caption property of the Command Button
+'           onto a Bitmap. The user selected BackColor and the
+'           Control's FOreColor are setup in the Bitmap's Colortable.
+'           This Bitmap is saved to Disk and then set as
+'           The Command Buttons's Picture Property.
+'           Only uses 1 bitplane to conserve memory.
+'
+'Author:    Stephen Lebans
+'Email:     Stephen@lebans.com
+'Web Site:  www.lebans.com
+'Date:      Jan 26, 2000, 10:50:18 PM
+'
+'Called by: Call from Form Design or Form View.
+'           Design View entry point is CmdBut()
+'           Run Time entry point is:
+'           'fCmdButTextPic(ctl As CommandButton, ByVal BGColor As Long)
+'
+'Calls:     Bunch of API functions.
+'
+'Inputs:    Design View None-> Gets Screen.ActiveControl
+'           Run Time is Command Button Object, BackColor as Long
+
+'Output:    True on success; false on failure
+'
+'Credits:   Lots of folks. Terry Kreft's API Color Dialog Code.
+'           Rod Stephen's Trig code to calculate Bounding Box.
+'
+'BUGS:      No serious ones that I've noticed but something always pops up.
+'           Please report any bugs to my email address.
+'
+'What's Missing:
+'           Current version is limited to one line of text.
+'           I'll add support for mulitple lines in next release.
+'
+'           Current version does not support the loading of a Bitmap.
+'           I'm adding this in the next release but I'll have to go to
+'           24 bit's for each pixel because of palette headaches.
+'
+'           Please send me a copy of any enhancements/bug fixes you create for this
+'           function at Stephen@lebans.com
+'
+'*********HOW TO CALL THIS FUNCTION**********
+'*********THERE ARE 2 METHODS****************
+'**************WITH 2 DIFFERENT**************
+'****************ENTRY POINTS****************
+'
+'
+' ******* FROM DESIGN VIEW *******
+' Add a Custom Menu Item to the standard Toolbox or to the Standar Menu Bar.
+' Right Click with your mouse on a blank area of the Toolbox or the Menu bar.
+' From the dropdown menu select "Customize".
+' A dialog window named ' Customize"
+' pops open with 3 tabs. Select the second tab named "Commands".
+' This Window is divided into 2 subwindows. On the left is "Categories" on
+' the right side is "Commands" .
+' Make sure the first item "File" on the left hand ' window
+' is selected. Now in the right hand window you should see the item "Custom".
+' Scroll the window up or down if it is not visible.
+' Now with your left mouse button click - hold - drag and drop the "Custom" item
+' onto the Standard Toolbox or Standard Menu Bar. Release the mouse button.
+' The "Modify Selection" button is now available. Click on it.
+' Change the "NAME" property to CmdButton or whatever you want.
+'  Now select "Properties".
+' In the "On Action" property fill it in exactly as below with the name of this function.
+'      =CmdBut()
+' That's it. Click "Close" then "Close" again.
+' Now Click once to select the a Command Button on this Form. Make sure there is text in the Caption property.
+' Finally Next Click on your new Menu Item (Whatever you named it).
+
+' To have the Text Rotate you need to set up the degree of rotation your
+' require in the Command Button .Tag property.
+' The Format of the string is   "Color;Degree"
+' The Color value is not used in this version, just include any number.
+' I have left commented out code in the function if you want to use this value
+' instead of the Color Picker Dialog window popping up.
+' The Degree value is a number between 0 and 360.
+' The semi colon seperator is required.
+'
+'Now from Form Design View you can:
+'1) Create a Command Button Control to your specifications. Don't forget to
+'   fill in the "Tag" property with the number of degrees of rotation required.
+'2) Click on your Custom Menu Item or Toolbox Item to run this function.
+'3) The Command Button's Picture property now contains a Bitmap
+'   consisting of whatever Text was in the Caption property
+'   and the BackGround Color you selected from the
+'   Color Picker Dialog.
+'
+'To be used from Form or Report Design View only! Make sure the
+' Command Button Control  you want this function
+'to work on is the currently selected control before you select the custom menu item
+'that calls this function.
+'
+'
+'
+' ******* FROM FORM VIEW AT RUNTIME *******
+' Call the function with code like:
+'     lngBool = fCmdButTextPic(ctl As CommandButton, ByVal BGColor As Long)
+' That's it!
+
+
+'CREATE a New Module in your Database and copy EVERYTHING exactly as it appears here
+'into your new module. Save your new module with a name that DOES NOT MATCH any of
+'the functions contained here!!!!!
+'
+'
+'Enjoy
+'Stephen Lebans
+'*******************************************
+'
+On Error GoTo ErrHandler
+
+'Pardon my mess....
+
+
+'GDI Handles
+Dim hFont As Long, prevfont As Long
+Dim Hwnd As Long
+Dim hdc As Long
+Dim hMemDC As Long
+Dim hBitmap As Long
+Dim holdbitmap As Long
+Dim hOrigBitmap As Long
+Dim hbitmapmono As Long
+Dim lngIC As Long
+
+'To create our Rotated Font
+Dim strName As String
+Dim fontsize As Long
+Dim lnglength As Long, lngTemp As Long
+Dim stfsize As Size
+Dim lpSZ As SizeX2
+Dim lngXposition As Long
+Dim lngYposition As Long
+Dim lngRotation As Long
+Dim myfont As LOGFONT
+Dim lngXdpi As Long
+Dim lngScreenXdpi As Long
+Dim lngTextWidth As Long
+Dim lngTextHeight As Long
+Dim lngBackColor As Long
+Dim lngTextColor As Long
+
+'building a better bitmap :-)
+Dim lpRect As RECT
+Dim MyBitmap As BITMAP
+Dim MyBitmapInfo As BITMAPINFO
+Dim MyBitmapInfoHeader As BITMAPINFOHEADER
+Dim MyRGBquad As RGBQUAD
+Dim lngNumColors As Long
+Dim lngAllocMem As Long
+Dim hlngMemory As Long
+Dim lngMemoryLock As Long
+
+
+'Temp variables
+Dim lngRet As Long
+Dim intReturn As Integer
+
+' For System Temp Folder
+' and temp unique filename
+Dim strPath  As String * PathLen
+Dim strPathandFileName  As String
+Dim FileHeader As BITMAPFILEHEADER
+Dim Fnum As Integer
+
+
+'Holds the actual bitmap file
+Dim varpicture() As Byte
+'Form & Report Cntrol Objects
+Dim ctlCmdButton As Control
+Dim objFormReport As Object
+       
+Dim MyReport As Boolean
+'False = screen  True = report
+
+Dim strTemp As String
+
+
+    Set ctlCmdButton = ctl
+    
+    Set objFormReport = ctlCmdButton.Parent
+     Hwnd = objFormReport.Hwnd
+  
+    'retrieve a handle to a display device context (DC)
+    'for the client area of the specified window
+    hdc = apiGetDC(Hwnd)
+    'create a memory device context (DC) compatible
+    'with the specified device
+    hMemDC = apiCreateCompatibleDC(hdc)
+  
+          
+    'OK setup font and print into the supplied bitmap
+    'First grab text from control's name property
+    strName = IIf(ctlCmdButton.Caption = "", "?", ctlCmdButton.Caption)
+          
+    'Escapement = rotation is specified in tenths of a degree
+    'user defined from Tag Property
+    If Len(ctl.Tag & "") = 0 Then
+   ' Use White as Default
+   lngRotation = 0
+   Else
+   strTemp = Mid(ctl.Tag, (InStr(1, ctl.Tag, ";") + 1))
+   lngRotation = Val(strTemp)
+    End If
+    
+   ' lngRotation = IIf(ctlCmdButton.Tag = "", 0, ctlCmdButton.Tag)
+    If lngRotation < 360 Then lngRotation = Abs(lngRotation)
+    If lngRotation > 360 Then lngRotation = 0
+    
+    myfont.lfClipPrecision = OUT_TT_ONLY_PRECIS
+    myfont.lfEscapement = Abs(lngRotation) * 10
+    myfont.lfFaceName = ctlCmdButton.FontName & Chr$(0)  'Null character at end
+         
+ 'If MyReport = False Then
+    lngIC = apiCreateIC("DISPLAY", vbNullString, vbNullString, vbNullString)
+    'If the call to CreateIC didn't fail, then get the Screen X resolution.
+    If lngIC <> 0 Then
+        lngXdpi = apiGetDeviceCaps(lngIC, LOGPIXELSX)
+        lngScreenXdpi = lngXdpi
+        'Release the information context.
+        apiDeleteDC (lngIC)
+    Else
+        ' Something has gone wrong. Assume an average value.
+       lngXdpi = 120
+       lngScreenXdpi = lngXdpi
+End If
+ 
+    'Copy font stuff from Text Control's property sheet
+    fontsize = ctlCmdButton.fontsize
+    myfont.lfWeight = ctlCmdButton.FontWeight
+    myfont.lfItalic = ctlCmdButton.FontItalic
+    myfont.lfUnderline = ctlCmdButton.FontUnderline
+    'Must be a negative figure for height or system will return
+    'closest match on character cell not glyph
+    myfont.lfHeight = (fontsize / 72) * -lngXdpi
+                 
+    hFont = apiCreateFontIndirect(myfont)
+    prevfont = apiSelectObject(hMemDC, hFont)
+                
+    'Let's get length and height of non rotated of output string
+    lnglength = Len(strName)
+    lngTemp = apiGetTextExtentPoint32(hMemDC, strName, lnglength, stfsize)
+     
+With lpRect
+    'Compute the coords for the text control
+    .Left = 1
+    .Top = 1
+    .Right = ctlCmdButton.Width
+    .Bottom = ctlCmdButton.Height
+ 
+    'All previous measurements were in Twips.
+    'ConvertTwipsToPixels = lngTwips / nTwipsPerInch * lngPixelsPerInch
+    .Left = .Left / 1440 * lngScreenXdpi
+    .Top = .Top / 1440 * lngScreenXdpi
+    .Bottom = .Bottom / 1440 * lngScreenXdpi
+    .Right = .Right / 1440 * lngScreenXdpi
+  
+  ' If use wants Rotated Text we need to make
+  ' the Bitmap large enough to display it.
+  lpSZ = BoundBox(stfsize, lpRect, lngRotation)
+  If .Right < lpSZ.widthX Then .Right = lpSZ.widthX
+  If .Bottom < lpSZ.widthY Then .Bottom = lpSZ.widthY
+    
+    'Force alignment to - 32  pixels for Access monochrome bitmap
+    'We will be converting this bitmap to monochrome later on.
+    .Right = ((.Right + 31) And &HFFFFFE0)
+    '.right = ((stfsize.cx + 31) And &HFFFFFE0)
+    
+    lpSZ = BoundBox(stfsize, lpRect, lngRotation)
+  'If .right < lpSZ.cx Then .right = lpSZ.cx
+  'If .Bottom < lpSZ.cy Then .Bottom = lpSZ.cy
+  'End If
+    
+    'Create a bitmap compatible
+    'with the device associated with the specified device context
+    'with size same as the size of the label control BUT MONOCHROME
+    hBitmap = apiCreateBitmap(.Right, .Bottom, 1, 1, ByVal 0&)
+End With
+      
+    'Select the Bitmap into the specified device context
+    hOrigBitmap = apiSelectObject(hMemDC, hBitmap)
+          
+With lpRect
+     'Set all pixels to BLACK - better safe than sorry
+     'because you just never know!
+      lngRet = apiBitBlt(hMemDC, 0&, 0&, .Right - .Left, _
+             .Bottom - .Top, hMemDC, .Left, .Top, BLACKNESS)  '&H42)
+End With
+
+  
+    ' Get ready to Print!
+    lngTextColor = apiSetTextColor(hMemDC, RGB(255, 255, 255)) 'White
+    lngBackColor = apiSetBkColor(hMemDC, RGB(0, 0, 0)) 'Black
+    ' I gave up on SetTextAlign and went with MoveToEx
+    lngTemp = apiSetTextAlign(hMemDC, TA_UPDATECP)
+    
+    lngRet = apiMoveToEx(hMemDC, lpSZ.cx, lpSZ.cy, ByVal 0&) '(1), y(1), ByVal 0&)
+    lngRet = apiTextOut(hMemDC, 0, 0, strName, Len(strName))
+    
+    'Clean up by deleting our created font.
+    hFont = apiSelectObject(hMemDC, prevfont)
+    apiDeleteObject (hFont)
+    
+    'OK..let's start to build our bitmapinfo structure
+    'Get our existing bitmap information for bitmapinfoheader
+    lngRet = apiGetObject(hBitmap, LenB(MyBitmap), MyBitmap)
+    
+With MyBitmapInfoHeader
+   .biSize = LenB(MyBitmapInfoHeader)
+   .biWidth = MyBitmap.bmWidth
+   .biHeight = MyBitmap.bmHeight
+   .biPlanes = 1
+   .biBitCount = MyBitmap.bmPlanes * MyBitmap.bmBitsPixel
+   .biCompression = 0
+   .biSizeImage = 0
+   .biXPelsPerMeter = 0 'lngXdpi ' * 39.370854
+   .biYPelsPerMeter = 0 'lngXdpi  ' * 39.370854
+   .biClrUsed = 0
+   .biClrImportant = 0
+End With
+      
+    'Set MyBitmapInfoHeader to MyBitmapInfo.bmiHeader
+    MyBitmapInfo.bmiHeader = MyBitmapInfoHeader
+      
+    'Deselect the bitmap out of the dc
+    'Microsoft says the Bitmap MUST NOT be selected into an existing device context
+    lngRet = apiSelectObject(hMemDC, hOrigBitmap)
+   
+    'Since we are converting to a monochrome bitmap we'll just
+    'leave room for 2 colors, Foreground and Background
+    lngNumColors = 2
+    lngAllocMem = lngNumColors * LenB(MyRGBquad)
+    'Will need above to perform total memory requirement calculation
+      
+    'Calculate biSizeImage
+    MyBitmapInfo.bmiHeader.biSizeImage = MyBitmap.bmWidthBytes * MyBitmap.bmHeight
+    
+    'Calculate total memory requirements
+    lngAllocMem = lngAllocMem + MyBitmapInfo.bmiHeader.biSize _
+    + MyBitmapInfo.bmiHeader.biSizeImage
+    
+    'Allocate Calculate total storage required
+    hlngMemory = apiGlobalAlloc(GMEM_MOVEABLE Or GMEM_ZEROINIT, _
+    lngAllocMem) ' + 100)  'Safety First!
+    lngMemoryLock = apiGlobalLock(hlngMemory)
+    
+    'Call DIBits with my allocated memory as pointer for the lbits parameter
+    'Will transfer bits to our memory block
+    'We offset by 48 bytes
+    '40 = MyBitmapInfoHeader structure
+    ' 8 = 2 RGB Quad structures for my color table
+    lngRet = apiGetDIBits(hMemDC, hBitmap, 0, MyBitmapInfoHeader.biHeight, _
+    ByVal lngMemoryLock + 48, MyBitmapInfo, DIB_RGB_COLORS)
+    
+    'Could probably use the original bitmap but I was having a lot
+    'of problems around here so I maintained the 2 bitmaps for debugging
+    'Create monochrome bitmap to receive the GetDIBits above
+    hbitmapmono = apiCreateBitmap(MyBitmapInfoHeader.biWidth, _
+    MyBitmapInfoHeader.biHeight, 1, 1, ByVal 0&)
+        
+    lngRet = apiSetDIBits(hMemDC, hbitmapmono, 0, MyBitmapInfoHeader.biHeight, _
+    ByVal lngMemoryLock + 48, MyBitmapInfo, DIB_RGB_COLORS)
+    
+    'We need to build a bitmapinfo structure in memory
+    '40 bytes bitmapinfo strucure
+    '8 bytes 2 RGB QUAD structures
+    'Followed by actual bitmap data of whatever size is required
+    
+    'copy MyBitmapInfoHeader structure to beginning of memory block
+    Call apiCopyMemory(ByVal lngMemoryLock, MyBitmapInfo.bmiHeader.biSize, 40)
+    'LenB(MyBitmapInfoHeader) = 40. I hardcoded because of trouble - not sure why.
+       
+    'SetDiBits writes into the bitmapinfo color table
+    'We have to set the 2 RGB quads to match the original
+    'Values the user chose for the text control
+    'I'd really rather leave the background transparent
+    'so user could simply specify the control's background color in
+    'Form-> Design view. This would then require an ActiveX control
+    'to redraw the text after the user selects a new background color
+    MyBitmapInfo.bmiColors(1).rgbBlue = UnRGB(ctlCmdButton.ForeColor, 2)
+    MyBitmapInfo.bmiColors(1).rgbGreen = UnRGB(ctlCmdButton.ForeColor, 1)
+    MyBitmapInfo.bmiColors(1).rgbRed = UnRGB(ctlCmdButton.ForeColor, 0)
+    MyBitmapInfo.bmiColors(1).rgbReserved = 0
+    
+    MyBitmapInfo.bmiColors(0).rgbBlue = UnRGB(BGColor, 2)
+    MyBitmapInfo.bmiColors(0).rgbGreen = UnRGB(BGColor, 1)
+    MyBitmapInfo.bmiColors(0).rgbRed = UnRGB(BGColor, 0)
+    MyBitmapInfo.bmiColors(0).rgbReserved = 0
+                       
+    'The most difficult problems cropped up with the CopyMemory sub.
+    'It's much easier in Assembler, or even C, to tell if you are
+    'working with a pointer, or a pointer to a pointer.
+    'ByRef...ByVal I'm still learning by trial and error.
+    'copy MyBitmapInfo.bmiColors(0 to 1) structure to memory block + 40
+    Call apiCopyMemory(ByVal lngMemoryLock + 40, MyBitmapInfo.bmiColors(0), 8)
+      
+    'DEBUG Leave in so next girl/guy can check and see if memcopy is working
+    'I miss my Assembly Debugger!
+    'Dim mys(60) as byte
+    'Call apiCopyMemory(mys(0), ByVal lngMemoryLock, 60)
+    
+    ReDim varpicture(lngAllocMem - 1) ' + 10) 'Safety First!
+    Call apiCopyMemory(varpicture(0), ByVal lngMemoryLock, lngAllocMem) ' + 10)
+    
+    'release memory lock
+    lngRet = apiGlobalUnlock(hlngMemory)
+        
+    'release memory block
+    lngRet = apiGlobalFree(hlngMemory)
+    
+    
+    ' Save the Bitmap to a disk file
+    With FileHeader
+      .bfType = &H4D42
+      .bfSize = Len(FileHeader) + Len(MyBitmapInfo) + MyBitmapInfo.bmiHeader.biSize
+      .bfOffBits = Len(FileHeader) + Len(MyBitmapInfo)
+    End With
+ 
+    ' Get next avail file handle
+    Fnum = FreeFile
+ 
+    ' Get the Systems Temp path
+    ' Returns Length of path(num characters in path)
+    lngRet = GetTempPath(PathLen, strPath)
+    ' Chop off NULLS and trailing "\"
+    strPath = Left(strPath, lngRet) & Chr(0)
+    
+    ' Now need a unique Filename
+    ' locked from a previous aborted attemp.
+    ' Needs more work!
+    strPathandFileName = GetUniqueFilename(strPath, "SLC" & Chr(0), "BMP")
+    
+    Open strPathandFileName For Binary As Fnum
+    Put Fnum, , FileHeader
+    Put Fnum, , varpicture
+    Close Fnum
+    
+    
+    'Set newly created controls properties
+    'to match properties the user setup in their label control.
+    'need to match TRANSPARENT background setting in next revision.
+    ctlCmdButton.Picture = strPathandFileName
+    
+    ' add other border/backcolor paramters here
+    'ctlCmdButton.Tag = "Rotated:" & lngRotation & " Degrees"
+    
+    ' If we have Rotated Text let's set the
+    ' Contol's dimensions to display all of
+    ' Rotated Text
+    If lngRotation <> 0 Then
+    With lpRect
+        If .Right * (1440 / lngXdpi) > ctlCmdButton.Width Then _
+        ctlCmdButton.Width = .Right * (1440 / lngXdpi)
+  
+        If .Bottom * (1440 / lngXdpi) > ctlCmdButton.Height Then _
+        ctlCmdButton.Height = .Bottom * (1440 / lngXdpi)
+  End With
+  End If
+    
+   
+    'Normal Function Clean up
+    lngRet = apiDeleteObject(hBitmap)
+    lngRet = apiDeleteObject(hbitmapmono)
+    Set ctlCmdButton = Nothing
+    Set objFormReport = Nothing
+    
+    'Add any other cleanup code here.
+    Call apiDeleteDC(hMemDC)
+    Call apiReleaseDC(Hwnd, hdc)
+    
+    ' Delete Temp file
+    Kill strPathandFileName
+    
+    'Signal Function return OK
+    fCmdButTextPic = True
+    
+ExitHere:
+    'Perform any additional cleanup your code requires
+    
+Exit Function
+
+ErrHandler:
+    'Oh oh, we've been bad..very bad
+    fCmdButTextPic = False
+    Resume ExitHere
+  
+End Function
+
+
+' Here's our Entry point from a Custom Menu Item
+' in Form Design View
+
+Public Function CmdBut()
+
+'Form & Report Cntrol Objects
+Dim ctl As Control
+
+'This object is either a Form or Report
+Dim objFormReport As Object
+       
+Dim MyReport As Boolean
+'False = screen  True = report
+
+Dim strTemp As String
+Dim lngColor As Long
+Dim boolTemp As Boolean
+Dim lngRet As Long
+    '************WARNING**********************************************
+'Do not step through in DEBUG mode until the StepOK LABEL
+'Obviously the desired Screen.ActiveControl assignment would fail!
+
+On Error Resume Next
+    Set ctl = Screen.ActiveControl
+    If ctl Is Nothing Then
+        lngRet = MsgBox("Sorry - you MUST select a Command Button Control!")
+        GoTo ErrHandler
+    End If
+StepOK:
+
+    If Not TypeOf ctl Is CommandButton Then
+        lngRet = MsgBox("Sorry - you MUST select a Command Button Control!")
+        GoTo ErrHandler
+    End If
+
+    Set objFormReport = ctl.Parent
+    If objFormReport Is Nothing Then
+        lngRet = MsgBox("Sorry - you MUST be in Form Design View!")
+        GoTo ErrHandler
+    End If
+
+    'See if we are not in Form Design View
+       If objFormReport.CurrentView <> 0 Then
+        lngRet = MsgBox("Sorry - you MUST be in Form Design View!")
+        GoTo ErrHandler
+        End If
+    
+      
+   ' Check Tag property to see if a Color is specified
+   ' User allowed to place 2 items in Tag
+   ' First is Color then Rotation in Degree
+   ' seperated by ";"
+   'If Len(ctl.Tag & "") = 0 Then
+   ' Use White as Default
+   'lngColor = RGB(255, 255, 255)
+   'Else
+   'strTemp = Left(ctl.Tag, (InStr(1, ctl.Tag, ";") - 1))
+   'lngColor = Val(strTemp)
+   'End If
+   
+   ' Uncomment above if you don't want to use Color Picker
+   ' let's call Color Picker Dialog
+   lngColor = aDialogColor()
+   boolTemp = fCmdButTextPic(ctl, lngColor)
+   
+ErrHandler:
+   
+   Set ctl = Nothing
+
+'This object is either a Form or Report
+Set objFormReport = Nothing
+ End Function
+    
+
+Private Function UnRGB(RGBCol As Long, Position As Integer) As Long
+'Part: 0=Red, 1=Green, 2=Blue
+
+'Can't divide by ZERO!
+    If RGBCol = 0 Then
+    UnRGB = 0
+    Exit Function
+    End If
+
+Select Case Position
+    Case 0
+    UnRGB = RGBCol And &HFF
+
+    Case 1
+    UnRGB = (RGBCol And &HFF00)
+    If UnRGB = 0 Then Exit Function
+    UnRGB = UnRGB / 256  '&HFF
+    UnRGB = UnRGB And &HFF
+
+    Case 2
+    UnRGB = (RGBCol And &HFF0000)
+    If UnRGB = 0 Then Exit Function
+    UnRGB = UnRGB / 65536 '&HFFFF
+    UnRGB = UnRGB And &HFF
+
+End Select
+
+End Function
+
+
+
+Private Function GetUniqueFilename(Optional Path As String = "", _
+Optional Prefix As String = "", _
+Optional UseExtension As String = "") _
+As String
+
+' originally Posted by Terry Kreft
+' to: comp.Databases.ms -Access
+' Subject:  Re: Creating Unique filename ??? (Dev code)
+' Date: 01/15/2000
+' Author: Terry Kreft <terry.kreft@mps.co.uk>
+
+' SL Note: Input strings must be NULL terminated.
+' Here it is done by the calling function.
+
+  Dim wUnique As Long
+  Dim lpTempFileName As String
+  Dim lngRet As Long
+  
+  wUnique = 0
+  If Path = "" Then Path = CurDir
+  lpTempFileName = String(MAX_PATH, 0)
+  lngRet = GetTempFileName(Path, Prefix, _
+                            wUnique, lpTempFileName)
+ 
+  lpTempFileName = Left(lpTempFileName, _
+                        InStr(lpTempFileName, Chr(0)) - 1)
+  Call Kill(lpTempFileName)
+  If Len(UseExtension) > 0 Then
+    lpTempFileName = Left(lpTempFileName, Len(lpTempFileName) - 3) & UseExtension
+  End If
+  GetUniqueFilename = lpTempFileName
+End Function
+
+
+Private Function BoundBox(ByRef lpSZ As Size, ByRef lpRect As RECT, ByVal lngRotate As Long) As SizeX2
+
+' *****************************************************
+' I would like to thank Rod Stephen's for Permission to
+' use his Trig Calculations from his book
+' "Custom Controls Library". I also highly reccommend his
+' book "Visual Basic Graphics Programming".
+' *****************************************************
+
+    Dim X(1 To 4) As Single
+    Dim y(1 To 4) As Single
+    Dim xmin As Single
+    Dim xmax As Single
+    Dim ymin As Single
+    Dim ymax As Single
+    Dim stheta As Single
+    Dim ctheta As Single
+    Dim i As Integer
+    Dim tmp As Single
+    Dim bbsz As SizeX2
+            
+        ' Calculate a bounding box for the text.
+        X(1) = 0
+        X(2) = lpSZ.cx
+        X(3) = X(2)
+        X(4) = 0
+        y(1) = 0
+        y(2) = 0
+        y(3) = lpSZ.cy
+        y(4) = y(3)
+    
+        ' Rotate the bounding box.
+        stheta = sIN(Abs(lngRotate) * PI_180)
+        ctheta = Cos(Abs(lngRotate) * PI_180)
+        For i = 2 To 4
+            tmp = X(i) * ctheta + y(i) * stheta
+            y(i) = -X(i) * stheta + y(i) * ctheta
+            X(i) = tmp
+        Next i
+        
+        ' Bound the rotated bounding box.
+        xmin = X(1)
+        xmax = xmin
+        ymin = y(1)
+        ymax = ymin
+        For i = 2 To 4
+            If xmin > X(i) Then xmin = X(i)
+            If xmax < X(i) Then xmax = X(i)
+            If ymin > y(i) Then ymin = y(i)
+            If ymax < y(i) Then ymax = y(i)
+        Next i
+    
+
+        ' Let's set the size our finished Image Control
+        ' to be exactly the  size of the Rotated Text
+    With lpRect
+        .Top = 0
+        .Left = 0
+                
+        ' Horizontal Alignment is only LEFT for this version
+        tmp = .Right / 2 - (xmin + xmax) / 2
+        For i = 1 To 4
+        X(i) = tmp + X(i)
+        Next i
+        
+        ' Vertical Alignment is only Center for this version
+        tmp = .Bottom / 2 - (ymin + ymax) / 2
+        For i = 1 To 4
+        y(i) = tmp + y(i)
+        Next i
+    End With
+       
+       bbsz.cx = X(1)
+       bbsz.cy = y(1)
+       bbsz.widthX = (xmax - xmin) + 1
+       bbsz.widthY = (ymax - ymin) + 1
+   
+   BoundBox = bbsz
+' ******************************
+' END OF ROTATED TEXT TRIG CALCS
+' ******************************
+End Function
+
+
+
+' Original Code by Terry Kreft
+' Modified by Stephen Lebans
+' Contact Stephen@lebans.com
+
+'***********  Code Start  ***********
+Public Function aDialogColor() As Long
+  Dim X As Long, CS As COLORSTRUC, CustColor(16) As Long
+
+  CS.lStructSize = Len(CS)
+  CS.Hwnd = hWndAccessApp
+  CS.flags = CC_SOLIDCOLOR
+  CS.lpCustColors = String$(16 * 4, 0)
+  X = ChooseColor(CS)
+  If X = 0 Then
+    ' ERROR - use Default White
+    'Access Maps Pure White(R255,G255,B255) to its
+    ' standard Grey color. Get around this by
+    ' selecting (R254,G254,B254)
+    aDialogColor = RGB(254, 254, 254) ' White
+    Exit Function
+  Else
+    ' Normal processing
+    If CS.rgbResult = RGB(255, 255, 255) Then
+        aDialogColor = RGB(254, 254, 254)
+    Else
+        aDialogColor = CS.rgbResult
+    End If
+  End If
+End Function
+'***********  Code End   ***********
+
+
+' To call it from your Form with use code like:
+
+' ***Code Start
+'Private Sub CmdChooseBackColor_Click()
+' Pass the TextBox Control to the function
+'Me.textCtl.BackColor = DialogColor(Me.textCtl)
+'End Sub
+' ***Code End

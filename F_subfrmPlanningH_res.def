@@ -1,0 +1,97 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim glngAncho1 As Long, glngAncho As Long
+    Dim glngAlto1 As Long, glngAlto As Long
+    Dim gintColD As Integer, gintColU As Integer
+    Dim gintFilD As Integer, gintFilU As Integer
+    Dim gstrAntTag As String, gstrNum As String
+
+Private Function FocoLbl(strNum As String)
+    Dim strTag As String
+    'Parent.Caption = strNum
+    If Not IsNumeric(Me("lbl" & strNum).Tag) Then Exit Function
+    If CLng(Me("lbl" & strNum).Tag) <= 0 Then Exit Function
+    strTag = Me("lbl" & strNum).Tag
+    If strTag = gstrAntTag Then
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me("lbl" & strNum).Tag, , , "Mod"
+'''        DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me("lbl" & strNum).Tag, , acDialog, "Mod"
+'''        CargarPlanning Parent("cmbMes"), Parent("txtAño"), Me, Parent("cmbGrupo"), True
+    Else
+        Dim i As Integer
+        'For i = g_intC + g_intF To g_intNMax
+        For i = g_intC To g_intNMax
+            If Me("lbl" & Format(i, "000")).Tag = Me("lbl" & strNum).Tag Then
+                Me("lbl" & Format(i, "000")).BorderWidth = 2
+            Else
+                Me("lbl" & Format(i, "000")).BorderWidth = 0
+            End If
+        Next i
+        Parent("lbl").Caption = Me("lbl" & strNum).Caption
+        Parent("lbl").BackColor = Me("lbl" & strNum).BackColor
+        Parent("lbl").Tag = Me("lbl" & strNum).Tag
+        gstrAntTag = strTag
+    End If
+End Function
+Private Function MouseDownBtn(strNum As String)
+    Me("lbl" & strNum).SpecialEffect = 1
+    gstrNum = strNum
+End Function
+Private Function MouseUpBtn(strNum As String)
+    Me("lbl" & strNum).SpecialEffect = 0
+End Function
+
+Private Sub Detalle_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    If glngAncho = 0 Or glngAlto = 0 Then Call Form_Load
+    Dim lngX As Long, lngY As Long, intR As Integer
+    If Button <> 1 Then Exit Sub
+    lngX = X - 2 * TC_CmToPoints 'glngAncho1
+    lngY = y - glngAlto1
+    gintColD = (lngX \ glngAncho) + 1
+    gintFilD = (lngY \ glngAlto) + 1
+    If gintColD > g_intC Or gintColD < 1 Then Exit Sub
+    If gintFilD > g_intF Or gintFilD < 1 Then Exit Sub
+    intR = MsgBox("¿Nueva Ficha el día " & g_Columnas(gintColD) & " en " & g_Filas(gintFilD) & "?", vbQuestion + vbOKCancel)
+    If intR = vbCancel Then Exit Sub
+NuevaFicha:
+    Dim rs2 As Recordset, lngIdFicha As Long
+    Set rs2 = CurrentDb.OpenRecordset("tbFichasCab")
+    rs2.AddNew
+    rs2("EstadoFicha") = 1
+    rs2("FechaReserva") = Date
+    rs2("FechaLlegada") = CDate(g_Columnas(gintColD))
+    rs2("FechaSalida") = rs2("FechaLlegada") + 1
+    rs2("IVAIncluido") = DameValorParam("IVAIncluidoEnFacturasYFichas")
+    rs2("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+    lngIdFicha = rs2("IdFichaCab")
+    rs2.Update
+    If g_Filas(gintFilD) = Nz(DameValorParam("PlanningParcelaSinAsignarTXT"), "Sin H.") Then ' es ficha sin parcela....
+    Else
+        AñadirLineasDetallePredeterminadas lngIdFicha, g_Filas(gintFilD)
+    End If
+    rs2.Close
+'''    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha, , acDialog, "Mod"
+'''    CargarPlanning Parent("cmbMes"), Parent("txtAño"), Me, Parent("cmbGrupo"), True
+    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & lngIdFicha, , , "Mod"
+End Sub
+
+
+Private Sub Form_Activate()
+    PintaBotones Me
+End Sub
+
+Private Sub Form_Load()
+    glngAncho1 = 1.5 * TC_CmToPoints
+    glngAncho = Nz(DameValorParam("PlanningHAnchoCeldas"), 1) * TC_CmToPoints
+    glngAlto = Nz(DameValorParam("PlanningHAltoCeldas"), 0.7) * TC_CmToPoints
+    glngAlto1 = glngAlto
+'    CargarPlanning 2, 2003, Me, 1
+End Sub
+
+Public Function fDobleClic()
+    If Len(gstrNum) > 0 Then DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me("lbl" & gstrNum).Tag, , , "Mod"
+End Function

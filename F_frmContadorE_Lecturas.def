@@ -1,0 +1,18 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim lngIdContadorE As Long
+    lngIdContadorE = Nz(DameValorParam("frmContadoresE_IdContadorE"), 0)
+    If lngIdContadorE <> 0 Then
+        Me.Filter = "IdContadorE = " & lngIdContadorE
+        Me.FilterOn = True
+    Else
+        Me.FilterOn = False
+    End If
+End Sub

@@ -1,0 +1,347 @@
+Option Compare Database
+Option Explicit
+
+Public Function TotalFicha(varFicha As Variant, intBase_IVA_Total As Integer) As Currency
+    'Devuelve el total a pagar de una ficha (lngFicha)
+    'intBase_IVA_Total =1, devuelve Base, 2 devuelve IVA, 3 devuelve Total
+    Dim curTotalBase As Currency, curTotalIVA As Currency
+    Dim lngFicha As Long, rs As Recordset, strSQL As String
+    Dim curLinea As Currency, dat1 As Date, dat2 As Date, intIVAinc As Integer
+    On Error GoTo Error_TotalFicha
+    If IsNull(varFicha) Then
+        TotalFicha = 0
+        Exit Function
+    Else
+        lngFicha = CLng(varFicha)
+    End If
+    strSQL = "SELECT tbFichasDet.PrecioUnitario, tbFichasDet.Cantidad, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, tbFichasDet.IVA"
+    strSQL = strSQL & " FROM tbFichasDet"
+    strSQL = strSQL & " WHERE tbFichasDet.IdFichaCab = " & lngFicha
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    intIVAinc = DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & lngFicha)
+    While Not rs.EOF
+        curLinea = rs("Cantidad") * rs("PrecioUnitario")
+        If Not IsNull(rs("FechaInicio")) Then
+            dat1 = rs("FechaInicio")
+            If IsNull(rs("FechaFin")) Then
+                dat2 = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngFicha), dat1 + 1)
+            Else
+                dat2 = rs("FechaFin")
+            End If
+            curLinea = curLinea * (dat2 - dat1)
+        End If
+        If intIVAinc = True Then
+            curTotalBase = curTotalBase + curLinea / (1 + rs("IVA"))
+            curTotalIVA = curTotalIVA + (curLinea * rs("IVA") / (1 + rs("IVA")))
+        Else
+            curTotalBase = curTotalBase + curLinea
+            curTotalIVA = curTotalIVA + curLinea * rs("IVA")
+        End If
+        rs.MoveNext
+    Wend
+    Select Case intBase_IVA_Total
+        Case 1
+            TotalFicha = Redondea(curTotalBase, 2)
+        Case 2
+            TotalFicha = Redondea(curTotalIVA, 2)
+        Case 3
+            TotalFicha = Redondea(curTotalBase + curTotalIVA, 2)
+    End Select
+Salir_TotalFicha:
+    Exit Function
+Error_TotalFicha:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En Total Ficha"
+    End Select
+    Resume Salir_TotalFicha
+    Resume Next
+End Function
+
+Public Function TotalFichaPagos(lngFicha As Long) As Currency
+    On Error GoTo HandleError
+    'Devuelve el total de pagos de una ficha (lngFicha)
+    Dim curTotal As Currency, lngIdFac As Long
+'    curTotal = Nz(DSum("Cantidad", "tbCajaDet", "Origen = 'E' AND IdFrom = " & lngFicha), 0)
+    curTotal = Nz(DSum("SumaDeCantidad", "qryTotalesPagadoAFichas", "IdFrom = " & lngFicha), 0)
+    lngIdFac = Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & lngFicha), 0)
+    If lngIdFac <> 0 Then
+'        curTotal = curTotal + Nz(DSum("Cantidad", "tbCajaDet", "Origen = 'F' AND IdFrom = " & lngIdFac), 0)
+        curTotal = curTotal + Nz(DSum("SumaDeCantidad", "qryTotalesPagadoAFacturas", "IdFrom = " & lngIdFac), 0)
+    End If
+    TotalFichaPagos = curTotal
+    
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TotalFichaFacturado(lngFicha As Long) As Currency
+    On Error GoTo HandleError
+    'Devuelve el total de pagos de una ficha (lngFicha)
+    Dim curTotal As Currency, lngIdFac As Long, rs As Recordset, strSQL As String
+    lngIdFac = Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & lngFicha), 0)
+    If lngIdFac <> 0 Then
+        curTotal = Nz(DLookup("[TotalBase]+[TotalIVA]", "tbFacturasCab", "IdFactura = " & lngIdFac), 0)
+    End If
+    strSQL = "SELECT tbCajaDet.IdFParcial, tbFacturasCab.TotalBase, tbFacturasCab.TotalIVA" & _
+             " FROM tbCajaDet INNER JOIN tbFacturasCab ON tbCajaDet.IdFParcial = tbFacturasCab.IdFactura" & _
+             " WHERE tbCajaDet.Origen='E' AND tbCajaDet.IdFrom=" & lngFicha
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        curTotal = curTotal + Nz(rs("TotalBase"), 0) + Nz(rs("TotalIVA"), 0)
+        rs.MoveNext
+    Wend
+    TotalFichaFacturado = curTotal
+    
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function TFAdelanto(ByVal lngIdFactura As Long, datFechaTop As Date, Optional intEsIdFicha As Integer = False) As Currency
+    'Devuelve el total de pagos de una ficha (de una factura) antes de una fecha
+    Dim lngIdFicha As Long
+    Dim curTotal As Currency
+    Dim rs As Recordset, strSQL As String
+    On Error GoTo Error_TFAdelanto
+    If intEsIdFicha = True Then
+        lngIdFicha = lngIdFactura
+        lngIdFactura = Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & lngIdFicha), 0)
+    Else
+        lngIdFicha = Nz(DLookup("IdFichaCab", "tbFichasCab", "IdFactura = " & lngIdFactura), 0)
+    End If
+    strSQL = "SELECT tbCajaDet.IdFrom, tbCajaDet.Cantidad"
+    strSQL = strSQL & " FROM tbCajaDet"
+    strSQL = strSQL & " WHERE ((Origen = 'E' AND IdFrom = " & lngIdFicha & ") OR (Origen = 'F' AND IdFrom = " & lngIdFactura & "))"
+    If Nz(DameValorParam("PagosACuentaConFechaTopeSN"), False) = True Then
+        strSQL = strSQL & " AND Fecha <= #" & Format(datFechaTop, "mm/dd/yyyy") & "#"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        curTotal = curTotal + rs("Cantidad")
+        rs.MoveNext
+    Wend
+    TFAdelanto = Redondea(curTotal, 2)
+Salir_TFAdelanto:
+    Exit Function
+Error_TFAdelanto:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En Total Ficha"
+    End Select
+    Resume Salir_TFAdelanto
+End Function
+
+Public Function TFACuentaNTRG(lngIdFactura As Long, datFechaTop As Date, Optional intEsIdFicha As Integer = False, Optional Devuelve_Total_Lista As Integer = 1, Optional intConFechas As Integer = True) As Variant
+    'Devuelve el total de pagos de una ficha (de una factura) antes de una fecha
+    Dim lngFicha As Long
+    Dim curTotal As Currency
+    Dim rs As Recordset, strSQL As String
+    On Error GoTo Error_TFACuentaNTRG
+    Dim strCodFPagoNTRG As String, strListaPagos As String
+    strCodFPagoNTRG = Nz(DameValorParam("TPV_FormaPagoNTRG"), "")
+    If strCodFPagoNTRG = "" Then
+        'MsgBox "Se debe indicar en Parámetros\Aplicación\Tiques la forma de pago correspondiente a NTRG"
+        'Exit Function
+    End If
+    If intEsIdFicha = True Then
+        lngFicha = lngIdFactura
+        lngIdFactura = Nz(DLookup("IdFactura", "tbFichasCab", "IdFichaCab = " & lngFicha), 0)
+    Else
+        lngFicha = Nz(DLookup("IdFichaCab", "tbFichasCab", "IdFactura = " & lngIdFactura), 0)
+    End If
+    'strSQL = "SELECT tbCajaDet.*, tbCajaDet_Concepto.*"
+    'strSQL = strSQL & " FROM tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet=tbCajaDet_Concepto.IdCajaDet"
+    'strSQL = strSQL & " WHERE ((Origen = 'E' AND IdFrom = " & lngFicha & ") OR (Origen = 'F' AND IdFrom = " & lngIdFactura & "))"
+    'strSQL = strSQL & " AND (Fecha <= #" & Format(datFechaTop, "mm/dd/yyyy") & "#"
+    'strSQL = strSQL & " OR CodFPago='" & strCodFPagoNTRG & "')"
+    
+    strSQL = "SELECT tbCajaDet.*, tbCajaDet_Concepto.*, tbFPago.Descripcion AS FormaPago"
+    strSQL = strSQL & " FROM (tbCajaDet LEFT JOIN tbCajaDet_Concepto ON tbCajaDet.IdCajaDet = tbCajaDet_Concepto.IdCajaDet) LEFT JOIN tbFPago ON tbCajaDet.CodFPago = tbFPago.CodFPago"
+    strSQL = strSQL & " WHERE ((Origen = 'E' AND IdFrom = " & lngFicha & ") OR (Origen = 'F' AND IdFrom = " & lngIdFactura & "))"
+    If Nz(DameValorParam("PagosACuentaConFechaTopeSN"), False) = True Then
+        strSQL = strSQL & " AND (Fecha <= #" & Format(datFechaTop, "mm/dd/yyyy") & "#"
+        strSQL = strSQL & " OR tbCajaDet.CodFPago='" & strCodFPagoNTRG & "')"
+    End If
+    strSQL = strSQL & " ORDER BY tbCajaDet.Fecha"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    strListaPagos = ""
+    While Not rs.EOF
+        'strListaPagos = strListaPagos & rs("NombrePersona") & " - " & rs("Concepto") & " - " & LlenaIzqChar(Format(rs("Cantidad"), "#,##0.00"), 10, ".") & vbCrLf
+        strListaPagos = strListaPagos & IIf(intConFechas, Format(rs("Fecha"), "dd/mm/yy") & " - ", "") & rs("FormaPago") & LlenaIzqChar(Format(rs("Cantidad"), "#,##0.00"), 25, ".") & vbCrLf
+        curTotal = curTotal + rs("Cantidad")
+        rs.MoveNext
+    Wend
+    If Devuelve_Total_Lista = 1 Then
+        TFACuentaNTRG = Redondea(curTotal, 2)
+    Else
+        TFACuentaNTRG = strListaPagos
+    End If
+Salir_TFACuentaNTRG:
+    Exit Function
+Error_TFACuentaNTRG:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En Total Ficha"
+    End Select
+    Resume Salir_TFACuentaNTRG
+End Function
+
+Public Function TotalesServicios(lngFicha As Long, Optional intNumFichasN As Integer = True) As String
+    'Devuelve el resumen de totales de desayunos, comidas, etc
+    Dim curTotal As Currency
+    Dim rs As Recordset, strSQL As String, strR As String
+    On Error GoTo Error_TotalesServicios
+    strSQL = "SELECT tbFichasDetServiciosXDia.IdFichaCab, Sum(tbFichasDetServiciosXDia.Desayunos) AS SumaDeDesayunos, Sum(tbFichasDetServiciosXDia.Comidas) AS SumaDeComidas, Sum(tbFichasDetServiciosXDia.Cenas) AS SumaDeCenas, Sum(tbFichasDetServiciosXDia.Picnic) AS SumaDePicnic"
+    strSQL = strSQL & " FROM tbFichasDetServiciosXDia"
+    strSQL = strSQL & " GROUP BY tbFichasDetServiciosXDia.IdFichaCab"
+    strSQL = strSQL & " HAVING (((tbFichasDetServiciosXDia.IdFichaCab)=" & lngFicha & "));"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If intNumFichasN Then strR = strR & "Ficha nº: " & rs("IdFichaCab") & ">>"
+        If rs("SumaDeDesayunos") > 0 Then
+            strR = strR & "Desayunos: " & rs("SumaDeDesayunos") & ", "
+        End If
+        If rs("SumaDePicnic") > 0 Then
+            strR = strR & "Picnic: " & rs("SumaDePicnic") & ", "
+        End If
+        If rs("SumaDeComidas") > 0 Then
+            strR = strR & "Comidas: " & rs("SumaDeComidas") & ", "
+        End If
+        If rs("SumaDeCenas") > 0 Then
+            strR = strR & "Cenas: " & rs("SumaDeCenas") & ", "
+        End If
+        rs.MoveNext
+    Wend
+    TotalesServicios = Nz(RecDerTop(strR, 2, 0), "")
+Salir_TotalesServicios:
+    Exit Function
+Error_TotalesServicios:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En Total Servicios"
+    End Select
+    Resume Salir_TotalesServicios
+
+End Function
+
+Public Sub MarcarPagadaSN(lngIdFactura As Long)
+    On Error GoTo Error_MarcarPagadaSN
+    Dim curPagado As Currency
+    Dim strSQL As String, stSQ As String, rs As Recordset, rsFPago As Recordset
+    strSQL = "SELECT Cantidad, CodFPago"
+    strSQL = strSQL & " FROM tbCajaDet"
+    strSQL = strSQL & " WHERE (tbCajaDet.IdFrom =" & Nz(lngIdFactura, 0) & " AND tbCajaDet.Origen='F')"
+    strSQL = strSQL & " OR (tbCajaDet.IdFParcial=" & Nz(lngIdFactura, 0) & ")"
+    stSQ = "SELECT DISTINCT IdFrom FROM tbFacturasDet"
+    stSQ = stSQ & " WHERE IdFactura = " & Nz(lngIdFactura, 0) & " AND Origen='E'"
+    stSQ = stSQ & " ORDER BY IdFrom"
+    Set rs = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = strSQL & " OR (tbCajaDet.IdFrom =" & rs("IdFrom") & " AND tbCajaDet.Origen='E')"
+        rs.MoveNext
+    Wend
+    'stSQ = "SELECT DISTINCT IdFrom FROM tbFacturasDet"
+    'stSQ = stSQ & " WHERE IdFactura = " & Nz(lngidfactura, 0) & " AND Origen='T'"
+    'stSQ = stSQ & " ORDER BY IdFrom"
+    'Set rs = CurrentDb.OpenRecordset(stSQ, dbOpenSnapshot)
+    'While Not rs.EOF
+    '    strSQL = strSQL & " OR (tbCajaDet.IdFrom =" & rs("IdFrom") & " AND tbCajaDet.Origen='T')"
+    '    rs.MoveNext
+    'Wend
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    Set rsFPago = CurrentDb.OpenRecordset("tbFPago", dbOpenDynaset)
+    While Not rs.EOF
+        rsFPago.FindFirst "CodFPago = '" & rs("CodFPago") & "'"
+        If Not rs.NoMatch Then
+            If Nz(rsFPago("FactorSumaAPagado"), 1) = 0 Then GoTo Siguiente
+        End If
+        curPagado = curPagado + rs("Cantidad")
+Siguiente:
+        rs.MoveNext
+    Wend
+    strSQL = "UPDATE tbFacturasCab SET PagadaSN = "
+    If curPagado >= Nz(DLookup("[TotalBase]+[TotalIVA]", "tbFacturasCab", "IdFactura = " & lngIdFactura), 0) Then
+        strSQL = strSQL & "True"
+    Else
+        strSQL = strSQL & "False"
+    End If
+    strSQL = strSQL & " WHERE IdFactura = " & lngIdFactura
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+Salir_MarcarPagadaSN:
+    Exit Sub
+Error_MarcarPagadaSN:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en MarcarPagadaSN" & vbCrLf & Err.Description
+            Resume Salir_MarcarPagadaSN
+    End Select
+End Sub
+
+
+Public Sub CopiaCabeceraFicha(lngIdFichaCab_Origen As Long, ByRef lngIdFichaDestino As Long)
+    Dim rsO As Recordset, rsD As Recordset, i As Integer
+    Set rsO = CurrentDb.OpenRecordset("SELECT * FROM tbFichasCab WHERE IdFichaCab = " & lngIdFichaCab_Origen, dbOpenSnapshot)
+    If lngIdFichaDestino = -1 Then
+        Set rsD = CurrentDb.OpenRecordset("tbFichasCab")
+        rsD.AddNew
+        rsD("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+        lngIdFichaDestino = rsD("IdFichaCab")
+        rsD("FechaReserva") = Date
+    Else
+        Set rsD = CurrentDb.OpenRecordset("tbFichasCab")
+        rsD.FindFirst "IdFichaCab = " & lngIdFichaDestino
+        If rsD.NoMatch Then
+            MsgBox "No se encontró ficha nº: " & lngIdFichaDestino
+            Exit Sub
+        End If
+        rsD.Edit
+    End If
+    For i = 3 To rsD.Fields.Count - 1
+        Select Case rsD(i).Name
+            Case "IdFactura", "IdAgencia"
+            Case Else
+                rsD(i) = rsO(i)
+        End Select
+    Next i
+    rsD.Update
+End Sub
+
+
+Public Function DimeFP_qRV(strNumFactura As String) As String
+'Revisando la tabla tbauxQryRegistroVentas, devleve en un string las formas de pago de una factura.
+'Para incluir en Excel generada desde listados de IVA
+    On Error GoTo Error_DimeFP_qRV
+    Dim rs As Recordset, strSQL As String, strR As String
+    strSQL = "SELECT Pagado, [Forma de Pago]"
+    strSQL = strSQL & " FROM qryRegistroVentas_Pagado"
+    strSQL = strSQL & " WHERE NumFactura='" & strNumFactura & "'"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        strR = IIf(strR = "", "", ", ") & rs("Forma de Pago") & ": " & Format(rs("Pagado"), "currency")
+        rs.MoveNext
+    Wend
+    DimeFP_qRV = strR
+            
+Salir_DimeFP_qRV:
+    Exit Function
+Error_DimeFP_qRV:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en DimeFP_qRV" & vbCrLf & Err.Description
+            Resume Salir_DimeFP_qRV
+    End Select
+
+End Function

@@ -1,0 +1,43 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub ListadosLineasDetalle_AfterUpdate()
+    If IsNull(Me.ListadosLineasDetalle) Then
+        Me.ListadosLineasDetalle = 10
+    End If
+End Sub
+
+Private Sub ListadosNumCopias_AfterUpdate()
+    If IsNull(Me.ListadosNumCopias) Then
+        Me.ListadosNumCopias = 1
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call ListadosImpresionPor_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub ListadosImpresionPor_AfterUpdate()
+    Dim intAct As Integer
+    Dim ctl As Control
+    If Me.ListadosImpresionPor = 1 Then
+        intAct = False
+    Else
+        intAct = True
+    End If
+    Me.ListadosLetraCN.Enabled = intAct
+    Me.ListadosMargenIzdo.Enabled = intAct
+    Me.ListadosMargenSup.Enabled = intAct
+    Me.ListadosImpresora.Enabled = intAct
+End Sub

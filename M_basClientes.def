@@ -1,0 +1,329 @@
+Option Compare Database
+Option Explicit
+
+Public Sub GrabaCliente(frm As Form, Optional strCodCli As String = "")
+    On Error GoTo Error_GrabaCliente
+   Dim rs As Recordset
+   Dim strDNICliente As String, strNombreCli As String, strApellidosCli As String, dtFechaNacimiento As Variant
+   Dim strTipoDocID As String, strSexoCli As String, dtFechaExpedicion As Date, strTelCli As String, strEmailCli As String
+   Dim strDirCli As String, strLocCli As String, strCPCli As String, strProCli As String, strPaisCli As String
+   Dim intR As Integer, strD As String
+   Dim strMatricula As String
+    strMatricula = "?"
+    Set rs = CurrentDb.OpenRecordset("tbClientes")
+    If frm.Name = "frmFichas" Then
+        strDNICliente = Nz(frm.DNICliente, "-")
+        strNombreCli = Nz(frm.NombreCliente, "")
+        strApellidosCli = Nz(frm.ApellidosCliente, "")
+        If IsNull(frm.FechaNacimiento) Then
+            dtFechaNacimiento = Null
+        Else
+            dtFechaNacimiento = CDate(frm.FechaNacimiento)
+        End If
+        strTipoDocID = frm.TipoDocumento
+        strSexoCli = Nz(frm.SexoCliente, "M")
+        If Not IsDate(frm.FechaExpedicion) Then
+            dtFechaExpedicion = CDate("01/01/2001")
+        Else
+            dtFechaExpedicion = CDate(frm.FechaExpedicion)
+        End If
+        strPaisCli = Nz(frm.PaisCliente, "")
+        strMatricula = Nz(frm.MatriculaVehiculo, "")
+    Else '....frmPartesPolicia
+        strDNICliente = IIf(Len(frm.DocIdEspaña) > 1, frm.DocIdEspaña, frm.DocIdExtranjeros)
+        strNombreCli = Nz(frm.Nombre, "")
+        strApellidosCli = Trim(frm.Apellido1 & " " & frm.Apellido2)
+        strD = CStr(frm.FechaNacimientoAAAA & "/" & frm.FechaNacimientoMM & "/" & frm.FechaNacimientoDD)
+        If Len(strD) = 10 Then
+            dtFechaNacimiento = CDate(strD)
+        End If
+        strTipoDocID = frm.TipoDocId
+        strSexoCli = Nz(frm.Sexo, "M")
+        If Not IsDate(frm.FechaExpedicion) Then
+            dtFechaExpedicion = CDate("01/01/2001")
+        Else
+            dtFechaExpedicion = CDate(frm.FechaExpedicion)
+        End If
+        strPaisCli = Nz(frm.Pais, "")
+    End If
+    strDNICliente = Replace(Replace(strDNICliente, ".", ""), "-", "")
+    rs.FindFirst "NIF = '" & strDNICliente & "'"
+    If rs.NoMatch Then
+        If strCodCli <> "" Then
+            rs.FindFirst "CodCliente = " & ConComillas(strCodCli)
+            If Not rs.NoMatch Then
+                If strCodCli = "00000" Then
+                    rs.AddNew
+                    rs("CodCliente") = Format(CLng(DMax("CodCliente", "tbClientes")) + 1, "00000")
+                    GoTo Grabar
+                Else
+                    intR = MsgBox("¿Modificar NIF de " & rs("NombreCli") & " " & rs("ApellidosCli") & " de " & rs("NIF") & " a " & strDNICliente & "?", vbQuestion + vbOKCancel)
+                End If
+                If intR = vbCancel Then
+                    intR = MsgBox("¿Añadir Ficha de Cliente " & strNombreCli & " " & strApellidosCli & " NIF: " & strDNICliente & "?", vbQuestion + vbOKCancel)
+                    If intR = vbCancel Then Exit Sub
+                    rs.AddNew
+                    rs("CodCliente") = Format(CLng(DMax("CodCliente", "tbClientes")) + 1, "00000")
+                    GoTo Grabar
+                End If
+                rs.Edit
+                GoTo Grabar
+            End If
+        Else
+            rs.AddNew
+            rs("CodCliente") = Format(CLng(Nz(DMax("CodCliente", "tbClientes"), 0)) + 1, "00000")
+            GoTo Grabar
+        End If
+    Else
+        rs.Edit
+    End If
+Grabar:
+    rs("NIF") = strDNICliente
+    rs("NombreCli") = strNombreCli
+    rs("ApellidosCli") = strApellidosCli
+'    rs("Contacto") = Me![Contacto]
+    If Nz(frm.DireccionCliente, "") <> "" Then rs("Direccion") = frm.DireccionCliente
+    If Nz(frm.LocalidadCliente, "") <> "" Then rs("Ciudad") = frm.LocalidadCliente
+    If Nz(frm.ProvinciaCliente, "") <> "" Then rs("EdoOProv") = frm.ProvinciaCliente
+    If Nz(frm.CPCliente, "") <> "" Then rs("CodPostal") = frm.CPCliente
+    If Nz(strPaisCli, "") <> "" Then rs("Pais") = strPaisCli
+    If Nz(frm.TelefonoCliente, "") <> "" Then rs("Telefono") = frm.TelefonoCliente
+    If Nz(frm.TelefonoCliente, "") <> "" Then rs("TelefonoSoloNum") = SoloNum(Nz(frm.TelefonoCliente, ""))
+    'rs("MatriculaVehiculo") = Me![MatriculaVehiculo]
+    'rs("ModeloVehiculo") = Me![ModeloVehiculo]
+    If Nz(dtFechaNacimiento, "") <> "" Then rs("FechaNacimiento") = dtFechaNacimiento
+    If Nz(frm.EMail, "") <> "" Then rs("EMail") = frm.EMail
+    If Nz(strTipoDocID, "") <> "" Then rs("TipoDocumento") = strTipoDocID
+    If Nz(strSexoCli, "") <> "" Then rs("SexoCliente") = strSexoCli
+    If Nz(dtFechaExpedicion, "") <> "" Then rs("FechaExpedicion") = dtFechaExpedicion
+    If strMatricula <> "?" Then rs("MatriculaVehiculo") = strMatricula
+    rs.Update
+    If frm.Name = "frmFichas" Then
+        If strDNICliente <> Nz(frm.DNICliente, "-") Then
+            If Len(strDNICliente) > 1 Then frm.DNICliente = strDNICliente
+        End If
+    End If
+    'If frm.EstadoFicha = 2 Then
+    '    GenerarPartePolicia Me.IdFichaCab
+    '    If Me.txtAdultos = 0 Then
+    '        MsgBox "Hay que indicar el número de personas en la ficha", , "INDICAR PERSSONAS!!"
+    '    End If
+    'End If
+Salir_GrabaCliente:
+    Exit Sub
+Error_GrabaCliente:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en GrabaCliente" & vbCrLf & Err.Description
+            Resume Salir_GrabaCliente
+    End Select
+End Sub
+
+
+Public Function DimeCabeceraClienteFicha(lngIdFichaCab As Long, Optional intEmpresaSN As Integer = 8, Optional intNIF As Integer = True, Optional intTelefono As Integer = False, Optional intEmail As Integer = False) As String
+    On Error GoTo Error_DimeCabeceraClienteFicha
+    Dim rs As Recordset, strSQL As String, lngIdCli As Long, strR As String
+    If intEmpresaSN = 8 Then intEmpresaSN = Nz(DameValorParam("frmPreFactura_casEmpresa"), True)
+    If intEmpresaSN = True Then lngIdCli = Nz(DLookup("IdAgencia", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    If lngIdCli = 0 Then
+        Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFichasCab WHERE IdFichaCab = " & lngIdFichaCab, dbOpenSnapshot)
+        If Not rs.EOF Then
+            strR = rs("NombreCliente") & " " & rs("ApellidosCliente") & vbCrLf
+            If Nz(rs("DireccionCliente"), "") <> "" Then strR = strR & rs("DireccionCliente") & vbCrLf
+            If Nz(rs("LocalidadCliente"), "") <> "" Then strR = strR & Trim(rs("CPCliente") & " " & rs("LocalidadCliente")) & vbCrLf
+            If Nz(rs("ProvinciaCliente"), "") & Nz(rs("PaisCliente"), "") <> "" Then strR = strR & Trim(rs("ProvinciaCliente") & " " & rs("PaisCliente")) & vbCrLf
+            If intNIF Then strR = strR & "NIF: " & rs("DNICliente") & vbCrLf
+            If intTelefono Then strR = strR & "TLF: " & rs("TelefonoCliente") & vbCrLf
+            If intEmail Then strR = strR & "Email: " & rs("Email") & vbCrLf
+        Else
+            strR = "Registro de ficha de estancia no encontrado"
+        End If
+    Else
+        Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbClientes WHERE IdCliente = " & lngIdCli, dbOpenSnapshot)
+        If Not rs.EOF Then
+            strR = rs("NombreCli") & " " & rs("ApellidosCli") & vbCrLf
+            strR = strR & rs("Direccion") & vbCrLf
+            strR = strR & Trim(rs("CodPostal") & " " & rs("Ciudad")) & vbCrLf
+            strR = strR & Trim(rs("EdoOProv") & " " & rs("Pais")) & vbCrLf
+            strR = strR & "NIF: " & rs("NIF")
+        Else
+            strR = "Registro de cliente no encontrado"
+        End If
+    End If
+    DimeCabeceraClienteFicha = strR
+Salir_DimeCabeceraClienteFicha:
+    Exit Function
+Error_DimeCabeceraClienteFicha:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en DimeCabeceraClienteFicha" & vbCrLf & Err.Description
+            Resume Salir_DimeCabeceraClienteFicha
+    End Select
+
+End Function
+
+Public Sub CorrigeDNIs()
+    On Error GoTo Error_CorrigeDNIs
+    Dim rs As Recordset, strSQL As String, strDNInew As String, strDNIold As String
+    Dim f As Long, strF As String, OK As Long
+    Dim y As Long, z As Long, strFile As String, i As Integer
+    Dim strCodClienteOld As String, strCodClienteNew As String
+    Set rs = CurrentDb.OpenRecordset("tbClientes", dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    strFile = DirectorioDe(CurrentDb.Name) & "Clientes_Repetidos.txt"
+    While Dir(strFile) <> ""
+        i = i + 1
+        strFile = DirectorioDe(CurrentDb.Name) & "Clientes_Repetidos" & i & ".txt"
+    Wend
+    Open strFile For Output As #1
+    CurrentDb.Execute "UPDATE tbClientes SET Marcar = False", dbFailOnError
+    While Not rs.EOF
+        DoEvents
+        strDNInew = SoloNum(Nz(rs("NIF"), ""), True)
+        If strDNInew = "" Then GoTo Segi
+        If strDNInew <> Nz(rs("NIF"), "") Then
+            strDNIold = rs("NIF")
+            If Not IsNull(DLookup("IdCliente", "tbClientes", "NIF = " & ConComillas(strDNInew))) Then
+                f = f + 1
+                'strF = strF & strF & strDNInew & "<-->" & strDNIold & vbCrLf
+                Print #1, strDNInew & "<-->" & strDNIold
+                strSQL = "UPDATE tbClientes SET Marcar = True"
+                strSQL = strSQL & " WHERE NIF = " & ConComillas(strDNIold)
+            Else
+                strSQL = "UPDATE tbClientes SET NIF = " & ConComillas(strDNInew)
+                strSQL = strSQL & " WHERE NIF = " & ConComillas(strDNIold)
+                CurrentDb.Execute strSQL, dbFailOnError
+                OK = OK + 1
+            End If
+            strSQL = "UPDATE tbFichasCab SET DNICliente = " & ConComillas(strDNInew)
+            strSQL = strSQL & " WHERE DNICliente = " & ConComillas(strDNIold)
+            CurrentDb.Execute strSQL, dbFailOnError
+            strCodClienteOld = DLookup("CodCliente", "tbClientes", "NIF = " & ConComillas(strDNIold))
+            strCodClienteNew = DLookup("CodCliente", "tbClientes", "NIF = " & ConComillas(strDNInew))
+            strSQL = "UPDATE tbFacturasCab SET NIF = " & ConComillas(strDNInew)
+            strSQL = strSQL & ", CodCliente =  " & ConComillas(strCodClienteNew)
+            strSQL = strSQL & " WHERE CodCliente = " & ConComillas(strCodClienteOld)
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+Segi:
+        rs.MoveNext
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Revisando Clientes: " & y & "/" & z & " - " & OK & " - " & f
+    Wend
+    MsgBox "Se modificaron: " & OK & " NIF en registros de Clientes de un total de " & z & " registros" & vbCrLf _
+             & f & " fallos" & vbCrLf & strF
+    Print #1, "Se modificaron: " & OK & " NIF en registros de Clientes de un total de " & z & " registros" & vbCrLf _
+             & f & " fallos" & vbCrLf & strF
+                
+Salir_CorrigeDNIs:
+    Close
+    OpenFile strFile
+    Exit Sub
+Error_CorrigeDNIs:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en CorrigeDNIs" & vbCrLf & Err.Description
+            Resume Salir_CorrigeDNIs
+    End Select
+
+End Sub
+
+Public Sub RegistrarCliente_Parcela(lngIdFichaDet As Long, Optional strMDB As String = "")
+    On Error GoTo Error_RegistrarCliente_Parcela
+    Dim strSQL As String, rs As Recordset, rsCliPar As Recordset, db As Database
+    'strSQL = "SELECT tbClientes.IdCliente, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, tbFichasDet.Parcela"
+    'strSQL = strSQL & " FROM (tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) INNER JOIN tbClientes ON tbFichasCab.DNICliente = tbClientes.NIF"
+    'strSQL = strSQL & " WHERE tbFichasDet.IdFichaDet=" & lngIdFichaDet
+    'Incluyendo resgistros de tbPartesPolicia.....
+    strSQL = "SELECT IIf(IsNull([tbClientes_2].[IdCliente]),IIf(IsNull([tbClientes_1].[IdCliente]),[tbClientes].[IdCliente],[tbclientes_1].[IdCliente]),[tbClientes_2].[IdCliente]) AS IDCLI, tbClientes.IdCliente, tbClientes_1.IdCliente, tbClientes_2.IdCliente, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, tbFichasDet.Parcela, tbClientes.NombreCli, tbClientes_1.NombreCli"
+    strSQL = strSQL & " FROM ((((tbFichasCab INNER JOIN tbClientes ON tbFichasCab.DNICliente = tbClientes.NIF) LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) LEFT JOIN tbPartesPolicia ON tbFichasCab.IdFichaCab = tbPartesPolicia.IdFichaCab) LEFT JOIN tbClientes AS tbClientes_1 ON tbPartesPolicia.DocIdEspaña = tbClientes_1.NIF) LEFT JOIN tbClientes AS tbClientes_2 ON tbPartesPolicia.DocIdExtranjeros = tbClientes_2.NIF"
+    strSQL = strSQL & " WHERE tbFichasDet.IdFichaDet=" & lngIdFichaDet
+
+    
+    If strMDB = "" Then
+        Set db = CurrentDb
+    Else
+        Set db = OpenDatabase(strMDB)
+    End If
+    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rs.EOF Then Exit Sub
+    If Nz(rs("Parcela"), "") = "" Then Exit Sub
+    If IsNull(rs("FechaInicio")) Or IsNull(rs("FechaFin")) Then Exit Sub
+    While Not rs.EOF
+        strSQL = "INSERT INTO tbClientesParcelasHistorial (IdCliente, NombreParcela, Desde, Hasta)"
+        strSQL = strSQL & " SELECT " & rs("IDCLI") & " as idcli, '" & rs("Parcela") & "' as parcela"
+        strSQL = strSQL & ", " & CLng(rs("FechaInicio")) & " as desde"
+        strSQL = strSQL & ", " & CLng(rs("FechaFin")) & " as hasta"
+        CurrentDb.Execute strSQL
+        rs.MoveNext
+    Wend
+        'strSQL = "SELECT * FROM tbClientesParcelasHistorial"
+        'strSQL = strSQL & " WHERE IdCliente = " & rs("IDCLI")
+        'strSQL = strSQL & " AND NombreParcela = '" & rs("Parcela") & "'"
+        'strSQL = strSQL & " AND Desde = " & CLng(rs("FechaInicio"))
+        'strSQL = strSQL & " AND Hasta = " & CLng(rs("FechaFin"))
+        'Set rsCliPar = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+        'If Not rsCliPar.EOF Then Exit Sub
+        'rsCliPar.AddNew
+        'rsCliPar("IdCliente") = rs("IdCliente")
+        'rsCliPar("NombreParcela") = rs("Parcela")
+        'rsCliPar("Desde") = rs("FechaInicio")
+        'rsCliPar("Hasta") = rs("FechaFin")
+        'rsCliPar.Update
+Salir_RegistrarCliente_Parcela:
+    Exit Sub
+Error_RegistrarCliente_Parcela:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en RegistrarCliente_Parcela" & vbCrLf & Err.Description
+            Resume Salir_RegistrarCliente_Parcela
+    End Select
+
+End Sub
+
+Public Sub RegistrarClienteParcelasDeFicha(lngIdFichaCab As Long, Optional strMDB As String = "")
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT IdFichaDet FROM tbFichasDet"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+    strSQL = strSQL & " AND IsNull(Parcela )=False"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        RegistrarCliente_Parcela rs("IdFichaDet"), strMDB
+        rs.MoveNext
+    Wend
+End Sub
+
+Public Function RegistrarClientesParcela_toda_una_MDB()
+    On Error GoTo Error_RegistrarClientesParcela_toda_una_MDB
+    Dim strSQL As String, strMDB As String, db As Database, rs As Recordset, y As Long, z As Long
+    strMDB = SaveFileNameDlg("Indicar Fichero de Base de datos", "*dat*.mdb", "")
+    If strMDB = "" Then Exit Function
+    Set db = OpenDatabase(strMDB)
+    strSQL = "SELECT IdFichaCab FROM tbFichasCab WHERE EstadoFicha>2"
+    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        RegistrarClienteParcelasDeFicha rs("IdFichaCab"), db.Name
+        y = y + 1
+        SysCmd acSysCmdSetStatus, y & "/" & z
+        rs.MoveNext
+    Wend
+    MsgBox "OK: " & y & "/" & z
+    SysCmd acSysCmdClearStatus
+Salir_RegistrarClientesParcela_toda_una_MDB:
+    Exit Function
+Error_RegistrarClientesParcela_toda_una_MDB:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en RegistrarClientesParcela_toda_una_MDB" & vbCrLf & Err.Description
+            Resume Salir_RegistrarClientesParcela_toda_una_MDB
+    End Select
+End Function

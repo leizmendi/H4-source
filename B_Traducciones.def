@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" standalone="yes"?>
+<CommandBar name="Traducciones">
+  <AdaptiveMenu value="false"/>
+  <Context value=""/>
+  <Description value="Menú emergente Traducciones"/>
+  <Enabled value="true"/>
+  <Position value="5"/>
+  <Protection value="22"/>
+  <RowIndex value="-1"/>
+  <Type value="2"/>
+  <Visible value="false"/>
+  <Controls>
+    <Control id="1">
+      <BeginGroup value="false"/>
+      <BuiltIn value="false"/>
+      <Caption value="Traducciones"/>
+      <DescriptionText value=""/>
+      <Enabled value="true"/>
+      <HelpContextId value="0"/>
+      <HelpFile value=""/>
+      <Id value="1"/>
+      <Index value="1"/>
+      <Parameter value=""/>
+      <Priority value="3"/>
+      <Tag value="::{3A24BC9A-86C6-4E00-BD68-CF34A1FF3F5A}::{6CE5DF2E-7A42-40AE-9324-23166045009C}"/>
+      <TooltipText value="Traducciones"/>
+      <Type value="1"/>
+      <Visible value="true"/>
+      <BuiltInFace value="true"/>
+      <Style value="2"/>
+      <ShortcutText value=""/>
+      <HyperlinkType value="0"/>
+      <OnAction value="=VerTraducciones()"/>
+      <FaceId value="1"/>
+    </Control>
+  </Controls>
+</CommandBar>

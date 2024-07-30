@@ -1,0 +1,44 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim glngIdSD As Long, glngIdTemporadaNombre As Long
+    Dim gfrm As Form
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Me.IdSD = glngIdSD 'Forms("frmPreciosSDPorTemporadas")("SubfrmPreciosSD").Form("IdSD")
+    Me.IdTemporadaNombre = glngIdTemporadaNombre 'Forms("frmPreciosSDPorTemporadas")("SubfrmPreciosSD").Form("IdTemporadaNombre")
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim intAltDown As Integer
+    On Error Resume Next
+    intAltDown = (Shift And acAltMask) > 0
+    If intAltDown Then
+        If KeyCode = vbKeyS Then
+            DoCmd.Close
+        ElseIf KeyCode = vbKeyO Then
+            DoCmd.RunCommand acCmdDeleteRecord
+        End If
+    End If
+
+End Sub
+
+Private Sub Form_Load()
+    Me.DesdeDias.SetFocus
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), Me.Caption)
+    glngIdSD = Nz(DimeXML(strXML, "IdSD"), 0)
+    glngIdTemporadaNombre = Nz(DimeXML(strXML, "IdTemporadaNombre"), 0)
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    On Error Resume Next
+    'Forms("frmPreciosSDPorTemporadas")("SubfrmPreciosSD").Requery
+End Sub

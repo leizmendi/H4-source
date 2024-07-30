@@ -1,0 +1,647 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+    Dim glngIdFichaCab As Long, gintVentaServicio As Integer
+    Dim gShift As Integer, gButton As Integer
+
+Private Sub btnAddSD_Click()
+    On Error GoTo HandleError
+    If Me.lstServicios.ListIndex = -1 Then Exit Sub
+    CurrentDb.Execute "UPDATE qryauxID_SN SET cant=cant+1 WHERE ID = " & Me.lstServicios, dbFailOnError
+    Me.lstServicios.Requery
+    PonTotales
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnDelSD_Click()
+    On Error GoTo HandleError
+    If Me.lstServicios.ListIndex = -1 Then Exit Sub
+    CurrentDb.Execute "UPDATE qryauxID_SN SET cant=cant-1 WHERE ID = " & Me.lstServicios, dbFailOnError
+    Me.lstServicios.Requery
+    PonTotales
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnOK_Click()
+    On Error GoTo Error_btnOK_Click
+    Dim i As Integer, strSQL As String
+    Dim rs As Recordset, rsSD As Recordset, rsDt As Recordset, frm As Form, curPU As Currency
+    Dim dtF1 As Date, dtF2 As Date, intEsSD As Integer, intNoEsPrecioDia As Integer, intR As Integer
+    Dim intSinForm As Integer
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM auxID_SN", dbOpenSnapshot)
+    Set rsSD = CurrentDb.OpenRecordset("tbServiciosdiarios", dbOpenSnapshot)
+    If IsOpenForm("frmFichas") And glngIdFichaCab > 0 Then
+        Set frm = Forms("frmFichas")
+    ElseIf gintVentaServicio Then
+        Dim cFC As cFichaCab
+        Set cFC = New cFichaCab
+        cFC.AddNew
+        glngIdFichaCab = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+        cFC.IdFichaCab = glngIdFichaCab
+        cFC.IVAIncluido = DameValorParam("IVAIncluidoEnFacturasYFichas")
+        cFC.FechaReserva = Date
+        cFC.FechaLlegada = Date
+        cFC.FechaSalida = Date
+        cFC.ApellidosCliente = "VENTA SERVICIO"
+        cFC.EstadoFicha = 2
+        cFC.Update
+        intSinForm = True
+    Else
+        GoTo Salir
+    End If
+    Set rsDt = CurrentDb.OpenRecordset("SELECT * FROM tbFichasDet WHERE IdFichaCab = " & glngIdFichaCab & " ORDER BY IdFichaDet", dbOpenDynaset)
+        
+    While Not rs.EOF
+        rsDt.FindFirst "IdSD = " & rs("ID")
+        If Not rsDt.NoMatch Then
+            If rsDt("Cantidad") <> rs("Cant") Then
+                rsDt.Edit
+                rsDt("Cantidad") = rs("Cant")
+                rsDt.Update
+            End If
+        Else
+            If rs("Cant") <> 0 Then
+                rsSD.FindFirst "IdSD = " & rs("ID")
+                If rsSD.NoMatch Then
+                    MsgBox "No se encontró Servicio Diario on IDSD: " & rs("ID")
+                    GoTo Siguiente
+                End If
+                If intSinForm Then
+                    dtF1 = Date
+                Else
+                    dtF1 = CDate(Nz(frm.txtFechaLlegada, Date))
+                End If
+                dtF2 = dtF1
+Añadir:
+                rsDt.AddNew
+                rsDt("IdFichaCab") = glngIdFichaCab
+                'lngIdFichaDet = rs("IdFichaDet")
+                rsDt("IdSD") = rs("ID")
+                rsDt("Concepto") = rsSD("ServicioDiario")
+                rsDt("IVA") = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & rsSD("TipoIVA")), IVASDporDefecto())
+                If gintVentaServicio Then
+                    intEsSD = False
+                Else
+                    intEsSD = Nz(DLookup("EsSD", "tbGruposDeIngresos", "CodNombreGrupo = " & ConComillas(rsSD("CodGrupoIngresos"))), True)
+                End If
+                If intEsSD = True Then
+                    intNoEsPrecioDia = Nz(DLookup("NoEsPrecioDiario", "tbServiciosDiarios", "IdSD = " & rs("ID")), False)
+                    If intNoEsPrecioDia Then
+                        rsDt("FechaFin") = dtF1
+                    Else
+                        rsDt("FechaInicio") = dtF1
+                    End If
+                Else
+                    rsDt("FechaFin") = IIf(Date < dtF1, dtF1, Date)
+                End If
+                rsDt("IdTipoParcela") = rsSD("IdTipoParcela")
+                If Not intSinForm Then
+                    curPU = DamePrecioSD(rs("ID"), dtF2, frm.IVAIncluido, rsDt("IVA"), Nz(Nz(rsDt("FechaFin"), frm.txtFechaSalida), Date))
+                Else
+                    curPU = DamePrecioSD(rs("ID"), dtF2, True, rsDt("IVA"), Nz(Nz(rsDt("FechaFin"), Date + 1), Date))
+                End If
+                If dtF2 <> dtF1 And IsNull(rsDt("FechaFin")) Then
+                    rsDt("FechaFin") = dtF2
+                End If
+                'If DameValorParam("IVAIncluidoEnPreciosSD") <> Me.IVAIncluido Then
+                '    If Me.IVAIncluido = False Then
+                '        curPU = curPU / (1 + rs("IVA"))
+                '    Else
+                '        curPU = curPU * (1 + rs("IVA"))
+                '    End If
+                'End If
+                curPU = Redondea(curPU, 2)
+                rsDt("PrecioUnitario") = curPU
+                rsDt("Cantidad") = rs("Cant")
+Grabar:
+                rsDt.Update
+                If dtF2 <> dtF1 Then
+                    dtF1 = dtF2
+                    GoTo Añadir
+                End If
+            End If
+        End If
+Siguiente:
+        rs.MoveNext
+    Wend
+    strSQL = "SELECT NP, VPcur, VPlng FROM cfgParam WHERE NP Like 'ListaServicios+*' AND VPbool=True"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        curPU = Round(CCur(Me.txtSubtotal) * (rs("VPcur")), 2)
+        rsDt.FindFirst "IdSD = " & rs("VPlng")
+        If Not rsDt.NoMatch Then
+            intR = MsgBox("Sustituir Suplemento existente: " & rsDt("Concepto") & ", " & Format(rsDt("PrecioUnitario"), "currency") & vbCrLf & _
+                        " por Suplemento: " & Mid(rs("NP"), 16) & ", " & Format(curPU, "currency") & "?", vbYesNo + vbQuestion)
+            If intR = vbYes Then
+                rsDt.Edit
+                rsDt("Cantidad") = 1
+                rsDt("PrecioUnitario") = curPU
+                rsDt.Update
+                GoTo Siguiente2
+            End If
+        End If
+Añadir2:
+        If Not intSinForm Then
+            dtF1 = CDate(Nz(frm.txtFechaLlegada, Date))
+        Else
+            dtF1 = Date
+        End If
+        dtF2 = dtF1
+        rsDt.AddNew
+        rsDt("IdFichaCab") = glngIdFichaCab
+        'lngIdFichaDet = rs("IdFichaDet")
+        rsDt("IdSD") = rs("VPlng")
+        rsSD.FindFirst "IdSD = " & rs("VPlng")
+        If rsSD.NoMatch Then
+            MsgBox "No se encontró Servicio Diario on IDSD: " & rs("VPlng")
+            GoTo Siguiente2
+        End If
+        rsDt("Concepto") = Mid(rs("NP"), 16)
+        rsDt("IVA") = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & rsSD("TipoIVA")), IVASDporDefecto())
+        If gintVentaServicio Then
+            intEsSD = False
+        Else
+            intEsSD = Nz(DLookup("EsSD", "tbGruposDeIngresos", "CodNombreGrupo = " & ConComillas(rsSD("CodGrupoIngresos"))), True)
+        End If
+        If intEsSD = True Then
+            intNoEsPrecioDia = Nz(DLookup("NoEsPrecioDiario", "tbServiciosDiarios", "IdSD = " & rs("VPlng")), False)
+            If intNoEsPrecioDia Then
+                rsDt("FechaFin") = dtF1
+            Else
+                rsDt("FechaInicio") = dtF1
+            End If
+        Else
+            rsDt("FechaFin") = IIf(Date < dtF1, dtF1, Date)
+        End If
+        rsDt("IdTipoParcela") = rsSD("IdTipoParcela")
+        'curPU = DamePrecioSD(rs("VPlng"), dtF2, frm.IVAIncluido, rsDt("IVA"), Nz(Nz(rsDt("FechaFin"), frm.txtFechaSalida), Date))
+        'If dtF2 <> dtF1 And IsNull(rsDt("FechaFin")) Then
+        '    rsDt("FechaFin") = dtF2
+        'End If
+        ''If DameValorParam("IVAIncluidoEnPreciosSD") <> Me.IVAIncluido Then
+        ''    If Me.IVAIncluido = False Then
+        ''        curPU = curPU / (1 + rs("IVA"))
+        ''    Else
+        ''        curPU = curPU * (1 + rs("IVA"))
+        ''    End If
+        ''End If
+        rsDt("PrecioUnitario") = curPU
+        rsDt("Cantidad") = 1
+Grabar2:
+        rsDt.Update
+        If dtF2 <> dtF1 Then
+            dtF1 = dtF2
+            GoTo Añadir2
+        End If
+Siguiente2:
+        rs.MoveNext
+    Wend
+
+Salir:
+    
+    DoCmd.Close acForm, Me.Name
+    If gintVentaServicio Then
+        G_RecalculaTotales glngIdFichaCab
+        AbrirFichaNum glngIdFichaCab
+        'Dim strConcepto As String
+        'For i = 0 To Me.lstServicios.ListCount - 1
+        '    If Me.lstServicios.Column(1, i) <> "-" Then strConcepto = strConcepto & Me.lstServicios.Column(1, i) & " " & Me.lstServicios.Column(2, i) & vbCrLf
+        'Next i
+        'If Len(strConcepto) > 2 Then strConcepto = RecDerTop(strConcepto, 2, 0)
+        '
+        'If fNuevoPago("CC", 0, , , strConcepto, CCur(Me.txtTotal)) = 0 Then Exit Sub
+    End If
+
+Salir_btnOK_Click:
+    Exit Sub
+Error_btnOK_Click:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en btnOK_Click" & vbCrLf & Err.Description
+            Resume Salir_btnOK_Click
+    End Select
+End Sub
+
+Private Sub btnPlusSN_Click()
+    On Error GoTo HandleError
+    If Me.lstPluses.ListIndex = -1 Then Exit Sub
+    CurrentDb.Execute "UPDATE qrycfgParam SET VPbool = Not Nz(VPbool,false) WHERE NP = " & ConComillas(Me.lstPluses), dbFailOnError
+    Me.lstPluses.Requery
+    PonTotales
+    
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Private Sub btnRejilla_Click()
+    Dim strXML As String
+    PonXML strXML, "ObjetoOrigen", "Consulta.qrySD_RejillaDiaria"
+    PonXML strXML, "Titulo", "Rejilla Diaria"
+    DoCmd.OpenForm "frmQRY", , , , , acDialog, strXML
+    'DoCmd.OpenQuery "qrySD_RejillaDiaria"
+    If IsOpenForm("frmQRY") Then
+        DoCmd.Close acForm, "frmQRY"
+        LeeRejilla
+        Call btnCancelar_Click
+    End If
+End Sub
+
+Private Sub btnTeclear_Click()
+    If Me.lstServicios.ListIndex = -1 Then Exit Sub
+    Dim curCant As Currency
+    curCant = Nz(DimeTeclado(2, "Cantidad", Me.lstServicios.Column(1)), -1.2345)
+    If curCant = -1.2345 Then Exit Sub
+    CurrentDb.Execute "UPDATE qryauxID_SN SET cant=" & ComaPunto(curCant) & " WHERE ID = " & Me.lstServicios, dbFailOnError
+    Me.lstServicios.Requery
+    PonTotales
+End Sub
+
+Private Sub btnVistaPrevia_Click()
+    DoCmd.OpenReport "rptListaSD_A5", acViewPreview
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    glngIdFichaCab = Nz(DimeXML(strXML, "IdFichaCab"), 0)
+    gintVentaServicio = glngIdFichaCab = 0 'Nz(DimeXML(strXML, "VentaServicioSN"), "N") = "S"
+    CargarParam Me, Me.Name & "_"
+    CurrentDb.Execute "UPDATE qrycfgParam SET VPbool = False WHERE NP Like 'ListaServicios+*'", dbFailOnError
+    Carga_lstServicios
+    If glngIdFichaCab <> 0 Then
+        Me.Caption = "Servicios en Ficha: " & glngIdFichaCab
+        Me.casCobrar.Visible = False
+    Else
+        Me.Caption = "Servicios auxiliares"
+        Me.casCobrar.Visible = True
+        Me.casCobrar = True
+    End If
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel, False, Me.Name & "_"
+End Sub
+
+Private Sub lstListasSD_AfterUpdate()
+    Carga_lstServicios
+End Sub
+
+Public Sub Carga_lstServicios()
+    On Error GoTo Error_Carga_lstServicios
+    CurrentDb.Execute "DELETE * FROM auxID_SN", dbFailOnError
+    CurrentDb.Execute "DELETE * FROM auxID_SN_Diario", dbFailOnError
+    Dim strLista As String, i As Integer, j As Integer, lngIdSD As Long, strC As String, intO As Integer, _
+        curQ As Currency, strSQL As String, curP As Currency
+    Dim frm As Form, intSinForm As Integer
+    If Me.lstListasSD.ListIndex = -1 Then
+    Else
+        If IsOpenForm("frmFichas") Then
+            Set frm = Forms("frmFichas")
+        Else
+            intSinForm = True
+        End If
+        strLista = Nz(DameValorParam(Me.lstListasSD), "")
+        While j < Len(strLista)
+            j = i + 1
+            If j <= Len(strLista) Then
+                i = InStr(j, strLista, ";")
+                If i > 0 Then
+                    lngIdSD = CLng(Mid(strLista, j, i - j))
+                    strC = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD), "")
+
+                    intO = intO + 1
+                    curQ = Nz(DLookup("Cantidad", "tbFichasDet", "IdFichaCab = " & glngIdFichaCab & " AND IdSD = " & lngIdSD), 0)
+                    curP = Nz(DLookup("PrecioUnitario", "tbFichasDet", "IdFichaCab = " & glngIdFichaCab & " AND IdSD = " & lngIdSD), 0)
+                    If curP = 0 Then
+                        If Not intSinForm Then
+                            curP = DamePrecioSD(lngIdSD, CDate(frm.txtFechaLlegada), frm.IVAIncluido)
+                        Else
+                            curP = DamePrecioSD(lngIdSD, Date, True)
+                        End If
+                    End If
+                    strSQL = "INSERT INTO auxID_SN(Id, Texto, Ord, Cant, Precio) " & _
+                             "SELECT " & lngIdSD & " as ID, " & ConComillas(strC) & " as Texto, " & intO & " as ORD, " & ComaPunto(curQ) & " as Cant, " & ComaPunto(curP) & " as Precio"
+                    CurrentDb.Execute strSQL, dbFailOnError
+                    strSQL = "INSERT INTO auxID_SN_Diario(Id) " & _
+                             "SELECT " & lngIdSD & " as ID"
+                    CurrentDb.Execute strSQL, dbFailOnError
+                    
+                End If
+            End If
+        Wend
+        
+    End If
+    If glngIdFichaCab <> 0 Then
+        Pon_auxID_SN_DiarioDias glngIdFichaCab
+        Me.btnRejilla.Visible = True
+    Else
+        Me.btnRejilla.Visible = False
+    End If
+    Me.lstServicios.Requery
+    PonTotales
+Salir_Carga_lstServicios:
+    Exit Sub
+Error_Carga_lstServicios:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en Carga_lstServicios" & vbCrLf & Err.Description
+            Resume Salir_Carga_lstServicios
+    End Select
+End Sub
+
+Private Sub lstPluses_DblClick(Cancel As Integer)
+    Call btnPlusSN_Click
+End Sub
+
+Private Sub lstServicios_Click()
+    If Me.lstServicios.ListIndex = -1 Then Exit Sub
+    If gButton = 1 Then
+        If gShift And acCtrlMask <> 0 Then
+            Call btnDelSD_Click
+        Else
+            Call btnAddSD_Click
+        End If
+    End If
+End Sub
+
+Private Sub lstServicios_DblClick(Cancel As Integer)
+    Call btnTeclear_Click
+End Sub
+
+Public Sub PonTotales()
+    Me.txtSubtotal = Nz(DSum("[Cant] * [Precio]", "auxID_SN"), 0)
+    Dim curFact As Currency, i As Integer
+    For i = 0 To Me.lstPluses.ListCount - 1
+        If Me.lstPluses.Column(3, i) = "X" Then curFact = curFact + Nz(DameValorParam(Me.lstPluses.ItemData(i)), 0)
+    Next i
+    Me.txtPluses = CCur(Me.txtSubtotal) * curFact
+    Me.txtTotal = Me.txtSubtotal + Me.txtPluses
+            
+End Sub
+
+Private Sub Pon_auxID_SN_DiarioDias(lngIdFichaCab As Long)
+    On Error GoTo Error_Pon_auxID_SN_DiarioDias
+    If lngIdFichaCab = 0 Then Exit Sub
+    Dim rs As Recordset, strSQL As String, dtA As Date, dtZ As Date, i As Integer
+    dtA = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    If dtA = 0 Then
+        MsgBox "La ficha " & lngIdFichaCab & " no tiene asignada la fecha de entrada", vbExclamation
+        Exit Sub
+    End If
+    dtZ = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    If dtZ = 0 Then
+        MsgBox "La ficha " & lngIdFichaCab & " no tiene asignada la fecha de salida", vbExclamation
+        Exit Sub
+    End If
+    If dtZ - dtA > 30 Then
+        MsgBox "Sólo se consideran los 30 primeros días", vbExclamation
+        dtZ = dtA + 30
+    End If
+    strSQL = "SELECT DISTINCT IdSD FROM tbFichasDet INNER JOIN auxID_SN ON tbFichasDet.IdSD = auxID_SN.ID"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFichaCab
+    strSQL = strSQL & " AND Nz(tbFichasDet.Parcela,'')=''" ' las líneas correspondientes a parcelas no se tratan desde la rejilla diaria
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    
+    While Not rs.EOF
+        Pon_auxID_SN_DiarioDias_IdSD rs("IdSD"), lngIdFichaCab, dtA, dtZ
+        rs.MoveNext
+    Wend
+    strSQL = "SELECT auxID_SN.Texto as Concepto"
+    For i = 1 To dtZ - dtA
+        strSQL = strSQL & ", auxID_SN_Diario.Dia" & i & " AS [" & Format(dtA + i - 1, "dd-mmm-") & DiaD(dtA + i - 1) & "]"
+    Next i
+    strSQL = strSQL & " FROM auxID_SN INNER JOIN auxID_SN_Diario ON auxID_SN.Id = auxID_SN_Diario.Id;"
+    CurrentDb.QueryDefs("qrySD_RejillaDiaria").SQL = strSQL
+
+Salir_Pon_auxID_SN_DiarioDias:
+    Exit Sub
+Error_Pon_auxID_SN_DiarioDias:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Pon_auxID_SN_DiarioDias" & vbCrLf & Err.Description
+            Resume Salir_Pon_auxID_SN_DiarioDias
+    End Select
+
+End Sub
+
+Private Sub Pon_auxID_SN_DiarioDias_IdSD(lngIdSD As Long, lngIdFichaCab As Long, dtA As Date, dtZ As Date)
+    On Error GoTo Error_Pon_auxID_SN_DiarioDias_IdSD
+    Dim rs As Recordset, strSQL As String, rsAux As Recordset
+    Dim intDiaN1 As Integer, intDiaN2 As Integer, i As Integer
+    strSQL = "SELECT * FROM tbFichasDet"
+    strSQL = strSQL & " WHERE IdSD = " & lngIdSD & " AND IdFichaCab = " & lngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    Set rsAux = CurrentDb.OpenRecordset("auxID_SN_Diario", dbOpenDynaset)
+    rsAux.FindFirst "ID = " & lngIdSD
+    If rsAux.NoMatch Then
+        rsAux.AddNew
+        rsAux("ID") = lngIdSD
+    Else
+        rsAux.Edit
+    End If
+    
+    While Not rs.EOF
+        If IsNull(rs("FechaInicio")) Then
+            If Nz(rs("FechaFin"), dtA) < dtA Or Nz(rs("FechaFin"), dtA) > dtZ Then GoTo Siguiente
+            rsAux("SD") = False
+            intDiaN1 = Nz(rs("FechaFin"), dtA) - dtA + 1
+            If intDiaN1 < 1 Then intDiaN1 = 1: If intDiaN1 > 30 Then intDiaN1 = 30
+            intDiaN2 = intDiaN1
+        Else
+            If rs("FechaInicio") > dtZ Or Nz(rs("FechaFin"), dtZ) < dtA Then GoTo Siguiente
+            rsAux("SD") = True
+            intDiaN1 = rs("FechaInicio") - dtA + 1
+            intDiaN2 = Nz(rs("FechaFin"), dtZ) - dtA
+            If intDiaN1 < 1 Then intDiaN1 = 1: If intDiaN1 > 30 Then intDiaN1 = 30
+            If intDiaN2 < 1 Then intDiaN2 = 1: If intDiaN2 > 30 Then intDiaN2 = 30
+        End If
+        For i = intDiaN1 To intDiaN2
+            rsAux("Dia" & i) = Nz(rsAux("Dia" & i), 0) + rs("Cantidad")
+        Next i
+Siguiente:
+        rs.MoveNext
+    Wend
+    rsAux.Update
+    
+    
+Salir_Pon_auxID_SN_DiarioDias_IdSD:
+    Exit Sub
+Error_Pon_auxID_SN_DiarioDias_IdSD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Pon_auxID_SN_DiarioDias_IdSD" & vbCrLf & Err.Description
+            Resume Salir_Pon_auxID_SN_DiarioDias_IdSD
+    End Select
+
+End Sub
+
+Private Sub LeeRejilla()
+    On Error GoTo Error_LeeRejilla
+    Dim rs As Recordset, strSQL As String, rsFD As Recordset, strW As String
+    Dim intDiaN1 As Integer, intDiaN2 As Integer, i As Integer, intDias As Integer
+    Dim intAntC As Integer, dtF1 As Date, dtF2 As Date, dtF0 As Date
+    Dim curIVA As Currency, curPU As Currency
+    Dim dtA As Date, dtZ As Date, intIVAinc As Integer, lngIdFichaCab As Long, lngIdSD As Long
+    lngIdFichaCab = glngIdFichaCab
+    Set rs = CurrentDb.OpenRecordset("auxID_SN", dbOpenSnapshot)
+    While Not rs.EOF
+        strSQL = "UPDATE qryauxID_SN SET SN = " & IIf(DimeCantXDias(rs("ID")) > 0, "True", "False")
+        strSQL = strSQL & " WHERE ID = " & rs("ID")
+        CurrentDb.Execute strSQL, dbFailOnError
+        rs.MoveNext
+    Wend
+    dtA = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    If dtA = 0 Then
+        MsgBox "La ficha " & lngIdFichaCab & " no tiene asignada la fecha de entrada", vbExclamation
+        Exit Sub
+    End If
+    dtZ = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    If dtZ = 0 Then
+        MsgBox "La ficha " & lngIdFichaCab & " no tiene asignada la fecha de salida", vbExclamation
+        Exit Sub
+    End If
+    intIVAinc = Nz(DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), True)
+    
+    intDias = dtZ - dtA + 1
+    strSQL = "SELECT auxID_SN.Id"
+    For i = 1 To intDias
+        strSQL = strSQL & ", auxID_SN_Diario.Dia" & i
+    Next i
+    strSQL = strSQL & " FROM auxID_SN INNER JOIN auxID_SN_Diario ON auxID_SN.Id = auxID_SN_Diario.Id"
+    strSQL = strSQL & " WHERE (((auxID_SN.SN)=True));"
+
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rs.EOF
+        If lngIdSD <> 0 Then CurrentDb.Execute "DELETE * FROM tbFichasDet WHERE Cantidad = 0 AND IdSD = " & lngIdSD, dbFailOnError
+        lngIdSD = rs("ID")
+        strW = " WHERE IdFichaCab = " & lngIdFichaCab
+        strW = strW & " AND IdSD = " & lngIdSD
+        strSQL = "UPDATE tbFichasDet SET Cantidad = 0" & strW
+        CurrentDb.Execute strSQL, dbFailOnError
+        Set rsFD = CurrentDb.OpenRecordset("SELECT * FROM tbFichasDet" & strW, dbOpenDynaset)
+        intAntC = 0
+        For i = 1 To intDias
+            If rs(i) <> intAntC Then
+                If intAntC <> 0 Then
+BucleXPrecio:
+                    rsFD.FindFirst "Cantidad = 0"
+                    If rsFD.NoMatch Then
+                        rsFD.AddNew
+                        rsFD("IdFichaCab") = lngIdFichaCab
+                        rsFD("IdSD") = lngIdSD
+                        rsFD("Concepto") = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD), "¿?")
+                        curIVA = DimeIVA(lngIdSD)
+                        rsFD("IVA") = curIVA
+                    Else
+                        curIVA = rsFD("IVA")
+                        rsFD.Edit
+                    End If
+                    dtF2 = dtA + i - 1
+                    dtF0 = dtF1
+                    curPU = DamePrecioSD(lngIdSD, dtF1, intIVAinc, curIVA, dtF2)
+                    rsFD("PrecioUnitario") = curPU
+                    rsFD("Cantidad") = intAntC
+                    rsFD("FechaInicio") = dtF0
+                    If dtF0 <> dtF1 Then
+                        rsFD("FechaFin") = dtF1
+                        rsFD.Update
+                        GoTo BucleXPrecio
+                    Else
+                        rsFD("FechaFin") = IIf(dtF2 < dtZ, dtF2, Null)
+                        rsFD.Update
+                    End If
+                End If
+                intAntC = rs(i)
+                dtF1 = dtA + i - 1
+            End If
+        Next i
+        If intAntC <> 0 Then
+            i = i - 1
+BucleXPrecio2:
+            rsFD.FindFirst "Cantidad = 0"
+            If rsFD.NoMatch Then
+                rsFD.AddNew
+                rsFD("IdFichaCab") = lngIdFichaCab
+                rsFD("IdSD") = lngIdSD
+                rsFD("Concepto") = Nz(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & lngIdSD), "¿?")
+                curIVA = DimeIVA(lngIdSD)
+                rsFD("IVA") = curIVA
+            Else
+                curIVA = rsFD("IVA")
+                rsFD.Edit
+            End If
+            dtF2 = dtA + i - 1
+            dtF0 = dtF1
+            curPU = DamePrecioSD(lngIdSD, dtF1, intIVAinc, curIVA, dtF2)
+            rsFD("PrecioUnitario") = curPU
+            rsFD("Cantidad") = intAntC
+            rsFD("FechaInicio") = dtF0
+            If dtF0 <> dtF1 Then
+                rsFD("FechaFin") = dtF1
+                rsFD.Update
+                GoTo BucleXPrecio2
+            Else
+                rsFD("FechaFin") = IIf(dtF2 < dtZ, dtF2, Null)
+                rsFD.Update
+            End If
+        End If
+        
+Siguiente:
+        rs.MoveNext
+    Wend
+    If lngIdSD <> 0 Then CurrentDb.Execute "DELETE * FROM tbFichasDet WHERE Cantidad = 0 AND IdSD = " & lngIdSD, dbFailOnError
+        
+Salir_LeeRejilla:
+    Exit Sub
+Error_LeeRejilla:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LeeRejilla" & vbCrLf & Err.Description
+            Resume Salir_LeeRejilla
+    End Select
+
+End Sub
+
+Private Function DimeCantXDias(lngId As Long) As Long
+    Dim i As Integer, lngCant As Long
+    Static strL As String
+    If strL = "" Then
+        For i = 1 To 30
+            strL = strL & "Nz([Dia" & i & "],0) " & " + "
+        Next i
+        strL = RecDerTop(strL, 3, 0)
+    End If
+    lngCant = Nz(DLookup(strL, "auxID_SN_Diario", "ID = " & lngId), 0)
+    DimeCantXDias = lngCant
+End Function
+
+Private Function DimeIVA(lngIdSD As Long) As Currency
+    Dim curIVA As Currency
+    curIVA = Nz(DLookup("IVA", "tbTiposIVA", "TipoIVA = " & Nz(DLookup("TipoIVA", "tbServiciosDiarios", "IdSD = " & lngIdSD), -1)), IVASDporDefecto())
+    DimeIVA = curIVA
+End Function
+
+Private Sub lstServicios_MouseDown(Button As Integer, Shift As Integer, X As Single, y As Single)
+    gShift = Shift
+    gButton = Button
+End Sub

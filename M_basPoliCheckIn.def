@@ -1,0 +1,676 @@
+Option Compare Database
+Option Explicit
+
+Public Function PoliCheckIn_GetLast(Optional strURL As String = "", _
+                                    Optional strApiKey As String = "") As String
+    On Error GoTo Error_Get
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim wiResponse As String, strCustomerId As String
+    If strURL = "" Then
+        strURL = Nz(DameValorParam("PoliCheckIn_URL_last"), "")
+        strCustomerId = Nz(DameValorParam("PoliCheckIn_customerId"), "")
+        strURL = Replace(strURL, "{customerId}", strCustomerId)
+    End If
+    If strApiKey = "" Then strApiKey = Nz(DameValorParam("PoliCheckIn_ApiKey"), "")
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Get", strURL, False)       ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Authorization", "ApiKey " & strApiKey)
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send("")
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PoliCheckIn_GetLast = wiResponse
+Salir_Get:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Get:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Get" & vbCrLf & Err.Description
+            Resume Salir_Get
+    End Select
+End Function
+
+Public Function PoliCheckIn_Delete(Optional strURL As String = "", _
+                                    Optional strApiKey As String = "") As String
+    On Error GoTo Error_Delete
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim wiResponse As String, strCustomerId As String
+    If strURL = "" Then
+        strURL = Nz(DameValorParam("PoliCheckIn_URL_last"), "")
+        strCustomerId = Nz(DameValorParam("PoliCheckIn_customerId"), "")
+        strURL = Replace(strURL, "{customerId}", strCustomerId)
+    End If
+    If strApiKey = "" Then strApiKey = Nz(DameValorParam("PoliCheckIn_ApiKey"), "")
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Delete", strURL, False)       ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Authorization", "ApiKey " & strApiKey)
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send("")
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PoliCheckIn_Delete = wiResponse
+Salir_Delete:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Delete:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Delete" & vbCrLf & Err.Description
+            Resume Salir_Delete
+    End Select
+End Function
+
+Public Function Policheckin_GetAll(Optional sMsg As String, _
+                                        Optional bDelete As Boolean = False) As Boolean
+    On Error GoTo HandleError
+    Dim sResponse As String, sUrl As String, sApiKey As String
+    Dim rs As Recordset, i As Integer
+    Set rs = CurrentDb.OpenRecordset("tbPolicheckins", dbOpenDynaset, dbAppendOnly)
+    sResponse = PoliCheckIn_GetLast(sUrl, sApiKey)
+    While sResponse <> ""
+        rs.AddNew
+        rs("CheckIn") = sResponse
+        rs.Update
+        i = i + 1
+        If bDelete Then PoliCheckIn_Delete sUrl, sApiKey
+        sResponse = PoliCheckIn_GetLast(sUrl, sApiKey)
+    Wend
+    sMsg = IIf(i = 1, "Se descargó 1 checkin", "Se descargaron " & i & " checkins")
+    Policheckin_GetAll = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Public Function PoliCheckIn_GetCheckins_Ficha(lngIdFichaCab As Long) As String
+    On Error GoTo Error_Get
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim wiResponse As String, strURL As String, strCustomerId As String, strApiKey As String
+    strURL = Nz(DameValorParam("PoliCheckIn_URL_checkins"), "")
+    strCustomerId = Nz(DameValorParam("PoliCheckIn_customerId"), "")
+    strURL = Replace(strURL, "{customerId}", strCustomerId)
+    strURL = Replace(strURL, "{reservationId}", CStr(lngIdFichaCab))
+    strApiKey = Nz(DameValorParam("PoliCheckIn_ApiKey"), "")
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Get", strURL, False)       ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Authorization", "ApiKey " & strApiKey)
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send("")
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PoliCheckIn_GetCheckins_Ficha = wiResponse
+Salir_Get:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Get:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Get" & vbCrLf & Err.Description
+            Resume Salir_Get
+    End Select
+End Function
+
+
+
+Public Function PoliCheckIn_DimeTipoDoc(intTipoDoc As Integer) As String
+    On Error GoTo HandleError
+    Dim strR As String
+    Select Case intTipoDoc
+        Case 1: strR = "D"
+        Case Else: strR = "P"
+    End Select
+    PoliCheckIn_DimeTipoDoc = strR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function PoliCheckIn_DimeTipoDoc2(strTipoDocID As String) As Integer
+    On Error GoTo HandleError
+    Dim intR As Integer
+    Select Case strTipoDocID
+        Case "D": intR = 1
+        Case "P": intR = 2
+        Case "C": intR = 3
+        Case "I": intR = 4
+        Case "N": intR = 5
+        Case "X": intR = 6
+        Case Else: intR = 7
+    End Select
+    PoliCheckIn_DimeTipoDoc2 = intR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Private Function Post(ByVal strURL As String, strBody As String, vHeaders As Variant) As String
+    On Error GoTo Error_Post
+    Dim oHTTP As WinHttp.WinHttpRequest
+    Dim strResponse As String, i As Integer
+    ' VBAProject References needed: "Microsoft XML"
+    ' wired URL: e.g. https://wired.wubook.net/xrws/
+    ' wired XMLRPC see: http://tdocs.wubook.net/wired/intro.html
+    'Set oHTTP = New xmlHttp
+    'Set oHTTP = New ServerXMLHTTP
+    'Set oHTTP = New WinHttp.WinHttpRequest
+    Set oHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("POST", strURL, False)    ', gwiUserName, gwiPassword)
+    If UBound(vHeaders) > 0 Then
+        For i = 0 To UBound(vHeaders) - 1 Step 2
+            Call oHTTP.setRequestHeader(vHeaders(i), vHeaders(i + 1))
+        Next i
+    End If
+    'Call oHTTP.setRequestHeader("Content-Type", "application/xml")
+    'Call oHTTP.setRequestHeader("User-Agent", "H4 - PMS. Abauntz Software")
+    'oHTTP.Option(9) = 2048
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send(strBody)
+    'Debug.Print "Request:" & vbCrLf & strXMLRPC
+    strResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    Post = strResponse
+    'Debug.Print "Response:" & vbCrLf & wiResponse
+Salir_Post:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Post:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Post" & vbCrLf & Err.Description
+            Resume Salir_Post
+    End Select
+End Function
+'-----------------------------------------------------------
+Public Function DameCheckinURL(lngIdFichaCab As Long, ByRef strBookerUrl As String, ByRef strURL As String) As Integer
+    
+    On Error GoTo HandleError
+    Dim strNombre As String, intPax As Integer, strDateCheckIn As String, strDateCheckOut As String, dt As Date
+    
+    strNombre = Nz(DLookup("[NombreCliente] & ' ' & [ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "?")
+    intPax = Nz(DSum("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & lngIdFichaCab), 0)
+    dt = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    strDateCheckIn = Format(dt, "yyyy-mm-ddT") 'HH:mm:ss.000Z")
+    dt = Nz(DLookup("HoraLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    strDateCheckIn = strDateCheckIn & Format(dt, "HH:mm:ss.000Z")
+    
+    dt = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    strDateCheckOut = Format(dt, "yyyy-mm-dd") & "T12:00:00.000Z"
+    
+    Dim wiResponse As String, strUrlPoliCheckin As String, strCustomerId As String, strApiKey As String, strOrganizationId As String
+    
+    strUrlPoliCheckin = Nz(DameValorParam("PoliCheckIn_URL_remote"), "")
+    strCustomerId = Nz(DameValorParam("PoliCheckIn_customerId"), "")
+    strOrganizationId = Nz(DameValorParam("PoliCheckIn_organizationId"), "")
+    strUrlPoliCheckin = Replace(strUrlPoliCheckin, "{customerId}", strCustomerId)
+    strApiKey = Nz(DameValorParam("PoliCheckIn_ApiKey"), "")
+    
+    Dim strHeaders(3) As String, strBody As String, strResponse As String, oJson As Object
+    strHeaders(0) = "authorization"
+    strHeaders(1) = "ApiKey " & strApiKey
+    strHeaders(2) = "content-type"
+    strHeaders(3) = "application/json"
+    strBody = "{" & vbCrLf & _
+                ConComillas("reservationId") & ": " & ConComillas(CStr(lngIdFichaCab)) & "," & vbCrLf & _
+                ConComillas("organizationId") & ": " & ConComillas(strOrganizationId) & "," & vbCrLf & _
+                ConComillas("name") & ": " & ConComillas(strNombre) & "," & vbCrLf & _
+                ConComillas("checkInDate") & ": " & ConComillas(strDateCheckIn) & "," & vbCrLf & _
+                ConComillas("checkOutDate") & ": " & ConComillas(strDateCheckOut) & "," & vbCrLf & _
+                ConComillas("number") & ": " & intPax & _
+              "}"
+    strResponse = Post(strUrlPoliCheckin, strBody, strHeaders)
+    Set oJson = ParseJson(strResponse)
+    strBookerUrl = oJson("bookerUrl")
+    strURL = oJson("url")
+    DameCheckinURL = True
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function DameCheckinURL_1_2(lngIdFichaCab As Long, int_1_2 As Integer) As String
+    Dim strR As String, str1 As String, str2 As String
+    If g_PoliCheckIn Then
+        If DameCheckinURL(lngIdFichaCab, str1, str2) = True Then
+            strR = IIf(int_1_2 = 1, str1, str2)
+        End If
+    End If
+    DameCheckinURL_1_2 = strR
+End Function
+
+Public Function PoliCheckIn_GetKeys(strUser As String, strPassword As String, customerId As String, apiKey As String, organizationId As String) As Integer
+    On Error GoTo HandleError
+    
+    Dim sCurlCommand As String, sfileOutput As String
+    sfileOutput = "output.json"
+    sCurlCommand = "curl -X POST 'https://policheckin01.azurewebsites.net/api/v1/login' " & _
+                   "-H  'accept: application/json' " & _
+                   "-H  'Content-Type: application/json-patch+json' " & _
+                   "-d '{  \'email\': \'{{user}}\',  \'password\': \'{{password}}\'}' " & _
+                   "-o " & sfileOutput
+    sCurlCommand = Replace(sCurlCommand, "{{user}}", strUser)
+    sCurlCommand = Replace(sCurlCommand, "{{password}}", strPassword)
+    WaitShell Replace(sCurlCommand, "'", """"), vbMaximizedFocus
+    
+    If Dir(sfileOutput) = "" Then GoTo HandleExit
+    Dim sOutput As String
+    sOutput = LeeFichero(sfileOutput)
+    Kill sfileOutput
+    
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim response As String, strURL As String, strToken As String, dtExpiresIn As Date
+'    strURL = Nz(DameValorParam("PoliCheckIn_login"), "http://policheckin01.azurewebsites.net/api/v1/login")
+'    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+'    Call oHTTP.Open("Post", strURL, False)         ', gwiUserName, gwiPassword)
+'    DoCmd.Hourglass True
+'    oHTTP.setRequestHeader "accept", "application/json"
+'    oHTTP.setRequestHeader "Content-Type", "application/json-patch+json"
+'    Dim strBody As String
+'    strBody = "{" & _
+'                "\""email\"": \""" & (strUser) & "\"", " & _
+'                "\""password\"": \""" & (strPassword) & "\""" & _
+'              "}"
+'    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+'    Call oHTTP.Send(ConComillas(strBody))
+'    If oHTTP.status <> 200 Then
+'        MsgBox "Respuesta de " & strURL & vbCrLf & "Status: " & oHTTP.status & vbCrLf & oHTTP.statusText, vbExclamation
+'        PoliCheckIn_GetKeys = False
+'        GoTo HandleExit
+'    End If
+'    response = oHTTP.responseText
+    response = sOutput
+    SysCmd acSysCmdClearStatus
+    Dim oJson As Object
+    Set oJson = ParseJson(response)
+    strToken = oJson("accessToken")
+    dtExpiresIn = CDate(Replace(Left(oJson("expiresIn"), 19), "T", " "))
+    strURL = "http://policheckin03.azurewebsites.net/api/v1/account/customer"
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Get", strURL, False)
+    oHTTP.setRequestHeader "Authorization", "Bearer " & strToken
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send
+    If oHTTP.status <> 200 Then
+        MsgBox "Respuesta de " & strURL & vbCrLf & "Status: " & oHTTP.status & vbCrLf & oHTTP.statusText, vbExclamation
+        PoliCheckIn_GetKeys = False
+        GoTo HandleExit
+    End If
+    response = oHTTP.responseText
+    SysCmd acSysCmdClearStatus
+    Set oJson = ParseJson(response)
+    customerId = oJson("customerId")
+    apiKey = oJson("apiKey")
+    
+    strURL = "http://policheckin03.azurewebsites.net/api/v1/organization/{customerId}"
+    strURL = Replace(strURL, "{customerId}", customerId)
+    Call oHTTP.Open("Get", strURL, False)
+    oHTTP.setRequestHeader "Authorization", "Bearer " & strToken
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send
+    If oHTTP.status <> 200 Then
+        MsgBox "Respuesta de " & strURL & vbCrLf & "Status: " & oHTTP.status & vbCrLf & oHTTP.statusText, vbExclamation
+        PoliCheckIn_GetKeys = False
+        GoTo HandleExit
+    End If
+    response = oHTTP.responseText
+    SysCmd acSysCmdClearStatus
+    Set oJson = ParseJson(response)
+    organizationId = oJson(1)("organizationId")
+    PoliCheckIn_GetKeys = True
+HandleExit:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PoliCheckIn_GetKeys" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+
+Public Function PoliCheckIn_PostParte(lngIdPartePolicia As Long) As Integer
+    On Error GoTo HandleError
+    Dim strUser As String, strPassword As String, customerId As String, organizationId As String, oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim response As String, strURL As String, strToken As String, dtExpiresIn As Date
+    strURL = Nz(DameValorParam("PoliCheckIn_login"), "http://policheckin01.azurewebsites.net/api/v1/login")
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Post", strURL, False)        ', gwiUserName, gwiPassword)
+    DoCmd.Hourglass True
+    oHTTP.setRequestHeader "accept", "application/json"
+    oHTTP.setRequestHeader "Content-Type", "application/json"
+    Dim strBody As String
+    strUser = Nz(DameValorParam("Policheckin_user"), "")
+    strPassword = Nz(DameValorParam("Policheckin_password"), "")
+    strBody = "{" & _
+                """email"": """ & strUser & """, " & _
+                """password"": """ & strPassword & """" & _
+              "}"
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send(strBody)
+    If oHTTP.status <> 200 Then
+        MsgBox "Respuesta de " & strURL & vbCrLf & "Status: " & oHTTP.status & vbCrLf & oHTTP.statusText, vbExclamation
+        PoliCheckIn_PostParte = False
+        GoTo HandleExit
+    End If
+    response = oHTTP.responseText
+    SysCmd acSysCmdClearStatus
+    Dim oJson As Object
+    Set oJson = ParseJson(response)
+    strToken = oJson("accessToken")
+    'dtExpiresIn = CDate(Replace(Left(oJson("expiresIn"), 19), "T", " "))
+    customerId = Nz(DameValorParam("PoliCheckin_CustomerId"), "")
+    If customerId = "" Then
+        MsgBox "Falta CustomerId en Parámetros-Policheckin", vbExclamation
+        PoliCheckIn_PostParte = False
+        GoTo HandleExit
+    End If
+    organizationId = Nz(DameValorParam("PoliCheckin_organizationId"), "")
+    If organizationId = "" Then
+        MsgBox "Falta organizationId en Parámetros-Policheckin", vbExclamation
+        PoliCheckIn_PostParte = False
+        GoTo HandleExit
+    End If
+    
+    strURL = Nz(DameValorParam("PoliCheckIn_PostParte"), "http://policheckin01.azurewebsites.net/api/v2/checkin")
+    Call oHTTP.Open("Post", strURL, False)
+    oHTTP.setRequestHeader "Authorization", "Bearer " & strToken
+    oHTTP.setRequestHeader "accept", "application/json"
+    oHTTP.setRequestHeader "Content-Type", "application/json"
+    Dim vParte As Dictionary, rs As Recordset, checkInId As String
+    Set rs = CurrentDb.OpenRecordset("Select * FROM tbPartesPolicia WHERE IdPartePolicia = " & lngIdPartePolicia, dbOpenSnapshot)
+    If rs.EOF Then
+        MsgBox "No se encuentra Parte Nº: " & lngIdPartePolicia, vbExclamation
+        PoliCheckIn_PostParte = False
+        GoTo HandleExit
+    End If
+    Set vParte = New Dictionary
+    checkInId = DameGUID()
+    vParte.Add "CheckInId", checkInId
+    vParte.Add "CustomerId", customerId
+    vParte.Add "OrganizationId", organizationId
+    vParte.Add "DocumentType", PoliCheckIn_DimeTipoDoc2(rs("TipoDocId"))
+    vParte.Add "DocumentId", Replace(rs("DocIdEspaña") & rs("DocIdExtranjeros"), "-", "")
+    vParte.Add "ExpeditionDate", Format(rs("FechaExpedicion"), "yyyy-mm-dd")
+    vParte.Add "ExpiryDate", Format(DateAdd("y", 10, rs("FechaExpedicion")), "yyyy-mm-dd")
+    vParte.Add "FirstName", rs("Nombre")
+    vParte.Add "LastName1", rs("Apellido1")
+    vParte.Add "LastName2", rs("Apellido2")
+    vParte.Add "BirthDate", rs("FechaNacimientoAAAA") & "-" & rs("FechaNacimientoMM") & "-" & rs("FechaNacimientoDD")
+    vParte.Add "Nacionality", rs("Pais")
+    vParte.Add "Province", rs("ProvinciaCliente")
+    vParte.Add "Sex", rs("Sexo")
+    vParte.Add "CheckInDate", Format(rs("FechaLlegada"), "yyyy-mm-dd 22:00")
+    'vParte.Add "CheckOurDate", Format(rs("FechaLlegada"), "yyyy-mm-dd")
+    'vParte.Add "RawInfo",
+    vParte.Add "CreatedDate", Format(Now_UTC, "yyyy-mm-ddThh:nn:ss")
+    'vParte.Add "UpdatedDate", Format(Now_UTC, "yyyy-mm-ddThh:nn:ss")
+    'vParte.Add "Signature",
+    vParte.Add "PartId", lngIdPartePolicia
+    vParte.Add "ReservationId", rs("IdFichaCab")
+    vParte.Add "IsBooker", True
+    vParte.Add "Deleted", True
+    strBody = ConvertToJson(vParte)
+
+    
+    
+    
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send(strBody)
+    If oHTTP.status <> 200 Then
+        MsgBox "Respuesta de " & strURL & vbCrLf & "Status: " & oHTTP.status & vbCrLf & oHTTP.statusText, vbExclamation
+        PoliCheckIn_PostParte = False
+        GoTo HandleExit
+    End If
+    response = oHTTP.responseText
+    SysCmd acSysCmdClearStatus
+    Set oJson = ParseJson(response)
+    MsgBox response
+    PoliCheckIn_PostParte = True
+HandleExit:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PoliCheckIn_GetKeys" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+End Function
+
+
+
+
+Public Function URLEncode( _
+   ByVal StringVal As String, _
+   Optional SpaceAsPlus As Boolean = False _
+) As String
+  Dim Bytes() As Byte, b As Byte, i As Integer, space As String
+
+  If SpaceAsPlus Then space = "+" Else space = "%20"
+
+  If Len(StringVal) > 0 Then
+    With New ADODB.stream
+      .mode = adModeReadWrite
+      .Type = adTypeText
+      .Charset = "UTF-8"
+      .Open
+      .WriteText StringVal
+      .Position = 0
+      .Type = adTypeBinary
+      .Position = 3 ' skip BOM
+      Bytes = .Read
+    End With
+
+    ReDim result(UBound(Bytes)) As String
+
+    For i = UBound(Bytes) To 0 Step -1
+      b = Bytes(i)
+      Select Case b
+        Case 97 To 122, 65 To 90, 48 To 57, 45, 46, 95, 126
+          result(i) = Chr(b)
+        Case 32
+          result(i) = space
+        Case 0 To 15
+          result(i) = "%0" & Hex(b)
+        Case Else
+          result(i) = "%" & Hex(b)
+      End Select
+    Next i
+
+    URLEncode = Join(result, "")
+  End If
+End Function
+
+
+
+
+Public Sub ArreglaTelefonoClientes()
+    On Error GoTo HandleError
+    Dim rs As Recordset, sTel As String, i As Integer, j As Integer, k As Integer
+    Dim y As Long, z As Long
+    Set rs = CurrentDb.OpenRecordset("tbClientesOV", dbOpenDynaset)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        DoEvents
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Arreglando teléfono Clientes " & y & "/" & z
+        rs.Edit
+        j = 0
+        For i = 1 To 4
+            sTel = Nz(rs("Tel" & i), "")
+            If sTel <> "" Then
+                sTel = Trim(sTel)
+                If sTel Like "[67]*" Then
+                    sTel = Replace(sTel, " ", "")
+                    sTel = "34" & sTel
+                    If Len(sTel) > 11 Then sTel = Left(sTel, 11)
+                    j = j + 1
+                    rs("Telefono" & j) = sTel
+                    k = k + 1
+                    If j = 2 Then Exit For
+                End If
+            End If
+        Next i
+        rs.Update
+        rs.MoveNext
+    Wend
+    MsgBox "Se asignaron " & k & " teléfonos para " & z & " clientes", vbInformation
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Sub ArreglaNombreClientes()
+    On Error GoTo HandleError
+    Dim rs As Recordset, sNombre As String, i As Integer, j As Integer, k As Integer
+    Dim y As Long, z As Long
+    Set rs = CurrentDb.OpenRecordset("tbClientesOV", dbOpenDynaset)
+    If Not rs.EOF Then
+        rs.MoveLast
+        rs.MoveFirst
+    End If
+    z = rs.RecordCount
+    While Not rs.EOF
+        DoEvents
+        y = y + 1
+        SysCmd acSysCmdSetStatus, "Arreglando Nombre Clientes " & y & "/" & z
+        rs.Edit
+        sNombre = Nz(rs("Cliente"), "")
+        If sNombre <> "" Then
+            sNombre = Trim(sNombre)
+            i = InStr(sNombre, " ")
+            If i > 0 Then
+                sNombre = Left(sNombre, i - 1)
+                sNombre = UCase(Left(sNombre, 1)) & LCase(Mid(sNombre, 2))
+                rs("Nombre") = sNombre
+                k = k + 1
+            End If
+        End If
+        rs.Update
+        rs.MoveNext
+    Wend
+    MsgBox "Se asignaron " & k & " nombres para " & z & " clientes", vbInformation
+HandleExit:
+    Exit Sub
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Sub
+
+Public Function EnviadoMensaje(lIdMensaje As Long, lIdCliente As Long) As String
+    Dim lCont As Long, sR As String
+    lCont = DCount("IdEnvio", "tbEnvios", "IdMensaje = " & lIdMensaje & " AND IdCliente = " & lIdCliente)
+    sR = IIf(lCont = 0, "-", CStr(lCont))
+    EnviadoMensaje = sR
+End Function
+
+Public Function GetCheckin(lId As Long) As String
+    On Error GoTo HandleError
+    Dim sCheckIn As String, oCh As Object, sR As String
+    sCheckIn = Nz(DLookup("CheckIn", "tbPolicheckins", "Id = " & lId), "")
+    Set oCh = ParseJson(sCheckIn)
+    sR = oCh("firstName") + " " + oCh("lastName1") + " " + oCh("lastName2") + "."
+    If Nz(oCh("createdDate"), "") <> "" Then sR = sR & " Entrada: " + Format(CDate(Left(oCh("createdDate"), 10) + " " + Mid(oCh("createdDate"), 12, 5)), "dd-mmm-yy hh:nn") + " Pais: " + oCh("nationality")
+    GetCheckin = sR
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function AddCheckinToFicha(lId As Long, lIdFichaCab As Long, bTitularFicha As Boolean, _
+                                  fFicha As Form) As Boolean
+    On Error GoTo HandleError
+    Dim sCheckIn As String, oCh As Object, sR As String, sSQL As String
+    Dim sTipoDoc As String
+    sCheckIn = Nz(DLookup("CheckIn", "tbPolicheckins", "Id = " & lId), "")
+    Set oCh = ParseJson(sCheckIn)
+    sTipoDoc = PoliCheckIn_DimeTipoDoc(oCh("documentType"))
+    If bTitularFicha = True Then
+        If Not fFicha Is Nothing Then
+            fFicha.TipoDocumento = sTipoDoc
+            fFicha.DNICliente = oCh("documentId")
+            fFicha.FechaExpedicion = CDate(Left(oCh("expeditionDate"), 10))
+            fFicha.NombreCliente = oCh("firstName")
+            fFicha.ApellidosCliente = Trim(oCh("lastName1") & " " & oCh("lastName2"))
+            fFicha.PaisCliente = oCh("nationality")
+            fFicha.SexoCliente = oCh("sex")
+            fFicha.FechaNacimiento = CDate(Left(oCh("birthDate"), 10))
+            If fFicha.PaisCliente = "España" Then
+                fFicha.ProvinciaCliente = Nz(BuscaAyuda("PRVI", fFicha.ProvinciaCliente), fFicha.ProvinciaCliente)
+            End If
+        Else
+            sSQL = "UPDATE tbFichasCab SET " & _
+                   "TipoDocumento = " & ConComillas(sTipoDoc, True) & _
+                   ", DNICliente = " & ConComillas(oCh("documentId"), True) & _
+                   ", FechaExpedicion = " & CLng(CDate(Left(oCh("expeditionDate"), 10))) & _
+                   ", NombreCliente = " & ConComillas(oCh("firstName"), True) & _
+                   ", ApellidosCliente = " & ConComillas(Trim(oCh("lastName1") & " " & oCh("lastName2")), True) & _
+                   ", PaisCliente = " & ConComillas(oCh("nationality"), True) & _
+                   ", SexoCliente = " & ConComillas(oCh("sex"), True) & _
+                   ", FechaNacimiento = " & CLng(CDate(Left(oCh("birthDate"), 10)))
+            CurrentDb.Execute sSQL, dbFailOnError
+        End If
+    End If
+    
+    sSQL = "INSERT INTO tbPartesPolicia (IdFichaCab, TipoDocId, DocIdExtranjeros, DocIdEspaña, FechaExpedicion" & _
+           ", Apellido1, Apellido2, Nombre, Sexo, FechaNacimientoAAAA, FechaNacimientoMM, FechaNacimientoDD, Pais, FechaLlegada)" & _
+           "VALUES (" & lIdFichaCab & _
+                    ", " & ConComillas(sTipoDoc, True) & _
+                    ", " & IIf(sTipoDoc = "D", "Null", ConComillas(oCh("documentId"), True)) & _
+                    ", " & IIf(sTipoDoc = "D", ConComillas(oCh("documentId"), True), "Null") & _
+                    ", " & CLng(CDate(Left(oCh("expeditionDate"), 10))) & _
+                    ", " & ConComillas(oCh("lastName1"), True) & _
+                    ", " & ConComillas(oCh("lastName2"), True) & _
+                    ", " & ConComillas(oCh("firstName"), True) & _
+                    ", " & ConComillas(oCh("sex"), True)
+    If oCh("onlyYearOfBirthDate") Then
+        sSQL = sSQL & ", " & ConComillas(Left(oCh("birthDate"), 4), True) & _
+                      ", '01'" & _
+                      ", '01'"
+    Else
+        sSQL = sSQL & ", " & ConComillas(Format(CDate(Left(oCh("birthDate"), 10)), "yyyy"), True) & _
+                      ", " & ConComillas(Format(CDate(Left(oCh("birthDate"), 10)), "mm"), True) & _
+                      ", " & ConComillas(Format(CDate(Left(oCh("birthDate"), 10)), "dd"), True)
+    End If
+    sSQL = sSQL & ", " & ConComillas(oCh("nationality"), True) & _
+                  ", " & CLng(CDate(Left(oCh("checkInDate"), 10))) & ")"
+    CurrentDb.Execute sSQL, dbFailOnError
+    sSQL = "UPDATE tbPolicheckins SET Hecho = True, IdPartePolicia = " & Nz(DMax("IdPartePolicia", "tbPartesPolicia"), -1) & _
+           " WHERE Id = " & lId
+    CurrentDb.Execute sSQL, dbFailOnError
+    AddCheckinToFicha = True
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

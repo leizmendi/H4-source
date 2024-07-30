@@ -1,0 +1,64 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Dim frm As Form
+    On Error Resume Next
+    If Me.lstClientes.ListIndex = -1 Then Exit Sub
+    If Me.OpenArgs = "RTE" Then
+        Set frm = Forms("frmFichasRestaurante")
+    Else
+        Set frm = Forms("frmFichas")
+    End If
+    If frm.AllowEdits = False Then
+        MsgBox "No se pueden modificar los datos de la ficha"
+        Exit Sub
+    End If
+    With frm
+        .[DNICliente] = Me.lstClientes.Column(1)
+        .[NombreCliente] = Me.lstClientes.Column(2)
+        .[ApellidosCliente] = Me.lstClientes.Column(3)
+        .[DireccionCliente] = Me.lstClientes.Column(4)
+        .[LocalidadCliente] = Me.lstClientes.Column(5)
+        .[ProvinciaCliente] = Me.lstClientes.Column(6)
+        .[CPCliente] = Me.lstClientes.Column(7)
+        .[PaisCliente] = Me.lstClientes.Column(8)
+        .[TelefonoCliente] = Me.lstClientes.Column(9)
+        .[MatriculaVehiculo] = Me.lstClientes.Column(10)
+        If Me.OpenArgs <> "RTE" Then
+            .[ModeloVehiculo] = Me.lstClientes.Column(11)
+        End If
+    End With
+    If Len(Me.lstClientes.Column(12)) > 0 Then
+        MsgBox Me.lstClientes.Column(12), , "Notas del Cliente"
+    End If
+    
+    DoCmd.Close
+    
+End Sub
+
+Private Sub btnBuscarCliente_Click()
+    Me.lstClientes.SetFocus
+    DoCmd.OpenForm "frmBuscarCliente", , , , , acDialog
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close
+End Sub
+
+
+Private Sub lstClientes_DblClick(Cancel As Integer)
+    Call btnAceptar_Click
+End Sub

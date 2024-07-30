@@ -1,0 +1,502 @@
+Option Compare Database
+Option Explicit
+
+Public Sub GenerarPartesGobernanta(dtDesde As Date, Optional dtHasta As Date = 0, Optional lngIdGrupoPlaning As Long = 0, Optional intBorrarExistentes As Integer = False, Optional strDNI_ClienteIgnorar As String = "")
+    Dim strSQL As String, rsQRY As Recordset, rsPG As Recordset, dtUlti As Date
+    Dim intDiasSab As Integer, intR As Integer
+    Dim intTraerNotasSN As Integer, dtH As Date, dtI As Date, dt As Date
+    Dim strW As String
+    On Error GoTo Error_GenerarPartesGobernanta
+    If dtHasta = 0 Then dtHasta = dtDesde
+    If dtHasta < dtDesde Then dtHasta = dtDesde
+    strSQL = "SELECT * FROM tbPartesG "
+    strW = " WHERE Fecha >=" & CLng(dtDesde) & " AND Fecha <=" & CLng(dtHasta)
+    strSQL = strSQL & strW
+    Set rsPG = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If Not rsPG.EOF Then
+        'intR = MsgBox("Se borrarán los registros de Parte de Gobernanta del día " & Format(dtDesde, "dd/mm/yy") & " existentes", vbOKCancel + vbExclamation)
+        'If intR = vbCancel Then Exit Sub
+        If intBorrarExistentes Then
+            strSQL = "DELETE * FROM tbPartesG "
+            strSQL = strSQL & strW
+        Else
+            strSQL = "UPDATE tbPartesG SET IdFichaEntra=0, IdFichaOcupa=0, IdFichaSale=0" ', Sabanas=false"
+            strSQL = strSQL & strW
+        End If
+        CurrentDb.Execute strSQL, dbFailOnError
+        strSQL = "UPDATE tbPartesG SET Sabanas=False"
+        strSQL = strSQL & strW
+        strSQL = strSQL & " AND Fecha >=Date()"
+        CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    intDiasSab = Nz(DameValorParam("PartesGDiasCambioSabanas"), 4)
+    
+    strSQL = "SELECT tbFichasDet.IdFichaCab, tbFichasDet.Parcela, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FechaHasta, tbFichasCab.NotasParteG"
+    If lngIdGrupoPlaning = 0 Then
+        strSQL = strSQL & " FROM tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela"
+    Else
+        strSQL = strSQL & " FROM (tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela) LEFT JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    End If
+    strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio)<=#" & Format(dtHasta, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(dtDesde, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null))"
+    strSQL = strSQL & " AND EstadoFicha <> 9"
+    If strDNI_ClienteIgnorar = "" Then strDNI_ClienteIgnorar = Nz(DameValorParam("ParteGobernanta_DNI_ClienteIgnorar"), "")
+    If strDNI_ClienteIgnorar <> "" Then strSQL = strSQL & " AND Nz(DNICliente,'') <> '" & strDNI_ClienteIgnorar & "'"
+    If lngIdGrupoPlaning <> 0 Then
+        strSQL = strSQL & " AND tbGruposPlaning_Parcelas.IdGrupoPlaning = " & lngIdGrupoPlaning
+    End If
+    Set rsQRY = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    intTraerNotasSN = Nz(DameValorParam("PartesG_TraerNotasDeFichaSN"), False)
+    While Not rsQRY.EOF
+        dtI = rsQRY("FechaInicio"): If dtI < dtDesde Then dtI = dtDesde
+        dtH = rsQRY("FechaHasta"): If dtH > dtHasta Then dtH = dtHasta
+        For dt = dtI To dtH
+            rsPG.FindFirst "Fecha = #" & Format(dt, "mm/dd/yyyy") & "# AND PH = " & ConComillas(rsQRY("Parcela"))
+            If rsPG.NoMatch Then
+                rsPG.AddNew
+                rsPG("Fecha") = dt
+                rsPG("PH") = rsQRY("Parcela")
+            Else
+                rsPG.Edit
+            End If
+            If rsQRY("FechaInicio") = dt Then
+                If intTraerNotasSN = True Then
+                    If Nz(InStr(rsPG("Observaciones"), rsQRY("NotasParteG")), 0) = 0 Then
+                        rsPG("Observaciones") = Trim(rsPG("Observaciones") & " " & rsQRY("NotasParteG"))
+                    End If
+                End If
+                If rsPG("IdFichaEntra") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaEntra")
+                    GoTo Graba_y_sique
+                End If
+                If rsPG("IdFichaOcupa") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaOcupa")
+                    GoTo Graba_y_sique
+                End If
+                rsPG("IdFichaEntra") = rsQRY("IdFichaCab")
+            ElseIf rsQRY("FechaHasta") = dt Then
+                If rsPG("IdFichaSale") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaSale")
+                    GoTo Siguiente
+                End If
+                If rsPG("IdFichaOcupa") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaOcupa")
+                    GoTo Siguiente
+                End If
+                rsPG("IdFichaSale") = rsQRY("IdFichaCab")
+    '            rsPG("Sabanas") = True
+            Else
+                If intTraerNotasSN = True Then
+                    If Nz(InStr(rsPG("Observaciones"), rsQRY("NotasParteG")), 0) = 0 Then
+                        rsPG("Observaciones") = Trim(rsPG("Observaciones") & " " & rsQRY("NotasParteG"))
+                    End If
+                End If
+                If rsPG("IdFichaOcupa") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaOcupa")
+                    GoTo Graba_y_sique
+                End If
+                If rsPG("IdFichaEntra") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaEntra")
+                    GoTo Graba_y_sique
+                End If
+                If rsPG("IdFichaSale") <> 0 Then
+                    'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaSale")
+                    GoTo Graba_y_sique
+                End If
+                rsPG("IdFichaOcupa") = rsQRY("IdFichaCab")
+            End If
+    '        dtUlti = Nz(DMax("Fecha", "tbPartesG", "PH = " & ConComillas(rsQRY("Parcela")) & " AND (IdFichaOcupa = " & rsQRY("IdFichaCab") & " OR IdFichaEntra = " & rsQRY("IdFichaCab") & ") AND Sabanas = True AND Fecha < #" & Format(dtDesde, "mm/dd/yyyy") & "#"), Nz(rsQRY("FechaInicio"), 0))
+    '        If dtDesde - dtUlti >= intDiasSab Then
+    '            'dtUlti = Nz(DMax("Fecha", "tbPartesG", "PH = " & ConComillas(rsQRY("Parcela")) & " AND Sabanas = True AND Fecha < #" & Format(dtDesde, "mm/dd/yyyy") & "#"), 0)
+    '            rsPG("Sabanas") = True
+    '        ElseIf rsQRY("FechaHasta") - dtUlti > intDiasSab And dtDesde - dtUlti = rsQRY("FechaHasta") - dtDesde Then
+    '            rsPG("Sabanas") = True
+    '        End If
+    
+Graba_y_sique:
+            rsPG.Update
+        Next dt
+Siguiente:
+        rsQRY.MoveNext
+    Wend
+    
+'SABANAS
+'1º repasa tbPartesG-> i IdFichaEntra y IdFichaSale son iguales-> es IdFichaOcupa (cambios de Temporada)
+    strSQL = "SELECT tbPartesG.*"
+    If lngIdGrupoPlaning = 0 Then
+        strSQL = strSQL & " FROM tbPartesG"
+        strSQL = strSQL & strW
+    Else
+        'strSQL = "UPDATE (tbPartesG INNER JOIN tbParcelas ON tbPartesG.PH = tbParcelas.NombreParcela) INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        'strSQL = strSQL & " SET tbPartesG.Marcar = True"
+        'strSQL = strSQL & strW
+        'strSQL = strSQL & " AND tbGruposPlaning_Parcelas.[IdGrupoPlaning]=" & lngIdGrupoPlaning
+        
+        strSQL = strSQL & " FROM tbPartesG INNER JOIN (tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela) ON tbPartesG.PH = tbParcelas.NombreParcela"
+        strSQL = strSQL & strW
+        strSQL = strSQL & " AND IdGrupoPlaning = " & lngIdGrupoPlaning
+    End If
+    strSQL = strSQL & " ORDER BY tbPartesG.PH, tbPartesG.[Fecha]"
+    Set rsPG = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+'    rsPG.MoveFirst
+    While Not rsPG.EOF
+        If rsPG("IdFichaEntra") = rsPG("IdFichaSale") And rsPG("IdFichaEntra") <> 0 Then
+            strSQL = "UPDATE tbPartesG SET IdFichaOcupa = " & rsPG("IdFichaEntra") & ", IdFichaEntra=0, IdFichaSale = 0"
+            strSQL = strSQL & " WHERE IdParteG = " & rsPG("IdParteG")
+            CurrentDb.Execute strSQL, dbFailOnError
+            'rsPG.Edit
+            'rsPG("IdFichaOcupa") = rsPG("IdFichaEntra")
+            'rsPG("IdFichaEntra") = 0
+            'rsPG("IdFichaSale") = 0
+            'rsPG.Update
+        End If
+        rsPG.MoveNext
+    Wend
+    rsPG.Requery
+    If Not rsPG.BOF Then rsPG.MoveFirst
+    While Not rsPG.EOF
+        If rsPG("IdFichaSale") <> 0 Then
+            strSQL = "UPDATE tbPartesG SET Sabanas = True"
+            strSQL = strSQL & " WHERE IdParteG = " & rsPG("IdParteG")
+            CurrentDb.Execute strSQL, dbFailOnError
+            
+            'rsPG.Edit
+            'rsPG("Sabanas") = True
+            'rsPG.Update
+        ElseIf rsPG("IdFichaOcupa") <> 0 Then
+            dtUlti = Nz(DMax("Fecha", "tbPartesG", "PH = " & ConComillas(rsPG("PH")) & " AND (IdFichaOcupa = " & rsPG("IdFichaOcupa") & " OR IdFichaEntra = " & rsPG("IdFichaOcupa") & ") AND Sabanas = True AND Fecha < #" & Format(rsPG("Fecha"), "mm/dd/yyyy") & "#"), 0)    'Nz(rsQRY("FechaInicio"), 0))
+            If dtUlti = 0 Then dtUlti = Nz(DMin("FechaInicio", "tbFichasDet", "IdFichaCab = " & rsPG("IdFichaOcupa") & " AND Parcela = '" & rsPG("PH") & "'"), 0)
+            If dtUlti = 0 Then dtUlti = Nz(DLookup("FechaEntrada", "tbFichasCab", "IdFichaCab = " & rsPG("IdFichaOcupa")), 0)
+            If dtUlti = 0 Then GoTo SiguientePG
+            
+            If rsPG("Fecha") - dtUlti >= intDiasSab Then
+                strSQL = "UPDATE tbPartesG SET Sabanas = True"
+                strSQL = strSQL & " WHERE IdParteG = " & rsPG("IdParteG")
+                CurrentDb.Execute strSQL, dbFailOnError
+                'rsPG.Edit
+                'rsPG("Sabanas") = True
+                'rsPG.Update
+            Else
+                If Not IsNull(DLookup("IdFichaDet", "tbFichasDet", "FechaFin Is Null AND IdFichaCab = " & rsPG("IdFichaOcupa") & " AND Parcela = '" & rsPG("PH") & "'")) Then
+                    dtH = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & rsPG("IdFichaOcupa")), 0)
+                Else
+                    dtH = Nz(DMax("FechaFin", "tbFichasDet", "IdFichaCab = " & rsPG("IdFichaOcupa") & " AND Parcela = '" & rsPG("PH") & "'"), 0)
+                End If
+                If dtH = 0 Then dtH = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & rsPG("IdFichaOcupa")), 0)
+                If dtH = 0 Then GoTo SiguientePG
+                If dtH - dtUlti > intDiasSab And rsPG("Fecha") - dtUlti >= dtH - rsPG("Fecha") Then
+                    strSQL = "UPDATE tbPartesG SET Sabanas = True"
+                    strSQL = strSQL & " WHERE IdParteG = " & rsPG("IdParteG")
+                    CurrentDb.Execute strSQL, dbFailOnError
+                    'rsPG.Edit
+                    'rsPG("Sabanas") = True
+                    'rsPG.Update
+                End If
+            End If
+        End If
+SiguientePG:
+        rsPG.MoveNext
+    Wend
+    
+    
+    
+    
+    ' Generar parte de todas las parcelas libres.....
+    strSQL = "SELECT tbPArcelas.*"
+    If lngIdGrupoPlaning = 0 Then
+        strSQL = strSQL & " FROM tbParcelas "
+    Else
+        strSQL = strSQL & " FROM tbParcelas INNER JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+        strSQL = strSQL & " WHERE IdGrupoPlaning = " & lngIdGrupoPlaning
+    End If
+    Set rsQRY = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot) ' Nz(ParteG_SN,True)=True", dbOpenSnapshot)
+    While Not rsQRY.EOF
+        For dt = dtDesde To dtHasta
+            rsPG.FindFirst "PH = " & ConComillas(rsQRY("NombreParcela")) & " AND Fecha = " & CLng(dt)
+            If rsPG.NoMatch Then
+                strSQL = "INSERT INTO tbPartesG (PH, Fecha)"
+                strSQL = strSQL & " SELECT " & ConComillas(rsQRY("NombreParcela")) & " as PH, " & CLng(dt) & " As Fecha"
+                CurrentDb.Execute strSQL, dbFailOnError
+                'rsPG.AddNew
+                'rsPG("Fecha") = dtDesde
+                'rsPG("PH") = rsQRY("NombreParcela")
+                'rsPG.Update
+            End If
+        Next dt
+        rsQRY.MoveNext
+    Wend
+    'strSQL = "DELETE tbParcelas.ParteG_SN, tbPartesG.Fecha, tbPartesG.*"
+    'strSQL = strSQL & " FROM tbParcelas INNER JOIN tbPartesG ON tbParcelas.NombreParcela = tbPartesG.PH"
+    'strSQL = strSQL & " WHERE Nz(tbParcelas.ParteG_SN,True) = False "
+    'CurrentDb.Execute strSQL, dbFailOnError
+    If Nz(DameValorParam("PartesG_Desayunos"), False) = True Then Call GenerarPartesDesayuno(dtDesde)
+Salir_GenerarPartesGobernanta:
+    Exit Sub
+Error_GenerarPartesGobernanta:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarPartesGobernanta" & vbCrLf & Err.Description
+            Resume Salir_GenerarPartesGobernanta
+    End Select
+End Sub
+
+
+Public Sub GenerarPartesDesayuno(dtFecha As Date)
+    Dim strSQL As String, rsQRY As Recordset, rsPG As Recordset, dtUlti As Date, rsPG_1 As Recordset
+    Dim intDiasSab As Integer, intR As Integer
+    On Error GoTo Error_GenerarPartesDesayuno
+    strSQL = "SELECT * FROM tbPartesG "
+    strSQL = strSQL & " WHERE Fecha =#" & Format(dtFecha, "mm/dd/yyyy") & "#"
+    Set rsPG = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    strSQL = "SELECT * FROM tbPartesG "
+    strSQL = strSQL & " WHERE Fecha =" & CLng(dtFecha - 1)
+    Set rsPG_1 = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If rsPG.EOF Then
+        GenerarPartesGobernanta dtFecha
+    End If
+    While Not rsPG.EOF
+        rsPG.Edit
+        rsPG("PaxDesayuno") = Nz(DLookup("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & rsPG("IdFichaSale") + rsPG("IdFichaOcupa") & " AND Parcela = " & ConComillas(rsPG("PH"))), 0)
+        rsPG("NuevoSN") = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & rsPG("IdFichaSale") + rsPG("IdFichaOcupa")), 0) = dtFecha - 1
+        If Nz(rsPG("ObservacionesDesayuno"), "-") = "-" Then
+            rsPG_1.FindFirst "PH= '" & rsPG("PH") & "' AND [IdFichaSale]+[IdFichaOcupa] = " & rsPG("IdFichaSale") + rsPG("IdFichaOcupa")
+            If rsPG_1.NoMatch Then
+                rsPG("ObservacionesDesayuno") = "-"
+            Else
+                rsPG("ObservacionesDesayuno") = rsPG_1("ObservacionesDesayuno")
+            End If
+            'rsPG("ObservacionesDesayuno") = Nz(DLookup("ObservacionesDesayuno", "tbPartesG", "PH= '" & rsPG("PH") & "' AND Fecha = " & CLng(dtFecha - 1)), "-")
+        End If
+        rsPG.Update
+        rsPG.MoveNext
+    Wend
+    
+Salir_GenerarPartesDesayuno:
+    Exit Sub
+Error_GenerarPartesDesayuno:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarPartesDesayuno" & vbCrLf & Err.Description
+            Resume Salir_GenerarPartesDesayuno
+    End Select
+End Sub
+
+Public Sub GenerarPartesGobernantaOLD(dtFecha As Date)
+    Dim strSQL As String, rsQRY As Recordset, rsPG As Recordset, dtUlti As Date
+    Dim intDiasSab As Integer, intR As Integer
+    On Error GoTo Error_GenerarPartesGobernantaOLD
+    strSQL = "SELECT * FROM tbPartesG "
+    strSQL = strSQL & " WHERE Fecha =#" & Format(dtFecha, "mm/dd/yyyy") & "#"
+    Set rsPG = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If Not rsPG.EOF Then
+        'intR = MsgBox("Se borrarán los registros de Parte de Gobernanta del día " & Format(dtFecha, "dd/mm/yy") & " existentes", vbOKCancel + vbExclamation)
+        'If intR = vbCancel Then Exit Sub
+        'strSQL = "DELETE * FROM tbPartesG "
+        'strSQL = strSQL & " WHERE Fecha =#" & Format(dtFecha, "mm/dd/yyyy") & "#"
+        'CurrentDb.Execute strSQL, dbFailOnError
+    End If
+    intDiasSab = Nz(DameValorParam("PartesGDiasCambioSabanas"), 4)
+    strSQL = "SELECT tbFichasDet.IdFichaCab, tbFichasDet.Parcela, tbFichasDet.FechaInicio, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FechaHasta"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN (tbFichasCab INNER JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela"
+    strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio)<=#" & Format(dtFecha, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>=#" & Format(dtFecha, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null));"
+    Set rsQRY = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    While Not rsQRY.EOF
+        rsPG.FindFirst "Fecha = #" & Format(dtFecha, "mm/dd/yyyy") & "# AND PH = " & ConComillas(rsQRY("Parcela"))
+        If rsPG.NoMatch Then
+            rsPG.AddNew
+            rsPG("Fecha") = dtFecha
+            rsPG("PH") = rsQRY("Parcela")
+        Else
+            rsPG.Edit
+        End If
+        If rsQRY("FechaInicio") = dtFecha Then
+            If rsPG("IdFichaEntra") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaEntra")
+                GoTo Siguiente
+            End If
+            If rsPG("IdFichaOcupa") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaOcupa")
+                GoTo Siguiente
+            End If
+            rsPG("IdFichaEntra") = rsQRY("IdFichaCab")
+        ElseIf rsQRY("FechaHasta") = dtFecha Then
+            If rsPG("IdFichaSale") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaSale")
+                GoTo Siguiente
+            End If
+            If rsPG("IdFichaOcupa") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaOcupa")
+                GoTo Siguiente
+            End If
+            rsPG("IdFichaSale") = rsQRY("IdFichaCab")
+            rsPG("Sabanas") = True
+        Else
+            If rsPG("IdFichaOcupa") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaOcupa")
+                GoTo Siguiente
+            End If
+            If rsPG("IdFichaEntra") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaEntra")
+                GoTo Siguiente
+            End If
+            If rsPG("IdFichaSale") <> 0 Then
+                'MsgBox "Se encontraron varias fichas ocupando la " & g_strPH & " " & rsQRY("Parcela") & ". Ver fichas " & rsQRY("IdFichaCab") & " y " & rsPG("IdFichaSale")
+                GoTo Siguiente
+            End If
+            rsPG("IdFichaOcupa") = rsQRY("IdFichaCab")
+        End If
+        If dtFecha - rsQRY("FechaInicio") >= intDiasSab Then
+            dtUlti = Nz(DMax("Fecha", "tbPartesG", "PH = " & ConComillas(rsQRY("Parcela")) & " AND Sabanas = True AND Fecha < #" & Format(dtFecha, "mm/dd/yyyy") & "#"), 0)
+            If dtFecha - dtUlti >= intDiasSab Then
+                rsPG("Sabanas") = True
+            End If
+        End If
+        rsPG.Update
+Siguiente:
+        rsQRY.MoveNext
+    Wend
+    ' Generar parte de todas las parcelas libres.....
+    Set rsQRY = CurrentDb.OpenRecordset("tbParcelas", dbOpenSnapshot)
+    While Not rsQRY.EOF
+        rsPG.FindFirst "PH = " & ConComillas(rsQRY("NombreParcela"))
+        If rsPG.NoMatch Then
+            rsPG.AddNew
+            rsPG("Fecha") = dtFecha
+            rsPG("PH") = rsQRY("NombreParcela")
+            rsPG.Update
+        End If
+        rsQRY.MoveNext
+    Wend
+            
+        
+    
+Salir_GenerarPartesGobernantaOLD:
+    Exit Sub
+Error_GenerarPartesGobernantaOLD:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarPartesGobernantaOLD" & vbCrLf & Err.Description
+            Resume Salir_GenerarPartesGobernantaOLD
+    End Select
+End Sub
+
+Public Function SituacionParteG(lngIdParteG As Long) As String
+    'Situación:  SiInm([IdFichaOcupa]<>0;'Ocupa: ' & [IdFichaOcupa] & '-->' & DBúsq('NombreClienteente';'tbFichasCab';'IdFichaCab = ' & [IdFichaOcupa]) & ' ' & DBúsq('ApellidosClienteente';'tbFichasCab';'IdFichaCab = ' & [IdFichaOcupa]) & Car(13) & Car(10);'')
+    Dim rs As Recordset, strSitu As String
+    Dim intNomCli  As Integer, strPax As String
+    On Error GoTo Error_SituacionParteG
+    intNomCli = Nz(DameValorParam("PartesG_NombreClienteSN"), True)
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbPartesG WHERE IdParteG = " & lngIdParteG)
+    If Not rs.EOF Then
+        If rs("IdFichaSale") <> 0 Then
+            strPax = Nz(DLookup("[PlazasOcupadas]", "tbFichasDet", "IdFichaCab = " & rs("IdFichaSale") & " And [Parcela]='" & rs("PH") & "'"), "")
+            strSitu = "Sale: " & rs("IdFichaSale") & IIf(strPax = "", "", " (" & strPax & " pax)")
+            If intNomCli Then strSitu = strSitu & "-->" & DLookup("[NombreCliente] & ' ' & [ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & rs("IdFichaSale"))
+        End If
+        If rs("IdFichaEntra") <> 0 Then
+            strPax = Nz(DLookup("[PlazasOcupadas]", "tbFichasDet", "IdFichaCab = " & rs("IdFichaEntra") & " And [Parcela]='" & rs("PH") & "'"), "")
+            strSitu = Trim(strSitu & " Entra: " & rs("IdFichaEntra")) & IIf(strPax = "", "", " (" & strPax & " pax)")
+            If intNomCli Then strSitu = strSitu & "-->" & DLookup("[NombreCliente] & ' ' & [ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & rs("IdFichaEntra"))
+        End If
+        If rs("IdFichaOcupa") <> 0 Then
+            strPax = Nz(DLookup("[PlazasOcupadas]", "tbFichasDet", "IdFichaCab = " & rs("IdFichaOcupa") & " And [Parcela]='" & rs("PH") & "'"), "")
+            strSitu = Trim(strSitu & " Ocupa: " & rs("IdFichaOcupa")) & IIf(strPax = "", "", " (" & strPax & " pax)")
+            If intNomCli Then strSitu = strSitu & "-->" & DLookup("[NombreCliente] & ' ' & [ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & rs("IdFichaOcupa"))
+        End If
+    End If
+Salir_SituacionParteG:
+    SituacionParteG = strSitu
+    Exit Function
+Error_SituacionParteG:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SituacionParteG" & vbCrLf & Err.Description
+            Resume Salir_SituacionParteG
+    End Select
+    
+End Function
+
+Public Sub GenerarPartesGobernantaSemana(dtFecha As Date, Optional lngIdGrupoPlaning As Long = 0)
+    Dim strSQL As String, rs As Recordset, dt As Date
+    'Dim intDiasSab As Integer, intR As Integer
+    On Error GoTo Error_GenerarPartesGobernantaSemana
+    dt = LunesDe(dtFecha)
+    GenerarPartesGobernanta dt, dt + 6, lngIdGrupoPlaning
+    strSQL = "SELECT * FROM tbPartesG"
+    strSQL = strSQL & " WHERE Fecha Between " & CLng(dt) & " AND " & CLng(dt + 6)
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        rs.Edit
+        If rs("IdFichaOcupa") > 0 Then
+            If rs("Sabanas") Then
+                rs("Situacion") = "S"
+            Else
+                rs("Situacion") = "O"
+            End If
+        Else
+            If rs("IdFichaSale") > 0 Then
+                If rs("IdFichaEntra") > 0 Then
+                    rs("Situacion") = "X!"
+                Else
+                    rs("Situacion") = "X"
+                End If
+            Else
+                If rs("IdFichaEntra") > 0 Then
+                    rs("Situacion") = "E"
+                Else
+                    rs("Situacion") = "-"
+                End If
+            End If
+        End If
+        rs.Update
+        rs.MoveNext
+    Wend
+    Pon_qryPartesGSemanalSQL dt, lngIdGrupoPlaning
+Salir_GenerarPartesGobernantaSemana:
+    Exit Sub
+Error_GenerarPartesGobernantaSemana:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en GenerarPartesGobernantaSemana" & vbCrLf & Err.Description
+            Resume Salir_GenerarPartesGobernantaSemana
+    End Select
+End Sub
+
+
+
+
+Public Sub Pon_qryPartesGSemanalSQL(dt As Date, lngIdGrupoPlaning As Long)
+    Dim strSQL As String, i As Integer
+    strSQL = "TRANSFORM First(tbPartesG.Situacion) AS PrimeroDeSituacion"
+    strSQL = strSQL & " SELECT tbParcelas.NombreParcela AS Habitación"
+    'strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbPartesG ON tbParcelas.NombreParcela = tbPartesG.PH"
+    strSQL = strSQL & " FROM (tbParcelas LEFT JOIN tbPartesG ON tbParcelas.NombreParcela = tbPartesG.PH) LEFT JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    strSQL = strSQL & " WHERE tbPartesG.Fecha >= " & CLng(dt) & "  And tbPartesG.Fecha < " & CLng(dt) + 7
+    If lngIdGrupoPlaning <> 0 Then strSQL = strSQL & " AND IdGrupoPlaning = " & lngIdGrupoPlaning
+    strSQL = strSQL & " GROUP BY tbParcelas.NombreParcela, tbParcelas.Orden"
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden"
+    strSQL = strSQL & " PIVOT [Fecha] & ' - ' & DiaD([Fecha]) IN ("
+    For i = 0 To 6
+        strSQL = strSQL & "'" & Format(dt + i, "dd/mm/yyyy") & " - " & DiaD(dt + i) & "', "
+    Next i
+    strSQL = RecDerTop(strSQL, 2, 0) & ")"
+    
+
+    CurrentDb.QueryDefs("qryPartesGSemanal").SQL = strSQL
+
+End Sub
+
+Public Sub Pon_qryPartesGSQL(dt As Date, lngIdGrupoPlaning As Long)
+    Dim strSQL As String
+    strSQL = "SELECT "
+    strSQL = "SELECT tbPartesG.IdParteG, tbParcelas.NombreParcela AS Habitación, SituacionParteG([IdParteG]) AS Situación," _
+            & " tbPartesG.Sabanas AS Sábanas, tbPartesG.Observaciones," _
+            & " IIf([Sabanas]=False,0,IIf([IdFichaSale]<>0,DLookUp('[PlazasOcupadas]','tbFichasDet','IdFichaCab = ' & [IdFichaSale] & ' And [Parcela]='' & [NombreParcela] & '''),IIf([IdFichaOcupa]<>0,DLookUp('[PlazasOcupadas]','tbFichasDet','IdFichaCab = ' & [IdFichaOcupa] & ' And [Parcela]='' & [NombreParcela] & '''),IIf([IdFichaEntra]<>0,DLookUp('[PlazasOcup" _
+            & "adas]','tbFichasDet','IdFichaCab = ' & [IdFichaEntra] & ' And [Parcela]='' & [NombreParcela] & '''),0)))) AS NumSabanas, tbPartesG.Fecha, tbGruposPlaning_Parcelas.IdGrupoPlaning, tbParcelas.Orden, tbPartesG.IdFichaSale, tbPartesG.IdFichaOcupa"
+    strSQL = strSQL & " FROM (tbParcelas LEFT JOIN tbPartesG ON tbParcelas.NombreParcela = tbPartesG.PH) LEFT JOIN tbGruposPlaning_Parcelas ON tbParcelas.IdParcela = tbGruposPlaning_Parcelas.IdParcela"
+    strSQL = strSQL & " WHERE tbPartesG.Fecha = " & CLng(dt)
+    If lngIdGrupoPlaning <> 0 Then strSQL = strSQL & " And IdGrupoPlaning = " & lngIdGrupoPlaning
+    strSQL = strSQL & " ORDER BY tbParcelas.Orden;"
+    CurrentDb.QueryDefs("qryPartesG").SQL = strSQL
+
+
+End Sub

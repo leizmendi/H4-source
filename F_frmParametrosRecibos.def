@@ -1,0 +1,51 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+
+Private Sub btnVerEV_Click()
+    DoCmd.OpenReport Nz(Me.RecibosRPT, "rptRecibo"), acViewPreview, , "IdCajaDet = " & Nz(DMax("IdCajaDet", "tbCajaDet"), 0)
+End Sub
+
+Private Sub RecibosNumCopias_AfterUpdate()
+    If IsNull(Me.RecibosNumCopias) Then
+        Me.RecibosNumCopias = 1
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    Call RecibosImpresionPor_AfterUpdate
+    CargarImpresorasCmb Me.RecibosImpresoraWindows
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+Private Sub RecibosImpresionPor_AfterUpdate()
+    Dim intAct As Integer
+    Dim ctl As Control
+    If Me.RecibosImpresionPor = 1 Then
+        intAct = False
+    Else
+        intAct = True
+    End If
+    Me.RecibosLetraCN.Enabled = intAct
+    Me.RecibosMargenIzdo.Enabled = intAct
+    Me.RecibosMargenSup.Enabled = intAct
+    Me.RecibosImpresora.Enabled = intAct
+    Me.RecibosImpresoraWindows.Enabled = Not intAct
+End Sub
+
+
+Private Sub RecibosNumLineasTexto_AfterUpdate()
+    If IsNull(Me.RecibosNumLineasTexto) Then
+        Me.RecibosNumLineasTexto = 10
+    End If
+End Sub

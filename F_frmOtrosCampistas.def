@@ -1,0 +1,53 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+
+Private Sub btnFicha_Click()
+    If Me.lstAcampados.ListIndex = -1 Then Exit Sub
+    DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & Me.lstAcampados
+End Sub
+
+Private Sub btnSalir_Click()
+    DoCmd.Close
+End Sub
+
+Private Sub cmbEstado_AfterUpdate()
+    Call cmbTipo_AfterUpdate
+End Sub
+
+Private Sub cmbTipo_AfterUpdate()
+    Dim strSQL As String
+    
+    strSQL = "SELECT tbFichasCab.IdFichaCab AS [Nº Ficha], tbFichasCab.FechaLlegada, [NombreCliente] & ' ' & [ApellidosCliente] AS Campista"
+    If Me.cmbTipo > 0 Then
+        strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    Else
+        strSQL = strSQL & " FROM tbFichasCab "
+    End If
+    strSQL = strSQL & " WHERE true "
+    If Me.cmbTipo > 0 Then
+        strSQL = strSQL & " AND tbFichasDet.IdTipoParcela =" & Me.cmbTipo
+    End If
+    If Me.cmbEstado <> 3 Then
+        strSQL = strSQL & " AND tbFichasCab.EstadoFicha =" & Me.cmbEstado
+    End If
+    strSQL = strSQL & " ORDER BY tbFichasCab.IdFichaCab DESC"
+    Me.lstAcampados.RowSource = strSQL
+    PonValorParam "frmOtrosCampistas_cmbTipo", Me.cmbTipo, 4
+End Sub
+
+Private Sub Form_Activate()
+    On Error Resume Next
+    Me.lstAcampados.Requery
+End Sub
+
+Private Sub Form_Load()
+    Call cmbTipo_AfterUpdate
+End Sub
+
+Private Sub lstAcampados_Click()
+    Call btnFicha_Click
+End Sub

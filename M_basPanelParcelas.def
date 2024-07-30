@@ -1,0 +1,873 @@
+Option Compare Database
+Option Explicit
+Dim glForeColor As Long
+Public Sub HanEntradoHoy()
+    Dim strSQL As String, rsHab As Recordset, rs As Recordset
+    On Error GoTo Error_HanEntradoHoy
+    Set rsHab = CurrentDb.OpenRecordset("tbParcelas")
+    strSQL = "SELECT tbParcelas.NombreParcela, tbParcelas.EntradoHoy"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasCab.FechaLlegada)=Date()));"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    'rsHab.MoveFirst
+    While Not rsHab.EOF
+        rs.FindFirst "NombreParcela = '" & rsHab("NombreParcela") & "'"
+        If rs.NoMatch Then
+            rsHab.Edit
+            rsHab("EntradoHoy") = False
+            rsHab.Update
+        Else
+            rsHab.Edit
+            rsHab("EntradoHoy") = True
+            rsHab.Update
+        End If
+        rsHab.MoveNext
+    Wend
+Salir_HanEntradoHoy:
+    Exit Sub
+Error_HanEntradoHoy:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en HanEntradoHoy" & vbCrLf & Err.Description
+            Resume Salir_HanEntradoHoy
+    End Select
+End Sub
+Public Sub SeMarchanHoy()
+    Dim strSQL As String, rsHab As Recordset, rs As Recordset
+    On Error GoTo Error_SeMarchanHoy
+    Set rsHab = CurrentDb.OpenRecordset("tbParcelas")
+    strSQL = "SELECT tbParcelas.NombreParcela, tbParcelas.SaleHoy"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+    strSQL = strSQL & " WHERE (((tbFichasCab.FechaSalida)<=Date()));"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    'rsHab.MoveFirst
+    While Not rsHab.EOF
+        rs.FindFirst "NombreParcela = '" & rsHab("NombreParcela") & "'"
+        If rs.NoMatch Then
+            rsHab.Edit
+            rsHab("SaleHoy") = False
+            rsHab.Update
+        Else
+            rsHab.Edit
+            rsHab("SaleHoy") = True
+            rsHab.Update
+        End If
+        rsHab.MoveNext
+    Wend
+Salir_SeMarchanHoy:
+    Exit Sub
+Error_SeMarchanHoy:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SeMarchanHoy" & vbCrLf & Err.Description
+            Resume Salir_SeMarchanHoy
+    End Select
+End Sub
+Public Sub LleganHoy()
+    Dim strSQL As String, rs As Recordset, rsHab As Recordset
+    On Error GoTo Error_LleganHoy
+    strSQL = "SELECT tbFichasCab.IdFichaCab, tbParcelas.IdFichaLlegaHoy, tbParcelas.NombreParcela"
+    strSQL = strSQL & " FROM tbParcelas INNER JOIN (tbFichasCab RIGHT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab) ON tbParcelas.NombreParcela = tbFichasDet.Parcela"
+    strSQL = strSQL & " WHERE (((tbFichasDet.FechaInicio)=Date()) AND ((tbFichasCab.EstadoFicha)=1));"
+    Set rsHab = CurrentDb.OpenRecordset("tbParcelas")
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    While Not rsHab.EOF
+        rs.FindFirst "NombreParcela = '" & rsHab("NombreParcela") & "'"
+        If rs.NoMatch Then
+            rsHab.Edit
+            rsHab("IdFichaLlegaHoy") = 0
+            rsHab.Update
+        Else
+            rsHab.Edit
+            rsHab("IdFichaLlegaHoy") = rs("IdFichaCab")
+            rsHab.Update
+        End If
+        rsHab.MoveNext
+    Wend
+Salir_LleganHoy:
+    Exit Sub
+Error_LleganHoy:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en LleganHoy" & vbCrLf & Err.Description
+            Resume Salir_LleganHoy
+            Resume Next
+    End Select
+End Sub
+
+
+Public Sub PintaBotones(frm As Form, Optional strParcela As String = "TODAS", Optional lngFicha As Long = 0, Optional intLibre As Integer = False, Optional intEsSubForm As Integer)
+    Dim strSQL As String, rsHab As Recordset, btn As TextBox
+    Dim lngBool As Boolean, lngBackColor As Long
+    
+    On Error GoTo Error_PintaBotones
+    'If Not IsOpenForm(frm.Name) Then Exit Sub
+    strSQL = "SELECT tbParcelas.*, tbFichasCab.EstadoFicha, tbFichasCab.NombreCliente & ' ' & tbFichasCab.ApellidosCliente AS Cliente"
+    If strParcela = "TODAS" And lngFicha = 0 Then
+        strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+    Else
+        If strParcela <> "TODAS" Then
+            strSQL = strSQL & " FROM (tbParcelas LEFT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab) LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+            strSQL = strSQL & " WHERE tbParcelas.NombreParcela = '" & strParcela & "'"
+        End If
+        If lngFicha <> 0 Then
+            If InStr(strSQL, "WHERE") > 0 Then
+                strSQL = strSQL & " OR"
+            Else
+                strSQL = strSQL & " FROM tbParcelas LEFT JOIN tbFichasCab ON tbParcelas.IdFicha = tbFichasCab.IdFichaCab"
+                strSQL = strSQL & " WHERE"
+            End If
+            strSQL = strSQL & " tbFichasCab.IdFichaCab = " & lngFicha
+        End If
+    End If
+    Set rsHab = CurrentDb.OpenRecordset(strSQL)
+    While Not rsHab.EOF
+        On Error Resume Next
+        Set btn = frm.Controls("btn" & rsHab("NombreParcela"))
+        If Err <> 0 Then GoTo siguienteBtn
+        On Error GoTo Error_PintaBotones
+        btn.Tag = rsHab("IdFichaLlegaHoy")
+        If btn.Tag = 0 Then
+            btn.FontUnderline = False
+        Else
+            btn.FontUnderline = True
+        End If
+        If IsNull(rsHab("EstadoFicha")) Or intLibre Then
+            'btn.ForeColor = 0
+            lngBackColor = 12632256 ' Gris   //// 16777215 'Blanco
+            btn.ControlTipText = Nz(rsHab("Observaciones"), "")
+        Else
+            btn.ControlTipText = rsHab("Cliente") & vbCrLf & Nz(rsHab("Observaciones"), "")
+            Select Case rsHab("EstadoFicha")
+                Case 10
+                    lngBackColor = G_lngColorFijos
+                Case 1
+                    lngBackColor = G_lngColorReservas
+                Case 2
+                    lngBackColor = G_lngColorActuales
+                Case 3
+                    lngBackColor = G_lngColorFacturaPreparada
+                Case 4
+                    lngBackColor = G_lngColorPagadoConCliente
+                Case 6
+                    lngBackColor = G_lngColorLimpieza
+                Case 5
+                    lngBackColor = G_lngColorAntigua
+            End Select
+        End If
+        If rsHab("SaleHoy") = True Then
+            btn.FontItalic = True
+            'btn.ForeColor = 16777215
+            'If rsHab("EstadoFicha") < 3 Then lngBackColor = G_lngColorFacturaPreparada
+
+        Else
+            btn.FontItalic = False
+        End If
+        
+         If rsHab("EntradoHoy") = True Then
+            btn.FontBold = False
+            'btn.ForeColor = 16777215
+        Else
+            btn.FontBold = True
+        End If
+
+        ' Pass the Selected Color to the function
+        'lngBool = fCmdButTextPic(btn, lngBackColor)
+        btn.BackColor = lngBackColor
+siguienteBtn:
+        rsHab.MoveNext
+    Wend
+Salir_PintaBotones:
+    Exit Sub
+Error_PintaBotones:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en PintaBotones" & vbCrLf & Err.Description
+            Resume Salir_PintaBotones
+    End Select
+End Sub
+
+Public Function AlEntrarEnCasilla()
+    On Error Resume Next
+    Dim ctl As Control
+    Set ctl = Screen.ActiveControl
+    Screen.ActiveForm.txtParcela = ctl.value
+'    Forms!frmPanel.txtCliente = ctl.ControlTipText
+'    Forms!frmPanel.txtParcela = Mid(ctl.Name, 4)
+'    Forms!frmPanel.lblCliente.Caption = ctl.ControlTipText
+End Function
+
+Public Function BotonClick()
+    On Error GoTo Error_BotonClick
+    Dim rs As Recordset, rsF As Recordset, rsFP As Recordset, lngIdFicha As Long
+    Dim rsFDet As Recordset
+    Dim intEstado As Integer, strEst As String
+    Dim strParcela As String ', lngIdParcela As Long
+    Dim intResp As Integer
+    Dim vBM As Variant, strCtlDefault As String
+    strParcela = Mid(Screen.ActiveControl.Name, 4)
+    strCtlDefault = Nz(DameValorParam("PanelControlFocoXDefecto"), "txtTarjetaRFID")
+    On Error Resume Next
+    Screen.ActiveForm(strCtlDefault).SetFocus
+    On Error GoTo Error_BotonClick
+    Set rs = CurrentDb.OpenRecordset("tbParcelas")
+    rs.FindFirst ("NombreParcela = " & ConComillas(strParcela))
+    If rs.NoMatch Then Exit Function
+'    lngIdParcela = rs("IdParcela")
+    lngIdFicha = rs("IdFicha")
+VerFicha:
+    If lngIdFicha > 0 Then
+        intEstado = Nz(DLookup("EstadoFicha", "tbFichasCab", "IdFichaCab = " & rs("IdFicha")), 0)
+        If intEstado = 0 Then ' no existe la ficha
+            GoTo VerLlegaHoy
+        End If
+        DoCmd.OpenForm "frmFichas", , , "IdFichaCab =" & lngIdFicha
+        Exit Function
+    End If
+VerLlegaHoy:
+    If rs("IdFichaLlegaHoy") > 0 Then 'Reserva que llega hoy
+        vBM = rs.Bookmark
+        rs.Edit
+        lngIdFicha = rs("IdFichaLlegaHoy")
+        rs("IdFicha") = lngIdFicha
+        rs("IdFichaLlegaHoy") = 0
+        rs.Update
+        If IsOpenForm("frmPanel") Then
+            PintaBotones Forms!frmPanel, strParcela
+        End If
+        'comprobar si más habitaciones tienen la misma reserva...
+        rs.MoveFirst
+BuscaMas:
+        rs.FindNext ("NombreParcela <> '" & strParcela & "' AND IdFichaLlegaHoy = " & lngIdFicha)
+        If rs.NoMatch Then
+            rs.Bookmark = vBM
+            GoTo VerFicha
+        Else
+            If rs("IdFicha") <> 0 And rs("IdFicha") <> lngIdFicha Then
+                MsgBox "La Parcela " & rs("NombreParcela") & " está todavía ocupada"
+            Else
+                rs.Edit
+                rs("IdFicha") = lngIdFicha
+                rs("IdFichaLlegaHoy") = 0
+                rs.Update
+                If IsOpenForm("frmPanel") Then
+                    PintaBotones Forms!frmPanel, strParcela
+                End If
+            End If
+            GoTo BuscaMas
+        End If
+        GoTo VerFicha
+    Else 'Parcela libre, añadimos una ficha
+NuevaFicha:
+        Dim l As Long
+'''''''''Eliminada tabla tbOcupadas......
+'        l = NzCero(DLookup("IdFicha", "tbOcupadas", "NombreParcela = '" & strParcela & "' AND Fecha =#" & Format(Date, "mm/dd/yy") & "#"))
+'        If l <> 0 Then
+'            intResp = MsgBox("La Parcela " & strParcela & " está ocupada por la ficha " & l & vbCrLf & "¿Quiere ver la ficha?", vbDefaultButton2 + vbYesNo + vbExclamation)
+'            If intResp = vbYes Then
+'                DoCmd.OpenForm "frmFichas", , , "IdFichaCab = " & l
+'            End If
+'            Exit Function
+'        End If
+'''''''''FIN   Eliminada tabla tbOcupadas......
+        
+        Set rsF = CurrentDb.OpenRecordset("tbFichasCab")
+'        Set rsFP = CurrentDb.OpenRecordset("tbFichasDet")
+
+        rsF.AddNew
+        rsF("IdFichaCab") = Nz(DMax("IdFichaCab", "tbFichasCab"), 0) + 1
+        lngIdFicha = rsF("IdFichaCab")
+        rsF("FechaLlegada") = Date
+        rsF("FechaSalida") = rsF("FechaLlegada") + 1
+        rsF("IVAIncluido") = DameValorParam("IVAIncluidoEnFacturasYFichas")
+        rsF.Update
+'        rsFP.AddNew
+'        rsFP("IdFichaCab") = lngidFicha
+'        rsFP("Parcela") = strParcela
+'        rsFP.Update
+        rs.Edit
+        rs("IdFicha") = lngIdFicha
+        rs.Update
+        If IsOpenForm("frmPanel") Then
+            PintaBotones Forms!frmPanel, strParcela
+        End If
+''''''' Añadir líneas de detalle predeterminadas al tipo de parcela
+        AñadirLineasDetallePredeterminadas lngIdFicha, strParcela
+        GoTo VerFicha
+    End If
+Salir_BotonClick:
+    Exit Function
+Error_BotonClick:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BotonClick" & vbCrLf & Err.Description
+            Resume Salir_BotonClick
+            Resume Next
+    End Select
+End Function
+Public Function BotonDown(KeyCode As Integer, Shift As Integer)
+    On Error GoTo Error_BotonDown
+    Dim strBtn As String, strBtn2 As String, intBtn As Integer
+    strBtn = Screen.ActiveControl.Caption
+    Select Case KeyCode
+        Case vbKeyDown
+            intBtn = CInt(strBtn) + 10
+            If intBtn > 40 Then intBtn = intBtn - 30
+            If intBtn = 16 Or intBtn = 17 Then intBtn = intBtn + 10
+            strBtn = "btn" & CStr(intBtn)
+            Screen.ActiveForm.Controls(strBtn).SetFocus
+            KeyCode = 0
+        Case vbKeyUp
+            intBtn = CInt(strBtn) - 10
+            If intBtn < 10 Then intBtn = intBtn + 30
+            If intBtn = 16 Or intBtn = 17 Then intBtn = intBtn + 20
+            strBtn = "btn" & CStr(intBtn)
+            Screen.ActiveForm.Controls(strBtn).SetFocus
+            KeyCode = 0
+        Case vbKeyHome
+            intBtn = CInt(strBtn) \ 10
+            intBtn = intBtn * 10 + 1
+            strBtn = "btn" & CStr(intBtn)
+            Screen.ActiveForm.Controls(strBtn).SetFocus
+            KeyCode = 0
+        Case vbKeyEnd
+            intBtn = CInt(strBtn) \ 10
+            Select Case intBtn
+                Case 1
+                    intBtn = 15
+                Case 2
+                    intBtn = 27
+                Case 3
+                    intBtn = 37
+            End Select
+            strBtn = "btn" & CStr(intBtn)
+            Screen.ActiveForm.Controls(strBtn).SetFocus
+            KeyCode = 0
+    End Select
+            
+Salir_BotonDown:
+    Exit Function
+Error_BotonDown:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BotonDown" & vbCrLf & Err.Description
+            Resume Salir_BotonDown
+    End Select
+End Function
+
+
+Public Function AsignarFichaAPanel(lngIdFicha As Long, Optional strParcela As String = "TODAS", Optional strOcupadas As String) As Integer
+    'asigna a tbParcelas.IdFicha la IdFicha que se pasa, en caso de estar ocupada, devuelve
+    'false y relación de parcelas ocupadas en strOcupadas
+    On Error GoTo Error_AsignarFichaAPanel
+    Dim strSQL As String, rs As Recordset, strSQL2 As String
+    strSQL = "SELECT tbParcelas.IdFicha, tbParcelas.NombreParcela "
+    strSQL = strSQL & " FROM tbParcelas"
+    strSQL = strSQL & " WHERE tbParcelas.NombreParcela = '"
+    If strParcela = "TODAS" Then
+        strSQL2 = "SELECT tbFichasDet.IdFichaCab, tbFichasDet.Parcela"
+        strSQL2 = strSQL2 & " FROM tbFichasDet"
+        strSQL2 = strSQL2 & " WHERE (((tbFichasDet.IdFichaCab)=" & lngIdFicha & ") AND ((tbFichasDet.Parcela) Is Not Null));"
+        Set rs = CurrentDb.OpenRecordset(strSQL2, dbOpenSnapshot)
+        strSQL2 = ""
+        While Not rs.EOF
+            strSQL = strSQL & rs("Parcela") & "' OR tbParcelas.NombreParcela = '"
+            rs.MoveNext
+        Wend
+        strSQL = Nz(RecDerTop(strSQL, 32, 0), "")
+    Else
+        strSQL = strSQL & strParcela & "'"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    While Not rs.EOF
+        If rs("IdFicha") = 0 Then
+            rs.Edit
+            rs("IdFicha") = lngIdFicha
+            rs.Update
+            PintaParcelaSiHayPlano rs("NombreParcela")
+        Else
+            If rs("IdFicha") = lngIdFicha Then
+            Else
+                strOcupadas = strOcupadas & "Parcela " & rs("NombreParcela") & " en  ficha nº " & rs("IdFicha") & vbCrLf
+            End If
+        End If
+        rs.MoveNext
+    Wend
+    If Len(strOcupadas) > 0 Then
+        AsignarFichaAPanel = False
+    Else
+        AsignarFichaAPanel = True
+    End If
+Salir_AsignarFichaAPanel:
+    Exit Function
+Error_AsignarFichaAPanel:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en AsignarFichaAPanel" & vbCrLf & Err.Description
+            Resume Salir_AsignarFichaAPanel
+            Resume Next
+    End Select
+End Function
+
+Public Function LiberarFichaDePanel(lngIdFicha As Long, Optional strParcela As String = "TODAS", Optional intSoloRecordCount As Integer = False) As Integer
+    'asigna a tbParcelas.IdFicha 0
+    'si intSoloRecordCount =True devuelve el nº de parcelas conectadas
+    On Error GoTo Error_LiberarFichaDePanel
+    Dim strSQL As String, rs As Recordset
+    strSQL = "SELECT tbParcelas.IdFicha, tbParcelas.NombreParcela "
+    strSQL = strSQL & " FROM tbParcelas"
+    strSQL = strSQL & " WHERE tbParcelas.IdFicha = " & lngIdFicha
+    If strParcela <> "TODAS" Then
+        strSQL = strSQL & " AND tbParcelas.NombreParcela = '" & strParcela & "'"
+    End If
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    If intSoloRecordCount = True Then
+        If rs.EOF Then
+            LiberarFichaDePanel = 0
+        Else
+            rs.MoveLast
+            LiberarFichaDePanel = rs.RecordCount
+        End If
+        Exit Function
+    End If
+    While Not rs.EOF
+        rs.Edit
+        rs("IdFicha") = 0
+        rs.Update
+        PintaParcelaSiHayPlano rs("NombreParcela")
+        rs.MoveNext
+    Wend
+Salir_LiberarFichaDePanel:
+    Exit Function
+Error_LiberarFichaDePanel:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en LiberarFichaDePanel" & vbCrLf & Err.Description
+            Resume Salir_LiberarFichaDePanel
+    End Select
+End Function
+
+Public Function LiberarDelPanel()
+    'Libera del panel la parcela seleccionada en lstHabitaciones del formulario Fichas
+    'Si no está seleccionada ninguna en lstHabitaciones, las libera todas
+    On Error GoTo Error_LiberarDelPanel
+    If Not IsOpenForm("frmFichas") Then Exit Function
+    Dim frm As Form
+    Set frm = Forms("frmFichas")
+    If frm.Controls("lstHabitaciones").ListIndex = -1 Then
+        LiberarFichaDePanel frm.Controls("IdFichaCab")
+    Else
+        LiberarFichaDePanel frm.Controls("IdFichaCab"), frm.Controls("lstHabitaciones").Column(1)
+    End If
+    frm.Controls("lstHabitaciones").Requery
+Salir_LiberarDelPanel:
+    Exit Function
+Error_LiberarDelPanel:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en LiberarDelPanel" & vbCrLf & Err.Description
+            Resume Salir_LiberarDelPanel
+    End Select
+End Function
+
+
+Public Function ConectarAlPanel()
+    'Libera del panel la parcela seleccionada en lstHabitaciones del formulario Fichas
+    'Si no está seleccionada ninguna en lstHabitaciones, las libera todas
+    On Error GoTo Error_ConectarAlPanel
+    If Not IsOpenForm("frmFichas") Then Exit Function
+    Dim frm As Form, strOcu As String
+    Set frm = Forms("frmFichas")
+    If frm.Controls("lstHabitaciones").ListIndex = -1 Then
+        AsignarFichaAPanel frm.Controls("IdFichaCab"), , strOcu
+    Else
+        AsignarFichaAPanel frm.Controls("IdFichaCab"), frm.Controls("lstHabitaciones").Column(1), strOcu
+    End If
+    If Len(strOcu) > 0 Then
+        MsgBox "No se pudieron conectar, por estar ocupadas: " & strOcu
+    End If
+
+    frm.Controls("lstHabitaciones").Requery
+Salir_ConectarAlPanel:
+    Exit Function
+Error_ConectarAlPanel:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en ConectarAlPanel" & vbCrLf & Err.Description
+            Resume Salir_ConectarAlPanel
+    End Select
+End Function
+
+
+Public Function AñadirLineasDetallePredeterminadas(lngIdFichaCab As Long, strParcela As String, Optional datIni As Date = 0, Optional datFin As Date = 0, Optional intPlazas As Integer = 0) As Integer
+''''' Añadir líneas de detalle predeterminadas al tipo de parcela
+    Dim lngTipoParcela As Long
+    Dim rsDetPre As Recordset, rsFDet As Recordset
+    Dim strSQL As String
+    Dim datIni2 As Date, datIni1 As Date, datFin1 As Date
+    Dim intIVAinc As Integer
+    Dim lngIdIdi As Long
+    Dim v As Variant, lngIdFichaOcupa As Long, intR As Integer
+    Dim intReloj As Integer
+    Dim rs As Recordset, intOrd As Integer
+    On Error GoTo Error_AñadirLineasDetallePredeterminadas
+    lngTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strParcela & "'"), 0)
+    If lngTipoParcela = 0 Then
+        If InStr(strParcela, " [") > 0 Then
+            strParcela = Left(strParcela, InStr(strParcela, " [") - 1)
+            lngTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelasTipo", "TipoParcela = '" & strParcela & "'"), 0)
+            intR = MsgBox("¿Asignar " & g_strPH & " ahora?", vbYesNo)
+            If intR = vbYes Then
+                strSQL = "DELETE * FROM auxOpciones"
+                CurrentDb.Execute strSQL, dbFailOnError
+                strSQL = "SELECT NombreParcela FROM tbParcelas WHERE IdTipoParcela = " & lngTipoParcela
+                Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+                While Not rs.EOF
+                    intOrd = intOrd + 1
+                    strSQL = "INSERT INTO auxOpciones (Orden, strOpcion)"
+                    strSQL = strSQL & " SELECT " & intOrd & " AS Ord, " & ConComillas(rs("NombreParcela")) & " AS Par"
+                    CurrentDb.Execute strSQL, dbFailOnError
+                    rs.MoveNext
+                Wend
+                strParcela = Nz(BuscaAyuda("PAR", , 1), strParcela)
+            End If
+        End If
+        If lngTipoParcela = 0 Then
+            If InStr(strParcela, " (") > 0 Then
+                strParcela = Left(strParcela, InStr(strParcela, " (") - 1)
+                lngTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strParcela & "'"), 0)
+            End If
+        End If
+        If lngTipoParcela = 0 Then GoTo Salir_AñadirLineasDetallePredeterminadas
+    End If
+    'ver si existen varios servicios principales para elegir uno de ellos
+    
+    SeleccionaPrincipal lngTipoParcela
+    If datIni = 0 Then
+        datIni1 = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), Date)
+    Else
+        datIni1 = datIni
+    End If
+    If datFin = 0 Then
+        datFin1 = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), datIni1 + 1)
+    Else
+        datFin1 = datFin
+    End If
+    
+    lngIdFichaOcupa = ComprobarDisponibilidad(strParcela, datIni, datFin)
+    If lngIdFichaOcupa <> 0 Then
+        If Nz(DameValorParam("PlaningPermitirOverbookingSN"), False) = True Then
+            intR = MsgBox("No se puede asignar la " & strParcela & " por encontrarse ocupada en la ficha: " & lngIdFichaOcupa _
+                        & vbCrLf & "¿Incluirla de todas maneras?", vbOKCancel + vbQuestion + vbDefaultButton2)
+        Else
+            MsgBox "No se puede asignar la " & strParcela & " por encontrarse ocupada en la ficha: " & lngIdFichaOcupa, vbOKCancel
+            intR = vbCancel
+        End If
+        If intR = vbCancel Then Exit Function
+    End If
+    
+    strSQL = "SELECT tbParcelasYServiciosXDefecto.*"
+    strSQL = strSQL & " FROM tbParcelasYServiciosXDefecto"
+    strSQL = strSQL & " WHERE (((tbParcelasYServiciosXDefecto.IdTipoParcela) = " & lngTipoParcela & "))"
+    strSQL = strSQL & " ORDER BY Principal, tbParcelasYServiciosXDefecto.Id;"
+    Set rsDetPre = CurrentDb.OpenRecordset(strSQL)
+    Set rsFDet = CurrentDb.OpenRecordset("tbFichasDet")
+    lngIdIdi = Nz(DLookup("IdIdioma", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    While Not rsDetPre.EOF
+Añadir:
+        rsFDet.AddNew
+        rsFDet("IdFichaCab") = lngIdFichaCab
+        If rsDetPre("IdSD") > 0 Then ' es Servicio Diario
+            rsFDet("IdSD") = rsDetPre("IdSD")
+            If rsDetPre("Principal") = True And rsDetPre("SoloEste") = True Then
+                rsFDet("Parcela") = DLookup("NombreParcela", "tbParcelas", "NombreParcela = '" & strParcela & "'")
+                rsFDet("IdTipoParcela") = lngTipoParcela
+                'rsFDet("Concepto") = RecDerTop(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rsDetPre("IdSD")) & IIf(IsNull(rsFDet("Parcela")), "", ", (" & strParcela & ")"), 0, 50)
+                rsFDet("Concepto") = RecDerTop(DimeConceptoIdioma(rsDetPre("IdSD"), lngIdIdi) & " (" & strParcela & ")", 0, 50)
+                If intPlazas = 0 Then
+                    intPlazas = Nz(DLookup("NumPlazas", "tbParcelas", "NombreParcela = " & ConComillas(strParcela)), 0)
+                    If intPlazas <> 1 Then
+                        If Screen.MousePointer = 11 Then
+                            DoCmd.Hourglass False
+                            'Screen.MousePointer = 0
+                            intReloj = True
+                        End If
+                        v = Nz(DimeTeclado(2, "PAX en la " & strParcela, intPlazas), "cancel")
+                        If intReloj = True Then DoCmd.Hourglass True 'Screen.MousePointer = 11
+                        
+                        If IsNumeric(v) Then
+                            intPlazas = CInt(v)
+                        Else
+                            intPlazas = 0
+                        End If
+                    End If
+                    If intPlazas = 0 Then '
+                        'MsgBox "Se considera Nº de plazas =2"
+                        'intPlazas = 2
+                    End If
+                End If
+            Else
+                'rsFDet("Concepto") = RecDerTop(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rsDetPre("IdSD")), 0, 50)
+                rsFDet("Concepto") = RecDerTop(DimeConceptoIdioma(rsDetPre("IdSD"), lngIdIdi), 0, 50)
+            End If
+            ''' Si el concepto es como "* pax" y el n1 de pax es diferente, busca si existe otro SD que corresponda al nº de pax
+            If rsFDet("Concepto") Like "* pax*" Then
+                If Not rsFDet("Concepto") Like "* " & intPlazas & " pax*" Then
+                    Dim lIdSD As Long, i As Integer, sConcepto_pax As String, iR As Integer
+                    i = InStr(rsFDet("Concepto"), " pax")
+                    i = InStrRev(rsFDet("Concepto"), " ", i - 1)
+                    If i > 1 Then
+                        sConcepto_pax = Left(rsFDet("Concepto"), i) & intPlazas & " pax"
+                        lIdSD = Nz(DLookup("IdSD", "tbServiciosDiarios", "ServicioDiario = '" & sConcepto_pax & "'"), 0)
+                        If lIdSD > 0 Then
+                            iR = MsgBox("¿Asignar servicio de " & sConcepto_pax & "?", vbYesNo)
+                            If iR = vbYes Then
+                                rsFDet("IdSD") = lIdSD
+                                rsFDet("Concepto") = RecDerTop(DimeConceptoIdioma(lIdSD, lngIdIdi) & " (" & strParcela & ")", 0, 50)
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+            ''' FIN Si el concepto es como "* pax" .............................................................................
+            rsFDet("IVA") = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & DLookup("TipoIVA", "tbServiciosDiarios", "IdSD = " & rsFDet("IdSD")))
+            
+            intIVAinc = Nz(DLookup("IvaIncluido", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), False)
+            datIni2 = datIni1
+            rsFDet("PrecioUnitario") = DamePrecioSD(rsDetPre("IdSD"), datIni2, intIVAinc, rsFDet("IVA"), datFin1)
+            'If DameValorParam("IVAIncluidoEnPreciosSD") <> intIvaInc Then
+            '    If intIvaInc = False Then
+            '        rsFDet("PrecioUnitario") = rsFDet("PrecioUnitario") / (1 + rsFDet("IVA"))
+            '    Else
+            '        rsFDet("PrecioUnitario") = rsFDet("PrecioUnitario") * (1 + rsFDet("IVA"))
+            '    End If
+            'End If
+            rsFDet("PrecioUnitario") = Redondea(rsFDet("PrecioUnitario"), 2)
+            If rsFDet("PrecioUnitario") <> 0 Then
+                If Nz(rsDetPre("PaxSN"), False) = True Then
+                    rsFDet("Cantidad") = IIf(intPlazas > 0, intPlazas, 1)
+                Else
+                    rsFDet("Cantidad") = 1
+                End If
+            Else
+                rsFDet("Cantidad") = 1
+            End If
+            rsFDet("FechaInicio") = datIni1
+            If datIni2 <> datIni1 Then
+                rsFDet("FechaFin") = datIni2
+            ElseIf datFin1 <> Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), datIni1 + 1) Then
+                rsFDet("FechaFin") = datFin1
+            End If
+            If Nz(rsFDet("Parcela"), "") <> "" Then rsFDet("PlazasOcupadas") = intPlazas
+
+'                rsFDet("CodGrupoIngresos") = DLookup("CodGrupoIngresos", "tbServiciosDiarios", "IdSD = " & rsDetPre("IdSD"))
+        Else ' es Extra
+'                rsFDet("Concepto") = DLookup("Extra", "tbPreciosExtras", "IdExtra = " & rsDetPre("IdExtra"))
+'                If rsDetPre("Principal") = True Then
+'                    rsFDet("Parcela") = strParcela
+'                End If
+'                rsFDet("PrecioUnitario") = DLookup("PrecioExtra", "tbPreciosExtras", "IdExtra = " & rsDetPre("IdExtra"))
+'                rsFDet("Cantidad") = 1
+'                rsFDet("FechaFin") = Date
+'                rsFDet("IVA") = DLookup("IVA", "tbTiposIVA", "TipoIVA = " & DLookup("TipoIVA", "tbPreciosExtras", "IdExtra = " & rsDetPre("IdExtra")))
+'                rsFDet("CodGrupoIngresos") = DLookup("CodGrupoIngresos", "tbPreciosExtras", "IdExtra = " & rsDetPre("IdExtra"))
+        End If
+        rsFDet.Update
+        If datIni2 <> datIni1 Then
+            datIni1 = datIni2
+            GoTo Añadir
+        End If
+        rsDetPre.MoveNext
+    Wend
+    G_RecalculaTotales lngIdFichaCab
+    AsignarServiciosDia lngIdFichaCab
+    AñadirLineasDetallePredeterminadas = True
+Salir_AñadirLineasDetallePredeterminadas:
+    Exit Function
+Error_AñadirLineasDetallePredeterminadas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AñadirLineasDetallePredeterminadas" & vbCrLf & Err.Description
+            Resume Salir_AñadirLineasDetallePredeterminadas
+    End Select
+End Function
+
+Public Function SeleccionaPrincipal(lngIdTipoParcela As Long)
+    On Error GoTo Error_SeleccionaPrincipal
+    Dim strSQL As String, i As Integer
+    strSQL = "UPDATE tbParcelasYServiciosXDefecto SET SoloEste = True"
+    strSQL = strSQL & " WHERE tbParcelasYServiciosXDefecto.IdTipoParcela = " & lngIdTipoParcela & " AND Principal = True"
+    CurrentDb.Execute strSQL, dbFailOnError
+            SeleccionaPrincipal = True
+            Exit Function
+    
+    i = DCount("Principal", "tbParcelasYServiciosXDefecto", "Principal = True AND IdTipoParcela = " & lngIdTipoParcela)
+    If i > 1 Then
+        DoCmd.OpenForm "frmSeleccionarSDPrincipal", , , , , acDialog, lngIdTipoParcela
+        If Not IsOpenForm("frmSeleccionarSDPrincipal") Then
+            SeleccionaPrincipal = False
+            Exit Function
+        Else
+            Dim lngId As Long
+            lngId = Nz(Forms("frmSeleccionarSDPrincipal")("lstIdiomas"), 0)
+            strSQL = "UPDATE tbParcelasYServiciosXDefecto SET SoloEste = False"
+            strSQL = strSQL & " WHERE tbParcelasYServiciosXDefecto.IdTipoParcela = " & lngIdTipoParcela & " AND Principal = True"
+            strSQL = strSQL & " AND id <> " & lngId
+            CurrentDb.Execute strSQL, dbFailOnError
+        End If
+    End If
+    SeleccionaPrincipal = True
+Salir_SeleccionaPrincipal:
+    Exit Function
+Error_SeleccionaPrincipal:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SeleccionaPrincipal" & vbCrLf & Err.Description
+            Resume Salir_SeleccionaPrincipal
+            Resume Next
+    End Select
+End Function
+Public Function AsignarPlazas()
+    On Error GoTo Error_AsignarPlazas
+    Dim frm As Form
+    If Not IsOpenForm("frmFichas") Then
+        Exit Function
+    Else
+        Set frm = Forms("frmFichas")
+    End If
+    If frm("lstHabitaciones").ListIndex = -1 Then
+        MsgBox "Se debe seleccionar una parcela/habitación"
+        Exit Function
+    End If
+    DoCmd.OpenForm "frmAsignarPlazas", , , , , acDialog, frm("lstHabitaciones").Column(0)
+    frm("lstHabitaciones").Requery
+    If DSum("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & frm("IdFichaCab")) <> frm("Adultos") + frm("Niños") Then
+        frm("Adultos") = DSum("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & frm("IdFichaCab")) - frm("Niños")
+        frm.Requery
+    End If
+Salir_AsignarPlazas:
+    Exit Function
+Error_AsignarPlazas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AsignarPlazas" & vbCrLf & Err.Description
+            Resume Salir_AsignarPlazas
+            Resume Next
+    End Select
+End Function
+
+Public Function ComprobarDisponibilidad(strParcela As String, dtIni As Date, dtFin As Date, Optional lngExceptoFicha As Long = 0) As Long
+    On Error GoTo HandleError
+    'Devuelve 0 si está libre, si no devuelve el IdFichaCab correspondiente
+    Dim lngIdFichaCab, strSQL As String, rs As Recordset
+    strSQL = "SELECT tbFichasCab.IdFichaCab, IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]) AS FDesde, IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]) AS FHasta, tbFichasDet.Parcela, tbFichasCab.ConfirmadaReserva, tbFichasCab.NombreCliente & tbFichasCab.ApellidosCliente as Cliente, tbFichasCab.EstadoFicha"
+    strSQL = strSQL & " FROM tbFichasCab LEFT JOIN tbFichasDet ON tbFichasCab.IdFichaCab = tbFichasDet.IdFichaCab"
+    strSQL = strSQL & " WHERE (((IIf(IsNull([FechaInicio]),[FechaLlegada],[FechaInicio]))<#" & Format(dtFin, "mm/dd/yyyy") & "#) AND ((IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin]))>#" & Format(dtIni, "mm/dd/yyyy") & "# Or (IIf(IsNull([FechaFin]),[FechaSalida],[FechaFin])) Is Null) AND ((tbFichasDet.Parcela) Is Not Null))"
+    strSQL = strSQL & " AND tbFichasDet.Parcela = " & ConComillas(strParcela)
+    strSQL = strSQL & " AND tbFichasDet.IdFichaCab <> " & lngExceptoFicha
+    strSQL = strSQL & " AND EstadoFicha <>9"
+    Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    If Not rs.EOF Then
+        ComprobarDisponibilidad = rs("IdFichaCab")
+    Else
+        ComprobarDisponibilidad = 0
+    End If
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+Public Function AsignarAdultos(lngIdFicha As Long)
+    On Error GoTo Error_AsignarAdultos
+    Dim intPax As Integer, strSQL As String
+    intPax = Nz(DSum("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & lngIdFicha), 0)
+    strSQL = "UPDATE tbFichasCab SET Adultos = " & intPax & " - Niños"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFicha
+    CurrentDb.Execute strSQL, dbFailOnError
+    
+Salir_AsignarAdultos:
+    Exit Function
+Error_AsignarAdultos:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AsignarAdultos" & vbCrLf & Err.Description
+            Resume Salir_AsignarAdultos
+            Resume Next
+    End Select
+End Function
+
+Public Sub AsignarServiciosDia(lngIdFicha As Long)
+    On Error GoTo Error_AsignarServiciosDia
+    
+    Dim rs As Recordset, strSQL As String, rsFD As Recordset
+    Dim dt As Date, dtIni As Date, dtFin As Date
+    Dim dtLlegada As Date, dtSalida As Date
+    dtLlegada = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFicha), Date)
+    dtSalida = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFicha), dtLlegada + 1)
+    strSQL = "UPDATE tbFichasDetServiciosXDia SET Desayunos = 0, Picnic = 0, Comidas = 0, Cenas = 0, Pernoctaciones = 0"
+    strSQL = strSQL & " WHERE IdFichaCab = " & lngIdFicha
+    CurrentDb.Execute strSQL, dbFailOnError
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tbFichasDetServiciosXDia WHERE IdFichaCab = " & lngIdFicha, dbOpenDynaset)
+    strSQL = "SELECT tbFichasDet.IdFichaCab, tbFichasDet.Cantidad, tbFichasDet.FechaInicio, tbFichasDet.FechaFin, tbServiciosDiarios.DesayunoSN, tbServiciosDiarios.ComidaSN, tbServiciosDiarios.CenaSN, tbServiciosDiarios.PicnicSN"
+    strSQL = strSQL & " FROM tbServiciosDiarios INNER JOIN tbFichasDet ON tbServiciosDiarios.IdSD = tbFichasDet.IdSD"
+    strSQL = strSQL & " WHERE (tbFichasDet.IdFichaCab=" & lngIdFicha & ") AND (DesayunoSN=True OR ComidaSN=True OR CenaSN=True OR PicnicSN=True)"
+    
+    Set rsFD = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
+    
+    While Not rsFD.EOF
+        If IsDate(rsFD("FechaInicio")) Then
+            dtIni = rsFD("FechaInicio")
+        Else
+            If IsDate(rsFD("FechaFin")) Then
+                dtIni = rsFD("FechaFin")
+            Else
+                dtIni = dtLlegada
+            End If
+        End If
+        If IsDate(rsFD("FechaFin")) Then
+            dtFin = rsFD("FechaFin")
+        Else
+            dtFin = dtSalida
+        End If
+        If dtIni > dtFin Then
+            dt = dtIni
+            dtIni = dtFin
+            dtFin = dt
+        End If
+        For dt = dtIni To dtFin
+            rs.FindFirst "Fecha = " & CLng(dt)
+            If rs.NoMatch Then
+                rs.AddNew
+                rs("IdFichaCab") = lngIdFicha
+                rs("Fecha") = dt
+            Else
+                rs.Edit
+            End If
+            If rsFD("DesayunoSN") = True Then
+                If dt > dtLlegada Then rs("Desayunos") = rs("Desayunos") + rsFD("Cantidad")
+            End If
+            If rsFD("PicnicSN") = True Then
+                If dt > dtLlegada Then rs("Picnic") = rs("Picnic") + rsFD("Cantidad")
+            End If
+            If rsFD("ComidaSN") = True Then
+                'If dt < dtSalida Then rs("Comidas") = rs("Comidas") + rsFD("Cantidad")
+                If dt > dtLlegada Then rs("Comidas") = rs("Comidas") + rsFD("Cantidad")
+            End If
+            If rsFD("CenaSN") = True Then
+                If dt < dtSalida Then rs("Cenas") = rs("Cenas") + rsFD("Cantidad")
+            End If
+            rs.Update
+        Next dt
+        rsFD.MoveNext
+    Wend
+Exit_AsignarServiciosDia:
+    Exit Sub
+
+Error_AsignarServiciosDia:
+    MsgBox Err.Description
+    Resume Exit_AsignarServiciosDia
+    
+End Sub

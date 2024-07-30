@@ -1,0 +1,183 @@
+Option Compare Database
+Option Explicit
+Const FILECAMBIO = "C:\Cambio.txt"
+Dim strPathPrintTeam As String
+Dim strPathPrintPort As String
+Dim strError As String
+Dim strEntidad As String
+Dim strLocalidad As String
+Dim intMargSup As Integer
+Dim intMargIzdo As Integer
+Dim intLinDet As Integer
+Dim intNumCop As Integer
+Dim intLetraCN As Integer
+Dim glngId As Long
+Dim strgLinea As String
+Dim strMargen As String
+Dim intgCambiaAcentos As Integer
+
+
+Public Function ImprimirReciCambDOS(lngId As Long, Optional intPag As Integer) As Integer
+    On Error GoTo Error_ImprimirReciCambDOS
+    ParametrosIniReciCamb
+    If ImprimirReciboCambioMoneda(lngId, intPag) = False Then
+        ImprimirReciCambDOS = False
+        Close
+        Exit Function
+    End If
+    Print #1, seSaltPg;
+    Close
+    ImprimirDOS FILECAMBIO, strPathPrintTeam & strPathPrintPort
+    
+
+Salir_ImprimirReciCambDOS:
+    Exit Function
+Error_ImprimirReciCambDOS:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirReciCambDOS"
+    End Select
+    Resume Salir_ImprimirReciCambDOS
+End Function
+
+Private Function ImprimirReciboCambioMoneda(lngId As Long, Optional intPag As Integer) As Integer
+    Dim rs As Recordset
+    Dim i As Integer, k As Integer, j As Integer
+    Dim strRecibo As String, strEntrego As String
+    Dim strMFRecibo As String, strMFEntrego As String
+    Dim strTexto As String
+    
+    
+    On Error GoTo Error_ImprimirReciboCambioMoneda
+    Set rs = CurrentDb.OpenRecordset("tbCambioDivisas")
+    rs.FindFirst "Id = " & lngId
+    If rs.NoMatch Then
+        MsgBox "No existe el Cambio nº: " & lngId
+        ImprimirReciboCambioMoneda = False
+        Exit Function
+    End If
+    If intMargSup > 0 Then
+        For i = 1 To intMargSup
+            Print #1,
+        Next i
+    End If
+    If intMargIzdo > 0 Then
+        strMargen = space(intMargIzdo)
+    Else
+        strMargen = ""
+    End If
+    strRecibo = Format(rs("ReciboCantidad"), "#,##0.00") & " " & rs("ReciboMoneda")
+    strEntrego = Format(rs("EntregoCantidad"), "#,##0.00") & " " & rs("EntregoMoneda")
+    strMFRecibo = IIf(UltimaVocal(rs("ReciboMoneda")) = "A", 4, 3)
+    If InStr(strEntrego, "euro") > 0 Then
+        strMFEntrego = 2
+    Else
+        strMFEntrego = IIf(UltimaVocal(rs("EntregoMoneda")) = "A", 4, 3)
+    End If
+    strgLinea = strMargen & seSubrayON & " T i c k e t  d e  C a m b i o  " & seSubrayOFF & LlenaIzq(IIf(intPag > 0, "Pag. " & intPag, " "), 30)
+    ImprimeLinea
+    strgLinea = strMargen & "Nº de Ticket: " & Llena(rs("Id"), 6) & "Fecha: " & Format(rs("FechaCambio"), "dd/mm/yyyy")
+    ImprimeLinea
+    strgLinea = strMargen & "Importe Recibido: "
+    If rs("TravellersCheck") = True Then
+        strgLinea = strgLinea & " (Travel. Ch.)" & LlenaIzqChar(strRecibo, 32, ".")
+    Else
+        strgLinea = strgLinea & LlenaIzqChar(strRecibo, 46, ".")
+    End If
+    ImprimeLinea
+    strgLinea = strMargen & "Importe Entregado: " & LlenaIzqChar(strEntrego, 45, ".")
+    ImprimeLinea
+    Print #1,
+    strgLinea = strMargen & strEntidad
+    ImprimeLinea
+    strTexto = "He recibido de " & rs("PersonaQueCambia") & ", con Pasaporte/Documento nº: " & rs("DNI") & ", " & strRecibo & " (" & abcednumPtsEuros(rs("ReciboCantidad"), strMFRecibo) & " " & LCase(rs("ReciboMoneda"))
+    If rs("TravellersCheck") = True Then
+        strTexto = strTexto & " en Travellers Cheques"
+    End If
+    strTexto = strTexto & ") y le he entregado " & strEntrego & " (" & abcednumPtsEuros(rs("EntregoCantidad"), strMFEntrego) & " " & IIf(strMFEntrego = 2, "", LCase(rs("EntregoMoneda"))) & ")"
+'    k = Len(strTexto) \ 64
+'    For i = 0 To k
+'        strgLinea = strMargen & Mid(strTexto, i * 64 + 1, 64)
+'        ImprimeLinea
+'    Next i
+Bucle:
+    j = 64
+    If Len(strTexto) > j Then
+        PrimerEspacioDcha strTexto, 1, j
+        strgLinea = strMargen & Mid(strTexto, 1, j) & LlenaChar("=", 64 - j - 1)
+        ImprimeLinea
+        strTexto = Mid(strTexto, j + 1)
+        GoTo Bucle
+    Else
+        strgLinea = strMargen & strTexto & LlenaChar("=", 64 - Len(strTexto) - 1)
+        ImprimeLinea
+    End If
+
+    Print #1, seRemarcON;
+    Print #1,
+    strgLinea = strMargen & "En " & strLocalidad & ", a " & Format(Date, "d"" de ""mmmm"" de ""yyyy")
+    ImprimeLinea
+    Print #1, seRemarcOFF;
+    
+    ImprimirReciboCambioMoneda = True
+Salir_ImprimirReciboCambioMoneda:
+    Exit Function
+Error_ImprimirReciboCambioMoneda:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ImprimirReciboCambioMoneda"
+            
+    End Select
+    
+    Resume Salir_ImprimirReciboCambioMoneda
+End Function
+
+
+
+Private Sub ParametrosIniReciCamb()
+    Dim strImpresoraRecibos  As String
+    On Error GoTo Error_ParametrosIniReciCamb
+    strEntidad = Nz(DameValorParam("RecibosEntidadEmisora"), "")
+    strLocalidad = Nz(DameValorParam("RecibosLocalidadExpedicion"), "")
+    intMargSup = Nz(DameValorParam("RecibosMargenSup"), 3)
+    intMargIzdo = Nz(DameValorParam("RecibosMargenIzdo"), 3)
+    intLinDet = Nz(DameValorParam("RecibosNumLineasTexto"), 15)
+    intNumCop = Nz(DameValorParam("RecibosNumCopias"), 1)
+    intLetraCN = Nz(DameValorParam("RecibosLetraCN"), 1)
+    strImpresoraRecibos = Nz(DameValorParam("RecibosImpresora"), "")
+    intgCambiaAcentos = DLookup("CambiarAcentos", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'")
+    CargarCodigosEscape strImpresoraRecibos
+    strPathPrintTeam = DLookup("NombrePuesto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'")
+    If strPathPrintTeam = Nz(DameValorParam("PuestoNombre"), "") Then
+        strPathPrintTeam = "c:\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'"), 1, True)
+    Else
+        strPathPrintTeam = "\\" & strPathPrintTeam & "\"
+        strPathPrintPort = ElementoDeLista(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & strImpresoraRecibos & "'"), 2, True)
+    End If
+'    Open strPathPrintTeam & strPathPrintPort For Output As #1
+    Open FILECAMBIO For Output As #1
+    If intLetraCN = 1 Then
+        Print #1, seCOMPRI
+    Else
+        Print #1, seNORMAL
+    End If
+Salir_ParametrosIniReciCamb:
+    Exit Sub
+Error_ParametrosIniReciCamb:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En ParametrosIniReciCamb"
+            
+    End Select
+    
+    Resume Salir_ParametrosIniReciCamb
+End Sub
+
+Private Sub ImprimeLinea()
+    If intgCambiaAcentos = True Then
+        Print #1, CambiaAcentos(strgLinea)
+    Else
+        Print #1, strgLinea
+    End If
+End Sub

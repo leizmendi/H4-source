@@ -1,0 +1,16 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+Private Sub Form_Load()
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.imgICAR.Picture = Nz(DimeXML(strXML, "DocImagePath"), "")
+End Sub

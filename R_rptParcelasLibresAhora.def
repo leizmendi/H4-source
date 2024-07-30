@@ -1,0 +1,15 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+
+Private Sub Report_Open(Cancel As Integer)
+    Dim strXML As String, strTit As String, strRS As String
+    strXML = Nz(Me.OpenArgs, "")
+    strTit = Nz(DimeXML(strXML, "Titulo"), "")
+    strRS = Nz(DimeXML(strXML, "RecordSource"), "")
+    If strTit <> "" Then Me.lblTit.Caption = strTit
+    If strRS <> "" Then Me.RecordSource = strRS
+End Sub

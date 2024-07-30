@@ -1,0 +1,27 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnCerrar_Click()
+    DoCmd.Close
+End Sub
+
+'Private Sub btnCancelar_Click()
+'    ggIntCancelarEnlace = True
+'End Sub
+
+Private Sub Form_Load()
+    On Error Resume Next
+    ggIntCancelarEnlace = False
+    Me.imgLogo.Picture = Nz(DameValorParam("LogoUbicacion"), "")
+    Dim lngAncho As Long, lngDif As Long
+    lngDif = 3
+    lngAncho = Nz(DameValorParam("LogoAncho"), 3)
+    Me.imgLogo.Width = (lngAncho * TC_CmToPoints) \ lngDif
+    Me.imgLogo.Height = ((Nz(DameValorParam("LogoAlto"), 3) \ lngDif) * TC_CmToPoints)
+End Sub

@@ -1,0 +1,27 @@
+Option Compare Database
+Option Explicit
+
+Public Sub Carga_Btns(frm As Form)
+    Dim i As Integer, lngIdComando As Long, strPic As String, strCTT As String
+    On Error Resume Next
+    For i = 2 To 7
+        strPic = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_imagen"), "")
+        If Dir(strPic) <> "" Then frm("btn_" & i).Picture = strPic
+        frm("btn_" & i).Enabled = Nz(DameValorParam("AplicacionMenuVer_Btn_" & i), False)
+        If frm("btn_" & i).Enabled Then
+            lngIdComando = Nz(DameValorParam("AplicacionMenuBtn_" & i & "_comando"), 0)
+            frm("btn_" & i).OnClick = "=AccionMenu(" & lngIdComando & ",2)"
+            strCTT = Nz(DLookup("Leyenda", "sysMenus2", "IdComando = " & lngIdComando), "")
+            frm("btn_" & i).ControlTipText = strCTT
+            If lngIdComando = 51 Then 'Abrir-Cerrar Caja
+                If IsCajaOpen > 0 Then
+                    frm("btn_" & i).ControlTipText = "Cerrar Caja"
+                Else
+                    frm("btn_" & i).ControlTipText = "Abrir Caja"
+                End If
+            End If
+        Else
+            frm("btn_" & i).ControlTipText = ""
+        End If
+    Next i
+End Sub

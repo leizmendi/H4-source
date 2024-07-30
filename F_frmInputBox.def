@@ -1,0 +1,78 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub btnAceptar_Click()
+    Me.Visible = False
+End Sub
+
+Private Sub btnAddFile_Click()
+    Dim strFile As String, strF As String
+    strFile = DimeFicheros()
+    If strFile <> "" Then
+        Dim i As Integer
+        For i = 1 To LineasDeStr(strFile)
+            strF = ExtraeLin(strFile, i) & ";"
+            If InStr(Me.lstAdjuntarFicheros.RowSource, strF) = 0 Then Me.lstAdjuntarFicheros.RowSource = Me.lstAdjuntarFicheros.RowSource & strF
+        Next i
+    End If
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+End Sub
+
+Private Sub btnCancelar_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+Private Sub btnDelFile_Click()
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    Dim strDelFile As String, i As Integer
+    strDelFile = Me.lstAdjuntarFicheros & ";"
+    i = InStr(Me.lstAdjuntarFicheros.RowSource, strDelFile)
+    Me.lstAdjuntarFicheros.RowSource = Replace(Me.lstAdjuntarFicheros.RowSource, strDelFile, "")
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+End Sub
+
+Private Sub btnOpenFile_Click()
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    OpenFile Me.lstAdjuntarFicheros
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+    Dim strXML As String
+    strXML = Nz(Me.OpenArgs, "")
+    Me.Caption = Nz(DimeXML(strXML, "Titulo"), "MyInputBox")
+    Me.Etiqueta1.Caption = Nz(DimeXML(strXML, "Prompt"), "Introduzca texto")
+    Me.txtIntro = Nz(DimeXML(strXML, "Default"), "")
+    Me.txtIntro.InputMask = Nz(DimeXML(strXML, "InputMask"), "")
+    If Nz(DimeXML(strXML, "TextoEnriquecido"), "N") = "S" Then
+        Me.txtIntro.TextFormat = acTextFormatHTMLRichText
+        Me.txtIntro.ScrollBars = 2
+    Else
+        Me.txtIntro.TextFormat = acTextFormatPlain
+        Me.txtIntro.ScrollBars = 0
+    End If
+    Dim strAdjuntarFicheros As String
+    strAdjuntarFicheros = Nz(DimeXML(strXML, "AdjuntarFicheros"), "NO")
+    If strAdjuntarFicheros = "NO" Then
+        Me.lstAdjuntarFicheros.Visible = False
+    Else
+        Me.lstAdjuntarFicheros.Visible = True
+        Me.lstAdjuntarFicheros.RowSource = strAdjuntarFicheros
+    End If
+    Me.btnAddFile.Visible = Me.lstAdjuntarFicheros.Visible
+    Me.btnDelFile.Visible = Me.lstAdjuntarFicheros.Visible
+    Me.btnOpenFile.Visible = Me.lstAdjuntarFicheros.Visible
+End Sub
+
+Private Sub lstAdjuntarFicheros_Click()
+    Me.btnOpenFile.Enabled = Me.lstAdjuntarFicheros.ListIndex <> -1
+End Sub
+
+Private Sub lstAdjuntarFicheros_DblClick(Cancel As Integer)
+    If Me.lstAdjuntarFicheros.ListIndex = -1 Then Exit Sub
+    OpenFile Me.lstAdjuntarFicheros
+End Sub

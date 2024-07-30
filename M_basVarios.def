@@ -1,0 +1,334 @@
+Option Compare Database
+Option Explicit
+
+Public Function AbrirReservas()
+    DoCmd.OpenForm "frmFichas", , , , , , "Reservas"
+End Function
+
+Public Function AbrirReservasComedor()
+    DoCmd.OpenForm "frmFichasRestaurante", , , , , , "Reservas"
+End Function
+
+Public Sub IrAFicha_OLD(lngFicha As Long)
+    Dim rs As Recordset
+    If Not IsOpenForm("frmFichas") Then DoCmd.OpenForm "frmFichas"
+    Set rs = Forms("frmFichas").RecordsetClone
+    rs.FindFirst "IdFichaCab = " & lngFicha
+    If Not rs.NoMatch Then
+        Forms("frmFichas").Bookmark = rs.Bookmark
+    End If
+End Sub
+
+Public Sub RellenarClienteFicha()
+    Dim db As Database
+    Dim rs As Recordset
+    On Error GoTo Error_RellenarClienteFicha
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset("tbClientes")
+    'rs.Index = "NIF"
+    'rs.Seek "=", Forms("frmFichas").DNICliente
+    rs.FindFirst "NIF = '" & Forms("frmFichas").DNICliente & "'"
+    If Not rs.NoMatch Then
+        Forms("frmFichas").NombreCliente = rs("NombreCli")
+        Forms("frmFichas").ApellidosCliente = rs("ApellidosCli")
+        Forms("frmFichas").DireccionCliente = rs("Direccion")
+        Forms("frmFichas").LocalidadCliente = rs("Ciudad")
+        Forms("frmFichas").TelefonoCliente = rs("Telefono")
+        Forms("frmFichas").CPCliente = rs("CodPostal")
+    End If
+Salir_RellenarClienteFicha:
+    Exit Sub
+Error_RellenarClienteFicha:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En RellenarClienteFicha"
+    End Select
+    Resume Salir_RellenarClienteFicha
+End Sub
+
+Public Function AdultosDeUnaFicha(lngFicha As Long) As Long
+    Dim var As Variant
+    On Error Resume Next
+    AdultosDeUnaFicha = 0
+    var = DSum("Cantidad", "tbFichasDet", "IdFichaCab = " & lngFicha & " AND Left(ServicioDiario,3) = 'ADU'")
+    If Not IsNull(var) Then
+        AdultosDeUnaFicha = CLng(var)
+    Else
+        AdultosDeUnaFicha = 0
+    End If
+End Function
+Public Function NiñosDeUnaFicha(lngFicha As Long) As Long
+    Dim var As Variant
+    On Error Resume Next
+    NiñosDeUnaFicha = 0
+    var = DSum("Cantidad", "tbFichasDet", "IdFichaCab = " & lngFicha & " AND Left(ServicioDiario,3) = 'NIÑ'")
+    If Not IsNull(var) Then
+        NiñosDeUnaFicha = CLng(var)
+    Else
+        NiñosDeUnaFicha = 0
+    End If
+End Function
+
+
+Public Sub AbrirfrmConsultas(strQRY As String, strOpenArgs As String, strTitulo As String)
+    On Error GoTo Error_AbrirfrmConsultas
+    DoCmd.OpenForm "frmConsultas", acNormal, , , , acHidden, strOpenArgs
+    Forms![frmConsultas]!txtTitulo = strTitulo
+    Forms![frmConsultas]![subfrm0].SourceObject = "Consulta." & strQRY
+    Forms![frmConsultas]!lblSQL.Caption = CurrentDb.QueryDefs(strQRY).SQL
+    Forms![frmConsultas].Visible = True
+Salir_AbrirfrmConsultas:
+    Exit Sub
+Error_AbrirfrmConsultas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En AbrirfrmConsultas"
+    End Select
+    Resume Salir_AbrirfrmConsultas
+End Sub
+Public Sub AbrirfrmListasVarias(strOpenArgs As String)
+    On Error GoTo Error_AbrirfrmListasVarias
+    If IsOpenForm("frmListasVarias") Then
+        If Application.Forms("frmListasVarias").OpenArgs = strOpenArgs Then
+            Application.Forms("frmListasVarias").Visible = True
+            Exit Sub
+        Else
+            DoCmd.Close acForm, "frmListasVarias"
+        End If
+    End If
+    DoCmd.OpenForm "frmListasVarias", , , , , acDialog, strOpenArgs
+Salir_AbrirfrmListasVarias:
+    Exit Sub
+Error_AbrirfrmListasVarias:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En AbrirfrmListasVarias"
+    End Select
+    Resume Salir_AbrirfrmListasVarias
+End Sub
+
+Public Function IsOpenForm(strForm As String) As Integer
+    Dim frm As Form
+    On Error GoTo Error_IsOpenForm
+    IsOpenForm = False
+    For Each frm In Application.Forms
+        If frm.Name = strForm Then
+            IsOpenForm = True
+            Exit For
+        End If
+    Next frm
+Salir_IsOpenForm:
+    Exit Function
+Error_IsOpenForm:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description & vbCrLf & "En IsOpenForm"
+    End Select
+    Resume Salir_IsOpenForm
+End Function
+
+
+
+Public Function NoNulo(v As Variant)
+    If IsNull(v) Then
+        NoNulo = ""
+    Else
+        NoNulo = v
+    End If
+End Function
+
+Public Sub BaseEIvaDeFacturas(intMensaje As Integer, Optional datDesde As Variant = "x", Optional datHasta As Variant = "x", Optional varIdFactura As Variant = 0)
+    Dim i As Long, j As Long, varReturn As Variant, intLaUltima As Integer
+    Dim rs As Recordset, rs2 As Recordset
+    Dim strSQL As String
+    Dim lngActuFac As Long
+    Dim intIVAinc As Integer, intPtsEuros As Integer, intDias As Integer
+    Dim dobTotalBase As Double, dobTotalIVA As Double, dobBase As Double
+    On Error GoTo Error_BaseEIvaDeFacturas
+    strSQL = "SELECT tbFacturasCab.*, tbFacturasDet.*"
+    strSQL = strSQL & " FROM tbFacturasCab INNER JOIN tbFacturasDet ON tbFacturasCab.IdFactura = tbFacturasDet.IdFactura"
+    If IsDate(datDesde) And IsDate(datHasta) Then
+        strSQL = strSQL & " WHERE tbFacturasCab.FechaFactura Between #" & Format(datDesde, "yyyy/mm/dd") & "# And #" & Format(datHasta, "yyyy/mm/dd") & "#"
+    ElseIf varIdFactura > 0 Then
+        strSQL = strSQL & " WHERE tbFacturasCab.IdFactura = " & CLng(varIdFactura)
+    End If
+    strSQL = strSQL & " ORDER BY tbFacturasCab.FechaFactura, tbFacturasDet.IdFactura"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    Set rs2 = CurrentDb.OpenRecordset("tbFacturasCab")
+    lngActuFac = 0
+    varReturn = SysCmd(acSysCmdInitMeter, "Actualizando", rs.RecordCount)
+
+    While Not rs.EOF
+        If rs("tbFacturasCab.IdFactura") <> lngActuFac Then
+            If lngActuFac = 0 Then ' la primera vez
+                lngActuFac = rs("tbFacturasCab.IdFactura")
+                intIVAinc = rs("IvaIncluidoDetalle")
+                intPtsEuros = 2
+'                intPtsEuros = rs("PtsEuros")
+                dobTotalBase = 0
+                dobTotalIVA = 0
+                GoTo Sigue
+            End If
+LaUltima:
+            rs2.FindFirst "IdFactura = " & lngActuFac
+            If rs2.NoMatch Then
+                MsgBox " No se encontró IdFactura: " & lngActuFac
+                GoTo Fin
+            End If
+            rs2.Edit
+'            If intPtsEuros = 1 Then
+'                rs2("TotalBase") = CLng(dobTotalBase)
+'                rs2("TotalIVA") = CLng(dobTotalIVA)
+'            Else
+                rs2("TotalBase") = CLng(dobTotalBase * 100) / 100
+                rs2("TotalIVA") = CLng(dobTotalIVA * 100) / 100
+'            End If
+            rs2.Update
+            i = i + 1
+            If intLaUltima Then GoTo Fin
+            lngActuFac = rs("tbFacturasCab.IdFactura")
+            intIVAinc = rs("IvaIncluidoDetalle")
+'            intPtsEuros = rs("PtsEuros")
+            dobTotalBase = 0
+            dobTotalIVA = 0
+        End If
+Sigue:
+        If IsDate(rs("Fechainicio")) And IsDate(rs("FechaFin")) Then
+            intDias = CLng(rs("FechaFin")) - CLng(rs("FechaInicio"))
+        Else
+            intDias = 1
+        End If
+        If intIVAinc = True Then
+            dobBase = (rs("PrecioUnitario") / (1 + rs("IVA"))) * rs("Cantidad") * intDias
+        Else
+            dobBase = rs("PrecioUnitario") * rs("Cantidad") * intDias
+        End If
+        dobTotalBase = dobTotalBase + dobBase
+        dobTotalIVA = dobTotalIVA + dobBase * rs("IVA")
+        j = j + 1
+        varReturn = SysCmd(acSysCmdUpdateMeter, j)
+        rs.MoveNext
+    Wend
+    intLaUltima = True
+    GoTo LaUltima
+Fin:
+    If intMensaje Then
+        MsgBox "Se actualizaron " & i & " facturas"
+    End If
+    varReturn = SysCmd(acSysCmdRemoveMeter)
+Salir_BaseEIvaDeFacturas:
+    Exit Sub
+Error_BaseEIvaDeFacturas:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en BaseEIvaDeFacturas" & vbCrLf & Err.Description
+    End Select
+    Resume Salir_BaseEIvaDeFacturas
+        
+End Sub
+
+Public Function CargaFicheroEnString(strFile As String) As String
+    On Error GoTo Error_CargaFicheroEnString
+    Dim strR As String, strLinea As String
+    Open strFile For Input As #1
+    While Not EOF(1)
+        Line Input #1, strLinea
+        strR = strR & strLinea & vbCrLf
+    Wend
+    CargaFicheroEnString = strR
+Salir_CargaFicheroEnString:
+    Close #1
+    Exit Function
+Error_CargaFicheroEnString:
+    Select Case Err
+        Case Else
+            MsgBox "error nº " & Err & " en CargaFicheroEnString" & vbCrLf & Err.Description
+            Resume Salir_CargaFicheroEnString
+    End Select
+
+End Function
+
+Public Function SeleccionEmpresa() As Long
+    On Error GoTo Error_SeleccionEmpresa
+    DoCmd.OpenForm "frmEmpresaSeleccion", , , , , acDialog
+    If Not IsOpenForm("frmEmpresaSeleccion") Then Exit Function
+    Dim lngIdEmpresa As Long
+    If Forms("frmEmpresaSeleccion")("lstEmpresas").ListIndex <> -1 Then
+        lngIdEmpresa = Forms("frmEmpresaSeleccion")("lstEmpresas")
+    End If
+    DoCmd.Close acForm, "frmEmpresaSeleccion"
+    SeleccionEmpresa = lngIdEmpresa
+Salir_SeleccionEmpresa:
+    Exit Function
+Error_SeleccionEmpresa:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en SeleccionEmpresa" & vbCrLf & Err.Description
+            Resume Salir_SeleccionEmpresa
+    End Select
+End Function
+
+Public Function AbreEmpresa() As Integer
+    On Error GoTo Error_AbreEmpresa
+    Dim lngIdEmpresa As Long
+    lngIdEmpresa = SeleccionEmpresa
+    If lngIdEmpresa = 0 Then Exit Function
+    
+    Dim strCarpetaP As String, strCarpetaD As String, strCarpetaA As String, strFileDat As String
+    strCarpetaA = DirectorioDe(CurrentDb.Name)
+Carpetas:
+    strCarpetaP = Nz(DLookup("CarpetaParametros", "tbEmpresasFR", "IdEmpresaFR = " & lngIdEmpresa), strCarpetaA)
+    strCarpetaD = Nz(DLookup("CarpetaDatos", "tbEmpresasFR", "IdEmpresaFR = " & lngIdEmpresa), strCarpetaA)
+    strFileDat = Nz(DLookup("FicheroDeConexion", "1myConexionTablas", "NombreTabla = 'tbFichasCab'"), "")
+    If strFileDat = "" Then
+        MsgBox "No se encontró FicheroDeConexion de tbFichasCab", vbExclamation
+        GoTo Salir_AbreEmpresa
+    End If
+    DoCmd.Hourglass True
+    If ReconectarTablasYaVinculadas(strCarpetaD, strCarpetaP) = False Then
+        MsgBox "No se pudo abrir la empresa seleccionada, se volverá a abrir la empresa activa", vbInformation
+        lngIdEmpresa = DLookup("IdEmpresaFR", "tbEmpresasFR", "ActivaSN=True")
+        GoTo Carpetas
+    End If
+    DoCmd.Hourglass False
+    
+    DoCmd.Hourglass True
+    Dim strSQL As String, strSerie As String
+    strSQL = "UPDATE tbEmpresasFR SET ActivaSN=False"
+    CurrentDb.Execute strSQL, dbFailOnError
+    strSQL = "UPDATE tbEmpresasFR SET ActivaSN=True"
+    strSQL = strSQL & " WHERE IdEmpresaFR = " & lngIdEmpresa
+    CurrentDb.Execute strSQL, dbFailOnError
+    PonSerieEmpresaActiva
+    'strSerie = Nz(DLookup("SerieFacturacion", "tbEmpresasFr", "IdEmpresaFR = " & lngIdEmpresa), "")
+    'PonValorParam "PuestoSerie", strSerie
+    'MsgBox "La Serie de Facturas para la empresa seleccionada es: " & IIf(strSerie = "", "(Sin Serie)", strSerie), vbInformation
+    If IsOpenForm("frmMenu") Then Call Forms("frmMenu").Form_Load
+    PonValorParam "AplicacionTitulo", "H4 " & DLookup("EmpresaFR", "tbEmpresasFR", "IdEmpresaFR = " & lngIdEmpresa)
+    Call Titulo_e_Icono
+    AbreEmpresa = True
+Salir_AbreEmpresa:
+    DoCmd.Hourglass False
+    Exit Function
+Error_AbreEmpresa:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en AbreEmpresa" & vbCrLf & Err.Description
+            Resume Salir_AbreEmpresa
+    End Select
+End Function
+
+
+Function EsSD(lngIdSD As Long) As Integer
+    On Error GoTo HandleError
+    Dim strCGI As String
+    strCGI = Nz(DLookup("CodGrupoIngresos", "tbServiciosDiarios", "IdSD = " & lngIdSD), "")
+    EsSD = Nz(DLookup("EsSD", "tbGruposDeIngresos", "CodNombreGrupo = " & ConComillas(strCGI)), True)
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function

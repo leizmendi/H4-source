@@ -1,0 +1,24 @@
+Option Compare Database
+Option Explicit
+
+Public Function DameNumeroPresupuesto() As String
+    Dim varNum As Variant
+    On Error GoTo Error_DameNumeroPresupuesto
+    varNum = DMax("NumeroDePresupuesto", "tbPresupuestosCab")
+    If IsNull(varNum) Then
+        varNum = 1
+    Else
+        varNum = CLng(Left(CStr(varNum), 5)) + 1
+    End If
+    DameNumeroPresupuesto = Format(varNum, "00000") & "/" & Format(Date, "YY")
+Salir_DameNumeroPresupuesto:
+    Exit Function
+Error_DameNumeroPresupuesto:
+    Select Case Err
+        Case Else
+            MsgBox Err.Description & ", Error nº " & Err.Number _
+            & vbCrLf & "En Dame Nº Presupuesto"
+    End Select
+    DameNumeroPresupuesto = ""
+    Resume Salir_DameNumeroPresupuesto
+End Function

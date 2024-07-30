@@ -1,0 +1,95 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Compare Database
+Option Explicit
+
+Private Sub btnGrabarCambios_Click()
+    GrabarParam Me
+End Sub
+
+Private Sub AplicacionCarpetaEntradaViajeros_AfterUpdate()
+    If Me.cmbIdioma.ListIndex = -1 Then
+        PonValorParam "AplicacionCarpetaEntradaViajeros", Me.AplicacionCarpetaEntradaViajeros, 10
+    Else
+        PonValorParam "AplicacionCarpetaEntradaViajeros_IdIdioma_" & Me.cmbIdioma, Me.AplicacionCarpetaEntradaViajeros, 10
+    End If
+End Sub
+
+Private Sub btnVerEV_Click()
+    On Error Resume Next
+    DoCmd.OpenReport Nz(Me.EntradaViajerosRPT, "rptFichaEntradaViajeros"), acViewPreview, , "IdPartePolicia = " & Nz(DMax("IdPartePolicia", "tbPartesPolicia"), 0)
+End Sub
+
+Private Sub cmbIdioma_AfterUpdate()
+    If Me.cmbIdioma.ListIndex = -1 Then
+        Me.AplicacionCarpetaEntradaViajeros = Nz(DameValorParam("AplicacionCarpetaEntradaViajeros"), "")
+    Else
+        Me.AplicacionCarpetaEntradaViajeros = Nz(DameValorParam("AplicacionCarpetaEntradaViajeros_IdIdioma_" & Me.cmbIdioma), "")
+    End If
+End Sub
+
+Private Sub EntradaViajerosAW_AfterUpdate()
+    'Me.EntradaViajeros_Imp_VistaPrevia.Visible = Me.EntradaViajerosAW = 2
+    'Me.EntradaViajeros_Impresora.Visible = Me.EntradaViajeros_Imp_VistaPrevia.Visible
+    Me.EntradaViajerosConfirmarDocModelo.Visible = Me.EntradaViajerosAW = 2
+    Me.EntradaViajerosDocModelo.Visible = Me.EntradaViajerosAW = 2
+    Me.EntradaViajerosRPT.Visible = Me.EntradaViajerosAW <> 2
+    Me.btnVerEV.Visible = Me.EntradaViajerosAW <> 2
+End Sub
+
+Private Sub EntradaViajerosCapturaFirmaSN_AfterUpdate()
+    Me.EntradaViajerosWacoEco.Visible = Me.EntradaViajerosCapturaFirmaSN And g_CapturaFirmas
+    Call EntradaViajerosWacoEco_AfterUpdate
+End Sub
+
+Private Sub EntradaViajerosWacoEco_AfterUpdate()
+    Me.WacomSignipropdf.Visible = Me.EntradaViajerosWacoEco = 1 And g_CapturaFirmas And Me.EntradaViajerosCapturaFirmaSN
+    Me.AplicacionCarpetaEntradaViajeros.Visible = g_CapturaFirmas And Me.EntradaViajerosCapturaFirmaSN
+    Me.cmbIdioma.Visible = Me.EntradaViajerosWacoEco = 2 And g_CapturaFirmas And Me.EntradaViajerosCapturaFirmaSN
+    Me.ExtensionFileWord.Visible = Me.WacomSignipropdf.Visible
+    Me.EntradaViajerosEcoSignatureImprimirUnaCopia.Visible = Me.EntradaViajerosWacoEco = 2 And g_CapturaFirmas And Me.EntradaViajerosCapturaFirmaSN
+End Sub
+
+Private Sub FichasPoliciaObservacionesTamañoFuente_BeforeUpdate(Cancel As Integer)
+    If Not IsNumeric(Me.FichasPoliciaObservaciones) Then
+        MsgBox "Debe ser un número", vbExclamation
+        Cancel = True
+    End If
+End Sub
+
+Private Sub Form_Load()
+    CargarParam Me
+    CargarImpresoras
+    On Error Resume Next
+    PartesPoliciaSegunPF_AfterUpdate
+    'PartesPoliciaEnvioFicheroMA_AfterUpdate
+    EntradaViajerosAW_AfterUpdate
+    Me.EntradaViajerosCapturaFirmaSN.Visible = g_CapturaFirmas
+    Call EntradaViajerosCapturaFirmaSN_AfterUpdate
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+    ComprobarParam Me, Cancel
+End Sub
+
+
+Private Sub PartesPoliciaNombreEstablecimiento_AfterUpdate()
+    Me.PartesPoliciaNombreEstablecimiento = RecDerTop(Me.PartesPoliciaNombreEstablecimiento, 0, 40)
+End Sub
+
+Private Sub PartesPoliciaSegunPF_AfterUpdate()
+    Me.PartesPoliciaFcE_TlF.Visible = Nz(Me.PartesPoliciaSegunPF, 2) = 2
+End Sub
+
+Public Sub CargarImpresoras()
+    Dim i As Integer, sImpresoras As String
+    For i = 0 To Application.Printers.Count - 1
+        sImpresoras = sImpresoras & Application.Printers(i).DeviceName & ";"
+    Next
+    sImpresoras = Left(sImpresoras, Len(sImpresoras) - 1)
+    Me.EntradaViajeros_Impresora.RowSource = sImpresoras
+End Sub

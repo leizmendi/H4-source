@@ -1,0 +1,73 @@
+Option Compare Database
+Option Explicit
+
+'ini
+Public Sub PruebaJSON()
+    Dim JSON As Object
+    Set JSON = JsonConverter.ParseJson("{""a"":123,""b"":[1,2,3,4],""c"":{""d"":456}}")
+    JSON("c")("e") = 789
+    
+    Debug.Print JsonConverter.ConvertToJson(JSON)
+    
+    Debug.Print JsonConverter.ConvertToJson(JSON, 2, 1)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+End Sub
+
+
+
+Sub GetREST(strURL As String)
+
+    Dim hReq As Object, JSON As Dictionary
+    Dim i As Long
+    Dim var As Variant
+    Dim item As Variant
+    'Set ws = Sheet1
+    
+    'create our URL string and pass the user entered information to it
+    'Dim strUrl As String
+    '    strUrl = "https://restcountries.eu/rest/v2/lang/es"
+    
+    Set hReq = CreateObject("MSXML2.XMLHTTP")
+        With hReq
+            .Open "GET", strURL, False
+            .Send
+        End With
+    
+    'wrap the response in a JSON root tag "data" to count returned objects
+    Dim response As String
+        response = "{""data"":" & hReq.responseText & "}"
+    
+    Set JSON = JsonConverter.ParseJson(response)
+    
+    'set array size to accept all returned objects
+    ReDim var(JSON("data").Count, 1)
+    
+    
+    
+    'Debug.Print JsonConverter.ConvertToJson(JSON, 2, 1)
+    'Exit Sub
+    
+    i = 1
+    'loop through returned data and get Symbol & Name
+    For Each item In JSON("data")
+        var(i, 0) = item("capital")
+        var(i, 1) = item("name")
+        i = i + 1
+        Debug.Print item("name"), "capital", item("capital")
+    Next
+    
+        
+    
+    Erase var
+    Set var = Nothing
+    Set hReq = Nothing
+    Set JSON = Nothing
+    
+    
+End Sub
+
+Sub popo()
+    GetREST "https://restcountries.eu/rest/v2/region/americas"
+End Sub

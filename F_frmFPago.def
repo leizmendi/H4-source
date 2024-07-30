@@ -1,0 +1,40 @@
+CodeBehindForm
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+Option Compare Database
+Option Explicit
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+    Dim varO As Variant
+    varO = DMax("CLng(CodFPago)", "tbFPago")
+    If IsNumeric(varO) Then
+        Me.CodFPago = CStr(CLng(varO) + 1)
+    Else
+        Me.CodFPago = "1"
+    End If
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    If IsNull(DLookup("Berezi", "tbFPago", "Berezi =1")) Then
+        MsgBox "No se puede modificar, pues se necesita la Forma de Pago Especial correspondiente a METÁLICO"
+'        Cancel = True
+    End If
+End Sub
+
+Private Sub Form_Load()
+    AjustarColumnas Me
+End Sub
+
+Private Sub Predeterminada_Click()
+    Dim db As DAO.Database
+    Dim strSQL As String
+    If Me.Predeterminada = True Then
+        strSQL = "UPDATE tbFPago SET tbFPago.Predeterminada = False"
+        strSQL = strSQL + " WHERE (((tbFPago.CodFPago)<>'" & Me.CodFPago & "'))"
+        Set db = CurrentDb
+        db.Execute (strSQL)
+        'Me.Requery
+    End If
+End Sub
