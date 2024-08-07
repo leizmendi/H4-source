@@ -141,7 +141,7 @@ SiguienteContador:
     Wend
     SysCmd acSysCmdClearStatus
 '    If intGenerarNoEnlazar = True Then GoTo GrabarRegistrosEnlace
-    Dim strCarpeta As String, j As Integer, strFile As String, FSO As FileSystemObject
+    Dim strCarpeta As String, j As Integer, strFile As String, fso As FileSystemObject
     strCarpeta = Nz(DameValorParam("ContabilidadCarpetaEnlace"), "C:\")
     strFile = Nz(DameValorParam("ContabilidadFicheroEnlace"), "FEnlace.pbs")
     'strFile = AbrirDialogo(False, , , strFile, "Guardar fichero de enlace como", "Guardar", strCarpeta)
@@ -262,8 +262,8 @@ Private Function EnlazarRegistroFacturaEmitida(lngIdFor As Long, strDescripcion 
     grsASI("ASI-DIARIO") = 1
     
     grsASI("TipoIVA") = "V"
-    grsASI("NumeroFactura") = recdertop(strNumFac, 0, 8)
-    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = recdertop(strNumFac, 0, 10) ' Mid(strNumFac, 9)
+    grsASI("NumeroFactura") = RecDerTop(strNumFac, 0, 8)
+    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = RecDerTop(strNumFac, 0, 10) ' Mid(strNumFac, 9)
     grsASI("CriterioCajaSN") = "N"
     grsASI("TipoRegistro") = "C"
     
@@ -355,7 +355,7 @@ Private Function EnlazarRegistroFacturaEmitida(lngIdFor As Long, strDescripcion 
             strDescripcionCuenta = "INGRESOS " & rs2("DescripcionGrupo")
         End If
         grsAPU("APU-SUBCUENTA") = strSubcuenta
-        grsAPU("APU-DESCRIPCION") = recdertop(strDescripcionCuenta, 0, 60)
+        grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcionCuenta, 0, 60)
         'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
         grsAPU("APU-TIPO") = "L"
     
@@ -384,7 +384,7 @@ Private Function EnlazarRegistroFacturaEmitida(lngIdFor As Long, strDescripcion 
     End If
     strDescripcionCuenta = "H.P. IVA REPERCUTIDO"
     grsAPU("APU-SUBCUENTA") = strSubcuenta
-    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcionCuenta, 0, 60)
+    grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcionCuenta, 0, 60)
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
     grsAPU("APU-TIPO") = "I"
     
@@ -448,7 +448,7 @@ Private Function EnlazarRegistroOtrosIngresos(lngIdFor As Long) As Integer
     grsASI("TipoIVA") = "V"
     strNumOI = "OI_" & rs("NumeroCorrelativo") & DimeNumNumCorrAux(rs("NumeroCorrelativo"), Nz(rs("NumeroCorrelativoAux"), ""))
     'strNumOI = "OI_" & DimeNumNumCorrAux(rs("NumeroCorrelativo"), Nz(rs("NumeroCorrelativoAux"), ""))
-    grsASI("NumeroFactura") = recdertop(strNumOI, 0, 8)
+    grsASI("NumeroFactura") = RecDerTop(strNumOI, 0, 8)
     If Len(strNumOI) > 8 Then grsASI("NumeroFactura2") = Mid(strNumOI, 9)
     grsASI("CriterioCajaSN") = "N"
     grsASI("TipoRegistro") = "C"
@@ -464,7 +464,7 @@ Private Function EnlazarRegistroOtrosIngresos(lngIdFor As Long) As Integer
     strDescripcion = "CLIENTES VARIOS"
     strCuentaConta = strSubcuenta
     strSubCuentaCliente = strSubcuenta
-    strDescripcionCliente = recdertop(strDescripcion, 0, 60)
+    strDescripcionCliente = RecDerTop(strDescripcion, 0, 60)
     If rs("Total") = 0 Then GoTo FormasDePago
     intApunte = intApunte + 1
     'intApunte = 1
@@ -512,7 +512,7 @@ Private Function EnlazarRegistroOtrosIngresos(lngIdFor As Long) As Integer
     strSubcuenta = Nz(rs("CuentaContabilidad"), "")
     strDescripcion = rs("DescripcionGrupo")
     grsAPU("APU-SUBCUENTA") = strSubcuenta
-    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcion, 0, 60)
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
     grsAPU("APU-TIPO") = "L"
     
@@ -540,7 +540,7 @@ Private Function EnlazarRegistroOtrosIngresos(lngIdFor As Long) As Integer
         End If
         strDescripcion = "H.P. IVA REPERCUTIDO"
         grsAPU("APU-SUBCUENTA") = strSubcuenta
-        grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+        grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcion, 0, 60)
         'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
         grsAPU("APU-TIPO") = "I"
     
@@ -612,7 +612,7 @@ FormasDePago:
         'strSubcuenta = Nz(rs("CuentaContabilidad"), "")
         'strDescripcion = rs("DescripcionGrupo")
         grsAPU("APU-SUBCUENTA") = strSubCuentaCliente
-        grsAPU("APU-DESCRIPCION") = recdertop(strDescripcionCliente, 0, 60)
+        grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcionCliente, 0, 60)
         'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
         grsAPU("APU-TIPO") = "L"
     
@@ -660,7 +660,7 @@ Private Function EnlazarRegistroFacturaRecibida(lngIdFor As Long) As Integer
     If IsNull(rs("NumeroCorrelativoAux")) Then
         strAsiento = strAsiento & "000"
     Else
-        strAsiento = strAsiento & recdertop(CStr(DimeNumNumCorrAux(rs("NumeroCorrelativo"), rs("NumeroCorrelativoAux"))), 0, 1)
+        strAsiento = strAsiento & RecDerTop(CStr(DimeNumNumCorrAux(rs("NumeroCorrelativo"), rs("NumeroCorrelativoAux"))), 0, 1)
         strAsiento = strAsiento & "00"
     End If
     lngIdFR = rs("IdFacturaRecibida")
@@ -672,9 +672,9 @@ Private Function EnlazarRegistroFacturaRecibida(lngIdFor As Long) As Integer
     
     grsASI("TipoIVA") = "C"
     strNumFR = "FR_" & rs("NumeroCorrelativo") '& DimeNumNumCorrAux(rs("NumeroCorrelativo"), Nz(rs("NumeroCorrelativoAux"), ""))
-    grsASI("NumeroFactura") = recdertop(strNumFR, 0, 8)
+    grsASI("NumeroFactura") = RecDerTop(strNumFR, 0, 8)
     If Len(strNumFR) > 8 Then
-        grsASI("NumeroFactura2") = recdertop(strNumFR, 0, 10)
+        grsASI("NumeroFactura2") = RecDerTop(strNumFR, 0, 10)
         grsASI("NumeroFactura") = Null
     End If
     grsASI("CriterioCajaSN") = "N"
@@ -717,7 +717,7 @@ Private Function EnlazarRegistroFacturaRecibida(lngIdFor As Long) As Integer
     End If
     strDescripcion = Nz(rs("Proveedor"), "PROVEEDORES VARIOS")
     strSubCuentaProveedor = strSubcuenta
-    strDescripcionProveedor = recdertop(strDescripcion, 0, 60)
+    strDescripcionProveedor = RecDerTop(strDescripcion, 0, 60)
     grsAPU("APU-SUBCUENTA") = strSubCuentaProveedor
     grsAPU("APU-DESCRIPCION") = strDescripcionProveedor
     grsAPU("APU-CONTRAPARTIDA") = Nz(rs("CC"), "")
@@ -757,7 +757,7 @@ Private Function EnlazarRegistroFacturaRecibida(lngIdFor As Long) As Integer
     End If
     strDescripcion = rs("NombreGrupo")
     grsAPU("APU-SUBCUENTA") = strSubcuenta
-    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcion, 0, 60)
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
     grsAPU("APU-TIPO") = "R"
     
@@ -784,7 +784,7 @@ Private Function EnlazarRegistroFacturaRecibida(lngIdFor As Long) As Integer
     End If
     strDescripcion = "H.P. IVA SOPORTADO"
     grsAPU("APU-SUBCUENTA") = strSubcuenta
-    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcion, 0, 60)
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
     grsAPU("APU-TIPO") = "I"
     
@@ -841,8 +841,8 @@ Private Function EnlazarRegistroCobroFacturaE(lngIdCajaDet As Long) As Integer
     grsASI("ASI-DIARIO") = 1
     
     grsASI("TipoIVA") = " "
-    grsASI("NumeroFactura") = recdertop(strNumFac, 0, 8)
-    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = recdertop(strNumFac, 0, 10) ' Mid(strNumFac, 9)
+    grsASI("NumeroFactura") = RecDerTop(strNumFac, 0, 8)
+    If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = RecDerTop(strNumFac, 0, 10) ' Mid(strNumFac, 9)
     grsASI("CriterioCajaSN") = "N"
     grsASI("TipoRegistro") = "C"
     
@@ -867,7 +867,7 @@ Private Function EnlazarRegistroCobroFacturaE(lngIdCajaDet As Long) As Integer
         Exit Function
     End If
     strDescripcionCuenta = Nz(rs("Descripcion"), "Caja")
-    strDescripcion = recdertop("Pago de " & strDescripcion, 0, 60)
+    strDescripcion = RecDerTop("Pago de " & strDescripcion, 0, 60)
     grsAPU("APU-SUBCUENTA") = strSubcuenta
     grsAPU("APU-DESCRIPCION") = strDescripcionCuenta
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
@@ -890,7 +890,7 @@ Private Function EnlazarRegistroCobroFacturaE(lngIdCajaDet As Long) As Integer
     curTotal = Round(Nz(rs("Cantidad"), 0) * 100, 0)
     grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
     strSubcuenta = DimeCuentaCliente(lngIdCajaDet, strDescripcionCuenta)
-    strDescripcion = recdertop("Factura nº " & strNumFac & ", " & strDescripcionCuenta, 0, 60)
+    strDescripcion = RecDerTop("Factura nº " & strNumFac & ", " & strDescripcionCuenta, 0, 60)
     grsAPU("APU-SUBCUENTA") = strSubcuenta
     grsAPU("APU-DESCRIPCION") = strDescripcion
     grsAPU("APU-CONTRAPARTIDA") = ""
@@ -955,7 +955,7 @@ Private Function EnlazarRegistroPagoFacturaR(lngIdCajaDet As Long) As Integer
     grsASI("ASI-DIARIO") = 1
     
     grsASI("TipoIVA") = " "
-    grsASI("NumeroFactura") = recdertop(strNumFac, 0, 8)
+    grsASI("NumeroFactura") = RecDerTop(strNumFac, 0, 8)
     If Len(strNumFac) > 8 Then grsASI("NumeroFactura2") = Mid(strNumFac, 9)
     grsASI("CriterioCajaSN") = "N"
     grsASI("TipoRegistro") = "C"
@@ -974,7 +974,7 @@ Private Function EnlazarRegistroPagoFacturaR(lngIdCajaDet As Long) As Integer
     curTotal = Round(Nz(-1 * rs("Cantidad"), 0) * 100, 0)
     grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
     strSubcuenta = Nz(DimeCuentaProveedor(lngIdCajaDet, strDescripcionCuenta), "")
-    strDescripcionCuenta = recdertop(strDescripcionCuenta, 0, 60)
+    strDescripcionCuenta = RecDerTop(strDescripcionCuenta, 0, 60)
     grsAPU("APU-SUBCUENTA") = strSubcuenta
     grsAPU("APU-DESCRIPCION") = strDescripcionCuenta
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
@@ -997,7 +997,7 @@ Private Function EnlazarRegistroPagoFacturaR(lngIdCajaDet As Long) As Integer
     grsAPU("APU-DH") = "H"
     grsAPU("APU-IMPORTE") = Format(Abs(curTotal), "000000000000") & IIf(curTotal < 0, "-", "+")
     strSubcuenta = DimeCuentaFPago(lngIdCajaDet, strDescripcionCuenta)
-    strDescripcion = recdertop("Pago Factura nº " & strNumFac & ", " & strProveedor, 0, 60)
+    strDescripcion = RecDerTop("Pago Factura nº " & strNumFac & ", " & strProveedor, 0, 60)
     grsAPU("APU-SUBCUENTA") = strSubcuenta
     grsAPU("APU-DESCRIPCION") = strDescripcion
     grsAPU("APU-CONTRAPARTIDA") = ""
@@ -1077,7 +1077,7 @@ Private Function EnlazarRegistroTotalizacionTarjetas(lngIdFor As Long) As Intege
     strDescripcion = "INGRESO VISA " & rs("TPV")
     strCuentaConta = strSubcuenta
     strSubCuentaCliente = strSubcuenta
-    strDescripcionCliente = recdertop(strDescripcion, 0, 60)
+    strDescripcionCliente = RecDerTop(strDescripcion, 0, 60)
     grsAPU("APU-SUBCUENTA") = strSubCuentaCliente
     grsAPU("APU-DESCRIPCION") = strDescripcionCliente
 '    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
@@ -1107,7 +1107,7 @@ Private Function EnlazarRegistroTotalizacionTarjetas(lngIdFor As Long) As Intege
     strSubcuenta = Nz(DameValorParam("ContabilidadCuentaGastosVisa" & rs("TPV")), "")
     strDescripcion = "Gastos Visa " & rs("TPV")
     grsAPU("APU-SUBCUENTA") = strSubcuenta
-    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcion, 0, 60)
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
     grsAPU("APU-TIPO") = "L"
     
@@ -1143,7 +1143,7 @@ Private Function EnlazarRegistroTotalizacionTarjetas(lngIdFor As Long) As Intege
     End If
     strDescripcion = "Visa " & rs("TPV") & IIf(rs("TPV") = 1, " (camping)", " (bar-restaurante)")
     grsAPU("APU-SUBCUENTA") = strSubcuenta
-    grsAPU("APU-DESCRIPCION") = recdertop(strDescripcion, 0, 60)
+    grsAPU("APU-DESCRIPCION") = RecDerTop(strDescripcion, 0, 60)
     'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
     grsAPU("APU-TIPO") = "L"
     
@@ -1241,7 +1241,7 @@ Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
         If strDescripcionProveedor <> "?" Then
             grsAPU("APU-DESCRIPCION") = strDescripcion
         Else
-            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+            grsAPU("APU-DESCRIPCION") = RecDerTop(rs("Concepto"), 0, 60)
         End If
     '    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
     '    If grsAPU("APU-CONTRAPARTIDA") = "" Then
@@ -1257,7 +1257,7 @@ Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
     
     'APUNTE AL HABER------------------------------------------>BANCO
         intApunte = 2
-        strDescripcion = recdertop("PAGO FRA./" & strDescripcionProveedor, 0, 60)
+        strDescripcion = RecDerTop("PAGO FRA./" & strDescripcionProveedor, 0, 60)
         grsAPU.AddNew
         grsAPU("APU-EMPRESA") = gstrEmpresa
         grsAPU("APU-CANAL") = gstrCanal
@@ -1278,7 +1278,7 @@ Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
         If strDescripcionProveedor <> "?" Then
             grsAPU("APU-DESCRIPCION") = strDescripcion
         Else
-            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+            grsAPU("APU-DESCRIPCION") = RecDerTop(rs("Concepto"), 0, 60)
         End If
         'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
         'grsAPU("APU-TIPO") = "L"
@@ -1311,7 +1311,7 @@ Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
         If strDescripcionCliente <> "?" Then
             grsAPU("APU-DESCRIPCION") = strDescripcion
         Else
-            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+            grsAPU("APU-DESCRIPCION") = RecDerTop(rs("Concepto"), 0, 60)
         End If
     '    grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaVisa"), "")
     '    If grsAPU("APU-CONTRAPARTIDA") = "" Then
@@ -1326,7 +1326,7 @@ Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
         AñadirSubcuenta strSubcuenta, strDescripcionCliente
     
     'APUNTE AL DEBE------------------------------------------>BANCO
-        strDescripcion = recdertop("COBRO FRA./" & strDescripcionCliente, 0, 60)
+        strDescripcion = RecDerTop("COBRO FRA./" & strDescripcionCliente, 0, 60)
 
         intApunte = 2
         grsAPU.AddNew
@@ -1349,7 +1349,7 @@ Private Function EnlazarRegistroBanco(lngIdFor As Long) As Integer
         If strDescripcionCliente <> "?" Then
             grsAPU("APU-DESCRIPCION") = strDescripcion
         Else
-            grsAPU("APU-DESCRIPCION") = recdertop(rs("Concepto"), 0, 60)
+            grsAPU("APU-DESCRIPCION") = RecDerTop(rs("Concepto"), 0, 60)
         End If
         'grsAPU("APU-CONTRAPARTIDA") = Nz(DameValorParam("ContabilidadCuentaIngresosAcampada"), "")
         'grsAPU("APU-TIPO") = "L"
@@ -1417,24 +1417,24 @@ Private Sub AñadirSubcuenta(strCodigo As String, strNombre As String, Optional l
             Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
             If Not rs.EOF Then
                 grsSUB("SUB-DNI") = rs("NIF")
-                grsSUB("SUB-DIRECCION") = recdertop(Nz(rs("Direccion"), ""), 0, 30)
-                grsSUB("SUB-CPOSTAL") = recdertop(Nz(rs("CodPostal"), ""), 0, 5)
-                grsSUB("SUB-POBLACION") = recdertop(Nz(rs("Ciudad"), ""), 0, 30)
-                grsSUB("SUB-PAIS") = recdertop(Nz(rs("Pais"), ""), 0, 2)
-                grsSUB("SUB-PRO-CODIGO") = recdertop(Nz(rs("CodPostal"), ""), 0, 2)
-                grsSUB("SUB-PRO-NOMBRE") = recdertop(Nz(rs("EdoOProv"), ""), 0, 30)
+                grsSUB("SUB-DIRECCION") = RecDerTop(Nz(rs("Direccion"), ""), 0, 30)
+                grsSUB("SUB-CPOSTAL") = RecDerTop(Nz(rs("CodPostal"), ""), 0, 5)
+                grsSUB("SUB-POBLACION") = RecDerTop(Nz(rs("Ciudad"), ""), 0, 30)
+                grsSUB("SUB-PAIS") = RecDerTop(Nz(rs("Pais"), ""), 0, 2)
+                grsSUB("SUB-PRO-CODIGO") = RecDerTop(Nz(rs("CodPostal"), ""), 0, 2)
+                grsSUB("SUB-PRO-NOMBRE") = RecDerTop(Nz(rs("EdoOProv"), ""), 0, 30)
             End If
         Case Is > 0
             strSQL = "SELECT * FROM tbProveedores WHERE IdProveedor = " & Abs(lngIdCliPro)
             Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
             If Not rs.EOF Then
-                grsSUB("SUB-DNI") = recdertop(Nz(rs("NIF"), ""), 0, 15)
-                grsSUB("SUB-DIRECCION") = recdertop(Nz(rs("Direccion"), ""), 0, 30)
-                grsSUB("SUB-CPOSTAL") = recdertop(Nz(rs("CodPostal"), ""), 0, 5)
-                grsSUB("SUB-POBLACION") = recdertop(Nz(rs("Ciudad"), ""), 0, 30)
+                grsSUB("SUB-DNI") = RecDerTop(Nz(rs("NIF"), ""), 0, 15)
+                grsSUB("SUB-DIRECCION") = RecDerTop(Nz(rs("Direccion"), ""), 0, 30)
+                grsSUB("SUB-CPOSTAL") = RecDerTop(Nz(rs("CodPostal"), ""), 0, 5)
+                grsSUB("SUB-POBLACION") = RecDerTop(Nz(rs("Ciudad"), ""), 0, 30)
                 'grsSUB("SUB-PAIS") = RecDerTop(Nz(rs("Pais"), ""), 0, 2)
-                grsSUB("SUB-PRO-CODIGO") = recdertop(Nz(rs("CodPostal"), ""), 0, 2)
-                grsSUB("SUB-PRO-NOMBRE") = recdertop(Nz(rs("EdoOProv"), ""), 0, 30)
+                grsSUB("SUB-PRO-CODIGO") = RecDerTop(Nz(rs("CodPostal"), ""), 0, 2)
+                grsSUB("SUB-PRO-NOMBRE") = RecDerTop(Nz(rs("EdoOProv"), ""), 0, 30)
             End If
     End Select
     For i = 0 To grsSUB.Fields.Count - 1
@@ -1582,7 +1582,7 @@ Public Function DimeNumPago(lngIdCajaDet As Long, ByRef dtFechaFac As Date, ByRe
             If strAux = "" Then
                 strNumFac = strNumFac & "0"
             Else
-                strNumFac = strNumFac & recdertop(CStr(DimeNumNumCorrAux(lngNC, strAux)), 0, 1)
+                strNumFac = strNumFac & RecDerTop(CStr(DimeNumNumCorrAux(lngNC, strAux)), 0, 1)
             End If
         Case "F"
             dtFechaFac = Nz(DLookup("FechaFactura", "tbFacturasCab", "IdFactura = " & lngIdFrom), 0)
@@ -2133,7 +2133,7 @@ Private Function BuscaCuentaProveedor(sEncuentra As String, lIdCriterioBusca As 
     End If
     sR = Nz(DLookup("CuentaContabilidad", "tbProveedores", "IdProveedor = " & lIdPro), "")
     If sR = "" Then
-        sR = Nz(myInputBox("Cuenta Contabilidad de " & sEncuentra, "Indique Cta. Contable para " & sEncuentra), "")
+        sR = Nz(MyInputBox("Cuenta Contabilidad de " & sEncuentra, "Indique Cta. Contable para " & sEncuentra), "")
         If sR = "" Then GoTo HandleExit
         sSQL = "UPDATE tbProveedores SET CuentaContabilidad = " & ConComillas(sR) & " WHERE IdProveedor = " & lIdPro
         CurrentDb.Execute sSQL, dbFailOnError
@@ -2170,7 +2170,7 @@ Private Function BuscaCuentaCliente(sEncuentra As String, lIdCriterioBusca As Lo
     End If
     sR = Nz(DLookup("CuentaContabilidad", "tbClientes", "IdCliente = " & lIdCli), "")
     If sR = "" Then
-        sR = Nz(myInputBox("Cuenta Contabilidad de " & sEncuentra, "Indique Cta. Contable para " & sEncuentra), "")
+        sR = Nz(MyInputBox("Cuenta Contabilidad de " & sEncuentra, "Indique Cta. Contable para " & sEncuentra), "")
         If sR = "" Then GoTo HandleExit
         sSQL = "UPDATE tbClientes SET CuentaContabilidad = " & ConComillas(sR) & " WHERE IdCliente = " & lIdCli
         CurrentDb.Execute sSQL, dbFailOnError

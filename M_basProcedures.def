@@ -282,7 +282,7 @@ CopiaFijos_8:
                 strR = "No se realizó copia de fichas de fijos"
             Else
                 intAñoCopiar = Year(Date) - 1
-                intAñoCopiar = Nz(myinputbox("Introduzca año a copiar", "Año a copiar: ", CStr(intAñoCopiar), "0000"), 0)
+                intAñoCopiar = Nz(MyInputBox("Introduzca año a copiar", "Año a copiar: ", CStr(intAñoCopiar), "0000"), 0)
                 If intAñoCopiar = 0 Then
                     MsgBox "Se canceló", vbInformation
                     Exit Sub

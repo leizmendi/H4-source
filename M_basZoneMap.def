@@ -149,7 +149,7 @@ Error_PintaParcelas:
 End Sub
 
 
-Public Function ParcelaClick(zm As ZoneMap, strParcela As String, Optional intLlama_txtParcela As Integer = False, Optional intShift As Integer = 0)
+Public Function ParcelaClick(zm As Object, strParcela As String, Optional intLlama_txtParcela As Integer = False, Optional intShift As Integer = 0) 'ZoneMap
     On Error GoTo Error_ParcelaClick
     Dim rs As Recordset, rsF As Recordset, rsFP As Recordset, lngIdFicha As Long, intEsNueva As Integer
     Dim rsFDet As Recordset

@@ -804,3 +804,74 @@ HandleError:
     MsgBox Err.Description
     Resume HandleExit
 End Function
+
+
+'Public Function CeldaTipoParcela_to_Planing_All(iYear As Integer) As Integer
+'    On Error GoTo HandleError
+'    Dim dt As Date, vIds As Variant, i As Integer, dtFrom As Date, dtTo As Date
+'    Dim y As Long, z As Long
+'    vIds = CargaIds("IdTipoParcela", "tbParcelasTipo")
+'    dtFrom = CDate(iYear & "/01/01")
+'    dtTo = CDate(iYear & "/12/31")
+'    z = (UBound(vIds) + 1) * (dtTo - dtFrom + 1)
+'    For i = 0 To UBound(vIds)
+'        For dt = dtFrom To dtTo
+'            DoEvents
+'            y = y + 1
+'            SysCmd acSysCmdSetStatus, y & "/" & z
+'            CeldaTipoParcela_to_Planing CLng(vIds(i)), dt
+'        Next dt
+'    Next i
+'HandleExit:
+'    SysCmd acSysCmdClearStatus
+'    Exit Function
+'HandleError:
+'    MsgBox Err.Description
+'    Resume HandleExit
+'End Function
+'
+'Public Function CargaIds(sIdField As String _
+'                       , sTableName As String _
+'                       , Optional sWhere As String = "" _
+'                       , Optional sOrderBy As String = "") As Variant
+'    On Error GoTo HandleError
+'    Dim rs As Recordset, sR As String
+'    Set rs = CurrentDb.OpenRecordset("SELECT " & sIdField & " FROM " & sTableName & IIf(sWhere <> "", "WHERE " & sWhere, "") & IIf(sOrderBy <> "", "ORDER BY " & sOrderBy, ""), dbOpenSnapshot)
+'    While Not rs.EOF
+'        sR = sR & "," & rs(0)
+'        rs.MoveNext
+'    Wend
+'    If Len(sR) > 1 Then
+'        sR = Mid(sR, 2)
+'        CargaIds = Split(sR, ",")
+'    End If
+'HandleExit:
+'    Exit Function
+'HandleError:
+'    MsgBox Err.Description
+'    Resume HandleExit
+'End Function
+'
+Public Sub GridToExcel(grd As Object)
+    On Error GoTo HandleError
+    Dim iCol As Integer, iRow As Integer, xApp As Excel.Application, xWb As Excel.Workbook, xWs As Excel.Worksheet
+    Dim intR As Integer, intC As Integer, i As Integer, j As Integer
+    Set xApp = New Excel.Application
+    Set xWb = xApp.Workbooks.Add
+    Set xWs = xWb.Worksheets(1)
+    For iRow = 0 To grd.Rows - 1
+        For iCol = 0 To grd.Cols - 1
+            xWs.Cells(iRow + 1, iCol + 1) = grd.cell(iRow, iCol).Text & "; " & grd.cell(iRow, iCol).Tag
+        Next iCol
+    Next iRow
+
+HandleExit:
+    Exit Sub
+HandleError:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en VaciaFilaParcelaFichas" & vbCrLf & Err.Description
+            Resume HandleExit
+    End Select
+
+End Sub

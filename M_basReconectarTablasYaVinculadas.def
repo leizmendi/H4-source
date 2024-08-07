@@ -3,10 +3,10 @@ Option Explicit
 
 
 Public Function DirectorioDe(strFullPath As String) As String
-    Dim i As Integer, FSO As FileSystemObject
+    Dim i As Integer, fso As FileSystemObject
     On Error GoTo Error_DirectorioDe
-    Set FSO = New FileSystemObject
-    DirectorioDe = FSO.GetParentFolderName(strFullPath) & "\"
+    Set fso = New FileSystemObject
+    DirectorioDe = fso.GetParentFolderName(strFullPath) & "\"
     Exit Function
     
     For i = Len(strFullPath) To 1 Step -1

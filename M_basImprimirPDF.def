@@ -1,7 +1,15 @@
 Option Compare Database
 Option Explicit
 
-Public Sub PrintReportAsPDF(strRPT As String, strWHERE As String, strOutFilePDF As String, strTitulo As String, Optional intMarcaAgua As Integer, Optional strXMLmarcaAgua As String, Optional intShowPDF As Integer = True, Optional strOpenArgs As String = "", Optional intConfirmOverwrite As Integer = 88)
+Public Sub PrintReportAsPDF(strRPT As String _
+                          , strWHERE As String _
+                          , strOutFilePDF As String _
+                          , strTitulo As String _
+                 , Optional intMarcaAgua As Integer _
+                 , Optional strXMLmarcaAgua As String _
+                 , Optional intShowPDF As Integer = True _
+                 , Optional strOpenArgs As String = "" _
+                 , Optional intConfirmOverwrite As Integer = 88)
     On Error GoTo Error_PrintReportAsPDF
     Dim pdf_printer_name As String
     Dim pdf_printer_index As Integer
@@ -107,7 +115,7 @@ Public Sub PrintReportAsPDF(strRPT As String, strWHERE As String, strOutFilePDF 
         
     
     Rem -- Run the report
-    PonXML strOpenArgs, "PDFsn", "S"
+    PonXML strOpenArgs, "PDFsn", "S", , , True
     DoCmd.OpenReport strRPT, , , strWHERE, , strOpenArgs
     
 Salir_PrintReportAsPDF:

@@ -270,16 +270,13 @@ Public Sub Lee_ICAR_txtOutPut_frmFichas(strResult As String)
             End If
             Dim sPro1 As String, sPro2 As String
             sPro1 = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
-
-            'If True Then 'sPro1 <> "" And frm.DireccionCliente <> sPro1 Then
             sPro2 = Trim(Nz(DimeCampoICAR(strResult, "STATE_ADDRESS", True), ""))
-            If Len(sPro1) <= Len(sPro2) Then
-                frm.ProvinciaCliente = sPro1
-            Else
-                frm.ProvinciaCliente = Trim(Mid(sPro2, Len(sPro1) + 1))
-                frm.LocalidadCliente = frm.LocalidadCliente & " " & sPro1
-            End If
-            'End If
+                        If Len(sPro2) > Len(sPro1) Then
+                                frm.ProvinciaCliente = Trim(Mid(sPro2, Len(sPro1) + 1))
+                                frm.LocalidadCliente = frm.LocalidadCliente & " " & sPro1
+                        Else
+                                frm.ProvinciaCliente = sPro1
+                        End If
             frm.CPCliente = IIf(Nz(frm.CPCliente, "") = "", Nz(DimeCampoICAR(strResult, "ZIP"), ""), frm.CPCliente)
             permanente = Nz(DimeCampoICAR(strResult, "EXPIRY"), "01/01/2001")
             If permanente = "PERMANENT" Then
@@ -502,11 +499,11 @@ EsFecha:
         Dim sPro1 As String, sPro2 As String
         sPro1 = Nz(DimeCampoICAR(strResult, "STATE_ADDRESS"), "")
         sPro2 = Trim(Nz(DimeCampoICAR(strResult, "STATE_ADDRESS", True), ""))
-        If Len(sPro1) <= Len(sPro2) Then
-            frm.ProvinciaCliente = sPro1
-        Else
+        If Len(sPro2) > Len(sPro1) Then
             frm.ProvinciaCliente = Trim(Mid(sPro2, Len(sPro1) + 1))
             frm.LocalidadCliente = frm.LocalidadCliente & " " & sPro1
+        Else
+            frm.ProvinciaCliente = sPro1
         End If
         'FIN nuevos DNIs-----------------------------------------
         

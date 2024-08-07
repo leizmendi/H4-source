@@ -530,6 +530,8 @@ Public Sub ComprobarUpdates()
         bScript = False
         sFUpdate = vFiles(f)
         Select Case Left(sFUpdate, 2)
+            'Case "T_"
+            '    iObjType = acTable
             Case "F_"
                 iObjType = acForm
             Case "R_"
@@ -578,7 +580,7 @@ End Sub
 
 Sub ExecuteAllScriptsFromJSON(jsonPath As String)
     On Error GoTo HandleError
-    Dim FSO As Object
+    Dim fso As Object
     Dim TextFile As Object
     Dim FileContent As String
     Dim JSON As Object
@@ -586,9 +588,9 @@ Sub ExecuteAllScriptsFromJSON(jsonPath As String)
     Dim Script As String
     
     'Crear un nuevo objeto FileSystemObject
-    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set fso = CreateObject("Scripting.FileSystemObject")
     'Abrir el archivo
-    Set TextFile = FSO.OpenTextFile(jsonPath, 1)
+    Set TextFile = fso.OpenTextFile(jsonPath, 1)
     'Leer el contenido del archivo
     FileContent = TextFile.ReadAll
     'Cerrar el archivo
@@ -614,7 +616,7 @@ Sub ExecuteAllScriptsFromJSON(jsonPath As String)
     Next Key
     
     'Limpiar
-    Set FSO = Nothing
+    Set fso = Nothing
     Set TextFile = Nothing
     Set JSON = Nothing
     

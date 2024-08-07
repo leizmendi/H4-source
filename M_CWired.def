@@ -188,11 +188,11 @@ Private Function DimeXMLRPC(strMethodName As String, vParams() As Variant, Optio
 NextI:
     Next i
     DimeXMLRPC = "<?xml version='1.0'?>" & xDoc.XML
-    Dim FSO As New FileSystemObject, ts As TextStream
+    Dim fso As New FileSystemObject, ts As TextStream
     On Error Resume Next
-    FSO.CreateTextFile ("D:\_DOCS1_\__H4+\Envio.xml")
+    fso.CreateTextFile ("D:\_DOCS1_\__H4+\Envio.xml")
     If Err = 0 Then 'intGrabaEnvio Then
-        Set ts = FSO.OpenTextFile("D:\_DOCS1_\__H4+\Envio.xml", ForAppending, True)
+        Set ts = fso.OpenTextFile("D:\_DOCS1_\__H4+\Envio.xml", ForAppending, True)
         ts.Write "<?xml version='1.0'?>" & xDoc.XML
         ts.Close
     End If
@@ -1031,12 +1031,12 @@ Private Function ResponseIsOK(strRespuestaXML As String, strAskFunction As Strin
     On Error GoTo Error_ResponseIsOK
     Dim xDoc As Object, xNode As Object, i As Integer, strData As String, intR As Integer
     Dim intPos As Integer, strStruct As String
-    Dim FSO As New FileSystemObject, ts As TextStream
+    Dim fso As New FileSystemObject, ts As TextStream
     Dim intRespCode As Integer
     On Error Resume Next
-    FSO.CreateTextFile ("D:\_DOCS1_\__H4+\Respuesta.xml")
+    fso.CreateTextFile ("D:\_DOCS1_\__H4+\Respuesta.xml")
     If Err = 0 Then
-        Set ts = FSO.OpenTextFile("D:\_DOCS1_\__H4+\Respuesta.xml", ForAppending, True)
+        Set ts = fso.OpenTextFile("D:\_DOCS1_\__H4+\Respuesta.xml", ForAppending, True)
         ts.Write strRespuestaXML
         ts.Close
     End If

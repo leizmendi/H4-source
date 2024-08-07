@@ -1,0 +1,120 @@
+Option Compare Database
+Option Explicit
+
+Public Function ImportarObjetos()
+    On Error GoTo HandleError
+    Dim fso As New FileSystemObject, i As Integer, sFUpdate As String, iObjType As Integer, sObjName As String
+    Dim sCUpdate As String, sCUpdated As String, sMsg As String
+    
+    
+    
+    sCUpdate = CarpetaDe(CurrentDb.Name) & "Update"
+    If Dir(sCUpdate, vbDirectory) = "" Then MkDir sCUpdate
+    sCUpdate = sCUpdate & "\"
+    
+    Dim sFiles As String, vFiles As Variant
+    sFUpdate = Dir(sCUpdate & "*.def")
+    While sFUpdate <> ""
+        sFiles = sFiles & "," & sFUpdate
+        sFUpdate = Dir()
+    Wend
+    If sFiles = "" Then GoTo HandleExit
+    
+    sCUpdated = sCUpdate & "Updated"
+    If Dir(sCUpdated, vbDirectory) = "" Then MkDir sCUpdated
+    sCUpdated = sCUpdated & "\"
+    
+    
+    
+    
+    'sFiles = SeleccionarFicheros
+    'If sFiles = "" Then GoTo HandleExit
+    vFiles = Split(sFiles, ",")
+    For i = 0 To UBound(vFiles)
+        'sFUpdate = Mid(vF(i), InStrRev(vF(i), "\") + 1)
+        sFUpdate = vFiles(i)
+        Select Case Left(sFUpdate, 2)
+            'Case "T_"
+            '    iObjType = acTable
+            Case "F_"
+                iObjType = acForm
+            Case "R_"
+                iObjType = acReport
+            Case "Q_"
+                iObjType = acQuery
+            Case "S_"
+                iObjType = acMacro
+            Case "M_"
+                iObjType = acModule
+            'Case "K_"
+            '    bScript = True
+            Case Else
+                MsgBox "No se reconoció el tipo de archivo a importar: " & sFUpdate, vbExclamation
+                GoTo SiguienteFile
+        End Select
+        i = InStrRev(sFUpdate, ".")
+        sObjName = Mid(sFUpdate, 3, i - 3)
+        SysCmd acSysCmdSetStatus, "Actualizando " & i + 1 & "/" & UBound(vFiles) + 1 & " : " & sFUpdate, "Actualizando"
+        'On Error Resume Next
+        'SaveAsText iObjType, sObjName, sCSaved & sFUpdate
+        On Error GoTo HandleExit
+        LoadFromText iObjType, sObjName, sCUpdate & sFUpdate
+        sMsg = sMsg & ", " & sObjName
+        FileCopy sCUpdate & sFUpdate, sCUpdated & sFUpdate
+        Kill sCUpdate & sFUpdate
+        
+SiguienteFile:
+    Next i
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+
+
+Function SeleccionarFicheros() As String
+    On Error GoTo HandleError
+    ' Crear un objeto FileDialog
+    Dim fd As FileDialog, sFiles As String
+    Set fd = Application.FileDialog(msoFileDialogFilePicker)
+    
+    ' Configurar las propiedades del diálogo
+    With fd
+        .Title = "Seleccionar Archivos"
+        .AllowMultiSelect = True
+        .Filters.Clear
+        .Filters.Add "Todos los Archivos", "*.*"
+        
+        ' Mostrar el cuadro de diálogo
+        If .Show = -1 Then
+            ' Procesar los archivos seleccionados
+            Dim i As Integer
+            For i = 1 To .SelectedItems.Count
+                sFiles = sFiles & "," & .SelectedItems(i)
+                'Debug.Print .SelectedItems(i) ' Imprimir ruta del archivo
+            Next i
+        Else
+            ' El usuario canceló la selección
+            'MsgBox "No se seleccionó ningún archivo"
+        End If
+    End With
+    
+    ' Limpiar
+    Set fd = Nothing
+    If Len(sFiles) > 1 Then sFiles = Mid(sFiles, 2)
+    SeleccionarFicheros = sFiles
+    
+    
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
+End Function
+ 
+ Function CarpetaDe(sFullPath As String) As String
+    On Error Resume Next
+    CarpetaDe = Left(sFullPath, InStrRev(sFullPath, "\"))
+ End Function

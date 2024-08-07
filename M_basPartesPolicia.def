@@ -70,7 +70,7 @@ Public Sub EscribirFicheroPolicia(lngIdPartePoliciaFichero As Long)
     Dim rs As Recordset, strSQL As String, strFile As String, strCarpeta As String, intR As Integer
     Dim strMSG As String, i As Integer, intSegundaPasada As Integer
     Dim strLin As String, j As Integer, z As Integer
-Inicio:
+inicio:
     Set rs = CurrentDb.OpenRecordset("tbPartesPoliciaFicheros", dbOpenSnapshot)
     strSQL = "SELECT * FROM tbPartesPoliciaFicheros"
     strSQL = strSQL & " WHERE IdPartePoliciaFichero = " & lngIdPartePoliciaFichero
@@ -193,7 +193,7 @@ Siguiente:
         strSQL = "UPDATE tbPartesPoliciaFicheros SET NumRegistros=" & j & ", NumRegistros_Fallo=" & i & " WHERE IdPartePoliciaFichero=" & lngIdPartePoliciaFichero
         CurrentDb.Execute strSQL, dbFailOnError
         intSegundaPasada = True
-        GoTo Inicio
+        GoTo inicio
     End If
     If i > 0 Then
         MsgBox "Nº de partes no válidos: " & i & vbCrLf & strMSG
@@ -279,7 +279,7 @@ Public Sub EscribirFicheroPolicia_old(lngIdPartePoliciaFichero As Long)
     Dim rs As Recordset, strSQL As String, strFile As String, strCarpeta As String, intR As Integer
     Dim strMSG As String, i As Integer, intSegundaPasada As Integer
     Dim strLin As String
-Inicio:
+inicio:
     Set rs = CurrentDb.OpenRecordset("tbPartesPoliciaFicheros", dbOpenSnapshot)
     rs.FindFirst "IdPartePoLiciaFichero = " & lngIdPartePoliciaFichero
     If rs.NoMatch Then
@@ -373,7 +373,7 @@ Siguiente:
     If i > 0 Then
         MsgBox "Nº de partes no válidos: " & i & vbCrLf & strMSG
         intSegundaPasada = True
-        GoTo Inicio
+        GoTo inicio
     End If
 Salir_EscribirFicheroPolicia_old:
     Exit Sub

@@ -334,7 +334,7 @@ End Function
 Public Function DimeEmailCli(strNIF As String, Optional intSiNoHayPedir As Integer = True) As String
     Dim strR As String
     strR = Nz(DLookup("Email", "tbClientes", "NIF = " & ConComillas(strNIF)), "")
-    If strR = "" And intSiNoHayPedir Then strR = Nz(myInputBox("Introduzca Email de Envío", "Dirección de Email:"), "")
+    If strR = "" And intSiNoHayPedir Then strR = Nz(MyInputBox("Introduzca Email de Envío", "Dirección de Email:"), "")
     DimeEmailCli = strR
 End Function
 
@@ -390,9 +390,9 @@ EnviarEmail:
     strMensaje = Nz(DameValorParam("ParrafoEnvioFacturaEmail_OK"), "Adjuntamos factura")
     strAsunto = "Factura: " & strFac
     If intInputBox Then
-        strEmail = Nz(myInputBox("Enviar a email:", "Dirección de email donde enviar:", strEmail), "")
+        strEmail = Nz(MyInputBox("Enviar a email:", "Dirección de email donde enviar:", strEmail), "")
         
-        strAsunto = Nz(myInputBox("Asunto:", "Asunto del mensaje:", "Factura: " & strFac), "")
+        strAsunto = Nz(MyInputBox("Asunto:", "Asunto del mensaje:", "Factura: " & strFac), "")
         If strAsunto = "" Then GoTo Salir_EnviarFacturaXEmail
     End If
 
@@ -506,9 +506,9 @@ Public Function EnviaRecordatorioReserva(lngIdFichaCab As Long, Optional intInpu
     'End If
     strAdjuntarFicheros = Nz(DameValorParam("FichasRecordatorioAdjuntarFicheros"), "")
     If intInputBox = True Then
-        strMensaje = Nz(myInputBox(strAsunto, "Confirme mensaje a enviar", strMensaje, , False, strAdjuntarFicheros), "")
+        strMensaje = Nz(MyInputBox(strAsunto, "Confirme mensaje a enviar", strMensaje, , False, strAdjuntarFicheros), "")
         If strMensaje = "" Then GoTo HandleExit
-        strEmail = Nz(myInputBox(strAsunto, "Confirme email", strEmail, , False), "")
+        strEmail = Nz(MyInputBox(strAsunto, "Confirme email", strEmail, , False), "")
         If strEmail = "" Then GoTo HandleExit
     End If
     EnviaRecordatorioReserva = Envia_Email(strAsunto, strMensaje, strEmail, , , strAdjuntarFicheros, , True, , lngIdFichaCab, intMessageSN, strMsgResp, intFuerzaAuto)
@@ -852,11 +852,11 @@ Public Function EnviaNotificacion(lngIdFichaCab As Long, iNumNoti As Integer, Op
         GoTo HandleExit
     End If
     If intInputBox = True Then
-        sAsunto = Nz(myInputBox(sAsunto, "Confirme Asunto del mensaje a enviar", sAsunto, , False), "")
+        sAsunto = Nz(MyInputBox(sAsunto, "Confirme Asunto del mensaje a enviar", sAsunto, , False), "")
         If sAsunto = "" Then GoTo HandleExit
-        sMensaje = Nz(myInputBox(sAsunto, "Confirme mensaje a enviar", sMensaje, , False, sAdjuntos), "")
+        sMensaje = Nz(MyInputBox(sAsunto, "Confirme mensaje a enviar", sMensaje, , False, sAdjuntos), "")
         If sMensaje = "" Then GoTo HandleExit
-        strEmail = Nz(myInputBox(sAsunto, "Confirme email", strEmail, , False), "")
+        strEmail = Nz(MyInputBox(sAsunto, "Confirme email", strEmail, , False), "")
         If strEmail = "" Then GoTo HandleExit
     End If
     EnviaNotificacion = Envia_Email(sAsunto, sMensaje, strEmail, , , sAdjuntos, , True, , lngIdFichaCab, intMessageSN, strMsgResp, intFuerzaAuto)

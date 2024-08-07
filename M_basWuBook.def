@@ -151,7 +151,7 @@ Segi:
         cFD.IdSD = lngIdSD
         cFD.IdTipoParcela = lngIdTipoParcela
         cFD.Cantidad = 1
-        cFD.Concepto = recdertop("(" & strParcela & IIf(strBoa <> "", " " & strBoa, "") & ") " & DimeConceptoIdioma(lngIdSD, cFC.IdIdioma), 0, 50)
+        cFD.Concepto = RecDerTop("(" & strParcela & IIf(strBoa <> "", " " & strBoa, "") & ") " & DimeConceptoIdioma(lngIdSD, cFC.IdIdioma), 0, 50)
         '[{<id: 280784><occupancy: 1>};{<id: 279287><occupancy: 1>};{<id: 279287><occupancy: 1>}]
         k = InStr(rs("rooms_occupancies"), "<id: " & vIdRooms(i))
         If k > 0 Then k = InStr(k + 1, rs("rooms_occupancies"), "<occupancy: ")
@@ -574,7 +574,7 @@ Public Function RecogeReservasWubook(Optional intBusyBox As Integer = True, _
         End If
         If intNumReservasAU(1) > 0 Then strMSG = strMSG & intNumReservasAU(1) & " nueva/s, "
         If intNumReservasAU(2) > 0 Then strMSG = strMSG & intNumReservasAU(2) & " ya registradas, "
-        If Len(strMSG) > 2 Then strMSG = recdertop(strMSG, 2, 0) & vbCrLf
+        If Len(strMSG) > 2 Then strMSG = RecDerTop(strMSG, 2, 0) & vbCrLf
         If intNumReservasAU(3) > 0 Then strMSG = strMSG & "ATENCIÓN  se cancelaron " & intNumReservasAU(3) & " reservas"
         If intBusyBox Then
             If strMSG = "" Then strMSG = "No se encontraron nuevas reservas ni cancelaciones en Wubook"
@@ -860,7 +860,7 @@ Public Sub ComprobarReservasWB_EntreFechas(dtD As Date, dtH As Date, intMsg As I
                 End If
             Next i
             If strRC_ <> "" Then
-                strRC_ = recdertop(strRC_, 1, 0)
+                strRC_ = RecDerTop(strRC_, 1, 0)
                 vRC = Split(strRC_, ";")
                 intR = MsgBox(IIf(UBound(vRC) = 0, "Se encontró 1 reserva", "Se encontraron " & UBound(vRC) + 1 & " reservas") & " no recibidas, ¿Importarla/s ahora?", vbOKCancel + vbQuestion)
                 If intR = vbCancel Then Exit Sub
@@ -1314,7 +1314,7 @@ Public Sub SincroWB_AperturaHabitacionesAnidadas(dtIni As Date, dtFin As Date, l
     While Not rs.EOF
         sIdRoomsClose = sIdRoomsClose & "," & CStr(rs("id"))
         sShortName = rs("shortname")
-        lidRoom = Nz(DLookup("id", "wbRooms", "shortname = '" & recdertop(sShortName, 1, 0) & "'"), 0) 'Se espera que el ShortName de las virtuales se el de las virtuals + V, por ej. DI-->DIV  TI-->TIV
+        lidRoom = Nz(DLookup("id", "wbRooms", "shortname = '" & RecDerTop(sShortName, 1, 0) & "'"), 0) 'Se espera que el ShortName de las virtuales se el de las virtuals + V, por ej. DI-->DIV  TI-->TIV
         If lidRoom <> 0 Then sIdRoomsOpen = sIdRoomsOpen & "," & CStr(lidRoom)
         rs.MoveNext
     Wend
@@ -1326,7 +1326,7 @@ Public Sub SincroWB_AperturaHabitacionesAnidadas(dtIni As Date, dtFin As Date, l
     While Not rs.EOF
         sIdRoomsOpen = sIdRoomsOpen & "," & CStr(rs("id"))
         sShortName = rs("shortname")
-        lidRoom = Nz(DLookup("id", "wbRooms", "shortname = '" & recdertop(sShortName, 1, 0) & "'"), 0) 'Se espera que el ShortName de las virtuales se el de las virtuals + V, por ej. DI-->DIV  TI-->TIV
+        lidRoom = Nz(DLookup("id", "wbRooms", "shortname = '" & RecDerTop(sShortName, 1, 0) & "'"), 0) 'Se espera que el ShortName de las virtuales se el de las virtuals + V, por ej. DI-->DIV  TI-->TIV
         If lidRoom <> 0 Then sIdRoomsClose = sIdRoomsClose & "," & CStr(lidRoom)
         rs.MoveNext
     Wend

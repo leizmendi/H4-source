@@ -15,7 +15,7 @@ Public Function PonParrafoConfirmacionReserva(Optional lngIdF__qryReserva As Lon
         strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
     Next i
     If intInputBox Then
-        strR = Nz(myinputbox("Confirme mensaje a incluir", "Mensaje", strR, , Nz(DameValorParam("FichasEmailFormatoHTML_SN"), False)), "")
+        strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , Nz(DameValorParam("FichasEmailFormatoHTML_SN"), False)), "")
         If strR = "" Then GoTo Salir_PonParrafoConfirmacionReserva
     End If
     
@@ -113,7 +113,7 @@ Public Function PonParrafoEnvioFacturaEmail(Optional lngIdFactura As Long = 0, O
     For i = 0 To rs.Fields.Count - 1
         strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
     Next i
-    If intInputBox Then strR = Nz(myinputbox("Confirme mensaje a incluir", "Mensaje", strR, , True, strAdjuntarFicheros), "")
+    If intInputBox Then strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , False, strAdjuntarFicheros), "")
     
     PonValorParam "ParrafoEnvioFacturaEmail_OK", IIf(strR = "", "-", strR), 12
     PonParrafoEnvioFacturaEmail = strR <> ""
@@ -148,7 +148,7 @@ Public Function PonParrafoSMS(strTipo As String, Optional lngIdFichaCab As Long 
     For i = 0 To rs.Fields.Count - 1
         strR = Replace(strR, "|" & rs(i).Name & "|", Nz(rs(i), ""))
     Next i
-    strR = Nz(myinputbox("Confirme SMS a enviar" & IIf(strNumeroTelefono <> "", " al " & strNumeroTelefono, ""), "Mensaje", strR, , False), "")
+    strR = Nz(MyInputBox("Confirme SMS a enviar" & IIf(strNumeroTelefono <> "", " al " & strNumeroTelefono, ""), "Mensaje", strR, , False), "")
     
     PonValorParam "MensajeSMS_OK", IIf(strR = "", "-", strR), 12
     PonParrafoSMS = strR <> ""

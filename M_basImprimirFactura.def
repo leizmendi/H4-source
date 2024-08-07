@@ -3,7 +3,8 @@ Option Explicit
 
 
 Public Sub ImprimirFactura(lngIdFactura As Long, Optional intImprimir_VistaPrevia_PDF_Email As Integer = 2, Optional ByRef strPdfFac As String _
-                            , Optional intImprimirDOS As Integer = False, Optional intConfirmOverwritePDF As Integer = 88)
+                            , Optional intImprimirDOS As Integer = False, Optional intConfirmOverwritePDF As Integer = 88 _
+                            , Optional intShowPDF As Integer = 88)
     On Error GoTo Error_ImprimirFactura
     Dim strNumeroDeFactura As String, i As Integer, stDocName As String, strSerie As String, strXML As String
     Dim strDir As String, strFac As String
@@ -62,15 +63,33 @@ Public Sub ImprimirFactura(lngIdFactura As Long, Optional intImprimir_VistaPrevi
 '                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
 '                PrintReportAsPDF stDocName, "IdFacturaCab = " & lngIdFactura, strPdfFac, "Factura: " & strFac, , , intImprimir_VistaPrevia_PDF_Email = 3, strXML, intConfirmOverwritePDF
                 strFac = DLookup("[NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura)
-                Dim sCarpetaAgencia As String, sCodCli As String
+                Dim sCarpetaAgencia As String, sCodCli As String, sCarpetaTrimestre As String, dtFac As Date, sFilePDF As String
+                dtFac = Nz(DLookup("[FechaFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura), 0)
+                sCarpetaTrimestre = Year(dtFac) & "T" & DatePart("Q", dtFac) & "\"
                 sCodCli = Nz(DLookup("CodCliente", "tbFacturasCab", "IdFactura = " & lngIdFactura), 0)
                 If Nz(DLookup("Agencia", "tbClientes", "CodCliente = '" & sCodCli & "'"), False) = True Then
                     sCarpetaAgencia = Trim(Nz(DLookup("[NombreCli] & ' ' & [ApellidosCli]", "tbClientes", "CodCliente = '" & sCodCli & "'"), ""))
                     sCarpetaAgencia = NombreValido(sCarpetaAgencia) & "\"
                     If Dir(DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaAgencia, vbDirectory) = "" Then MkDir DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaAgencia
                 End If
-                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaAgencia & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
-                PrintReportAsPDF stDocName, "IdFacturaCab = " & lngIdFactura, strPdfFac, "Factura: " & strFac, , , intImprimir_VistaPrevia_PDF_Email = 3, strXML, intConfirmOverwritePDF
+                strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\<<CarpetaFac>>" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
+                If intShowPDF = 88 Then intShowPDF = intImprimir_VistaPrevia_PDF_Email = 3
+                sFilePDF = Replace(strPdfFac, "<<CarpetaFac>>", sCarpetaTrimestre)
+GeneraPDF:
+                PrintReportAsPDF stDocName _
+                               , "IdFacturaCab = " & lngIdFactura _
+                               , sFilePDF _
+                               , "Factura: " & strFac _
+                               , _
+                               , _
+                               , intShowPDF _
+                               , strXML, intConfirmOverwritePDF
+                If sCarpetaAgencia <> "" Then
+                    sFilePDF = Replace(strPdfFac, "<<CarpetaFac>>", sCarpetaAgencia)
+                    sCarpetaAgencia = ""
+                    UnSegundo 'hay que darle tiempo a que se cierre Bullzip
+                    GoTo GeneraPDF
+                End If
             Case 5
                 strFac = DLookup("[NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura)
                 strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "Facturas\" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"
@@ -90,7 +109,7 @@ Public Sub ImprimirFactura(lngIdFactura As Long, Optional intImprimir_VistaPrevi
     CurrentDb.Execute "UPDATE tbFacturasCab SET tbFacturasCab.Imprimida = Yes" _
                     & " WHERE (((tbFacturasCab.IdFactura)=" & lngIdFactura & "));"
     Call MarcarPagadaSN(lngIdFactura)
-    If intImprimir_VistaPrevia_PDF_Email < 3 And Nz(DameValorParam("FacturasPDFgenerarSiempre"), False) = True Then ImprimirFactura lngIdFactura, 3, , , False
+    If intImprimir_VistaPrevia_PDF_Email < 3 And Nz(DameValorParam("FacturasPDFgenerarSiempre"), False) = True Then ImprimirFactura lngIdFactura, 3, , , False, False
     
 Salir_ImprimirFactura:
     Exit Sub
@@ -98,7 +117,7 @@ Error_ImprimirFactura:
     Select Case Err
         Case Else
             MsgBox "error nº " & Err & " en ImprimirFactura" & vbCrLf & Err.Description
-            Resume Salir_ImprimirFactura
+            Resume 'Salir_ImprimirFactura
     End Select
 End Sub
 
