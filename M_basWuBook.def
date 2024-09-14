@@ -602,6 +602,7 @@ Public Function ImportaReservasWubook(Optional intBusyBox As Integer = True, Opt
     Dim strSQL As String, rs As Recordset, lngIdFichaCab As Long, intOK As Integer, intWrong As Integer, strTitle As String
     strSQL = "SELECT reservation_code FROM wbReservations WHERE MarkSN=False"
     If Nz(DameValorParam("WuBookNoImportarReservasRechazadas"), False) = True Then strSQL = strSQL & " AND status <> 3"
+    If Nz(DameValorParam("WuBookNoImportarReservasSinConfirmar"), False) = True Then strSQL = strSQL & " AND status <> 2"
     Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenSnapshot)
     If Not rs.EOF Then
         rs.MoveLast

@@ -433,6 +433,7 @@ Public Function Cerrar()
             intResp = MsgBox("¿Cerrar Programa?", vbQuestion + vbOKCancel + vbDefaultButton1, "Salir del programa")
             If intResp = vbOK Then
                 'Call Cerrar_Otra("R4") ' NO FUNCIONA..!!
+                If Nz(DameValorParam("AplicacionAlCerrarProgramaCerrarMsAccessSN"), False) Then CerrarProcesosAccess "H4"
                 DoCmd.Quit
             End If
         Else
@@ -446,6 +447,26 @@ Exit_Cerrar:
 Error_Cerrar:
     MsgBox "Error nº " & Err.Number & " - " & Err.Description & Chr(13) & Chr(10) & "En Cerrar"
     Resume Exit_Cerrar
+End Function
+
+Private Function CerrarProcesosAccess(sTitulo As String)
+    On Error GoTo HandleError
+    
+    ' Ruta completa del archivo batch
+    Dim batFilePath As String
+    batFilePath = DirectorioDe(CurrentDb.Name) & "scripts\CerrarMSAccess.bat"  ' Cambia esto según la ruta de tu archivo .bat
+    If Dir(batFilePath) <> "" Then
+        ' Ejecuta el archivo batch
+        If sTitulo = "" Then sTitulo = "*"
+        Shell batFilePath & " " & ConComillas(sTitulo), vbHide ' vbHide para ocultar la ventana de comandos
+    Else
+        MsgBox "No se encontró script: " & batFilePath, vbExclamation
+    End If
+HandleExit:
+    Exit Function
+HandleError:
+    MsgBox Err.Description
+    Resume HandleExit
 End Function
 
 Public Function ArrayToString(vArray As Variant, Optional sSeparador As String = ",") As String
