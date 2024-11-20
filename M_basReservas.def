@@ -62,7 +62,9 @@ End Function
 Public Function DimeParrafoRecordatorioReserva(Optional lngIdFichaCab As Long = 0, Optional lngIdIdioma As Long = 0) As String
     On Error GoTo Error_DimeParrafoRecordatorioReserva
     Dim strR As String, rs As Recordset, i As Integer
+    Dim strURL As String
     If lngIdFichaCab <> 0 Then Pon_qryReserva lngIdFichaCab, True
+    strURL = DimeUrlCheckinOnline(lngIdFichaCab)
     Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
     If lngIdIdioma = 0 Then
         strR = Nz(DameValorParam("FichasSMSRecordatorioEntrada"), "")
@@ -74,12 +76,8 @@ Public Function DimeParrafoRecordatorioReserva(Optional lngIdFichaCab As Long = 
     Next i
     'strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , True), "")
     If InStr(strR, "|BookerUrl|") > 0 Or InStr(strR, "|Url|") > 0 Then
-        Dim strURL As String, strBookerUrl As String, intOK As Integer
-        intOK = DameCheckinURL(lngIdFichaCab, strBookerUrl, strURL)
-        If intOK Then
-            strR = Replace(strR, "|BookerUrl|", strBookerUrl)
-            strR = Replace(strR, "|Url|", strURL)
-        End If
+        strR = Replace(strR, "|BookerUrl|", strURL)
+        strR = Replace(strR, "|Url|", strURL)
     End If
     DimeParrafoRecordatorioReserva = strR
 Salir_DimeParrafoRecordatorioReserva:
@@ -167,6 +165,7 @@ End Function
 Public Function DimeParrafoNotificacion(iNumNoti As Integer, lngIdFichaCab As Long, lIdIdioma As Long, sMensaje As String, sAsunto As String, sAdjuntos As String) As Boolean
     On Error GoTo HandleError
     Dim strR As String, rs As Recordset, i As Integer
+    Dim strURL As String
     If lngIdFichaCab <> 0 Then Pon_qryReserva lngIdFichaCab, True
     Set rs = CurrentDb.OpenRecordset("qryReservaConfirmacion", dbOpenSnapshot)
     
@@ -174,18 +173,15 @@ Public Function DimeParrafoNotificacion(iNumNoti As Integer, lngIdFichaCab As Lo
         MsgBox "No se pudo obtener el modelo de notificación Nº " & iNumNoti, vbExclamation
         GoTo HandleExit
     End If
+    strURL = DimeUrlCheckinOnline(lngIdFichaCab)
     For i = 0 To rs.Fields.Count - 1
         sMensaje = Replace(sMensaje, "|" & rs(i).Name & "|", Nz(rs(i), ""))
         sAsunto = Replace(sAsunto, "|" & rs(i).Name & "|", Nz(rs(i), ""))
     Next i
     'strR = Nz(MyInputBox("Confirme mensaje a incluir", "Mensaje", strR, , True), "")
     If InStr(sMensaje, "|BookerUrl|") > 0 Or InStr(sMensaje, "|Url|") > 0 Then
-        Dim strURL As String, strBookerUrl As String, intOK As Integer
-        intOK = DameCheckinURL(lngIdFichaCab, strBookerUrl, strURL)
-        If intOK Then
-            sMensaje = Replace(sMensaje, "|BookerUrl|", strBookerUrl)
-            sMensaje = Replace(sMensaje, "|Url|", strURL)
-        End If
+        sMensaje = Replace(sMensaje, "|BookerUrl|", strURL)
+        sMensaje = Replace(sMensaje, "|Url|", strURL)
     End If
     DimeParrafoNotificacion = True
 HandleExit:

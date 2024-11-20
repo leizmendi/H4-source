@@ -117,7 +117,7 @@ Error_ImprimirFactura:
     Select Case Err
         Case Else
             MsgBox "error nº " & Err & " en ImprimirFactura" & vbCrLf & Err.Description
-            Resume 'Salir_ImprimirFactura
+            Resume Salir_ImprimirFactura
     End Select
 End Sub
 

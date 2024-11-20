@@ -187,13 +187,13 @@ Private Function DimeXMLRPC(strMethodName As String, vParams() As Variant, Optio
                                         End If
 NextI:
     Next i
-    DimeXMLRPC = "<?xml version='1.0'?>" & xDoc.XML
+    DimeXMLRPC = "<?xml version='1.0'?>" & xDoc.xml
     Dim fso As New FileSystemObject, ts As TextStream
     On Error Resume Next
     fso.CreateTextFile ("D:\_DOCS1_\__H4+\Envio.xml")
     If Err = 0 Then 'intGrabaEnvio Then
         Set ts = fso.OpenTextFile("D:\_DOCS1_\__H4+\Envio.xml", ForAppending, True)
-        ts.Write "<?xml version='1.0'?>" & xDoc.XML
+        ts.Write "<?xml version='1.0'?>" & xDoc.xml
         ts.Close
     End If
     
@@ -304,7 +304,7 @@ HandleError:
     Select Case Err
         Case 3420 'el objeto no tiene valor
             Resume Next
-        Case 13 'no coinciden los tipos
+        Case 13, 451 'no coinciden los tipos
             Resume Next
         Case Else
             MsgBox Err.Description

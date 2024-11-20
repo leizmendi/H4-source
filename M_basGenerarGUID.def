@@ -1,0 +1,25 @@
+Private Declare PtrSafe Function CoCreateGuid Lib "ole32.dll" (ByRef guid As GUID) As Long
+Private Declare PtrSafe Function StringFromGUID2 Lib "ole32.dll" (ByRef guid As GUID, ByVal lpStr As LongPtr, ByVal cbMax As Long) As Long
+
+Private Type GUID
+    Data1 As Long
+    Data2 As Integer
+    Data3 As Integer
+    Data4(0 To 7) As Byte
+End Type
+
+Function ObtenerGUID() As String
+    Dim guid As GUID
+    Dim guidString As String
+    guidString = String$(38, vbNullChar)
+    
+    If CoCreateGuid(guid) = 0 Then
+        If StringFromGUID2(guid, StrPtr(guidString), 39) > 0 Then
+            ObtenerGUID = guidString
+        Else
+            ObtenerGUID = ""
+        End If
+    Else
+        ObtenerGUID = ""
+    End If
+End Function

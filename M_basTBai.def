@@ -132,7 +132,7 @@ DetalleFactura:
             'sXML = AñadeElementoXML(sXML, "//Factura/DatosFactura/DetallesFactura/IDDetalleFactura", sBuscaElemento, sValor)
         Next i
     Next j
-    sXml = xDoc.XML
+    sXml = xDoc.xml
 DesgloseIVA:
     If DesgloseIVA(lIdFactura, vDetalle) = True Then
         sEVs = "BaseImponible,TipoImpositivo,CuotaImpuesto"
@@ -168,7 +168,7 @@ DesgloseIVA:
             'sXML = AñadeElementoXML(sXML, "//Factura/DatosFactura/DetallesFactura/IDDetalleFactura", sBuscaElemento, sValor)
         Next i
     Next j
-    sXml = xDoc.XML
+    sXml = xDoc.xml
 
 EncadenamientoFacturaAnterior:
     Dim sEncadena As String, sSerieFAnt As String, sNumFAnt As String, sFechaExpedicionFAnt As String, sSignatureValueFirmaFAnt As String, sX As String
