@@ -313,7 +313,7 @@ Public Function IntroducirCobro(lngIdCajaCab As Long, _
             rs.Edit
         End If
         rs("NombrePersona") = strNombrePersona
-        rs("Concepto") = RecDerTop(strConcepto, 0, 50)
+        rs("Concepto") = recdertop(strConcepto, 0, 50)
         rs.Update
     End If
     IntroducirCobro = lngIdCajaDet
@@ -530,8 +530,8 @@ Public Function ModificarPago(lngIdCajaDet As Long) As Variant
         Else
             rs.Edit
         End If
-        rs("Concepto") = RecDerTop(strConcepto, 0, 50)
-        rs("NombrePersona") = RecDerTop(strNombrePersona, 0, 50)
+        rs("Concepto") = recdertop(strConcepto, 0, 50)
+        rs("NombrePersona") = recdertop(strNombrePersona, 0, 50)
         rs.Update
     Else
         CurrentDb.Execute "DELETE * FROM tbCajaDet_Concepto WHERE IdCajaDet = " & lngIdCajaDet, dbFailOnError

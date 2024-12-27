@@ -512,7 +512,7 @@ Private Function DetalleFactura(lIdFactura As Long _
         sDetalle = sDetalle & ComaPunto(Round(rsF("ImporteLinea"), 4)) & "|"
         rsF.MoveNext
     Wend
-    sDetalle = RecDerTop(sDetalle, 1, 0)
+    sDetalle = recdertop(sDetalle, 1, 0)
     vDetalle = Split(sDetalle, "|")
     DetalleFactura = True
 HandleExit:
@@ -545,7 +545,7 @@ Private Function DesgloseIVA(lIdFactura As Long _
         sDetalle = sDetalle & ComaPunto(Round(rsF("CuotaImpuesto"), 2)) & "|"
         rsF.MoveNext
     Wend
-    sDetalle = RecDerTop(sDetalle, 1, 0)
+    sDetalle = recdertop(sDetalle, 1, 0)
     vDetalle = Split(sDetalle, "|")
     DesgloseIVA = True
 HandleExit:

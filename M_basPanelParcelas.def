@@ -374,7 +374,7 @@ Public Function AsignarFichaAPanel(lngIdFicha As Long, Optional strParcela As St
             strSQL = strSQL & rs("Parcela") & "' OR tbParcelas.NombreParcela = '"
             rs.MoveNext
         Wend
-        strSQL = Nz(RecDerTop(strSQL, 32, 0), "")
+        strSQL = Nz(recdertop(strSQL, 32, 0), "")
     Else
         strSQL = strSQL & strParcela & "'"
     End If
@@ -583,7 +583,7 @@ Añadir:
                 rsFDet("Parcela") = DLookup("NombreParcela", "tbParcelas", "NombreParcela = '" & strParcela & "'")
                 rsFDet("IdTipoParcela") = lngTipoParcela
                 'rsFDet("Concepto") = RecDerTop(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rsDetPre("IdSD")) & IIf(IsNull(rsFDet("Parcela")), "", ", (" & strParcela & ")"), 0, 50)
-                rsFDet("Concepto") = RecDerTop(DimeConceptoIdioma(rsDetPre("IdSD"), lngIdIdi) & " (" & strParcela & ")", 0, 50)
+                rsFDet("Concepto") = recdertop(DimeConceptoIdioma(rsDetPre("IdSD"), lngIdIdi) & " (" & strParcela & ")", 0, 50)
                 If intPlazas = 0 Then
                     intPlazas = Nz(DLookup("NumPlazas", "tbParcelas", "NombreParcela = " & ConComillas(strParcela)), 0)
                     If intPlazas <> 1 Then
@@ -608,7 +608,7 @@ Añadir:
                 End If
             Else
                 'rsFDet("Concepto") = RecDerTop(DLookup("ServicioDiario", "tbServiciosDiarios", "IdSD = " & rsDetPre("IdSD")), 0, 50)
-                rsFDet("Concepto") = RecDerTop(DimeConceptoIdioma(rsDetPre("IdSD"), lngIdIdi), 0, 50)
+                rsFDet("Concepto") = recdertop(DimeConceptoIdioma(rsDetPre("IdSD"), lngIdIdi), 0, 50)
             End If
             ''' Si el concepto es como "* pax" y el n1 de pax es diferente, busca si existe otro SD que corresponda al nº de pax
             If rsFDet("Concepto") Like "* pax*" Then
@@ -623,7 +623,7 @@ Añadir:
                             iR = MsgBox("¿Asignar servicio de " & sConcepto_pax & "?", vbYesNo)
                             If iR = vbYes Then
                                 rsFDet("IdSD") = lIdSD
-                                rsFDet("Concepto") = RecDerTop(DimeConceptoIdioma(lIdSD, lngIdIdi) & " (" & strParcela & ")", 0, 50)
+                                rsFDet("Concepto") = recdertop(DimeConceptoIdioma(lIdSD, lngIdIdi) & " (" & strParcela & ")", 0, 50)
                             End If
                         End If
                     End If

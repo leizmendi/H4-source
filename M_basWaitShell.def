@@ -11,7 +11,7 @@ Option Explicit
   Function WaitShell(AppName$, mode)
   Dim hMod As Long, AppRoot As String
   AppRoot = Left$(AppName$, InStr(AppName$ & " ", " "))
-  hMod = Shell(AppName$, mode)
+  hMod = shell(AppName$, mode)
   If hMod <> 0 Then
      WaitForTerm hMod
   Else

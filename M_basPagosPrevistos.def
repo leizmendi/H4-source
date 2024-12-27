@@ -37,7 +37,7 @@ Bucle:
         End If
         strSQL = "INSERT INTO tbFichasPagosPrevistos (IdFichaCab, Año, Mes, Cantidad, Concepto)"
         strSQL = strSQL & " SELECT " & lngIdFichaCab & " AS IdFichaCab, " & intAño & " AS Año, " & intMes & " AS Mes, " _
-        & ComaPunto(curP) & " AS Cantidad, '" & RecDerTop(strConcepto, 0, 50) & "' AS Concepto"
+        & ComaPunto(curP) & " AS Cantidad, '" & recdertop(strConcepto, 0, 50) & "' AS Concepto"
         CurrentDb.Execute strSQL, dbFailOnError
     Next k
     curTotal = curT

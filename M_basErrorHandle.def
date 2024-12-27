@@ -271,7 +271,7 @@ On Error Resume Next
             Open strReportFile For Output Access Write As #intFn
             Print #intFn, strMSG
             Close #intFn
-            Shell "notepad.exe """ & strReportFile & """"
+            shell "notepad.exe """ & strReportFile & """"
             Kill strReportFile
         End If
     End If

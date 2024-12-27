@@ -16,7 +16,7 @@ Public Function PreciosVD(lngIdSD As Long, lngIdTN As Long) As String
         rs.MoveNext
     Wend
     If Len(strRes) > 4 Then
-        strRes = RecDerTop(strRes, 4, 0)
+        strRes = recdertop(strRes, 4, 0)
     End If
     PreciosVD = strRes
 End Function
@@ -35,7 +35,7 @@ Public Function SD_EnIdiomas(lngIdSD As Long) As String
         rs.MoveNext
     Wend
     If Len(strRes) > 2 Then
-        strRes = RecDerTop(strRes, 2, 0)
+        strRes = recdertop(strRes, 2, 0)
     End If
     SD_EnIdiomas = strRes
 End Function

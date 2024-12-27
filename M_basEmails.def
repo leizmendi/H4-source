@@ -17,9 +17,26 @@ Public Function Envia_Email(strSubject As String, strBody As String, strTo As St
         strOp = "Outlook"
     Case 2
     'ElseIf Nz(DameValorParam("PuestoEnvioEmails_OS"), 1) = 2 Then
-        intR = send_email(strTo, strCC, strBCC, strSubject, strBody & IIf(strFirma <> "", vbCrLf & strFirma, ""), strAttachs, True, _
-                            , , , , , , , , intMessageSN, strMsgResp, strHTMLBody)
-        strOp = "SMTP"
+        If Nz(DameValorParam("PuestoSmtpScriptPythonSN"), False) = False Then
+            intR = send_email(strTo, strCC, strBCC, strSubject, strBody & IIf(strFirma <> "", vbCrLf & strFirma, ""), strAttachs, True, _
+                                , , , , , , , , intMessageSN, strMsgResp, strHTMLBody)
+            strOp = "SMTP"
+        Else
+            intR = send_gmail_py(strTo _
+                               , strSubject _
+                               , strBody _
+                               , strAttachs _
+                               , strCC _
+                               , strBCC _
+                               , Nz(DameValorParam("PuestoSmtpServer"), "") _
+                               , Nz(DameValorParam("PuestoSmtpServerPort"), 0) _
+                               , Nz(DameValorParam("PuestoSmtpUser"), "") _
+                               , Nz(DameValorParam("PuestoSmtpPassword"), "") _
+                               , False _
+                               , strMsgResp)
+            strOp = "SMTP_py"
+        End If
+                
     Case 3
     'ElseIf Nz(DameValorParam("PuestoEnvioEmails_OS"), 1) = 2 Then
         intR = SendGrid_Email(strTo, "", strSubject, strBody & vbCrLf & vbCrLf & strFirma, Nz(DameValorParam("SendGridUser"), ""), _
@@ -65,7 +82,7 @@ Public Function Mail_with_Attachement(strSubject As String, _
         Set oO = GetObject(, "Outlook.Application")    'Bind to existing instance of Outlook
     Else    'Could not get instance of Outlook, so create a new one
         sAPPPath = GetAppExePath("outlook.exe")    'determine outlook's installation path
-        Shell (sAPPPath)    'start outlook
+        shell (sAPPPath)    'start outlook
         Do While Not IsAppRunning("Outlook.Application")
             DoEvents
         Loop
@@ -142,7 +159,7 @@ Public Function Mail_ThunderBird(strSubject As String, _
                                                                                  & IIf(strBCC <> "", " bcc=" & ConComillas(strBCC, True), "") _
                                                                                  & ",subject='" & strSubject & "',preselectid='id1',body=" & IIf(strHTMLBody <> "", ConComillas(strHTMLBody, True), ConComillas(strBody, True)) & _
                                                                                  ",attachment='" & strAttachs & "'"
-    Shell sCommand, vbMaximizedFocus
+    shell sCommand, vbMaximizedFocus
     Mail_ThunderBird = True
 HandleExit:
     Exit Function
@@ -250,6 +267,73 @@ Salir_send_email:
     Exit Function
 Error_send_email:
     Select Case Err
+        Case Else
+            strMsgErr = "Error nº " & Err & " en send_email" & vbCrLf & Err.Description
+            Resume Salir_send_email
+    End Select
+End Function
+
+
+Public Function send_gmail_py(strTo As String, _
+                            strSubject As String, _
+                            strTextBody As String, _
+                            Optional strAttachment As String = "", _
+                            Optional sToCc As String = "", _
+                            Optional sToBcc As String = "", _
+                            Optional smtpserver As String = "smtp.gmail.com", _
+                            Optional smtpserverport As Integer = 587, _
+                            Optional sendusername As String = "", _
+                            Optional sendpassword As String = "", _
+                            Optional intMessageSN As Integer = True, Optional strMsgResp As String) As Boolean
+
+    On Error GoTo Error_send_email
+    Dim sCommand As String, sArchivos As String, vArchivos As Variant
+    Dim i As Integer, j As Integer
+    Dim strMsgErr As String
+    If strAttachment <> "" Then
+        vArchivos = Split(strAttachment, ";")
+        For i = 0 To UBound(vArchivos)
+            sArchivos = sArchivos & ConComillas(Trim(CStr(vArchivos(i)))) & " "
+        Next i
+    End If
+    sCommand = "Python " & ConComillas(DirectorioDe(CurrentDb.Name) & "py\send_gmail.py") _
+        & " --remitente " & ConComillas(sendusername) _
+        & " --contraseña " & ConComillas(sendpassword) _
+        & " --destinatarios " & ConComillas(strTo) _
+        & " --asunto " & ConComillas(strSubject) _
+        & " --cuerpo " & ConComillas(strTextBody) _
+        & " --remitente " & ConComillas(sendusername) _
+        & IIf(sArchivos <> "", " --archivos " & sArchivos, "") _
+        & IIf(sToCc <> "", " --ToCc " & ConComillas(sToCc), "") _
+        & IIf(sToBcc <> "", " --ToBcc " & ConComillas(sToBcc), "")
+    Dim shell As Object
+    Dim exec As Object
+    Dim output As String
+    
+    ' Crear el objeto WScript.Shell
+    Set shell = CreateObject("WScript.Shell")
+    ' Ejecutar el comando y capturar la salida
+    Set exec = shell.exec(sCommand)
+    Do While Not exec.StdOut.AtEndOfStream
+        output = output & exec.StdOut.ReadLine() & vbCrLf
+    Loop
+    
+    ' Mostrar el resultado en un mensaje
+    MsgBox output
+Salir_send_email:
+    If output Like "Error*" Then
+        strMsgResp = "No se ha podido enviar el email. -> Error: " + strMsgErr
+        If intMessageSN Then MsgBox strMsgResp, vbExclamation, "Falló el envío"
+        send_gmail_py = False
+    Else
+        strMsgResp = "El email a " & Trim(strTo) & " se ha enviado correctamente."
+        If intMessageSN Then MsgBox strMsgResp, vbInformation, "Email OK"
+        send_gmail_py = True
+    End If
+    Exit Function
+Error_send_email:
+    Select Case Err
+        
         Case Else
             strMsgErr = "Error nº " & Err & " en send_email" & vbCrLf & Err.Description
             Resume Salir_send_email
@@ -369,7 +453,7 @@ Public Function EnviarFacturaXEmail(lngIdFactura As Long, Optional strEmail As S
             Exit Function
         End If
         Dim vFacs As Variant, i As Integer
-        If Right(strListaFacs, 1) = ";" Then strListaFacs = RecDerTop(strListaFacs, 1, 0)
+        If Right(strListaFacs, 1) = ";" Then strListaFacs = recdertop(strListaFacs, 1, 0)
         vFacs = Split(strListaFacs, ";")
         strListaFacs = ""
         For i = 0 To UBound(vFacs)
@@ -381,6 +465,7 @@ Public Function EnviarFacturaXEmail(lngIdFactura As Long, Optional strEmail As S
     'ImprimirFactura lngIdFactura, 4, strPdfFac
 EnviarEmail:
     Dim strAdjuntarFicheros As String
+    If Right(strListaFacs, 1) = ";" Then strListaFacs = recdertop(strListaFacs, 1, 0)
     strAdjuntarFicheros = strListaFacs 'strPdfFac & ";"
     If PonParrafoEnvioFacturaEmail(lngIdFactura, strAdjuntarFicheros, intInputBox) = False Then
         strMsgResp = "Se canceló el envío de factura por email"
@@ -421,10 +506,13 @@ End Function
 
 Function Dime_GenFacPDF(lngIdFactura As Long) As String
     On Error GoTo HandleError
-    Dim strFac As String, intR As Integer, strPdfFac  As String
+    Dim strFac As String, intR As Integer, strPdfFac  As String, sCarpetaTrimestre As String, dtFac As Date
     strFac = Nz(DLookup("NumeroDeFactura", "tbFacturasCab", "IdFactura = " & lngIdFactura), "")
+    dtFac = Nz(DLookup("FechaFactura", "tbFacturasCab", "IdFactura = " & lngIdFactura), "")
     If strFac <> "" Then
-        strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & Nz(lngIdFactura, 0)) & SoloNum(strFac) & ".pdf"
+        sCarpetaTrimestre = Year(dtFac) & "T" & DatePart("Q", dtFac) & "\"
+        
+        strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "facs\" & sCarpetaTrimestre & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & Nz(lngIdFactura, 0)) & SoloNum(strFac) & ".pdf"
         If Dir(strPdfFac) <> "" Then
             If Nz(DameValorParam("FacturasPDFSobreescribirSN"), False) = True Then
                 intR = vbYes
@@ -586,7 +674,7 @@ Function StartOutlook()
         Set oOutlook = GetObject(, "Outlook.Application")    'Bind to existing instance of Outlook
     Else    'Could not get instance of Outlook, so create a new one
         sAPPPath = GetAppExePath("outlook.exe")    'determine outlook's installation path
-        Shell (sAPPPath)    'start outlook
+        shell (sAPPPath)    'start outlook
         Do While Not IsAppRunning("Outlook.Application")
             DoEvents
         Loop

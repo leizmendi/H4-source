@@ -302,7 +302,7 @@ Carpeta:
         PonValorParam "PartesPoliciaCarpetaFicheros", strCarpeta
         GoTo Carpeta
     End If
-    strFile = strCarpeta & strFile & "." & RecDerTop(Format(rs("NumFichero"), "000"), 0, 3)
+    strFile = strCarpeta & strFile & "." & recdertop(Format(rs("NumFichero"), "000"), 0, 3)
     If Dir(strFile) <> "" And Not intSegundaPasada Then
         intR = MsgBox("El fichero " & strFile & " ya existe. ¿Desea reemplazarlo?", vbQuestion + vbOKCancel)
         If intR = vbCancel Then Exit Sub
@@ -465,7 +465,7 @@ Carpeta:
         PonValorParam "PartesPoliciaCarpetaFicheros", strCarpeta
         GoTo Carpeta
     End If
-    If Dir(RecDerTop(strCarpeta, 1, 0), vbDirectory) = "" Then MkDir RecDerTop(strCarpeta, 1, 0)
+    If Dir(recdertop(strCarpeta, 1, 0), vbDirectory) = "" Then MkDir recdertop(strCarpeta, 1, 0)
     DimeCarpetaPolicia = strCarpeta
 Salir_DimeCarpetaPolicia:
     Exit Function

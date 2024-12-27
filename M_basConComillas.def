@@ -2,9 +2,15 @@ Option Compare Database
 Option Explicit
 
 
-Public Function ConComillas(strCad As String, Optional intSimples As Integer = False) As String
+Public Function ConComillas(strCad As String _
+                 , Optional intSimples As Integer = False _
+                 , Optional bNullIfVoid As Boolean = False) As String
 ' Devuelve la misma cadena delimitada con comillas--> de Lorenzo---> "Lorenzo"
     On Error GoTo Error_ConComillas
+    If strCad = "" And bNullIfVoid Then
+        ConComillas = "null"
+        GoTo Salir_ConComillas
+    End If
     Dim strComilla As String
     If intSimples = False Then
         strComilla = Chr(34)

@@ -20,7 +20,7 @@ Private Declare Function GetComBaseAddr Lib "vbio.dll" (ByVal com&) As Integer
 Public Sub ImprimirDOS(strFile As String, strPuerto As String, Optional intBloc As Integer = 88)
 If intBloc = 88 Then intBloc = Nz(DameValorParam("ImprimirAlBlocDeNotas"), False)
     If intBloc = True Then
-        Shell "Notepad " & strFile, vbMaximizedFocus
+        shell "Notepad " & strFile, vbMaximizedFocus
         Exit Sub
     End If
     Const MaxSize = 1024     'max buffer size

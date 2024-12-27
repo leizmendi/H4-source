@@ -480,14 +480,14 @@ EsFecha:
         End If
     End If
     
-    frm.Nombre = Replace(Replace(RecDerTop(Nz(DimeCampoICAR(strResult, "NAME"), frm.Nombre), 0, 30), ",", ""), "-", " ")
+    frm.Nombre = Replace(Replace(recdertop(Nz(DimeCampoICAR(strResult, "NAME"), frm.Nombre), 0, 30), ",", ""), "-", " ")
     frm.Apellido1 = Nz(DimeCampoICAR(strResult, "SURNAME", True), frm.Apellido1)
     frm.Apellido2 = ""
     If Nz(DimeCampoICAR(strResult, "EXPEDITOR"), "-") = "ESP" Then
     For i = Len(frm.Apellido1) To 1 Step -1
         If Mid(frm.Apellido1, i, 1) = " " Then
-            frm.Apellido2 = RecDerTop(Trim(Mid(frm.Apellido1, i)), 0, 30)
-            frm.Apellido1 = RecDerTop(Trim(Mid(frm.Apellido1, 1, i)), 0, 30)
+            frm.Apellido2 = recdertop(Trim(Mid(frm.Apellido1, i)), 0, 30)
+            frm.Apellido1 = recdertop(Trim(Mid(frm.Apellido1, 1, i)), 0, 30)
             Exit For
         End If
     Next i

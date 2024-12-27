@@ -351,7 +351,7 @@ Public Function CompactarYReparar(strMDB As String) As Integer
     On Error GoTo Error_CompactarYReparar
     Dim strLDB As String, strOLD As String, strDir As String, strBSN As String
     Dim intCopiarOLD As Integer
-    strLDB = RecDerTop(strMDB, 3, 0) & "ldb"
+    strLDB = recdertop(strMDB, 3, 0) & "ldb"
     If Dir(strLDB) <> "" Then
         MsgBox "No se pudo compactar y reparar " & strMDB & " por estar actualmente en uso"
         CompactarYReparar = False
@@ -360,7 +360,7 @@ Public Function CompactarYReparar(strMDB As String) As Integer
     strDir = DirectorioDe(strMDB)
     strBSN = Mid(strMDB, Len(strDir) + 1)
     'strOLD = RecDerTop(strMDB, 3, 0) & "old"
-    strOLD = strDir & "OLD\" & RecDerTop(strBSN, 3, 0) & "old"
+    strOLD = strDir & "OLD\" & recdertop(strBSN, 3, 0) & "old"
     If Dir(strMDB & "_REP") <> "" Then Kill strMDB & "_REP"
     Application.CompactRepair strMDB, strMDB & "_REP"
     intCopiarOLD = 1
@@ -559,7 +559,9 @@ Public Sub ComprobarUpdates()
             FileCopy sCSaved & sFUpdate, sCSaved & sFUpdate & "_" & i
         End If
         If Not bScript Then
+            On Error Resume Next
             SaveAsText iObjType, sObjName, sCSaved & sFUpdate
+            On Error GoTo HandleError
             LoadFromText iObjType, sObjName, sCUpdate & sFUpdate
         Else
             ExecuteAllScriptsFromJSON sCUpdate & sFUpdate

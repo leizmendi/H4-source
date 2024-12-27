@@ -184,7 +184,7 @@ Cierre:
         gintFileOpen = False
         
         If gintBloc = True Then
-            If Not intNoMostrarEnPantalla Then Shell "Notepad " & FILESQL, vbNormalFocus
+            If Not intNoMostrarEnPantalla Then shell "Notepad " & FILESQL, vbNormalFocus
         ElseIf gintauxListado Then
             ListadoSQL FILESQL, ExtraeLin(strTitulo, 1)
             'PonValorParam IIf(gint_auxListado1_2 = 2, "rptListado2Cabecera", "rptListadoCabecera"), ExtraeLin(strTitulo, 1)
@@ -745,7 +745,7 @@ Public Sub ImprimeFichero(strFile As String, _
         End If
     Else
         If intVistaPrevia Then
-            Shell "notepad.exe " & strFile2
+            shell "notepad.exe " & strFile2
         Else
             strPort = Nz(DLookup("Puerto", "cfgImpresoras", "NombreImpresora = '" & Nz(DameValorParam("DocsImpresoraDOS"), "") & "'"), "")
             ImprimirDOS strFile2, strPort

@@ -70,7 +70,7 @@ Public Function ImprimirTicketDOS(lngIdTickCab As Long, Optional intPag As Integ
     If intBloc = False Then
         ImprimirDOS FILETicket, strPathPrintTeam & strPathPrintPort
     Else
-        Shell "NotePad " & FILETicket
+        shell "NotePad " & FILETicket
     End If
 
 Salir_ImprimirTicketDOS:

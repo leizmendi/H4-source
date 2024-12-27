@@ -417,7 +417,7 @@ DatosRegistro:
                             rs(rsAux(i).Name) = rsAux(i)
                         Next i
                         rs("Cantidad") = 1
-                        rs("Concepto") = RecDerTop(rs("Concepto") & " (" & strParcela & ")", 0, 50)
+                        rs("Concepto") = recdertop(rs("Concepto") & " (" & strParcela & ")", 0, 50)
                         rs("Parcela") = strParcela
                         rs.Update
                         strSQL = "UPDATE tbFichasDet SET Cantidad = Cantidad -1 WHERE IdFichaDet = " & lngIdFichaDet

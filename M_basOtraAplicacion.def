@@ -93,7 +93,7 @@ Error_Abrir_Otra:
     Select Case Err
         Case 5 ' argumento a la llamada no válida (supongo que no está abierta la aplicación R4
             strComando = Nz(DameValorParam("AplicacionComando" & strOtra), "")
-            Shell strComando, vbMaximizedFocus
+            shell strComando, vbMaximizedFocus
             Resume Salir_Abrir_Otra
         Case Else
             MsgBox "Error nº " & Err & " en Error_Abrir_Otra" & vbCrLf & Err.Description

@@ -95,7 +95,7 @@ Bucle:
         If InStr(strSeleccionInicial, "|" & rs(0) & "¬") > 0 Then strR = strR & rs(1) & ", "
         rs.MoveNext
     Wend
-    If Len(strR) > 2 Then strR = RecDerTop(strR, 2, 0)
+    If Len(strR) > 2 Then strR = recdertop(strR, 2, 0)
     DimeIDsConceptos = strR
 
 Salir_DimeIDsConceptos:

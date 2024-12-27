@@ -671,7 +671,7 @@ Public Function CuadroDesgloseIVAFicha(lngIdFichaCab As Long, _
         strRes = strRes & strMI & LlenaIzq(Format(curTB, "#,##0.00"), 10) & " " & Llena("", 5) _
                 & " " & LlenaIzq(Format(curTI, "#,##0.00"), 8) & vbCrLf
     End If
-    If Len(strRes) > 2 Then strRes = RecDerTop(strRes, 2, 0)
+    If Len(strRes) > 2 Then strRes = recdertop(strRes, 2, 0)
     CuadroDesgloseIVAFicha = strRes
 Salir_CuadroDesgloseIVAFicha:
     Exit Function
@@ -704,7 +704,7 @@ Bucle:
     rsFacDet.AddNew
     rsFacDet("IdFactura") = glngIdFactura
     rsFacDet("IdSD") = DLookup("IdSD", "tbFichasDet", "IdFichaCab = " & lngFicha)
-    strConz50 = RecDerTop(strConcepto, 0, 50)
+    strConz50 = recdertop(strConcepto, 0, 50)
     rsFacDet("Concepto") = strConz50
     rsFacDet("IVA") = IVASDporDefecto
     bolIVAinc = DLookup("IvaIncluidoDetalle", "tbFacturasCab", "IdFactura = " & glngIdFactura)
@@ -947,7 +947,7 @@ Public Function OrigenDeFactura(lngIdFactura As Long) As String
     While Not rs.EOF
         If rs("Origen") <> strAntOrigen Then
             If strAntOrigen <> "" Then
-                If Len(strR) > 2 Then strR = RecDerTop(strR, 2, 0) & " "
+                If Len(strR) > 2 Then strR = recdertop(strR, 2, 0) & " "
             End If
             Select Case rs("Origen")
                 Case "E"
@@ -962,7 +962,7 @@ Public Function OrigenDeFactura(lngIdFactura As Long) As String
         rs.MoveNext
     Wend
     If Len(strR) > 2 Then
-        strR = RecDerTop(strR, 2, 0)
+        strR = recdertop(strR, 2, 0)
     End If
     OrigenDeFactura = strR
 Salir_OrigenDeFactura:
@@ -1057,7 +1057,7 @@ Private Sub AñadeFacDet(lngIdFactura As Long, lngIdFichaCab As Long, curIVA As C
         rs("IdFactura") = lngIdFactura
         rs("IdSD") = Null
         strConcepto = ExtraeLin(strResumen, i)
-        rs("Concepto") = RecDerTop(strConcepto, 0, 50)
+        rs("Concepto") = recdertop(strConcepto, 0, 50)
         If i = 1 Then
             rs("PrecioUnitario") = curImporte
             If intIVAincFactura <> intIVAincEnFicha Then
@@ -1108,7 +1108,7 @@ Public Function FacturarParcialFichaFijo(lngFicha As Long, curImporte As Currenc
     rsFacDet("IdFactura") = glngIdFactura
     'If lngIdSD = 0 Then lngIdSD = Nz(BuscaAyuda("SD0", , 1), 0)
     rsFacDet("IdSD") = IIf(lngIdSD = 0, DLookup("IdSD", "tbFichasDet", "IdFichaCab = " & lngFicha), lngIdSD)
-    rsFacDet("Concepto") = RecDerTop(strConcepto, 0, 50)
+    rsFacDet("Concepto") = recdertop(strConcepto, 0, 50)
     rsFacDet("IVA") = IVASDporDefecto
     If bolIVAinc = True Then
         rsFacDet("PrecioUnitario") = curImporte
@@ -1170,7 +1170,7 @@ Public Function AnularFactura(lIdFactura As Long) As Boolean
             rs2(i) = rs1(i)
         Next i
         rs2("Cantidad") = -1 * rs1("Cantidad")
-        rs2("Concepto") = RecDerTop("ANUL. " & rs1("Concepto"), 0, 50)
+        rs2("Concepto") = recdertop("ANUL. " & rs1("Concepto"), 0, 50)
         rs2.Update
         rs1.MoveNext
     Wend

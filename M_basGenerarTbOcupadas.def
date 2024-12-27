@@ -64,7 +64,7 @@ Public Sub GenerarTbAuxOcupadas(datIni As Date, Optional intSinSalto As Integer 
             Else
                 rsOcu("Dia" & i & "_txt") = rs("Cliente")
             End If
-            rsOcu("Dia" & i & "_txt") = RecDerTop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
+            rsOcu("Dia" & i & "_txt") = recdertop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
             i = i + 1
         Next idt
         rsOcu.Update
@@ -130,7 +130,7 @@ Public Sub GenerarSoloEntradasTbAuxOcupadas(datIni As Date, Optional intSinSalto
         Else
             rsOcu("Dia" & i & "_txt") = rs("Cliente")
         End If
-        rsOcu("Dia" & i & "_txt") = RecDerTop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
+        rsOcu("Dia" & i & "_txt") = recdertop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
         rsOcu.Update
 Siguiente:
         rs.MoveNext
@@ -172,7 +172,7 @@ Public Sub GenerarSoloSalidasTbAuxOcupadas(datIni As Date, Optional intSinSalto 
         Else
             rsOcu("Dia" & i & "_txt") = rs("Cliente")
         End If
-        rsOcu("Dia" & i & "_txt") = RecDerTop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
+        rsOcu("Dia" & i & "_txt") = recdertop(rsOcu("Dia" & i & "_txt") & IIf(intSinSalto, " // ", vbCrLf) & rs("Notas"), 0, 125)
         rsOcu.Update
 Siguiente:
         rs.MoveNext

@@ -1324,7 +1324,7 @@ Public Function DimeArray(xArray As IXMLDOMNode, intIndent As Integer) As String
     For Each n In xArray.ChildNodes(0).ChildNodes
         strR = strR & DimeValue(n, 0) & ";"
     Next n
-    If Right(strR, 1) = ";" Then strR = RecDerTop(strR, 1, 0)
+    If Right(strR, 1) = ";" Then strR = recdertop(strR, 1, 0)
     strR = strR & "]"
     DimeArray = strR
 Salir_DimeArray:
@@ -1717,7 +1717,7 @@ Public Function CargaCredenciales(Optional intMsg As Integer = True) As Integer
     If urlWebService = "" Then strMSG = strMSG & "Falta URL del Web Service - Wubook" & vbCrLf
     If strMSG <> "" Then
         If intMsg Then
-            strMSG = RecDerTop(strMSG, 2, 0)
+            strMSG = recdertop(strMSG, 2, 0)
             MsgBox strMSG, vbExclamation
         End If
         CargaCredenciales = False
@@ -1982,11 +1982,18 @@ Public Function FetchBookingsCodes(dtFrom As Date, dtTo As Date, vReservationCod
     strResponse = Post(strXMLRPC)
     If ResponseIsOK(strResponse, "FetchBookingsCodes", vRespuesta) Then
         'If intMSG Then MsgBox vRespuesta, vbInformation
-        For i = 0 To UBound(vRespuesta)
-            strRcodes = strRcodes & vRespuesta(i)(0)(1) & ";"
-        Next i
-        strRcodes = RecDerTop(strRcodes, 1, 0)
-        vReservationCodes = Split(strRcodes, ";")
+        On Error Resume Next
+        Debug.Print UBound(vRespuesta)
+        If Err = 0 Then
+            On Error GoTo Error_FetchBookingsCodes
+            For i = 0 To UBound(vRespuesta)
+                strRcodes = strRcodes & vRespuesta(i)(0)(1) & ";"
+            Next i
+            strRcodes = recdertop(strRcodes, 1, 0)
+            vReservationCodes = Split(strRcodes, ";")
+        Else
+            On Error GoTo Error_FetchBookingsCodes
+        End If
         FetchBookingsCodes = True
     Else
         'If intMSG Then MsgBox "Error al obtener información:" & vbCrLf & vRespuesta, vbExclamation

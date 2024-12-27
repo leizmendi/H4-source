@@ -90,6 +90,8 @@ GeneraPDF:
                     UnSegundo 'hay que darle tiempo a que se cierre Bullzip
                     GoTo GeneraPDF
                 End If
+                'devuelve en PDF la ruta a la carpeta del trimestre
+                strPdfFac = Replace(strPdfFac, "<<CarpetaFac>>", sCarpetaTrimestre)
             Case 5
                 strFac = DLookup("[NumeroDeFactura]", "tbFacturasCab", "IdFactura = " & lngIdFactura)
                 strPdfFac = DameValorParam("AplicacionCarpetaDatos") & "Facturas\" & DLookup("[Serie]", "tbFacturasCab", "IdFactura = " & lngIdFactura) & SoloNum(strFac) & ".pdf"

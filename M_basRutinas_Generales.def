@@ -458,7 +458,7 @@ Private Function CerrarProcesosAccess(sTitulo As String)
     If Dir(batFilePath) <> "" Then
         ' Ejecuta el archivo batch
         If sTitulo = "" Then sTitulo = "*"
-        Shell batFilePath & " " & ConComillas(sTitulo), vbHide ' vbHide para ocultar la ventana de comandos
+        shell batFilePath & " " & ConComillas(sTitulo), vbHide ' vbHide para ocultar la ventana de comandos
     Else
         MsgBox "No se encontró script: " & batFilePath, vbExclamation
     End If
@@ -476,7 +476,7 @@ Public Function ArrayToString(vArray As Variant, Optional sSeparador As String =
         sR = sR & vArray(i) & sSeparador
     Next i
     If Len(sR) >= Len(sSeparador) And Len(sSeparador) > 0 Then
-        sR = RecDerTop(sR, Len(sSeparador), 0)
+        sR = recdertop(sR, Len(sSeparador), 0)
     End If
     ArrayToString = sR
 End Function
@@ -527,7 +527,7 @@ Public Function ArrayToStringSep(vArray As Variant, Optional sSeparador As Strin
         sR = sR & vArray(i) & sSeparador
     Next i
     If Len(sR) >= Len(sSeparador) Then
-        sR = RecDerTop(sR, Len(sSeparador), 0)
+        sR = recdertop(sR, Len(sSeparador), 0)
     End If
     ArrayToStringSep = sR
 End Function
@@ -538,7 +538,7 @@ Public Function ListaToStringSep(lst As ListBox, iCol As Integer, Optional sSepa
         sR = sR & lst.Column(iCol, vIt) & sSeparador
     Next vIt
     If Len(sR) >= Len(sSeparador) Then
-        sR = RecDerTop(sR, Len(sSeparador), 0)
+        sR = recdertop(sR, Len(sSeparador), 0)
     End If
     ListaToStringSep = sR
 End Function

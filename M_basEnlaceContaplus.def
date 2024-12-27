@@ -201,7 +201,7 @@ Private Sub GAVentasServiciosPrestados()
     rsAsi("Contra") = ""
     curImporte = grsFac("TotalBase")
     rsAsi("PtaDebe") = LlenaIzq("0.00", 16)
-    rsAsi("Concepto") = RecDerTop(DameValorParam("ContabilidadCuentaVentasDescripcion"), 0, 25)
+    rsAsi("Concepto") = recdertop(DameValorParam("ContabilidadCuentaVentasDescripcion"), 0, 25)
     rsAsi("PtaHaber") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
     rsAsi("EuroDebe") = LlenaIzq("0.00", 16)
     rsAsi("EuroHaber") = LlenaIzq(Format0_00(curImporte), 16)
@@ -253,7 +253,7 @@ Private Sub GAVentasDescuentos()
         End If
         rsAsi("PtaDebe") = LlenaIzq(Format0_00(Redondea(curImporte * 166.386, 0)), 16)
         rsAsi("PtaHaber") = LlenaIzq("0.00", 16)
-        rsAsi("Concepto") = RecDerTop("Descuento fact. " & grsFac("NumeroFactura"), 0, 25)
+        rsAsi("Concepto") = recdertop("Descuento fact. " & grsFac("NumeroFactura"), 0, 25)
         rsAsi("EuroDebe") = LlenaIzq(Format0_00(curImporte), 16)
         rsAsi("EuroHaber") = LlenaIzq("0.00", 16)
         'rsAsi ("Factura")
@@ -422,11 +422,11 @@ Public Function GenerarRegistrosSubcuentas(Optional datDesde As Date = 0, Option
         rsSCta.AddNew
 '        rsSCta("Cod") = "430" & rs("CodCliente")
         rsSCta("Cod") = rs("CtaContabilidad")
-        rsSCta("Titulo") = RecDerTop(rs("DenCliente"), 0, 40)
+        rsSCta("Titulo") = recdertop(rs("DenCliente"), 0, 40)
         rsSCta("Nif") = rs("NIF")
-        rsSCta("Domicilio") = RecDerTop(rs("Direccion"), 0, 35)
-        rsSCta("Poblacion") = RecDerTop(rs("Ciudad"), 0, 25)
-        rsSCta("Provincia") = RecDerTop(rs("EdoOProv"), 0, 20)
+        rsSCta("Domicilio") = recdertop(rs("Direccion"), 0, 35)
+        rsSCta("Poblacion") = recdertop(rs("Ciudad"), 0, 25)
+        rsSCta("Provincia") = recdertop(rs("EdoOProv"), 0, 20)
         rsSCta("CodPostal") = rs("CodPostal")
         rsSCta.Update
         rs.MoveNext

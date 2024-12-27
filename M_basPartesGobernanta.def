@@ -478,7 +478,7 @@ Public Sub Pon_qryPartesGSemanalSQL(dt As Date, lngIdGrupoPlaning As Long)
     For i = 0 To 6
         strSQL = strSQL & "'" & Format(dt + i, "dd/mm/yyyy") & " - " & DiaD(dt + i) & "', "
     Next i
-    strSQL = RecDerTop(strSQL, 2, 0) & ")"
+    strSQL = recdertop(strSQL, 2, 0) & ")"
     
 
     CurrentDb.QueryDefs("qryPartesGSemanal").SQL = strSQL

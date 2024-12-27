@@ -629,10 +629,14 @@ Public Function AddCheckinToFicha(lId As Long, lIdFichaCab As Long, bTitularFich
             fFicha.FechaExpedicion = CDate(Left(oCh("expeditionDate"), 10))
             fFicha.NombreCliente = oCh("firstName")
             fFicha.ApellidosCliente = Trim(oCh("lastName1") & " " & oCh("lastName2"))
-            fFicha.PaisCliente = oCh("nationality")
+            fFicha.PaisCliente = oCh("country")
             fFicha.SexoCliente = oCh("sex")
             fFicha.FechaNacimiento = CDate(Left(oCh("birthDate"), 10))
-            If fFicha.PaisCliente = "España" Then
+            fFicha.DireccionCliente = oCh("direction")
+            fFicha.LocalidadCliente = oCh("town")
+            fFicha.CPCliente = oCh("postalCode")
+            fFicha.ProvinciaCliente = oCh("province")
+            If fFicha.PaisCliente = "España" And Nz(fFicha.ProvinciaCliente, "") = "" Then
                 fFicha.ProvinciaCliente = Nz(BuscaAyuda("PRVI", fFicha.ProvinciaCliente), fFicha.ProvinciaCliente)
             End If
         Else
@@ -643,15 +647,35 @@ Public Function AddCheckinToFicha(lId As Long, lIdFichaCab As Long, bTitularFich
                    ", NombreCliente = " & ConComillas(oCh("firstName"), True) & _
                    ", ApellidosCliente = " & ConComillas(Trim(oCh("lastName1") & " " & oCh("lastName2")), True) & _
                    ", PaisCliente = " & ConComillas(oCh("nationality"), True) & _
+                   ", DireccionCliente = " & ConComillas(oCh("direction"), True) & _
+                   ", LocalidadCliente = " & ConComillas(oCh("town"), True) & _
+                   ", CPCliente = " & ConComillas(oCh("postalCode"), True) & _
                    ", SexoCliente = " & ConComillas(oCh("sex"), True) & _
                    ", FechaNacimiento = " & CLng(CDate(Left(oCh("birthDate"), 10)))
             CurrentDb.Execute sSQL, dbFailOnError
         End If
     End If
     
-    sSQL = "INSERT INTO tbPartesPolicia (IdFichaCab, TipoDocId, DocIdExtranjeros, DocIdEspaña, FechaExpedicion" & _
-           ", Apellido1, Apellido2, Nombre, Sexo, FechaNacimientoAAAA, FechaNacimientoMM, FechaNacimientoDD, Pais, FechaLlegada)" & _
-           "VALUES (" & lIdFichaCab & _
+    sSQL = "INSERT INTO tbPartesPolicia (" _
+                    & "IdFichaCab" _
+                    & ", TipoDocId" _
+                    & ", DocIdExtranjeros" _
+                    & ", DocIdEspaña" _
+                    & ", FechaExpedicion" _
+                    & ", Apellido1" _
+                    & ", Apellido2" _
+                    & ", Nombre" _
+                    & ", Pais" _
+                    & ", ProvinciaCliente" _
+                    & ", CPCliente" _
+                    & ", LocalidadCliente" _
+                    & ", DireccionCliente" _
+                    & ", Sexo" _
+                    & ", FechaNacimientoAAAA" _
+                    & ", FechaNacimientoMM" _
+                    & ", FechaNacimientoDD" _
+                    & ", FechaLlegada)"
+    sSQL = sSQL & " VALUES (" & lIdFichaCab & _
                     ", " & ConComillas(sTipoDoc, True) & _
                     ", " & IIf(sTipoDoc = "D", "Null", ConComillas(oCh("documentId"), True)) & _
                     ", " & IIf(sTipoDoc = "D", ConComillas(oCh("documentId"), True), "Null") & _
@@ -659,7 +683,12 @@ Public Function AddCheckinToFicha(lId As Long, lIdFichaCab As Long, bTitularFich
                     ", " & ConComillas(oCh("lastName1"), True) & _
                     ", " & ConComillas(oCh("lastName2"), True) & _
                     ", " & ConComillas(oCh("firstName"), True) & _
-                    ", " & ConComillas(oCh("sex"), True)
+                    ", " & ConComillas(Nz(oCh("country"), Nz(oCh("nationality"), "")), True, True) & _
+                    ", " & ConComillas(Nz(oCh("province"), ""), True, True) & _
+                    ", " & ConComillas(Nz(oCh("postalCode"), ""), True, True) & _
+                    ", " & ConComillas(Nz(oCh("town"), ""), True, True) & _
+                    ", " & ConComillas(Nz(oCh("direction"), ""), True, True) & _
+                    ", " & ConComillas(oCh("sex"), True, True)
     If oCh("onlyYearOfBirthDate") Then
         sSQL = sSQL & ", " & ConComillas(Left(oCh("birthDate"), 4), True) & _
                       ", '01'" & _
@@ -669,13 +698,14 @@ Public Function AddCheckinToFicha(lId As Long, lIdFichaCab As Long, bTitularFich
                       ", " & ConComillas(Format(CDate(Left(oCh("birthDate"), 10)), "mm"), True) & _
                       ", " & ConComillas(Format(CDate(Left(oCh("birthDate"), 10)), "dd"), True)
     End If
-    sSQL = sSQL & ", " & ConComillas(oCh("nationality"), True) & _
+    sSQL = sSQL & _
                   ", " & CLng(CDate(Left(oCh("checkInDate"), 10))) & ")"
     CurrentDb.Execute sSQL, dbFailOnError
     sSQL = "UPDATE tbPolicheckins" _
         & " SET Hecho = True" _
             & ", IdPartePolicia = " & Nz(DMax("IdPartePolicia", "tbPartesPolicia"), -1) _
             & ", IdFichaCab = " & lIdFichaCab _
+            & ", TitularFicha = " & IIf(bTitularFicha, -1, 0) _
         & " WHERE Id = " & lId
     CurrentDb.Execute sSQL, dbFailOnError
     AddCheckinToFicha = True

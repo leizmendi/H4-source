@@ -132,7 +132,7 @@ Public Function DimeFileEntradaViajeroPDF(lngIdFichaCab As Long, Optional lngIdP
         sNdoc = Mid(strDocName, i)
     End If
     If strDocName <> "EntradaViajeros" Then strCarpetaEV = Replace(strCarpetaEV, "EntradaViajeros", strDocName)
-    If Right(strCarpetaEV, 1) = "\" Then strCarpetaEV = RecDerTop(strCarpetaEV, 1, 0)
+    If Right(strCarpetaEV, 1) = "\" Then strCarpetaEV = recdertop(strCarpetaEV, 1, 0)
     If Dir(strCarpetaEV, vbDirectory) = "" Then MkDir strCarpetaEV
     strCarpetaEV = strCarpetaEV & "\"
      'If Nz(DameValorParam("EntradaViajerosWacoEco"), 1) = 2 Then

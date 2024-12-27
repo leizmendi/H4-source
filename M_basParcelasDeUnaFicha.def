@@ -26,7 +26,7 @@ Public Function ParcelasDeUnaFicha(lngFicha As Long, Optional intSaltoLinea As I
         Wend
     End If
     If Len(strResult) > 2 Then
-        strResult = RecDerTop(strResult, 2, 0)
+        strResult = recdertop(strResult, 2, 0)
         ParcelasDeUnaFicha = strResult
     Else
         ParcelasDeUnaFicha = ""
@@ -122,7 +122,7 @@ Public Function RegimenDeUnaFicha(lngFicha As Long, Optional intSaltoLinea As In
         Wend
     End If
     If Len(strResult) > 2 Then
-        strResult = RecDerTop(strResult, 2, 0)
+        strResult = recdertop(strResult, 2, 0)
         RegimenDeUnaFicha = strResult
     Else
         RegimenDeUnaFicha = ""

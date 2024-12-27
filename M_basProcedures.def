@@ -380,7 +380,7 @@ FechasFijos_10:
                 strSQL = strSQL & " SET"
                 If dtD <> 0 Then strSQL = strSQL & " tbFichasCab.FechaLlegada = " & CLng(dtD) & ", tbFichasDet.FechaInicio = " & CLng(dtD) & ", "
                 If dtH <> 0 Then strSQL = strSQL & " tbFichasCab.FechaSalida = " & CLng(dtH) & ", tbFichasDet.FechaFin = " & CLng(dtH) & ", "
-                strSQL = RecDerTop(strSQL, 2, 0)
+                strSQL = recdertop(strSQL, 2, 0)
                 strSQL = strSQL & " WHERE EstadoFicha=10 AND tbFichasCab.IdFichaCab > " & CLng(Right(CStr(Year(Date)), 2)) * 10000
                 strSQL = strSQL & " AND tbFichasDet.Parcela Is Not Null"
                 CurrentDb.Execute strSQL, dbFailOnError

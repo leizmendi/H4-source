@@ -223,7 +223,7 @@ Public Function TotalesServicios(lngFicha As Long, Optional intNumFichasN As Int
         End If
         rs.MoveNext
     Wend
-    TotalesServicios = Nz(RecDerTop(strR, 2, 0), "")
+    TotalesServicios = Nz(recdertop(strR, 2, 0), "")
 Salir_TotalesServicios:
     Exit Function
 Error_TotalesServicios:

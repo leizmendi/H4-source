@@ -770,7 +770,7 @@ Public Function CeldaTipoParcela_to_Planing(lngIdTipoParcela As Long, dtDia As D
             rs.MoveNext
         Wend
         If Len(strCri) > 4 Then
-            strCri = RecDerTop(strCri, 4, 0)
+            strCri = recdertop(strCri, 4, 0)
         End If
         If lngIdRoom > 0 Then
             strSQL = "SELECT * FROM wbTabla WHERE IdRoom = " & lngIdRoom & " AND Fecha = " & CLng(dtDia)

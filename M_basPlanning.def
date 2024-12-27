@@ -106,7 +106,7 @@ Public Function CargarPlanning(intMes As Integer, intAño As Integer, frm As Form
             rs.MoveNext
         Wend
         If Len(strSQL2) > 3 Then
-            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL2 = recdertop(strSQL2, 3, 0) & ")"
             strSQL = strSQL & strSQL2
         End If
     End If
@@ -902,10 +902,10 @@ Public Sub Actualizar_tbAuxPlanning(datDesde As Date, datHasta As Date, _
         rsAux("EstadoFicha") = rs("EstadoFicha")
         If intPlanningH = False Then
             'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & DimeRepRec(rs("DNICliente")) & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
-            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+            rsAux("Notas") = recdertop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
         Else
             'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "->" & DimeRepRec(rs("DNICliente")) & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
-            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
+            rsAux("Notas") = recdertop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("IdFichaCab") & "->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
         End If
         rsAux.Update
         rs.MoveNext
@@ -932,7 +932,7 @@ ConParcelas:
             rs.MoveNext
         Wend
         If Len(strSQL2) > 3 Then
-            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL2 = recdertop(strSQL2, 3, 0) & ")"
             strSQL = strSQL & strSQL2
         End If
     End If
@@ -957,10 +957,10 @@ ConParcelas:
         rsAux("EstadoFicha") = rs("EstadoFicha")
         If intPlanningH = False Then
             'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & DimeRepRec(rs("DNICliente")) & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
-            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+            rsAux("Notas") = recdertop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & vbCrLf & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
         Else
             'rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & "->" & DimeRepRec(rs("DNICliente")) & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
-            rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & "->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
+            rsAux("Notas") = recdertop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("PlazasOcupadas") & ".pax F." & rs("IdFichaCab") & "->" & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & " :: " & rs("Notas"), 0, 250)
         End If
         rsAux.Update
         rs.MoveNext
@@ -1012,7 +1012,7 @@ Public Sub ActualizarFicha_tbAuxPlanning(datDesde As Date, datHasta As Date, Opt
         rsAux("NumNoches") = dtF - dtI
         rsAux("FechaReserva") = rs("FechaReserva")
         rsAux("EstadoFicha") = rs("EstadoFicha")
-        rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+        rsAux("Notas") = recdertop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
         rsAux.Update
         rs.MoveNext
     Wend
@@ -1035,7 +1035,7 @@ ConParcelas:
             rs.MoveNext
         Wend
         If Len(strSQL2) > 3 Then
-            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL2 = recdertop(strSQL2, 3, 0) & ")"
             strSQL = strSQL & strSQL2
         End If
     End If
@@ -1054,7 +1054,7 @@ ConParcelas:
         rsAux("NumNoches") = dtF - dtI
         rsAux("FechaReserva") = rs("FechaReserva")
         rsAux("EstadoFicha") = rs("EstadoFicha")
-        rsAux("Notas") = RecDerTop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
+        rsAux("Notas") = recdertop(IIf(rs("ConfirmadaReserva") = False And rs("EstadoFicha") = 1, "? ", "") & rs("NombreCliente") & " " & rs("ApellidosCliente") & " (" & rs("LocalidadCliente") & ")" & vbCrLf & rs("Notas"), 0, 250)
         rsAux.Update
         rs.MoveNext
     Wend
@@ -1148,7 +1148,7 @@ Public Function PrintPlanning(intMes As Integer, intAño As Integer, rpt As Repor
             rs.MoveNext
         Wend
         If Len(strSQL2) > 3 Then
-            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL2 = recdertop(strSQL2, 3, 0) & ")"
             strSQL = strSQL & strSQL2
         End If
     Else
@@ -1401,7 +1401,7 @@ Public Function PrintPlanningH(intMes As Integer, intAño As Integer, rpt As Repo
             rs.MoveNext
         Wend
         If Len(strSQL2) > 3 Then
-            strSQL2 = RecDerTop(strSQL2, 3, 0) & ")"
+            strSQL2 = recdertop(strSQL2, 3, 0) & ")"
             strSQL = strSQL & strSQL2
         End If
     Else
@@ -1637,7 +1637,7 @@ intentos:
         lngIdIdi = Nz(DLookup("IdIdioma", "tbFichasCab", "IdFichaCab = " & rs("IdFichaCab")), 0)
         lngIdTipoParcela = Nz(DLookup("IdTipoParcela", "tbParcelas", "NombreParcela = '" & strParcelaA & "'"), 0)
         rs("IdSD") = Nz(DLookup("IdSD", "tbParcelasYServiciosXDefecto", "IdTipoParcela = " & lngIdTipoParcela & " AND Principal = True"), rs("IdSD"))
-        rs("Concepto") = RecDerTop(DimeConceptoIdioma(rs("IdSD"), lngIdIdi) & " (" & strParcelaA & ")", 0, 50)
+        rs("Concepto") = recdertop(DimeConceptoIdioma(rs("IdSD"), lngIdIdi) & " (" & strParcelaA & ")", 0, 50)
         rs("IdTipoParcela") = lngIdTipoParcela
         
         If dtFechaD <> dtFechaA Then

@@ -69,7 +69,7 @@ Public Sub Añade_auxServicios(dtFecha As Date, intSer As Integer)
         rsAux("Fecha") = dtFecha
         rsAux("Servicio") = strSer
         rsAux("IdFichaCab") = rs("IdFichaCab")
-        rsAux("Grupo") = RecDerTop(rs("Grupo"), 0, 100)
+        rsAux("Grupo") = recdertop(rs("Grupo"), 0, 100)
         rsAux("Pax") = rs("Servicios")
         rsAux("Notas") = DimeXML(Nz(rs("Notas"), ""), strSer)
         rsAux("OrdServicio") = intSer
