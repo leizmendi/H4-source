@@ -296,7 +296,7 @@ Public Function send_gmail_py(strTo As String, _
             sArchivos = sArchivos & ConComillas(Trim(CStr(vArchivos(i)))) & " "
         Next i
     End If
-    sCommand = "Python " & ConComillas(DirectorioDe(CurrentDb.Name) & "py\send_gmail.py") _
+    sCommand = "pythonw " & ConComillas(DirectorioDe(CurrentDb.Name) & "py\send_gmail.py") _
         & " --remitente " & ConComillas(sendusername) _
         & " --contraseña " & ConComillas(sendpassword) _
         & " --destinatarios " & ConComillas(strTo) _
@@ -313,10 +313,14 @@ Public Function send_gmail_py(strTo As String, _
     ' Crear el objeto WScript.Shell
     Set shell = CreateObject("WScript.Shell")
     ' Ejecutar el comando y capturar la salida
+    DoCmd.Hourglass True
+    MensajeBusyBox "Enviando email", "Email"
     Set exec = shell.exec(sCommand)
     Do While Not exec.StdOut.AtEndOfStream
         output = output & exec.StdOut.ReadLine() & vbCrLf
     Loop
+    DoCmd.Hourglass False
+    MensajeBusyBox "", "", True
     
     ' Mostrar el resultado en un mensaje
     MsgBox output
@@ -553,8 +557,6 @@ Error_EnviarFacturaXEmail_Recibo:
     End Select
 
 End Function
-
-
 Public Function EnviaRecordatorioReserva(lngIdFichaCab As Long, Optional intInputBox As Integer = False, _
                                     Optional intMessageSN As Integer = True, Optional strMsgResp As String, Optional intFuerzaAuto As Integer = False) As Integer
     On Error GoTo HandleError
@@ -567,21 +569,24 @@ Public Function EnviaRecordatorioReserva(lngIdFichaCab As Long, Optional intInpu
         GoTo HandleExit
     End If
     lngIdIdioma = Nz(DLookup("IdIdioma", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+Mensaje:
     strMensaje = DimeParrafoRecordatorioReserva(lngIdFichaCab, lngIdIdioma)
     If lngIdIdioma = 0 Then
-        strAsunto = Nz(DameValorParam("FichasRecordatorioAsuntoEmail"), "Recordatorio reserva")
         If strMensaje = "" Then
             strMsgResp = "No está definido el mensaje de recordatorio en Parámetros-Fichas-Recordatorio"
             If intMessageSN Then MsgBox strMsgResp, vbExclamation
             GoTo HandleExit
         End If
+        strAsunto = Nz(DameValorParam("FichasRecordatorioAsuntoEmail"), "Recordatorio reserva")
     Else
-        strAsunto = Nz(DameValorParam("FichasRecordatorioAsuntoEmail_IdIdioma_" & lngIdIdioma), "Recordatorio reserva")
         If strMensaje = "" Then
             strMsgResp = "No está definido el mensaje de recordatorio en Parámetros-Fichas-Recordatorio para el idioma seleccionado"
             If intMessageSN Then MsgBox strMsgResp, vbExclamation
+            lngIdIdioma = 0
+            GoTo Mensaje
             GoTo HandleExit
         End If
+        strAsunto = Nz(DameValorParam("FichasRecordatorioAsuntoEmail_IdIdioma_" & lngIdIdioma), "Recordatorio reserva")
     End If
     'If g_PoliCheckIn And Nz(DameValorParam("FichasSMSRecordatorioIncluirEnlaceSN"), False) Then
     '    Dim strUrl As String, strBookerUrl As String, intOK As Integer
@@ -599,6 +604,8 @@ Public Function EnviaRecordatorioReserva(lngIdFichaCab As Long, Optional intInpu
         strEmail = Nz(MyInputBox(strAsunto, "Confirme email", strEmail, , False), "")
         If strEmail = "" Then GoTo HandleExit
     End If
+    strAsunto = Nz(MyInputBox(strAsunto, "Confirme Asunto", strAsunto, , False), "")
+    If strAsunto = "" Then GoTo HandleExit
     EnviaRecordatorioReserva = Envia_Email(strAsunto, strMensaje, strEmail, , , strAdjuntarFicheros, , True, , lngIdFichaCab, intMessageSN, strMsgResp, intFuerzaAuto)
     If EnviaRecordatorioReserva = True Then CurrentDb.Execute "UPDATE tbFichasCab SET EnviarRecordatorioSN=False WHERE IdFichaCab = " & lngIdFichaCab, dbFailOnError
 HandleExit:
@@ -607,6 +614,9 @@ HandleError:
     MsgBox Err.Description
     Resume HandleExit
 End Function
+
+
+
 
 Public Sub EnviaRecordatorios()
     On Error GoTo HandleError

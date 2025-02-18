@@ -1444,7 +1444,7 @@ Public Sub Add_Update_wbReservation(xN As IXMLDOMNode, _
     On Error GoTo Error_Add_Update_wbReservation
     Dim xStr As IXMLDOMNode, xMem As IXMLDOMNode
     Dim rs As Recordset, strName As String, vValue As Variant, strSQL As String, lngReservation_code As Long
-    strSQL = "SELECT * FROM wbReservations WHERE date_arrival >= " & CLng(Date - 7)
+    strSQL = "SELECT * FROM wbReservations WHERE date_arrival >= " & CLng(Date - 300)
     Set rs = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
     Set xStr = xN.ChildNodes(0)
     For Each xMem In xStr.ChildNodes

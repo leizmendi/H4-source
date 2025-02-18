@@ -65,6 +65,47 @@ Error_Delete:
     End Select
 End Function
 
+Public Function PoliCheckIn_ReservationDelete(lIdFichaCab As Long _
+                                   , Optional strURL As String = "" _
+                                   , Optional strApiKey As String = "") As String
+    On Error GoTo Error_Delete
+    Dim oHTTP As WinHttp.WinHttpRequest 'Object '
+    Dim wiResponse As String, strCustomerId As String, sReservationId As String
+    sReservationId = Nz(DLookup("PoliCheckin_reservationId", "tbFichasCab_Totales", "IdFichaCab = " & lIdFichaCab), "")
+    If sReservationId = "" Then
+        MsgBox "No se encontró ReservationId de Policheckin", vbExclamation
+        GoTo Salir_Delete
+    End If
+    If strURL = "" Then
+        strURL = Nz(DameValorParam("PoliCheckIn_URL_reservation_delete"), "")
+        strCustomerId = Nz(DameValorParam("PoliCheckIn_customerId"), "")
+        strURL = Replace(strURL, "{customerId}", strCustomerId)
+        strURL = Replace(strURL, "{reservationId}", sReservationId)
+    End If
+    If strApiKey = "" Then strApiKey = Nz(DameValorParam("PoliCheckIn_ApiKey"), "")
+    Set oHTTP = New WinHttp.WinHttpRequest ' CreateObject("WinHttp.WinHttpRequest.5.1")
+    Call oHTTP.Open("Delete", strURL, False)       ', gwiUserName, gwiPassword)
+    Call oHTTP.setRequestHeader("Authorization", "ApiKey " & strApiKey)
+    DoCmd.Hourglass True
+    SysCmd acSysCmdSetStatus, "Comunicando " & strURL
+    Call oHTTP.Send("")
+    wiResponse = oHTTP.responseText
+    Set oHTTP = Nothing
+    PoliCheckIn_ReservationDelete = wiResponse
+    If wiResponse = "true" Then CurrentDb.Execute "UPDATE tbFichasCab_Totales SET PoliCheckin_reservationId=Null WHERE IdFichaCab = " & lIdFichaCab, dbFailOnError
+Salir_Delete:
+    SysCmd acSysCmdClearStatus
+    DoCmd.Hourglass False
+    Exit Function
+Error_Delete:
+    Select Case Err
+        Case Else
+            MsgBox "Error nº " & Err & " en Delete" & vbCrLf & Err.Description
+            Resume Salir_Delete
+    End Select
+End Function
+
+
 Public Function Policheckin_GetAll(Optional sMsg As String) As Boolean
     On Error GoTo HandleError
     Dim sResponse As String, sUrl As String, sApiKey As String
@@ -716,21 +757,26 @@ HandleError:
     Resume HandleExit
 End Function
 
-Private Function Policheckin_ReservationUrl(lngIdFichaCab As Long) As String
+Private Function PoliCheckin_ReservationUrl(lngIdFichaCab As Long, Optional sAlternativeUrl As String) As String
     'Crea el registro de la reserva si no existe o lo actualiza y devuelve la URL para el CheckinOnline
     'Guarda el GUID del idReservation en el campo corresondiente de tbFichasCab_Totales
     On Error GoTo HandleError
-    Dim strNombre As String, intPax As Integer, strDateCheckIn As String, strDateCheckOut As String, dt As Date
+    Dim strNombre As String, intPax As Integer, sCheckInDate As String, sCheckOutDate As String, sContractDate As String, dt As Date _
+        , cPrice As Currency, sFirstName As String, sLastName1 As String, sPhone As String, sEmail As String _
+        , iPaymentInfo_Type As Integer, sPaymentDate As String
     
     strNombre = Nz(DLookup("[NombreCliente] & ' ' & [ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "?")
     intPax = Nz(DSum("PlazasOcupadas", "tbFichasDet", "IdFichaCab = " & lngIdFichaCab), 0)
+    cPrice = Nz(DLookup("[TotalBase] + [TotalIVA]", "tbFichasCab_Totales", "IdFichaCab = " & lngIdFichaCab), 0)
     dt = Nz(DLookup("FechaLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
-    strDateCheckIn = Format(dt, "yyyy-mm-ddT") 'HH:mm:ss.000Z")
+    sCheckInDate = Format(dt, "yyyy-mm-ddT") 'HH:mm:ss.000Z")
     dt = Nz(DLookup("HoraLlegada", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
-    strDateCheckIn = strDateCheckIn & Format(dt, "HH:mm:ss.000Z")
+    sCheckInDate = sCheckInDate & Format(dt, "HH:mm:ss.000Z")
     
     dt = Nz(DLookup("FechaSalida", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
-    strDateCheckOut = Format(dt, "yyyy-mm-dd") & "T12:00:00.000Z"
+    sCheckOutDate = Format(dt, "yyyy-mm-dd") & "T12:00:00.000Z"
+    dt = Nz(DLookup("FechaReserva", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), 0)
+    sContractDate = Format(dt, "yyyy-mm-dd") & "T12:00:00.000Z"
     
     Dim wiResponse As String, strUrlPoliCheckin As String, strCustomerId As String, strApiKey As String, strOrganizationId As String
     
@@ -742,25 +788,56 @@ Private Function Policheckin_ReservationUrl(lngIdFichaCab As Long) As String
     
     Dim strHeaders(3) As String, strBody As String, strResponse As String, oJson As Object
     Dim sGUID As String, sReservationId As String, sUrl As String
-    sGUID = Nz(DLookup("PoliCheckin_reservationId", "tbFichasCab_Totales", "IdFichaCab = " & lngIdFichaCab), "")
-    If sGUID = "" Then sGUID = DameGUID()
+    Dim sCustomer As String, sPaymentInfo As String
+    'sGUID = Nz(DLookup("PoliCheckin_reservationId", "tbFichasCab_Totales", "IdFichaCab = " & lngIdFichaCab), "")
+    'If sGUID = "" Then sGUID = DameGUID()
     strHeaders(0) = "authorization"
     strHeaders(1) = "ApiKey " & strApiKey
     strHeaders(2) = "content-type"
     strHeaders(3) = "application/json"
+                
+                'ConComillas("reservationId") & ": " & ConComillas(sGUID) & "," & vbCrLf &
+    '----------Customer----------
+    sFirstName = Nz(DLookup("[NombreCliente]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "?")
+    sLastName1 = Nz(DLookup("[ApellidosCliente]", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "?")
+    sPhone = Nz(DLookup("TelefonoCliente", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "?")
+    sEmail = Nz(DLookup("Email", "tbFichasCab", "IdFichaCab = " & lngIdFichaCab), "?")
+    
+    sCustomer = """customer"": {" _
+        & """firstName"": """ & sFirstName & """," & vbCrLf _
+        & """lastName1"": """ & sLastName1 & """," & vbCrLf _
+        & """lastName2"": """ & "" & """," & vbCrLf _
+        & """phone"": """ & sPhone & """," & vbCrLf _
+        & """email"": """ & sEmail & """" & vbCrLf _
+        & "}"
+    
+    
+    '----------PaymentInfo----------
+    iPaymentInfo_Type = 1
+    sPaymentDate = sContractDate
+    sPaymentInfo = """paymentInfo"": {" & vbCrLf _
+        & """type"": " & iPaymentInfo_Type & "," & vbCrLf _
+        & """paymentDate"": " & ConComillas(sPaymentDate) & vbCrLf _
+        & "}"
     strBody = "{" & vbCrLf & _
-                ConComillas("reservationId") & ": " & ConComillas(sGUID) & "," & vbCrLf & _
                 ConComillas("organizationId") & ": " & ConComillas(strOrganizationId) & "," & vbCrLf & _
+                ConComillas("referenceNumber") & ": " & ConComillas(CStr(lngIdFichaCab)) & "," & vbCrLf & _
                 ConComillas("name") & ": " & ConComillas(strNombre) & "," & vbCrLf & _
-                ConComillas("checkInDate") & ": " & ConComillas(strDateCheckIn) & "," & vbCrLf & _
-                ConComillas("checkOutDate") & ": " & ConComillas(strDateCheckOut) & "," & vbCrLf & _
-                ConComillas("number") & ": " & intPax & _
+                ConComillas("checkInDate") & ": " & ConComillas(sCheckInDate) & "," & vbCrLf & _
+                ConComillas("checkOutDate") & ": " & ConComillas(sCheckOutDate) & "," & vbCrLf & _
+                ConComillas("contractDate") & ": " & ConComillas(sContractDate) & "," & vbCrLf & _
+                ConComillas("number") & ": " & intPax & "," & vbCrLf & _
+                ConComillas("price") & ": " & ComaPunto(CStr(cPrice)) & "," & vbCrLf & _
+                sCustomer & "," & vbCrLf & _
+                sPaymentInfo & vbCrLf & _
               "}"
+              
     strResponse = Post(strUrlPoliCheckin, strBody, strHeaders)
     Set oJson = ParseJson(strResponse)
     sReservationId = oJson("reservationId")
     sUrl = oJson("url")
-    Policheckin_ReservationUrl = sUrl
+    sAlternativeUrl = oJson("alternativeUrl")
+    PoliCheckin_ReservationUrl = sUrl
     If sReservationId <> Nz(DLookup("PoliCheckin_reservationId", "tbFichasCab_Totales", "IdFichaCab = " & lngIdFichaCab), "") Then
         CurrentDb.Execute "UPDATE tbFichasCab_Totales SET PoliCheckin_reservationId = '" & sReservationId & "'" _
                         & " WHERE IdFichaCab = " & lngIdFichaCab, dbFailOnError
@@ -768,19 +845,27 @@ Private Function Policheckin_ReservationUrl(lngIdFichaCab As Long) As String
 HandleExit:
     Exit Function
 HandleError:
-    MsgBox Err.Description
+    Select Case Err
+        Case 5:
+            On Error Resume Next
+            MsgBox "Error: " & oJson("error")
+            
+        Case Else
+            MsgBox "Error nº " & Err & vbCrLf & Err.Description
+    End Select
     Resume HandleExit
 End Function
 
 
-Public Function DimeUrlCheckinOnline(lIdFichaCab As Long) As String
+Public Function DimeUrlCheckinOnline(lIdFichaCab As Long, Optional sAlternativeUrl As String) As String
     On Error GoTo HandleError
+    If Not g_PoliCheckIn Then GoTo HandleExit
     Dim sGUID As String
     sGUID = Nz(DLookup("Policheckin_reservationId", "tbFichasCab_Totales", "IdFichaCab = " & lIdFichaCab), "")
     If sGUID <> "" Then
         DimeUrlCheckinOnline = "https://web.policheckin.es/reservation/" & sGUID
     Else
-        DimeUrlCheckinOnline = Policheckin_ReservationUrl(lIdFichaCab)
+        DimeUrlCheckinOnline = PoliCheckin_ReservationUrl(lIdFichaCab, sAlternativeUrl)
     End If
     
 HandleExit:

@@ -381,6 +381,15 @@ Pagos:
 Totales:
     G_RecalculaTotales cFC.IdFichaCab
     Importa_wbReservation = cFC.IdFichaCab
+    ' Crea reserva o cancela reserva en Policheckin
+    If g_PoliCheckIn Then
+        If cFC.EstadoFicha <> 9 Then
+            DimeUrlCheckinOnline cFC.IdFichaCab
+        Else
+            PoliCheckIn_ReservationDelete cFC.IdFichaCab
+        End If
+    End If
+    
 Salir_Importa_wbReservation:
     Set cFC = Nothing
     Set cFD = Nothing
